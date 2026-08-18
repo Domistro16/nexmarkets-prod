@@ -12,3 +12,6 @@ jobs:
       - run: npm ci
       - run: npm test
       - run: npm run verify:config
+      - run: npm run verify:authority
+      - run: node --check scripts/deploy-safe.mjs
+      - run: node --check scripts/verify-safe-approval.mjs

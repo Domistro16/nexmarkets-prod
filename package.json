@@ -13,6 +13,9 @@
   ],
   "scripts": {
     "test": "node --test",
+    "safe:plan": "node scripts/deploy-safe.mjs",
+    "safe:deploy": "node scripts/deploy-safe.mjs --broadcast",
+    "safe:verify": "node scripts/verify-safe-approval.mjs",
     "verify:authority": "node scripts/verify-product-authority.mjs",
     "verify:config": "node scripts/verify-config.mjs",
     "verify:primitives:mainnet": "node scripts/verify-primitives.mjs --network robinhood-mainnet",
@@ -20,5 +23,8 @@
     "verify:primitives:mainnet:strict": "node scripts/verify-primitives.mjs --network robinhood-mainnet --strict",
     "phase01:check": "node scripts/phase01-check.mjs",
     "preflight:seaport": "node scripts/preflight-canonical-seaport.mjs robinhood-mainnet"
+  },
+  "dependencies": {
+    "ethers": "6.15.0"
   }
 }
