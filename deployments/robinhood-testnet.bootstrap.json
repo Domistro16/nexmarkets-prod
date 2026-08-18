@@ -1,0 +1,50 @@
+{
+  "schemaVersion": 1,
+  "network": "robinhood-testnet",
+  "chainId": 46630,
+  "productAuthority": {
+    "file": "NEXMARKETS_ELITE_RELEASE_CANDIDATE.html",
+    "sha256": "24daa3e2afc280690db3d213f953334b10cf92309f2698552c5db543b00b90a6"
+  },
+  "policy": {
+    "settlementAsset": "MockUSDG",
+    "wethSettlementAllowed": false,
+    "baseAllowed": false
+  },
+  "primitives": {
+    "usdg": {
+      "address": null,
+      "expectedSymbol": "MockUSDG",
+      "expectedDecimals": 6,
+      "expectedRuntimeCodeHash": null,
+      "expectedImplementationCodeHash": null,
+      "mock": true
+    },
+    "seaport16": {
+      "address": "0x0000000000000068F116a894984e2DB1123eB395",
+      "expectedVersion": "1.6",
+      "expectedRuntimeCodeHash": null
+    },
+    "conduitController": {
+      "address": "0x00000000F9490004C11Cef243f5400493c00Ad63",
+      "expectedRuntimeCodeHash": null
+    },
+    "immutableCreate2Factory": {
+      "address": "0x0000000000ffe8b47b3e2130213b802212439497",
+      "expectedRuntimeCodeHash": null
+    },
+    "erc6551Registry": {
+      "address": "0x000000006551c19487814612e58FE06813775758",
+      "expectedRuntimeCodeHash": null,
+      "allowCanonicalDeploymentIfEmpty": true
+    },
+    "safeSingleton": {
+      "address": "0x41675C099F32341bf84BFc5382aF534df5C7461a",
+      "version": "1.4.1",
+      "expectedRuntimeCodeHash": "0x1fe2df852ba3299d6534ef416eefa406e56ced995bca886ab7a553e6d0c5e1c4"
+    }
+  },
+  "nexmarketsContracts": {},
+  "sourceCommit": null,
+  "generatedAt": null
+}

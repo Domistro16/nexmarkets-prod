@@ -1,0 +1,18 @@
+export const CANONICAL_AUTHORITY = Object.freeze({
+  passOwner: 'ERC721',
+  serial: 'ERC721_TOKEN_ID',
+  mintedSupply: 'CHAIN',
+  mintIntent: 'NEX_MINT_CONTROLLER',
+  primaryPayment: 'CHAIN_USDG',
+  termsVersion: 'NEX_LAUNCH_REGISTRY',
+  previewOpen: 'NEX_LAUNCH_REGISTRY',
+  projectContent: 'POSTGRES',
+  projectMedia: 'OBJECT_STORAGE',
+  artworkMapping: 'EDITION_CONTENT_COMMITMENT',
+  advantageRemaining: 'NEX_ADVANTAGE_REGISTRY',
+  seaportOrderStatus: 'SEAPORT',
+  listingPolicy: 'NEX_LISTING_REGISTRY',
+  secondaryTransfer: 'ERC721_VIA_SEAPORT',
+  royaltyLock: 'NEX_ROYALTY_VAULT',
+  referralAttribution: 'POSTGRES_REFERRAL_LEDGER'
+});

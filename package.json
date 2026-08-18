@@ -1,0 +1,24 @@
+{
+  "name": "nexmarkets-production",
+  "version": "0.1.0-phase01",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "workspaces": [
+    "apps/*",
+    "services/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "test": "node --test",
+    "verify:authority": "node scripts/verify-product-authority.mjs",
+    "verify:config": "node scripts/verify-config.mjs",
+    "verify:primitives:mainnet": "node scripts/verify-primitives.mjs --network robinhood-mainnet",
+    "verify:primitives:testnet": "node scripts/verify-primitives.mjs --network robinhood-testnet",
+    "verify:primitives:mainnet:strict": "node scripts/verify-primitives.mjs --network robinhood-mainnet --strict",
+    "phase01:check": "node scripts/phase01-check.mjs",
+    "preflight:seaport": "node scripts/preflight-canonical-seaport.mjs robinhood-mainnet"
+  }
+}
