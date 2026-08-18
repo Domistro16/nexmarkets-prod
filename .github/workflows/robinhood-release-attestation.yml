@@ -1,0 +1,178 @@
+name: robinhood-release-attestation
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_commit:
+        description: 'Exact source commit recorded in the frozen manifest'
+        required: true
+        default: '2da21ae'
+        type: string
+      manifest_sha256:
+        description: 'SHA-256 of deployments/robinhood-mainnet.bootstrap.json'
+        required: true
+        default: '2c609951e0f20a33187d0bbab68217abfc3d4993d8dc26d5803bbf1940e512a5'
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+  attestations: write
+
+jobs:
+  attest:
+    runs-on: ubuntu-latest
+    env:
+      RH_MAINNET_RPC_URL: ${{ secrets.RH_MAINNET_RPC_URL }}
+      SOURCE_COMMIT: ${{ inputs.source_commit }}
+      EXPECTED_MANIFEST_SHA256: ${{ inputs.manifest_sha256 }}
+    steps:
+      - name: Checkout the release commit
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify frozen source and manifest digest
+        shell: bash
+        run: |
+          set -euo pipefail
+          git rev-parse --verify "${SOURCE_COMMIT}^{commit}" >/dev/null || {
+            echo "Source commit $SOURCE_COMMIT is not present in this checkout" >&2
+            exit 1
+          }
+          git merge-base --is-ancestor "${SOURCE_COMMIT}^{commit}" HEAD || {
+            echo "Release commit $(git rev-parse HEAD) is not descended from $SOURCE_COMMIT" >&2
+            exit 1
+          }
+          manifest_commit="$(node -p "JSON.parse(require('fs').readFileSync('deployments/robinhood-mainnet.bootstrap.json','utf8')).sourceCommit || ''")"
+          test "$manifest_commit" = "$SOURCE_COMMIT" || {
+            echo "Manifest sourceCommit=$manifest_commit, expected $SOURCE_COMMIT" >&2
+            exit 1
+          }
+          manifest_sha="$(sha256sum deployments/robinhood-mainnet.bootstrap.json | cut -d' ' -f1)"
+          test "$manifest_sha" = "$EXPECTED_MANIFEST_SHA256" || {
+            echo "Manifest SHA-256 $manifest_sha, expected $EXPECTED_MANIFEST_SHA256" >&2
+            exit 1
+          }
+          echo "sourceCommit=$SOURCE_COMMIT"
+          echo "manifestSha256=$manifest_sha"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install and run release gates
+        run: |
+          npm ci
+          npm run verify:authority
+          npm run verify:config
+          npm test
+          npm run verify:primitives:mainnet:strict
+
+      - name: Build deterministic production release artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p release
+          # This repository does not yet expose an application build command;
+          # attest the exact tracked production source bundle until it does.
+          git archive --format=tar --prefix="nexmarkets-production-${GITHUB_SHA}/" HEAD > release/nexmarkets-production-source.tar
+          gzip -n release/nexmarkets-production-source.tar
+          mv release/nexmarkets-production-source.tar.gz release/nexmarkets-production-source-${GITHUB_SHA}.tar.gz
+          sha256sum release/nexmarkets-production-source-${GITHUB_SHA}.tar.gz > release/production-artifact.sha256
+
+      - name: Attest frozen manifest
+        id: attest_manifest
+        uses: actions/attest@v4
+        with:
+          subject-path: deployments/robinhood-mainnet.bootstrap.json
+
+      - name: Attest production release artifact
+        id: attest_artifact
+        uses: actions/attest@v4
+        with:
+          subject-path: release/nexmarkets-production-source-${{ github.sha }}.tar.gz
+
+      - name: Verify Protocol Admin Safe approval
+        id: verify_safe
+        if: ${{ vars.PROTOCOL_ADMIN_SAFE_ADDRESS != '' && vars.PROTOCOL_ADMIN_SAFE_APPROVED_HASH != '' }}
+        env:
+          PROTOCOL_ADMIN_SAFE_ADDRESS: ${{ vars.PROTOCOL_ADMIN_SAFE_ADDRESS }}
+          PROTOCOL_ADMIN_SAFE_APPROVED_HASH: ${{ vars.PROTOCOL_ADMIN_SAFE_APPROVED_HASH }}
+          PROTOCOL_ADMIN_SAFE_SIGNATURE: ${{ secrets.PROTOCOL_ADMIN_SAFE_SIGNATURE }}
+        run: |
+          if [[ -z "${PROTOCOL_ADMIN_SAFE_SIGNATURE:-}" ]]; then
+            echo 'Protocol Admin Safe signature secret is not configured; leaving approval pending.'
+            exit 0
+          fi
+          npm run safe:verify
+          echo "verified=true" >> "$GITHUB_OUTPUT"
+
+      - name: Assemble release record
+        env:
+          MANIFEST_ATTESTATION_ID: ${{ steps.attest_manifest.outputs.attestation-id }}
+          MANIFEST_ATTESTATION_URL: ${{ steps.attest_manifest.outputs.attestation-url }}
+          MANIFEST_BUNDLE_PATH: ${{ steps.attest_manifest.outputs.bundle-path }}
+          ARTIFACT_ATTESTATION_ID: ${{ steps.attest_artifact.outputs.attestation-id }}
+          ARTIFACT_ATTESTATION_URL: ${{ steps.attest_artifact.outputs.attestation-url }}
+          ARTIFACT_BUNDLE_PATH: ${{ steps.attest_artifact.outputs.bundle-path }}
+          PROTOCOL_ADMIN_SAFE_ADDRESS: ${{ vars.PROTOCOL_ADMIN_SAFE_ADDRESS }}
+          PROTOCOL_ADMIN_SAFE_APPROVED_HASH: ${{ vars.PROTOCOL_ADMIN_SAFE_APPROVED_HASH }}
+          PROTOCOL_ADMIN_SAFE_SIGNATURE: ${{ secrets.PROTOCOL_ADMIN_SAFE_SIGNATURE }}
+          SAFE_VERIFIED: ${{ steps.verify_safe.outputs.verified }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p release/attestations
+          cp "$MANIFEST_BUNDLE_PATH" release/attestations/manifest.sigstore.json
+          cp "$ARTIFACT_BUNDLE_PATH" release/attestations/production-artifact.sigstore.json
+          node --input-type=module <<'NODE'
+          import { createHash } from 'node:crypto';
+          import { readFileSync, writeFileSync } from 'node:fs';
+          const manifestPath = 'deployments/robinhood-mainnet.bootstrap.json';
+          const manifestBytes = readFileSync(manifestPath);
+          const manifest = JSON.parse(manifestBytes.toString('utf8'));
+          const primitiveHashes = {};
+          const visit = (value, path) => {
+            if (!value || typeof value !== 'object') return;
+            for (const [key, child] of Object.entries(value)) {
+              const childPath = path ? `${path}.${key}` : key;
+              if (typeof child === 'string' && /(?:runtime|implementation)CodeHash$/i.test(key)) primitiveHashes[childPath] = child;
+              else visit(child, childPath);
+            }
+          };
+          visit(manifest.primitives, 'primitives');
+          const safeAddress = process.env.PROTOCOL_ADMIN_SAFE_ADDRESS || null;
+          const safeApprovedHash = process.env.PROTOCOL_ADMIN_SAFE_APPROVED_HASH || null;
+          const safeSignature = process.env.PROTOCOL_ADMIN_SAFE_SIGNATURE || null;
+          const record = {
+            schemaVersion: 1,
+            network: 'robinhood-mainnet',
+            chainId: manifest.chainId,
+            sourceCommit: manifest.sourceCommit,
+            workflowCommit: process.env.GITHUB_SHA,
+            manifestSha256: createHash('sha256').update(manifestBytes).digest('hex'),
+            githubAttestation: {
+              manifest: { id: process.env.MANIFEST_ATTESTATION_ID || null, url: process.env.MANIFEST_ATTESTATION_URL || null, bundle: 'attestations/manifest.sigstore.json' },
+              productionArtifact: { id: process.env.ARTIFACT_ATTESTATION_ID || null, url: process.env.ARTIFACT_ATTESTATION_URL || null, bundle: 'attestations/production-artifact.sigstore.json' },
+            },
+            protocolAdminSafe: {
+              address: safeAddress,
+              approvedManifestHash: safeApprovedHash,
+              signature: process.env.SAFE_VERIFIED === 'true' ? safeSignature : null,
+              status: process.env.SAFE_VERIFIED === 'true' ? 'VERIFIED_EIP1271' : 'PENDING',
+            },
+            primitiveHashes,
+            generatedAt: new Date().toISOString(),
+          };
+          writeFileSync('release/robinhood-mainnet.release-record.json', `${JSON.stringify(record, null, 2)}\n`);
+          NODE
+
+      - name: Upload attested release bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: robinhood-mainnet-release-${{ github.sha }}
+          path: release/
+          if-no-files-found: error

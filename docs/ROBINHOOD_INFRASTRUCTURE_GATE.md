@@ -45,14 +45,19 @@ key-compromise and availability risk even though upgrades are timelocked.
 
 ## Remaining release boundary
 
-The pinned manifest candidate is intentionally marked `VERIFIED_UNSIGNED`.
-Its current SHA-256 is
-`c7a981151f5c92c96f809bfcae3d216adf36faba6fea8e14cfddb141069a2393`.
-Because this workspace has no Git metadata, `sourceCommit` remains unset. An
-authorized release signer must supply that provenance, freeze the final bytes,
-and attach a signature without exposing a private key. `NexPassEdition` and the
-custom NexMarkets contracts remain gated until that signature is independently
-verified.
+The pinned manifest is now regenerated against source commit `2da21ae` and is
+still intentionally marked `VERIFIED_UNSIGNED` until the external release
+controls complete. Its current SHA-256 is
+`2c609951e0f20a33187d0bbab68217abfc3d4993d8dc26d5803bbf1940e512a5`.
+
+GitHub Actions must attest this exact manifest and the production release
+artifact from the frozen release workflow. The NexMarkets Protocol Admin Safe
+must separately approve the same digest using its threshold/EIP-1271 signing
+path. No Safe address or approval signature is present in this workspace, so
+neither governance approval nor a GitHub attestation is claimed here.
+
+`NexPassEdition` and the custom NexMarkets contracts remain gated until both
+attestations are independently verified and recorded with the release.
 
 Primary references:
 

@@ -3,6 +3,7 @@ node_modules/
 .env.*
 !.env.example
 artifacts/primitive-verification/*.json
+artifacts/safe-deployment/*.json
 coverage/
 dist/
 out/

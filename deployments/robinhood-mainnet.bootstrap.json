@@ -84,7 +84,7 @@
     }
   },
   "nexmarketsContracts": {},
-  "sourceCommit": null,
+  "sourceCommit": "2da21ae",
   "generatedAt": "2026-08-18T00:07:00.466Z",
   "release": {
     "status": "VERIFIED_UNSIGNED",
