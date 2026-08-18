@@ -7,6 +7,8 @@ const MAGIC_VALUE = '0x1626ba7e';
 const ABI = [
   'function isValidSignature(bytes32 hash,bytes signature) view returns (bytes4)',
   'function isValidSignature(bytes data,bytes signature) view returns (bytes4)',
+  'function getThreshold() view returns (uint256)',
+  'function getOwners() view returns (address[])',
 ];
 
 function fail(message) {
@@ -26,6 +28,7 @@ try {
   const safeAddress = getAddress(required('PROTOCOL_ADMIN_SAFE_ADDRESS'));
   const manifestSha256 = required('PROTOCOL_ADMIN_SAFE_APPROVED_HASH').replace(/^0x/u, '').toLowerCase();
   const signature = required('PROTOCOL_ADMIN_SAFE_SIGNATURE');
+  const expectedThreshold = process.env.PROTOCOL_ADMIN_SAFE_EXPECTED_THRESHOLD?.trim() || null;
   if (!/^[0-9a-f]{64}$/u.test(manifestSha256)) fail('PROTOCOL_ADMIN_SAFE_APPROVED_HASH must be a 32-byte SHA-256 digest.');
   if (!isHexString(signature)) fail('PROTOCOL_ADMIN_SAFE_SIGNATURE must be a hex-encoded signature.');
   const digest = `0x${manifestSha256}`;
@@ -35,6 +38,9 @@ try {
   if ((await provider.getCode(safeAddress)) === '0x') fail(`No contract code at Protocol Admin Safe ${safeAddress}.`);
 
   const safe = new Contract(safeAddress, ABI, provider);
+  const [safeThreshold, safeOwners] = await Promise.all([safe.getThreshold(), safe.getOwners()]);
+  const threshold = BigInt(safeThreshold);
+  const thresholdValid = expectedThreshold === null || threshold === BigInt(expectedThreshold);
   const checks = [];
   for (const [label, call] of [
     ['bytes32', () => safe['isValidSignature(bytes32,bytes)'](digest, signature)],
@@ -47,11 +53,21 @@ try {
       checks.push({ method: label, valid: false, error: error.shortMessage || error.message });
     }
   }
-  const valid = checks.some((item) => item.valid);
+  checks.push({
+    method: 'threshold',
+    expected: expectedThreshold === null ? null : Number(expectedThreshold),
+    actual: Number(threshold),
+    valid: thresholdValid,
+  });
+  const signatureValid = checks.some((item) => item.method !== 'threshold' && item.valid);
+  const valid = signatureValid && thresholdValid;
   console.log(JSON.stringify({
     chainId: Number(CHAIN_ID),
     safeAddress,
     manifestSha256,
+    safeOwners,
+    safeThreshold: Number(threshold),
+    governanceProfile: threshold === 1n ? 'BOOTSTRAP_ONLY_THRESHOLD_1' : 'MULTISIG_THRESHOLD_2_PLUS',
     valid,
     checks,
   }, null, 2));

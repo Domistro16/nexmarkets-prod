@@ -25,6 +25,11 @@ SAFE_OWNER_ADDRESSES=0xOwnerOne,0xOwnerTwo,0xOwnerThree
 SAFE_THRESHOLD=2
 ```
 
+Threshold `1` is permitted only for an explicitly labelled bootstrap/test
+Safe. It must never be treated as production deployment authority or used for
+the production controller handoff. Production requires multiple owners and a
+threshold of at least `2`.
+
 Review the deterministic plan first:
 
 ```powershell

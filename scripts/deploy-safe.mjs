@@ -130,6 +130,7 @@ async function main() {
   if (threshold === 0n || threshold > BigInt(owners.length)) {
     fail(`SAFE_THRESHOLD must be between 1 and ${owners.length}.`);
   }
+  const governanceProfile = threshold === 1n ? 'BOOTSTRAP_ONLY_THRESHOLD_1' : 'MULTISIG_THRESHOLD_2_PLUS';
 
   const singletonAddress = getAddress(process.env.SAFE_SINGLETON_ADDRESS?.trim() || DEFAULT_SINGLETON);
   const factoryAddress = getAddress(process.env.SAFE_PROXY_FACTORY_ADDRESS?.trim() || DEFAULT_PROXY_FACTORY);
@@ -200,6 +201,8 @@ async function main() {
     fallbackHandlerRuntimeCodeHash: fallbackHandlerHash,
     owners,
     threshold: threshold.toString(),
+    governanceProfile,
+    productionDeploymentAuthority: threshold >= 2n ? 'CANDIDATE_REQUIRES_RELEASE_APPROVAL' : 'NOT_AUTHORIZED',
     saltNonce: saltNonce.toString(),
     chainSpecific,
     create2Salt: salt,

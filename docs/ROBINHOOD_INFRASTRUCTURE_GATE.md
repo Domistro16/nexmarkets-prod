@@ -1,4 +1,4 @@
-# Robinhood Infrastructure Gate — Runtime Verified, Awaiting Freeze and Signature
+# Robinhood Infrastructure Gate — Runtime Verified; Production Safe Pending
 
 Observed and independently checked on 2026-08-18 against Robinhood mainnet
 chain ID `4663`.
@@ -43,22 +43,26 @@ protocol-held USDG as exposed to issuer upgrade, pause, freeze, and supply
 control risk. The operational-role convergence on one EOA is an additional
 key-compromise and availability risk even though upgrades are timelocked.
 
-## Remaining release boundary
+## Release boundary
 
-The pinned manifest is now regenerated against source commit `2da21ae` and is
-still intentionally marked `VERIFIED_UNSIGNED` until the external release
-controls complete. Its current SHA-256 is
+The pinned manifest is frozen at source commit `2da21ae`. Its current SHA-256 is
 `2c609951e0f20a33187d0bbab68217abfc3d4993d8dc26d5803bbf1940e512a5`.
 
 GitHub Actions may attest this exact manifest and the production release
 artifact when repository support is available, but those attestations are
-optional provenance for NexMarkets Edition. The NexMarkets Protocol Admin Safe
-must approve the same digest using its threshold/EIP-1271 signing path. No Safe
-approval is claimed until that on-chain approval is independently verified.
+optional provenance for NexMarkets Edition. The bootstrap Protocol Admin Safe
+`0x722ADAadD314dafE97979AF27Ec7F09F36766d08` approved the same digest using
+its threshold-1 EIP-1271 signing path; the result was independently verified
+against the Safe bytecode and returned the EIP-1271 magic value. The public
+record intentionally excludes the signature; only the verification status,
+approved digest, Safe address, and governance profile are recorded in
+`docs/release/robinhood-mainnet.safe-approval.json`.
 
-`NexPassEdition` and the custom NexMarkets contracts remain gated until the
-Protocol Admin Safe approval is independently verified and recorded with the
-release. A missing GitHub attestation does not block this Safe-only gate.
+The threshold-1 Safe is `BOOTSTRAP_ONLY_THRESHOLD_1` and cannot authorize
+production deployment or a production controller handoff. Those actions remain
+blocked until a multi-owner production Safe with threshold >= 2 approves the
+release evidence. `NexPassEdition` may enter contract review and test CI now;
+a missing GitHub attestation does not block review.
 
 Primary references:
 

@@ -103,6 +103,7 @@ jobs:
         env:
           PROTOCOL_ADMIN_SAFE_ADDRESS: ${{ vars.PROTOCOL_ADMIN_SAFE_ADDRESS }}
           PROTOCOL_ADMIN_SAFE_APPROVED_HASH: ${{ vars.PROTOCOL_ADMIN_SAFE_APPROVED_HASH }}
+          PROTOCOL_ADMIN_SAFE_EXPECTED_THRESHOLD: ${{ vars.PROTOCOL_ADMIN_SAFE_THRESHOLD }}
           PROTOCOL_ADMIN_SAFE_SIGNATURE: ${{ secrets.PROTOCOL_ADMIN_SAFE_SIGNATURE }}
         run: |
           if [[ -z "${PROTOCOL_ADMIN_SAFE_SIGNATURE:-}" ]]; then
@@ -124,7 +125,8 @@ jobs:
           ARTIFACT_ATTESTATION_STATUS: ${{ steps.attest_artifact.outcome }}
           PROTOCOL_ADMIN_SAFE_ADDRESS: ${{ vars.PROTOCOL_ADMIN_SAFE_ADDRESS }}
           PROTOCOL_ADMIN_SAFE_APPROVED_HASH: ${{ vars.PROTOCOL_ADMIN_SAFE_APPROVED_HASH }}
-          PROTOCOL_ADMIN_SAFE_SIGNATURE: ${{ secrets.PROTOCOL_ADMIN_SAFE_SIGNATURE }}
+          PROTOCOL_ADMIN_SAFE_THRESHOLD: ${{ vars.PROTOCOL_ADMIN_SAFE_THRESHOLD }}
+          PROTOCOL_ADMIN_SAFE_GOVERNANCE_PROFILE: ${{ vars.PROTOCOL_ADMIN_SAFE_GOVERNANCE_PROFILE }}
           SAFE_VERIFIED: ${{ steps.verify_safe.outputs.verified }}
         shell: bash
         run: |
@@ -154,7 +156,9 @@ jobs:
           visit(manifest.primitives, 'primitives');
           const safeAddress = process.env.PROTOCOL_ADMIN_SAFE_ADDRESS || null;
           const safeApprovedHash = process.env.PROTOCOL_ADMIN_SAFE_APPROVED_HASH || null;
-          const safeSignature = process.env.PROTOCOL_ADMIN_SAFE_SIGNATURE || null;
+          const safeThreshold = process.env.PROTOCOL_ADMIN_SAFE_THRESHOLD ? Number(process.env.PROTOCOL_ADMIN_SAFE_THRESHOLD) : null;
+          const safeGovernanceProfile = process.env.PROTOCOL_ADMIN_SAFE_GOVERNANCE_PROFILE || (safeThreshold === 1 ? 'BOOTSTRAP_ONLY_THRESHOLD_1' : 'UNDECLARED');
+          const safeVerified = process.env.SAFE_VERIFIED === 'true';
           const record = {
             schemaVersion: 1,
             network: 'robinhood-mainnet',
@@ -168,11 +172,15 @@ jobs:
               productionArtifact: { status: process.env.ARTIFACT_ATTESTATION_STATUS === 'success' ? 'VERIFIED' : 'UNAVAILABLE', id: process.env.ARTIFACT_ATTESTATION_ID || null, url: process.env.ARTIFACT_ATTESTATION_URL || null, bundle: 'attestations/production-artifact.sigstore.json' },
             },
             protocolAdminSafe: {
-              requirement: 'REQUIRED_FOR_NEXMARKETS_EDITION',
+              requirement: 'REQUIRED_FOR_NEXMARKETS_EDITION_PRODUCTION',
               address: safeAddress,
               approvedManifestHash: safeApprovedHash,
-              signature: process.env.SAFE_VERIFIED === 'true' ? safeSignature : null,
-              status: process.env.SAFE_VERIFIED === 'true' ? 'VERIFIED_EIP1271' : 'PENDING',
+              threshold: safeThreshold,
+              governanceProfile: safeGovernanceProfile,
+              productionDeploymentAuthority: safeVerified && safeThreshold !== null && safeThreshold >= 2 ? 'VERIFIED_MULTISIG' : 'PENDING_MULTISIG_THRESHOLD_2',
+              signaturePublished: false,
+              signatureVerification: safeVerified ? 'VERIFIED_EIP1271_USING_PROTECTED_SECRET' : 'PENDING',
+              status: safeVerified ? (safeThreshold === 1 ? 'VERIFIED_EIP1271_BOOTSTRAP_ONLY' : 'VERIFIED_EIP1271') : 'PENDING',
             },
             primitiveHashes,
             generatedAt: new Date().toISOString(),

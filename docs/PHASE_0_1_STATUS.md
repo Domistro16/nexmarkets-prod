@@ -12,11 +12,14 @@ USDG, SupplyControl, OFT wrapper, Timelock authority, ERC-6551, and Safe have
 been resolved and pinned. The strict live primitive verifier now passes. See
 `docs/ROBINHOOD_INFRASTRUCTURE_GATE.md`.
 
-The remaining boundary is release governance: the verified manifest is pinned
-to source commit `2da21ae` and remains `VERIFIED_UNSIGNED` until the Protocol
-Admin Safe approves the exact manifest digest. GitHub artifact attestations are
-optional provenance for NexMarkets Edition and do not block the Safe-only
-governance gate.
+The frozen bootstrap manifest is separately approved by the threshold-1
+Protocol Admin Safe `0x722ADAadD314dafE97979AF27Ec7F09F36766d08`; the exact
+digest `2c609951e0f20a33187d0bbab68217abfc3d4993d8dc26d5803bbf1940e512a5`
+was verified through its EIP-1271 path. The signature remains protected and
+is not published in repository files or release artifacts. That Safe is explicitly
+`BOOTSTRAP_ONLY_THRESHOLD_1`; it is not production deployment authority.
+Production authority remains gated on a multi-owner Safe with threshold >= 2.
+GitHub artifact attestations remain optional provenance for NexMarkets Edition.
 
 ## Completed in this bootstrap
 
@@ -33,7 +36,8 @@ governance gate.
 - Wallet-signature challenge lifecycle skeleton created (signature cryptography intentionally waits for the selected wallet library).
 - Initial PostgreSQL authority tables defined.
 - API/indexer/worker service boundaries created.
-- Contract package created but feature Solidity intentionally gated.
+- Contract package created with the first gated NexMarkets feature contract,
+  `NexPassEdition`, behind the bootstrap Safe-approved manifest.
 - CI/static tests created.
 
 ### Phase 1
@@ -74,16 +78,16 @@ the 2026-08-18 live RPC and independent-build verification recorded above.
 
 OpenSea's current deployment documentation explicitly supports deploying Seaport 1.6 and ConduitController to their canonical addresses on EVM chains via CREATE2. The official verification instructions pin Seaport-core commit `523097f` for Seaport 1.6 and Seaport commit `821a049` for ConduitController verification.
 
-## Remaining before Phase 2 feature contracts
+## Remaining before additional Phase 2 contracts
 
-1. Have the Protocol Admin Safe approve the manifest digest with its threshold
-   signature and record the Safe address/signature.
-2. Independently verify the Safe EIP-1271 result. GitHub attestation may be
-   recorded when repository support is available, but is not required for the
-   NexMarkets Edition gate.
+1. Finish `NexPassEdition` review and test it against the pinned OpenZeppelin
+   5.6.1 dependency; do not deploy it until the contract review is complete.
+2. Replace the bootstrap threshold-1 Safe with a production multi-owner Safe
+   (threshold >= 2), approve the frozen release evidence, and record that
+   governance transition.
 3. Resolve the separate testnet manifest and official Paxos testnet USDG before
    testnet economic integration.
 4. Review and pin the Tokenbound account implementation selected for
    NexMarkets accounts.
-
-Only then start `NexPassEdition` and the rest of Phase 2.
+5. Design and review the separate factory, launch, mint, Advantage, listing,
+   zone, and royalty-vault contracts.

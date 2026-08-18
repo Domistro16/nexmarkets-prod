@@ -1,0 +1,43 @@
+name: contracts-ci
+
+on:
+  push:
+    paths:
+      - "packages/contracts/**"
+      - ".github/workflows/contracts-ci.yml"
+  pull_request:
+    paths:
+      - "packages/contracts/**"
+      - ".github/workflows/contracts-ci.yml"
+
+jobs:
+  foundry:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: packages/contracts
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: foundry-rs/foundry-toolchain@908c540300062bd5a7e473851cdb4282204cee09 # v1
+        with:
+          version: v1.7.1
+          cache: true
+      - name: Install pinned Solidity dependencies
+        run: |
+          install_repo() {
+            target="$1"
+            repository="$2"
+            revision="$3"
+            git init "$target"
+            git -C "$target" remote add origin "$repository"
+            git -C "$target" fetch --depth 1 origin "$revision"
+            git -C "$target" checkout --detach "$revision"
+          }
+          install_repo lib/openzeppelin-contracts https://github.com/OpenZeppelin/openzeppelin-contracts.git 5fd1781b1454fd1ef8e722282f86f9293cacf256
+          install_repo lib/forge-std https://github.com/foundry-rs/forge-std.git bf647bd6046f2f7da30d0c2bf435e5c76a780c1b
+      - name: Check formatting
+        run: forge fmt --check
+      - name: Build contracts
+        run: forge build
+      - name: Run contract tests
+        run: forge test -vvv
