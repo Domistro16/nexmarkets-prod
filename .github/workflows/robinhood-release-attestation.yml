@@ -85,12 +85,14 @@ jobs:
 
       - name: Attest frozen manifest
         id: attest_manifest
+        continue-on-error: true
         uses: actions/attest@v4
         with:
           subject-path: deployments/robinhood-mainnet.bootstrap.json
 
       - name: Attest production release artifact
         id: attest_artifact
+        continue-on-error: true
         uses: actions/attest@v4
         with:
           subject-path: release/nexmarkets-production-source-${{ github.sha }}.tar.gz
@@ -115,9 +117,11 @@ jobs:
           MANIFEST_ATTESTATION_ID: ${{ steps.attest_manifest.outputs.attestation-id }}
           MANIFEST_ATTESTATION_URL: ${{ steps.attest_manifest.outputs.attestation-url }}
           MANIFEST_BUNDLE_PATH: ${{ steps.attest_manifest.outputs.bundle-path }}
+          MANIFEST_ATTESTATION_STATUS: ${{ steps.attest_manifest.outcome }}
           ARTIFACT_ATTESTATION_ID: ${{ steps.attest_artifact.outputs.attestation-id }}
           ARTIFACT_ATTESTATION_URL: ${{ steps.attest_artifact.outputs.attestation-url }}
           ARTIFACT_BUNDLE_PATH: ${{ steps.attest_artifact.outputs.bundle-path }}
+          ARTIFACT_ATTESTATION_STATUS: ${{ steps.attest_artifact.outcome }}
           PROTOCOL_ADMIN_SAFE_ADDRESS: ${{ vars.PROTOCOL_ADMIN_SAFE_ADDRESS }}
           PROTOCOL_ADMIN_SAFE_APPROVED_HASH: ${{ vars.PROTOCOL_ADMIN_SAFE_APPROVED_HASH }}
           PROTOCOL_ADMIN_SAFE_SIGNATURE: ${{ secrets.PROTOCOL_ADMIN_SAFE_SIGNATURE }}
@@ -126,8 +130,12 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p release/attestations
-          cp "$MANIFEST_BUNDLE_PATH" release/attestations/manifest.sigstore.json
-          cp "$ARTIFACT_BUNDLE_PATH" release/attestations/production-artifact.sigstore.json
+          if [[ -n "${MANIFEST_BUNDLE_PATH:-}" && -f "$MANIFEST_BUNDLE_PATH" ]]; then
+            cp "$MANIFEST_BUNDLE_PATH" release/attestations/manifest.sigstore.json
+          fi
+          if [[ -n "${ARTIFACT_BUNDLE_PATH:-}" && -f "$ARTIFACT_BUNDLE_PATH" ]]; then
+            cp "$ARTIFACT_BUNDLE_PATH" release/attestations/production-artifact.sigstore.json
+          fi
           node --input-type=module <<'NODE'
           import { createHash } from 'node:crypto';
           import { readFileSync, writeFileSync } from 'node:fs';
@@ -155,10 +163,12 @@ jobs:
             workflowCommit: process.env.GITHUB_SHA,
             manifestSha256: createHash('sha256').update(manifestBytes).digest('hex'),
             githubAttestation: {
-              manifest: { id: process.env.MANIFEST_ATTESTATION_ID || null, url: process.env.MANIFEST_ATTESTATION_URL || null, bundle: 'attestations/manifest.sigstore.json' },
-              productionArtifact: { id: process.env.ARTIFACT_ATTESTATION_ID || null, url: process.env.ARTIFACT_ATTESTATION_URL || null, bundle: 'attestations/production-artifact.sigstore.json' },
+              requirement: 'OPTIONAL_FOR_NEXMARKETS_EDITION',
+              manifest: { status: process.env.MANIFEST_ATTESTATION_STATUS === 'success' ? 'VERIFIED' : 'UNAVAILABLE', id: process.env.MANIFEST_ATTESTATION_ID || null, url: process.env.MANIFEST_ATTESTATION_URL || null, bundle: 'attestations/manifest.sigstore.json' },
+              productionArtifact: { status: process.env.ARTIFACT_ATTESTATION_STATUS === 'success' ? 'VERIFIED' : 'UNAVAILABLE', id: process.env.ARTIFACT_ATTESTATION_ID || null, url: process.env.ARTIFACT_ATTESTATION_URL || null, bundle: 'attestations/production-artifact.sigstore.json' },
             },
             protocolAdminSafe: {
+              requirement: 'REQUIRED_FOR_NEXMARKETS_EDITION',
               address: safeAddress,
               approvedManifestHash: safeApprovedHash,
               signature: process.env.SAFE_VERIFIED === 'true' ? safeSignature : null,
@@ -170,7 +180,7 @@ jobs:
           writeFileSync('release/robinhood-mainnet.release-record.json', `${JSON.stringify(record, null, 2)}\n`);
           NODE
 
-      - name: Upload attested release bundle
+      - name: Upload release bundle
         uses: actions/upload-artifact@v4
         with:
           name: robinhood-mainnet-release-${{ github.sha }}

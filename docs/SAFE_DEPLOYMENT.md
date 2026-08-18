@@ -37,6 +37,11 @@ broadcast writes only the public deployment record to
 artifact is ignored from source control. Do not add the Safe address to the
 frozen bootstrap manifest without producing a new reviewed manifest digest.
 
+The manifest digest used for Safe approval is the canonical repository-byte
+digest (`2c609951e0f20a33187d0bbab68217abfc3d4993d8dc26d5803bbf1940e512a5`).
+The planner normalizes Windows CRLF working-tree line endings to LF before
+hashing, so local Safe approval matches the committed manifest bytes.
+
 Canonical deployment references:
 
 - [Safe deployments](https://github.com/safe-global/safe-deployments)

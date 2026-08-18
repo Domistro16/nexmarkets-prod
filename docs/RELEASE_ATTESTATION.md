@@ -1,4 +1,4 @@
-# Frozen release attestation
+# Optional frozen release attestation
 
 The Robinhood bootstrap manifest is frozen to source commit `2da21ae` and
 currently hashes to:
@@ -12,11 +12,17 @@ and a new release-attestation run.
 
 The `robinhood-release-attestation` workflow is manual by design. It verifies
 the source ancestry, exact manifest bytes, all local release gates, and the
-read-only Robinhood primitive gate before creating two attestations with
+read-only Robinhood primitive gate before attempting two attestations with
 GitHub's OIDC/Sigstore-backed `actions/attest` action:
 
 - the frozen bootstrap manifest;
 - the deterministic production source bundle.
+
+These attestations are optional provenance for NexMarkets Edition. The
+workflow records `UNAVAILABLE` when GitHub cannot persist them (for example,
+on a private user-owned repository) and continues to produce the release
+record. The required governance control is the Protocol Admin Safe approval
+described below.
 
 Configure the repository Actions secret before dispatching it:
 
@@ -36,10 +42,10 @@ gh run watch
 gh run download <run-id>
 ```
 
-The uploaded release bundle contains the attestation bundles and
+The uploaded release bundle contains any available attestation bundles and
 `robinhood-mainnet.release-record.json`. That record binds the manifest hash,
-the source commit, the workflow commit, both GitHub attestation references,
-and all verified Robinhood primitive hashes.
+the source commit, the workflow commit, attestation status/references, and all
+verified Robinhood primitive hashes.
 
 ## Protocol Admin Safe approval
 
@@ -57,7 +63,8 @@ gh secret set PROTOCOL_ADMIN_SAFE_SIGNATURE
 
 When those values are present, the workflow calls `npm run safe:verify` and
 records the EIP-1271 result. Without them the release record remains
-`PENDING`; no governance approval is implied.
+`PENDING`; no governance approval is implied. Safe approval—not GitHub
+attestation—is the required NexMarkets Edition release control.
 
 `NexPassEdition` and the custom NexMarkets contracts remain gated until the
 release bundle is independently verified and the Safe approval is recorded.

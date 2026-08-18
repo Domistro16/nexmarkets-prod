@@ -50,14 +50,15 @@ still intentionally marked `VERIFIED_UNSIGNED` until the external release
 controls complete. Its current SHA-256 is
 `2c609951e0f20a33187d0bbab68217abfc3d4993d8dc26d5803bbf1940e512a5`.
 
-GitHub Actions must attest this exact manifest and the production release
-artifact from the frozen release workflow. The NexMarkets Protocol Admin Safe
-must separately approve the same digest using its threshold/EIP-1271 signing
-path. No Safe address or approval signature is present in this workspace, so
-neither governance approval nor a GitHub attestation is claimed here.
+GitHub Actions may attest this exact manifest and the production release
+artifact when repository support is available, but those attestations are
+optional provenance for NexMarkets Edition. The NexMarkets Protocol Admin Safe
+must approve the same digest using its threshold/EIP-1271 signing path. No Safe
+approval is claimed until that on-chain approval is independently verified.
 
-`NexPassEdition` and the custom NexMarkets contracts remain gated until both
-attestations are independently verified and recorded with the release.
+`NexPassEdition` and the custom NexMarkets contracts remain gated until the
+Protocol Admin Safe approval is independently verified and recorded with the
+release. A missing GitHub attestation does not block this Safe-only gate.
 
 Primary references:
 

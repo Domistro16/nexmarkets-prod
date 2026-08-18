@@ -13,9 +13,10 @@ been resolved and pinned. The strict live primitive verifier now passes. See
 `docs/ROBINHOOD_INFRASTRUCTURE_GATE.md`.
 
 The remaining boundary is release governance: the verified manifest is pinned
-to source commit `2da21ae` and remains `VERIFIED_UNSIGNED` until GitHub
-artifact attestations and Protocol Admin Safe approval of the exact manifest
-digest are independently recorded before Phase 2 custom contract work begins.
+to source commit `2da21ae` and remains `VERIFIED_UNSIGNED` until the Protocol
+Admin Safe approves the exact manifest digest. GitHub artifact attestations are
+optional provenance for NexMarkets Edition and do not block the Safe-only
+governance gate.
 
 ## Completed in this bootstrap
 
@@ -75,14 +76,14 @@ OpenSea's current deployment documentation explicitly supports deploying Seaport
 
 ## Remaining before Phase 2 feature contracts
 
-1. Run GitHub Actions attestation for the frozen manifest and production release
-   artifact from the exact source/release commit.
-2. Have the Protocol Admin Safe approve the manifest digest with its threshold
+1. Have the Protocol Admin Safe approve the manifest digest with its threshold
    signature and record the Safe address/signature.
-3. Independently verify both attestation bundles and the Safe EIP-1271 result.
-4. Resolve the separate testnet manifest and official Paxos testnet USDG before
+2. Independently verify the Safe EIP-1271 result. GitHub attestation may be
+   recorded when repository support is available, but is not required for the
+   NexMarkets Edition gate.
+3. Resolve the separate testnet manifest and official Paxos testnet USDG before
    testnet economic integration.
-5. Review and pin the Tokenbound account implementation selected for
+4. Review and pin the Tokenbound account implementation selected for
    NexMarkets accounts.
 
 Only then start `NexPassEdition` and the rest of Phase 2.
