@@ -79,6 +79,12 @@ function asJson(value) {
   return JSON.stringify(value, (_, item) => (typeof item === 'bigint' ? item.toString() : item), 2) + '\n';
 }
 
+function canonicalUtf8(bytes) {
+  // GitHub's checkout and the frozen SHA256SUMS use LF bytes. Normalize a
+  // Windows CRLF working tree before hashing so Safe approval is portable.
+  return Buffer.from(bytes.toString('utf8').replace(/\r\n?/gu, '\n'), 'utf8');
+}
+
 function loadDotEnv() {
   if (!existsSync('.env') || typeof process.loadEnvFile !== 'function') return;
   try {
@@ -131,7 +137,7 @@ async function main() {
   const saltNonce = parseUint('SAFE_SALT_NONCE', '0');
   const chainSpecific = (process.env.SAFE_CHAIN_SPECIFIC?.trim() || '1') !== '0';
 
-  const manifestBytes = await readFile(MANIFEST_PATH);
+  const manifestBytes = canonicalUtf8(await readFile(MANIFEST_PATH));
   const manifest = JSON.parse(manifestBytes.toString('utf8'));
   const manifestSha256 = createHash('sha256').update(manifestBytes).digest('hex');
   const expectedSingletonHash = manifest.primitives?.safeSingleton?.expectedRuntimeCodeHash?.toLowerCase();
