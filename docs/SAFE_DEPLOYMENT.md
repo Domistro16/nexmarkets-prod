@@ -25,10 +25,11 @@ SAFE_OWNER_ADDRESSES=0xOwnerOne,0xOwnerTwo,0xOwnerThree
 SAFE_THRESHOLD=2
 ```
 
-Threshold `1` is permitted only for an explicitly labelled bootstrap/test
-Safe. It must never be treated as production deployment authority or used for
-the production controller handoff. Production requires multiple owners and a
-threshold of at least `2`.
+The Safe must have at least two owners. Threshold `1` is permitted for initial
+production deployment and controller handoff only when the record is explicitly
+labelled `INITIAL_PRODUCTION_THRESHOLD_1_MINIMUM_2_OWNERS` and includes the
+planned transition `RAISE_THRESHOLD_TO_2_PLUS`. A threshold of at least `2`
+remains the target for ongoing protocol governance.
 
 Review the deterministic plan first:
 

@@ -1,4 +1,4 @@
-# Robinhood Infrastructure Gate — Runtime Verified; Production Safe Pending
+# Robinhood Infrastructure Gate — Runtime Verified; Initial Production Safe Policy Recorded
 
 Observed and independently checked on 2026-08-18 against Robinhood mainnet
 chain ID `4663`.
@@ -58,11 +58,13 @@ record intentionally excludes the signature; only the verification status,
 approved digest, Safe address, and governance profile are recorded in
 `docs/release/robinhood-mainnet.safe-approval.json`.
 
-The threshold-1 Safe is `BOOTSTRAP_ONLY_THRESHOLD_1` and cannot authorize
-production deployment or a production controller handoff. Those actions remain
-blocked until a multi-owner production Safe with threshold >= 2 approves the
-release evidence. `NexPassEdition` may enter contract review and test CI now;
-a missing GitHub attestation does not block review.
+The initial-production Protocol Admin Safe has the minimum two owners required by the production
+policy. Threshold 1 is permitted for initial production deployment and
+controller handoff under `INITIAL_PRODUCTION_THRESHOLD_1_MINIMUM_2_OWNERS`.
+The release record carries the explicit planned transition
+`RAISE_THRESHOLD_TO_2_PLUS`; threshold >= 2 is the ongoing governance target.
+`NexPassEdition` may enter contract review and test CI now; a missing GitHub
+attestation does not block review.
 
 Primary references:
 

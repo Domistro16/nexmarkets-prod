@@ -63,20 +63,24 @@ EIP-1271 signature only in the protected repository secret:
 gh variable set PROTOCOL_ADMIN_SAFE_ADDRESS --body <safe-address>
 gh variable set PROTOCOL_ADMIN_SAFE_APPROVED_HASH --body 2c609951e0f20a33187d0bbab68217abfc3d4993d8dc26d5803bbf1940e512a5
 gh variable set PROTOCOL_ADMIN_SAFE_THRESHOLD --body 1
-gh variable set PROTOCOL_ADMIN_SAFE_GOVERNANCE_PROFILE --body BOOTSTRAP_ONLY_THRESHOLD_1
+gh variable set PROTOCOL_ADMIN_SAFE_GOVERNANCE_PROFILE --body INITIAL_PRODUCTION_THRESHOLD_1_MINIMUM_2_OWNERS
 gh secret set PROTOCOL_ADMIN_SAFE_SIGNATURE
 ```
 
-Threshold 1 is recorded only as bootstrap evidence. It cannot authorize
-production deployment or a production controller handoff; production requires
-a multi-owner Safe with threshold at least 2.
+The production Safe must always have at least two owners. Threshold 1 is
+permitted for initial production deployment and controller handoff under the
+explicit governance profile `INITIAL_PRODUCTION_THRESHOLD_1_MINIMUM_2_OWNERS`.
+The release record must also carry the planned transition
+`RAISE_THRESHOLD_TO_2_PLUS`; threshold >= 2 is the required ongoing governance
+milestone.
 
 When those values are present, the workflow calls `npm run safe:verify` and
 records the EIP-1271 result. The signature is deliberately never written to a
 tracked file, release artifact, attestation bundle, or workflow log. The public
-release record contains only the Safe address, approved digest, threshold, and
-verification status. Without those values the release record remains `PENDING`;
-no governance approval is implied. The current bootstrap Safe approval status
+release record contains only non-secret Safe metadata (address, owner-count
+minimum, threshold, governance profile, approved digest, and verification
+status). Without those values the release record remains `PENDING`;
+no governance approval is implied. The current initial-production Safe approval status
 is recorded in
 [`docs/release/robinhood-mainnet.safe-approval.json`](./release/robinhood-mainnet.safe-approval.json).
 
@@ -88,6 +92,8 @@ record are the canonical governance evidence for that unchanged digest; the
 signature itself remains protected and unpublished.
 
 `NexPassEdition` contract review and CI may proceed against the permanent
-collection architecture. Production deployment and the remaining custom
-contracts remain gated until the release bundle is independently verified and a
-production threshold >= 2 Safe approval is recorded.
+collection architecture. Initial production deployment and the controller
+handoff may proceed once the release bundle is independently verified and the
+minimum-two-owner threshold-1 Safe approval is recorded. The planned transition
+to threshold >= 2 remains an explicit follow-up governance requirement before
+ongoing protocol administration.

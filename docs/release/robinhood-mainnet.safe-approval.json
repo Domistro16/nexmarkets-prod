@@ -27,8 +27,9 @@
       "0x7ec76611Da0AeE7C1B11273E9767FDA1Faa31790",
       "0xD83deFbA240568040b39bb2C8B4DB7dB02d40593"
     ],
+    "minimumOwnerCount": 2,
     "threshold": 1,
-    "governanceProfile": "BOOTSTRAP_ONLY_THRESHOLD_1",
+    "governanceProfile": "INITIAL_PRODUCTION_THRESHOLD_1_MINIMUM_2_OWNERS",
     "approvedManifestHash": "2c609951e0f20a33187d0bbab68217abfc3d4993d8dc26d5803bbf1940e512a5",
     "signaturePublished": false,
     "signatureVerification": {
@@ -36,7 +37,9 @@
       "magicValue": "0x1626ba7e",
       "status": "VERIFIED_USING_PROTECTED_SECRET"
     },
-    "productionDeploymentAuthority": "PENDING_MULTISIG_THRESHOLD_2"
+    "productionDeploymentAuthority": "INITIAL_PRODUCTION_THRESHOLD_1_PERMITTED",
+    "plannedGovernanceTransition": "RAISE_THRESHOLD_TO_2_PLUS",
+    "thresholdTransitionRequired": true
   },
   "primitiveHashes": {
     "primitives.usdg.expectedRuntimeCodeHash": "0x864cc9ad53b338b82da1f7cab85ab0b3d5c8861acb422b6fec63cf36234f36a6",

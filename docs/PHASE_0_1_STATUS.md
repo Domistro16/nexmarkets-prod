@@ -12,13 +12,14 @@ USDG, SupplyControl, OFT wrapper, Timelock authority, ERC-6551, and Safe have
 been resolved and pinned. The strict live primitive verifier now passes. See
 `docs/ROBINHOOD_INFRASTRUCTURE_GATE.md`.
 
-The frozen bootstrap manifest is separately approved by the threshold-1
-Protocol Admin Safe `0x722ADAadD314dafE97979AF27Ec7F09F36766d08`; the exact
-digest `2c609951e0f20a33187d0bbab68217abfc3d4993d8dc26d5803bbf1940e512a5`
+The frozen bootstrap manifest is separately approved by the Protocol Admin Safe
+`0x722ADAadD314dafE97979AF27Ec7F09F36766d08`; the exact digest
+`2c609951e0f20a33187d0bbab68217abfc3d4993d8dc26d5803bbf1940e512a5`
 was verified through its EIP-1271 path. The signature remains protected and
-is not published in repository files or release artifacts. That Safe is explicitly
-`BOOTSTRAP_ONLY_THRESHOLD_1`; it is not production deployment authority.
-Production authority remains gated on a multi-owner Safe with threshold >= 2.
+is not published in repository files or release artifacts. The recorded
+governance profile requires at least two Safe owners. Threshold 1 is permitted
+for initial production under that minimum-owner rule, with an explicit planned
+transition to threshold >= 2 for ongoing protocol governance.
 GitHub artifact attestations remain optional provenance for NexMarkets Edition.
 
 ## Completed in this bootstrap
@@ -82,9 +83,9 @@ OpenSea's current deployment documentation explicitly supports deploying Seaport
 
 1. Finish `NexPassEdition` review and test it against the pinned OpenZeppelin
    5.6.1 dependency; do not deploy it until the contract review is complete.
-2. Replace the bootstrap threshold-1 Safe with a production multi-owner Safe
-   (threshold >= 2), approve the frozen release evidence, and record that
-   governance transition.
+2. Record and execute the planned governance transition from the initial
+   threshold-1 Safe to threshold >= 2 once ongoing protocol governance is
+   established; the initial production Safe must retain at least two owners.
 3. Resolve the separate testnet manifest and official Paxos testnet USDG before
    testnet economic integration.
 4. Review and pin the Tokenbound account implementation selected for

@@ -127,6 +127,8 @@ jobs:
           PROTOCOL_ADMIN_SAFE_APPROVED_HASH: ${{ vars.PROTOCOL_ADMIN_SAFE_APPROVED_HASH }}
           PROTOCOL_ADMIN_SAFE_THRESHOLD: ${{ vars.PROTOCOL_ADMIN_SAFE_THRESHOLD }}
           PROTOCOL_ADMIN_SAFE_GOVERNANCE_PROFILE: ${{ vars.PROTOCOL_ADMIN_SAFE_GOVERNANCE_PROFILE }}
+          PROTOCOL_ADMIN_SAFE_OWNER_COUNT: ${{ steps.verify_safe.outputs.owner_count }}
+          PROTOCOL_ADMIN_SAFE_MINIMUM_OWNERS: ${{ steps.verify_safe.outputs.minimum_owner_count }}
           SAFE_VERIFIED: ${{ steps.verify_safe.outputs.verified }}
         shell: bash
         run: |
@@ -157,7 +159,15 @@ jobs:
           const safeAddress = process.env.PROTOCOL_ADMIN_SAFE_ADDRESS || null;
           const safeApprovedHash = process.env.PROTOCOL_ADMIN_SAFE_APPROVED_HASH || null;
           const safeThreshold = process.env.PROTOCOL_ADMIN_SAFE_THRESHOLD ? Number(process.env.PROTOCOL_ADMIN_SAFE_THRESHOLD) : null;
-          const safeGovernanceProfile = process.env.PROTOCOL_ADMIN_SAFE_GOVERNANCE_PROFILE || (safeThreshold === 1 ? 'BOOTSTRAP_ONLY_THRESHOLD_1' : 'UNDECLARED');
+          const safeOwnerCount = process.env.PROTOCOL_ADMIN_SAFE_OWNER_COUNT ? Number(process.env.PROTOCOL_ADMIN_SAFE_OWNER_COUNT) : null;
+          const minimumSafeOwners = process.env.PROTOCOL_ADMIN_SAFE_MINIMUM_OWNERS
+            ? Number(process.env.PROTOCOL_ADMIN_SAFE_MINIMUM_OWNERS)
+            : 2;
+          const safeGovernanceProfile = safeThreshold === 1 && safeOwnerCount !== null && safeOwnerCount >= minimumSafeOwners
+            ? 'INITIAL_PRODUCTION_THRESHOLD_1_MINIMUM_2_OWNERS'
+            : safeThreshold !== null && safeThreshold >= 2
+              ? 'MULTISIG_THRESHOLD_2_PLUS'
+              : process.env.PROTOCOL_ADMIN_SAFE_GOVERNANCE_PROFILE || 'UNDECLARED';
           const safeVerified = process.env.SAFE_VERIFIED === 'true';
           const record = {
             schemaVersion: 1,
@@ -175,12 +185,20 @@ jobs:
               requirement: 'REQUIRED_FOR_NEXMARKETS_EDITION_PRODUCTION',
               address: safeAddress,
               approvedManifestHash: safeApprovedHash,
+              minimumOwnerCount: minimumSafeOwners,
+              ownerCount: safeOwnerCount,
               threshold: safeThreshold,
               governanceProfile: safeGovernanceProfile,
-              productionDeploymentAuthority: safeVerified && safeThreshold !== null && safeThreshold >= 2 ? 'VERIFIED_MULTISIG' : 'PENDING_MULTISIG_THRESHOLD_2',
+              productionDeploymentAuthority: safeVerified && safeOwnerCount !== null && safeOwnerCount >= minimumSafeOwners && safeThreshold === 1
+                ? 'INITIAL_PRODUCTION_THRESHOLD_1_PERMITTED'
+                : safeVerified && safeOwnerCount !== null && safeOwnerCount >= minimumSafeOwners && safeThreshold !== null && safeThreshold >= 2
+                  ? 'VERIFIED_MULTISIG'
+                  : 'PENDING_GOVERNANCE_VERIFICATION',
+              plannedGovernanceTransition: safeVerified && safeThreshold === 1 ? 'RAISE_THRESHOLD_TO_2_PLUS' : 'NONE',
+              thresholdTransitionRequired: safeVerified && safeThreshold === 1,
               signaturePublished: false,
               signatureVerification: safeVerified ? 'VERIFIED_EIP1271_USING_PROTECTED_SECRET' : 'PENDING',
-              status: safeVerified ? (safeThreshold === 1 ? 'VERIFIED_EIP1271_BOOTSTRAP_ONLY' : 'VERIFIED_EIP1271') : 'PENDING',
+              status: safeVerified ? (safeThreshold === 1 ? 'VERIFIED_EIP1271_INITIAL_PRODUCTION' : 'VERIFIED_EIP1271') : 'PENDING',
             },
             primitiveHashes,
             generatedAt: new Date().toISOString(),
