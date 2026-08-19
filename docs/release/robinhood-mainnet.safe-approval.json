@@ -1,0 +1,58 @@
+{
+  "schemaVersion": 1,
+  "network": "robinhood-mainnet",
+  "chainId": 4663,
+  "sourceCommit": "2da21ae",
+  "workflowCommit": null,
+  "manifestSha256": "2c609951e0f20a33187d0bbab68217abfc3d4993d8dc26d5803bbf1940e512a5",
+  "manifestStatus": "VERIFIED_UNSIGNED",
+  "githubAttestation": {
+    "requirement": "OPTIONAL_FOR_NEXMARKETS_EDITION",
+    "manifest": {
+      "status": "REDACTED_RUN_REMOVED",
+      "id": null,
+      "url": null
+    },
+    "productionArtifact": {
+      "status": "REDACTED_RUN_REMOVED",
+      "id": null,
+      "url": null
+    },
+    "releaseWorkflowRun": null
+  },
+  "protocolAdminSafe": {
+    "address": "0x722ADAadD314dafE97979AF27Ec7F09F36766d08",
+    "safeVersion": "1.4.1",
+    "owners": [
+      "0x7ec76611Da0AeE7C1B11273E9767FDA1Faa31790",
+      "0xD83deFbA240568040b39bb2C8B4DB7dB02d40593"
+    ],
+    "minimumOwnerCount": 2,
+    "threshold": 1,
+    "governanceProfile": "INITIAL_PRODUCTION_THRESHOLD_1_MINIMUM_2_OWNERS",
+    "approvedManifestHash": "2c609951e0f20a33187d0bbab68217abfc3d4993d8dc26d5803bbf1940e512a5",
+    "signaturePublished": false,
+    "signatureVerification": {
+      "method": "EIP-1271 bytes32",
+      "magicValue": "0x1626ba7e",
+      "status": "VERIFIED_USING_PROTECTED_SECRET"
+    },
+    "productionDeploymentAuthority": "INITIAL_PRODUCTION_THRESHOLD_1_PERMITTED",
+    "plannedGovernanceTransition": "RAISE_THRESHOLD_TO_2_PLUS",
+    "thresholdTransitionRequired": true
+  },
+  "primitiveHashes": {
+    "primitives.usdg.expectedRuntimeCodeHash": "0x864cc9ad53b338b82da1f7cab85ab0b3d5c8861acb422b6fec63cf36234f36a6",
+    "primitives.usdg.expectedImplementationCodeHash": "0x3a551ac5c744af57e68a1d1431ac403c0f516ffd7d224a75746aee11fc4f3baf",
+    "primitives.usdg.supplyControl.expectedRuntimeCodeHash": "0x864cc9ad53b338b82da1f7cab85ab0b3d5c8861acb422b6fec63cf36234f36a6",
+    "primitives.usdg.supplyControl.expectedImplementationCodeHash": "0xf17478ff7684230611c123f3d8214e4cee2d807b510ecdf253c2660a1cc37d49",
+    "primitives.usdg.adminTimelock.expectedRuntimeCodeHash": "0xe616a4f66608354a45be3af2f82e909a1e000f4360eeb909defd830ee43c554b",
+    "primitives.usdg.oftWrapper.expectedRuntimeCodeHash": "0x5e4dcb0bb1910f6429e5fe91678990088a51c6d1cfe1b31d05fb9d948cc7867c",
+    "primitives.usdg.oftWrapper.expectedImplementationCodeHash": "0xa768abdd813395b5d80e4901caf6db85b697317867661a5015cdbfcb74ed0df0",
+    "primitives.seaport16.expectedRuntimeCodeHash": "0x95809b70c9659c30188db5fdd87103e24b1a55379af8c851fca393aba0224a00",
+    "primitives.conduitController.expectedRuntimeCodeHash": "0x880348b652e7cce91216153a4d0107e70c77b92192f3d7a127ff1f1351961948",
+    "primitives.immutableCreate2Factory.expectedRuntimeCodeHash": "0x767db8f19b71e367540fa372e8e81e4dcb7ca8feede0ae58a0c0bd08b7320dee",
+    "primitives.erc6551Registry.expectedRuntimeCodeHash": "0xda1d5b06e579f9e42e59b00fbc22939896ecb38dc8830d40de0a2508fecd6735",
+    "primitives.safeSingleton.expectedRuntimeCodeHash": "0x1fe2df852ba3299d6534ef416eefa406e56ced995bca886ab7a553e6d0c5e1c4"
+  }
+}

@@ -11,7 +11,10 @@ V1 is **Robinhood Chain + USDG only**. Base and WETH settlement are explicitly d
 
 - Phase 0 repository / authority bootstrap: implemented.
 - Phase 1 external primitive verifier: implemented and fail-closed.
-- Feature smart contracts: intentionally not started until strict primitive runtime gates are satisfied.
+- `NexPassEdition`: first feature contract implementation is under review; it
+  is not deployed. Terms/Preview remain owned by the future
+  `NexLaunchRegistry`, and production deployment remains gated on the
+  multi-owner Safe/release controls.
 
 Run:
 

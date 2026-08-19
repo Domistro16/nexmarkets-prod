@@ -17,6 +17,7 @@ import {
 } from 'ethers';
 
 const CHAIN_ID = 4663n;
+const MINIMUM_SAFE_OWNERS = 2;
 const DEFAULT_SINGLETON = '0x41675C099F32341bf84BFc5382aF534df5C7461a';
 const DEFAULT_PROXY_FACTORY = '0x4e1DCf7AD4e460CfD30791CCC4F9c8a4f820ec67';
 const DEFAULT_PROXY_FACTORY_CODE_HASH = '0x50c3cdc4074750a7a974204a716c999edd37482f907608d960b2b025ee0b3317';
@@ -126,10 +127,15 @@ async function main() {
   const rpcUrl = env('RH_MAINNET_RPC_URL');
   const ownersRaw = env('SAFE_OWNER_ADDRESSES');
   const owners = parseAddressList(ownersRaw);
+  if (owners.length < MINIMUM_SAFE_OWNERS) {
+    fail(`SAFE_OWNER_ADDRESSES must contain at least ${MINIMUM_SAFE_OWNERS} owners for production governance.`);
+  }
   const threshold = parseUint('SAFE_THRESHOLD');
   if (threshold === 0n || threshold > BigInt(owners.length)) {
     fail(`SAFE_THRESHOLD must be between 1 and ${owners.length}.`);
   }
+  const governanceProfile =
+    threshold === 1n ? 'INITIAL_PRODUCTION_THRESHOLD_1_MINIMUM_2_OWNERS' : 'MULTISIG_THRESHOLD_2_PLUS';
 
   const singletonAddress = getAddress(process.env.SAFE_SINGLETON_ADDRESS?.trim() || DEFAULT_SINGLETON);
   const factoryAddress = getAddress(process.env.SAFE_PROXY_FACTORY_ADDRESS?.trim() || DEFAULT_PROXY_FACTORY);
@@ -199,7 +205,12 @@ async function main() {
     fallbackHandler,
     fallbackHandlerRuntimeCodeHash: fallbackHandlerHash,
     owners,
+    minimumOwnerCount: MINIMUM_SAFE_OWNERS,
     threshold: threshold.toString(),
+    governanceProfile,
+    productionDeploymentAuthority:
+      threshold === 1n ? 'INITIAL_PRODUCTION_THRESHOLD_1_PERMITTED' : 'CANDIDATE_REQUIRES_RELEASE_APPROVAL',
+    plannedGovernanceTransition: threshold === 1n ? 'RAISE_THRESHOLD_TO_2_PLUS' : 'NONE',
     saltNonce: saltNonce.toString(),
     chainSpecific,
     create2Salt: salt,
