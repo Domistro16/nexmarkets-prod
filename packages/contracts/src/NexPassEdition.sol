@@ -24,22 +24,22 @@ contract NexPassEdition is ERC721, ERC2981, Ownable, Pausable, ReentrancyGuard {
         string symbol;
         address initialOwner;
         bytes32 editionId;
-        uint32 maxSupply;
-        address royaltyReceiver;
-        uint96 royaltyBps;
+        uint32 absoluteSupplyCap;
         bytes32 artworkCommitment;
         string baseTokenURI;
     }
 
     bytes32 public immutable editionId;
     bytes32 public immutable artworkCommitment;
-    uint32 public immutable maxSupply;
+    /// @notice Immutable upper bound for all serials and committed artwork in this Edition.
+    uint32 public immutable absoluteSupplyCap;
 
     address public mintController;
 
     string private _baseTokenURI;
     uint256 private _totalMinted;
     uint256 private _nextTokenId = 1;
+    mapping(uint256 => bytes32) private _termsVersionHashByToken;
 
     error AddressRequired();
     error ArtworkCommitmentRequired();
@@ -51,20 +51,27 @@ contract NexPassEdition is ERC721, ERC2981, Ownable, Pausable, ReentrancyGuard {
     error MintControllerRequired();
     error MintControllerMustBeContract();
     error NotMintController();
+    error RoyaltyReceiverRequired();
     error SoldOut();
+    error TermsSupplyExceeded();
     error TermsVersionRequired();
     error ZeroQuantity();
+    error InvalidTermsSupply();
 
     event EditionConfigured(
         bytes32 indexed editionId,
         bytes32 indexed artworkCommitment,
-        uint32 maxSupply,
-        address royaltyReceiver,
-        uint96 royaltyBps
+        uint32 absoluteSupplyCap
     );
     event MintControllerSet(address indexed controller);
     event EditionMinted(
-        address indexed to, uint256 indexed firstTokenId, uint256 quantity, bytes32 indexed termsVersionHash
+        address indexed to,
+        uint256 indexed firstTokenId,
+        uint256 quantity,
+        bytes32 indexed termsVersionHash,
+        uint256 termsSupply,
+        address royaltyReceiver,
+        uint96 royaltyBps
     );
 
     modifier onlyMintController() {
@@ -73,25 +80,18 @@ contract NexPassEdition is ERC721, ERC2981, Ownable, Pausable, ReentrancyGuard {
     }
 
     constructor(EditionConfig memory config) ERC721(config.name, config.symbol) Ownable(config.initialOwner) {
-        if (config.initialOwner == address(0) || config.royaltyReceiver == address(0)) {
-            revert AddressRequired();
-        }
+        if (config.initialOwner == address(0)) revert AddressRequired();
         if (config.editionId == bytes32(0)) revert EditionIdRequired();
         if (config.artworkCommitment == bytes32(0)) revert ArtworkCommitmentRequired();
-        if (config.maxSupply == 0) revert InvalidSupply();
-        if (config.royaltyBps > MAX_ROYALTY_BPS) revert InvalidRoyalty();
+        if (config.absoluteSupplyCap == 0) revert InvalidSupply();
         if (bytes(config.baseTokenURI).length == 0) revert BaseURIRequired();
 
         editionId = config.editionId;
         artworkCommitment = config.artworkCommitment;
-        maxSupply = config.maxSupply;
+        absoluteSupplyCap = config.absoluteSupplyCap;
         _baseTokenURI = config.baseTokenURI;
 
-        _setDefaultRoyalty(config.royaltyReceiver, config.royaltyBps);
-
-        emit EditionConfigured(
-            config.editionId, config.artworkCommitment, config.maxSupply, config.royaltyReceiver, config.royaltyBps
-        );
+        emit EditionConfigured(config.editionId, config.artworkCommitment, config.absoluteSupplyCap);
     }
 
     /// @notice Set the controller once, after the edition and controller are deployed.
@@ -105,31 +105,54 @@ contract NexPassEdition is ERC721, ERC2981, Ownable, Pausable, ReentrancyGuard {
         emit MintControllerSet(controller);
     }
 
-    /// @notice Mint the next serials after the controller validates payment and Terms.
+    /// @notice Mint the next serials from a controller-validated Terms snapshot.
     /// @param termsVersionHash The active, approved Terms version in NexLaunchRegistry.
-    function mint(address to, uint256 quantity, bytes32 termsVersionHash)
+    /// @param termsSupply The currently advertised supply for this Terms version.
+    /// @param royaltyReceiver Builder Royalty recipient from this Terms version.
+    /// @param royaltyBps Builder Royalty rate from this Terms version, capped at 5%.
+    function mint(
+        address to,
+        uint256 quantity,
+        bytes32 termsVersionHash,
+        uint256 termsSupply,
+        address royaltyReceiver,
+        uint96 royaltyBps
+    )
         external
         onlyMintController
         whenNotPaused
         nonReentrant
         returns (uint256 firstTokenId)
     {
-        return _mintWithTerms(to, quantity, termsVersionHash);
+        return _mintWithTerms(to, quantity, termsVersionHash, termsSupply, royaltyReceiver, royaltyBps);
     }
 
-    function _mintWithTerms(address to, uint256 quantity, bytes32 termsVersionHash)
+    function _mintWithTerms(
+        address to,
+        uint256 quantity,
+        bytes32 termsVersionHash,
+        uint256 termsSupply,
+        address royaltyReceiver,
+        uint96 royaltyBps
+    )
         internal
         returns (uint256 firstTokenId)
     {
         if (to == address(0)) revert AddressRequired();
         if (quantity == 0) revert ZeroQuantity();
         if (termsVersionHash == bytes32(0)) revert TermsVersionRequired();
+        if (termsSupply == 0 || termsSupply > absoluteSupplyCap) revert InvalidTermsSupply();
+        if (royaltyReceiver == address(0)) revert RoyaltyReceiverRequired();
+        if (royaltyBps > MAX_ROYALTY_BPS) revert InvalidRoyalty();
 
         uint256 minted = _totalMinted;
-        if (quantity > maxSupply - minted) revert SoldOut();
+        if (quantity > absoluteSupplyCap - minted) revert SoldOut();
+        if (termsSupply <= minted || quantity > termsSupply - minted) revert TermsSupplyExceeded();
 
         firstTokenId = _nextTokenId;
         for (uint256 i; i < quantity; ++i) {
+            _termsVersionHashByToken[_nextTokenId] = termsVersionHash;
+            _setTokenRoyalty(_nextTokenId, royaltyReceiver, royaltyBps);
             _safeMint(to, _nextTokenId);
             unchecked {
                 ++_nextTokenId;
@@ -137,7 +160,7 @@ contract NexPassEdition is ERC721, ERC2981, Ownable, Pausable, ReentrancyGuard {
         }
 
         _totalMinted = minted + quantity;
-        emit EditionMinted(to, firstTokenId, quantity, termsVersionHash);
+        emit EditionMinted(to, firstTokenId, quantity, termsVersionHash, termsSupply, royaltyReceiver, royaltyBps);
     }
 
     /// @notice Pause controller minting without freezing existing ownership transfers.
@@ -153,14 +176,28 @@ contract NexPassEdition is ERC721, ERC2981, Ownable, Pausable, ReentrancyGuard {
         return _totalMinted;
     }
 
-    function remainingSupply() external view returns (uint256) {
-        return maxSupply - _totalMinted;
+    function remainingAbsoluteSupply() external view returns (uint256) {
+        return absoluteSupplyCap - _totalMinted;
     }
 
-    /// @notice Whether the edition is available to its controller for a valid launch mint.
-    /// @dev Preview and time-window decisions remain in NexLaunchRegistry.
-    function isMintOpen() external view returns (bool) {
-        return !paused() && mintController != address(0) && _totalMinted < maxSupply;
+    /// @notice Return the remaining room under an active Terms version's advertised supply.
+    function remainingTermsSupply(uint256 termsSupply) external view returns (uint256) {
+        if (termsSupply <= _totalMinted) return 0;
+        return termsSupply - _totalMinted;
+    }
+
+    /// @notice Whether the edition is available for the supplied active Terms version.
+    /// @dev NexLaunchRegistry owns Preview/time windows; NexMintController must
+    ///      validate the supplied Terms snapshot before calling mint.
+    function isMintOpen(uint256 termsSupply) external view returns (bool) {
+        return !paused() && mintController != address(0) && termsSupply > _totalMinted
+            && termsSupply <= absoluteSupplyCap && _totalMinted < absoluteSupplyCap;
+    }
+
+    /// @notice Return the immutable Terms version bound to a minted serial.
+    function termsVersionHashOf(uint256 tokenId) external view returns (bytes32) {
+        _requireOwned(tokenId);
+        return _termsVersionHashByToken[tokenId];
     }
 
     function baseTokenURI() external view returns (string memory) {
