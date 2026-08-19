@@ -40,8 +40,8 @@ ba9fa91f34fe9d81a78924f1f2e7cf3c907bd60b3ab3a499b133d9d74af67fd8  ./packages/con
 9a39bbe584591001168eefd76e00e9da232ced2802633c6b89b9fd2d76dbddc5  ./packages/contracts/README.md
 b5215136ce7c301bb4e143ce5c5b94b2a75ef936157b07f64c80c76ad76bd711  ./packages/contracts/foundry.toml
 d8d78efc303b3d32915aff6e35ed9c36fbd6bdd5787c54613d87a68996004acb  ./packages/contracts/remappings.txt
-6162367df6726d0519a76f9394f5932935ead72134351021df247124e09f9e60  ./packages/contracts/src/NexPassEdition.sol
-b3677752647cb8c7d82b430c35fe7c01fb66303fd2867f47f6d0e919375c97d7  ./packages/contracts/test/NexPassEdition.t.sol
+754499cc852da591dbfe5f541cebc41b53ee73c89a75b42405a57cd53c6d6a1f  ./packages/contracts/src/NexPassEdition.sol
+5178d554af2353776c0cffa18b71d1c1a05ccff14b9ed7487d052fdc3d1ab780  ./packages/contracts/test/NexPassEdition.t.sol
 0e8949b07837bb5a31c3be3c81f57185717f31fe666d1f8fc00f5fdf6f948e63  ./packages/domain/package.json
 052a91c63f7ecaf5bf314cec6939a783d2102337fa1872600a24b83113f71fc7  ./packages/domain/src/authority.mjs
 0cb547b897ea4a3ffc188fe6a6ae3883b1b494f99d5cf159257eb49fa284d47e  ./packages/domain/src/ids.mjs

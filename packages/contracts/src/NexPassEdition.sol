@@ -58,11 +58,7 @@ contract NexPassEdition is ERC721, ERC2981, Ownable, Pausable, ReentrancyGuard {
     error ZeroQuantity();
     error InvalidTermsSupply();
 
-    event EditionConfigured(
-        bytes32 indexed editionId,
-        bytes32 indexed artworkCommitment,
-        uint32 absoluteSupplyCap
-    );
+    event EditionConfigured(bytes32 indexed editionId, bytes32 indexed artworkCommitment, uint32 absoluteSupplyCap);
     event MintControllerSet(address indexed controller);
     event EditionMinted(
         address indexed to,
@@ -117,13 +113,7 @@ contract NexPassEdition is ERC721, ERC2981, Ownable, Pausable, ReentrancyGuard {
         uint256 termsSupply,
         address royaltyReceiver,
         uint96 royaltyBps
-    )
-        external
-        onlyMintController
-        whenNotPaused
-        nonReentrant
-        returns (uint256 firstTokenId)
-    {
+    ) external onlyMintController whenNotPaused nonReentrant returns (uint256 firstTokenId) {
         return _mintWithTerms(to, quantity, termsVersionHash, termsSupply, royaltyReceiver, royaltyBps);
     }
 
@@ -134,10 +124,7 @@ contract NexPassEdition is ERC721, ERC2981, Ownable, Pausable, ReentrancyGuard {
         uint256 termsSupply,
         address royaltyReceiver,
         uint96 royaltyBps
-    )
-        internal
-        returns (uint256 firstTokenId)
-    {
+    ) internal returns (uint256 firstTokenId) {
         if (to == address(0)) revert AddressRequired();
         if (quantity == 0) revert ZeroQuantity();
         if (termsVersionHash == bytes32(0)) revert TermsVersionRequired();

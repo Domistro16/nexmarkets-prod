@@ -13,10 +13,7 @@ contract MintControllerMock {
         uint256 termsSupply,
         address royaltyReceiver,
         uint96 royaltyBps
-    )
-        external
-        returns (uint256 firstTokenId)
-    {
+    ) external returns (uint256 firstTokenId) {
         return edition.mint(to, quantity, termsVersionHash, termsSupply, royaltyReceiver, royaltyBps);
     }
 }
@@ -91,9 +88,7 @@ contract NexPassEditionTest is Test {
         vm.expectEmit(true, true, true, true, address(edition));
         emit EditionMinted(ALICE, 1, 2, TERMS_V1, TERMS_V1_SUPPLY, ROYALTY_RECEIVER_V1, 500);
 
-        uint256 first = controller.mintEdition(
-            edition, ALICE, 2, TERMS_V1, TERMS_V1_SUPPLY, ROYALTY_RECEIVER_V1, 500
-        );
+        uint256 first = controller.mintEdition(edition, ALICE, 2, TERMS_V1, TERMS_V1_SUPPLY, ROYALTY_RECEIVER_V1, 500);
 
         assertEq(first, 1);
         assertEq(edition.totalMinted(), 2);
@@ -143,9 +138,7 @@ contract NexPassEditionTest is Test {
     }
 
     function testSupplyCapMakesEditionUnavailable() public {
-        controller.mintEdition(
-            edition, ALICE, ABSOLUTE_SUPPLY_CAP, TERMS_V2, TERMS_V2_SUPPLY, ROYALTY_RECEIVER_V2, 300
-        );
+        controller.mintEdition(edition, ALICE, ABSOLUTE_SUPPLY_CAP, TERMS_V2, TERMS_V2_SUPPLY, ROYALTY_RECEIVER_V2, 300);
         assertEq(edition.totalMinted(), ABSOLUTE_SUPPLY_CAP);
         assertEq(edition.remainingAbsoluteSupply(), 0);
         assertFalse(edition.isMintOpen(TERMS_V2_SUPPLY));
