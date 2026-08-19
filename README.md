@@ -11,10 +11,10 @@ V1 is **Robinhood Chain + USDG only**. Base and WETH settlement are explicitly d
 
 - Phase 0 repository / authority bootstrap: implemented.
 - Phase 1 external primitive verifier: implemented and fail-closed.
-- `NexPassEdition`: first feature contract implementation is under review; it
-  is not deployed. Terms/Preview remain owned by the future
-  `NexLaunchRegistry`, and production deployment remains gated on the
-  multi-owner Safe/release controls.
+- `NexPassEdition`: first feature contract merged as the permanent
+  collection/serial layer. The connected `NexPassFactory`, `NexLaunchRegistry`,
+  and `NexMintController` primary-launch boundary is now under implementation;
+  production deployment remains gated on the Safe/release controls.
 
 Run:
 
