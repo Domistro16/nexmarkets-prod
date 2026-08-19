@@ -15,8 +15,11 @@ The primary mint path is one security boundary:
   serials.
 - `NexMintController` accepts only the currently active Terms hash during the
   Registry mint window. It charges the configured USDG price, splits the
-  immutable protocol fee from the primary recipient amount, records a
-  payer-scoped idempotency key, and then calls `NexPassEdition.mint`.
+  protocol-fixed 5% primary fee from the primary recipient amount, records a
+  payer-scoped idempotency key, and then calls `NexPassEdition.mint`. A
+  post-mint Terms-hash check rejects any publisher mutation made from an NFT
+  receiver callback. Any referral hint emitted by the controller is
+  noncanonical; the backend Builder-Settled referral ledger remains authoritative.
 - `NexPassEdition` remains the permanent serial/ownership layer. It independently
   enforces its absolute cap and snapshots the exact Terms hash and Builder
   Royalty for each minted token.
@@ -40,7 +43,8 @@ The primary mint path is one security boundary:
 1. Deploy `NexLaunchRegistry` with the verified USDG address and Protocol Admin
    Safe owner.
 2. Deploy `NexMintController` against that Registry and USDG, with the Protocol
-   Admin Safe as owner and the immutable fee recipient/rate.
+   Admin Safe as owner and the fee recipient. The primary fee rate is fixed in
+   the contract at 5% (500 bps).
 3. Deploy `NexPassFactory` with the same Safe, Registry, and Controller.
 4. Have the Protocol Admin Safe bind the Factory once in the Registry.
 5. Use the Factory to create and wire an Edition, then publish its first Terms

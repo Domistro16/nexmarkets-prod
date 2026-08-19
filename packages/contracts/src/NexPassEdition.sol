@@ -137,6 +137,9 @@ contract NexPassEdition is ERC721, ERC2981, Ownable, Pausable, ReentrancyGuard {
         if (termsSupply <= minted || quantity > termsSupply - minted) revert TermsSupplyExceeded();
 
         firstTokenId = _nextTokenId;
+        // Reserve the full batch before _safeMint can call an external receiver.
+        // Any later receiver failure reverts this reservation with the whole mint.
+        _totalMinted = minted + quantity;
         for (uint256 i; i < quantity; ++i) {
             _termsVersionHashByToken[_nextTokenId] = termsVersionHash;
             _setTokenRoyalty(_nextTokenId, royaltyReceiver, royaltyBps);
@@ -146,7 +149,6 @@ contract NexPassEdition is ERC721, ERC2981, Ownable, Pausable, ReentrancyGuard {
             }
         }
 
-        _totalMinted = minted + quantity;
         emit EditionMinted(to, firstTokenId, quantity, termsVersionHash, termsSupply, royaltyReceiver, royaltyBps);
     }
 

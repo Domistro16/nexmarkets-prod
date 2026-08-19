@@ -11,6 +11,18 @@ interface INexPassEditionLaunchView {
     function totalMinted() external view returns (uint256);
 }
 
+interface INexPassFactoryWiring {
+    function launchRegistry() external view returns (address);
+    function mintController() external view returns (address);
+    function protocolAdmin() external view returns (address);
+    function owner() external view returns (address);
+}
+
+interface INexMintControllerWiring {
+    function launchRegistry() external view returns (address);
+    function owner() external view returns (address);
+}
+
 /// @title NexLaunchRegistry
 /// @notice Canonical versioned Terms and Preview authority for NexPass Editions.
 /// @dev Every material launch change gets a new hash and a fresh Preview window.
@@ -55,6 +67,7 @@ contract NexLaunchRegistry is Ownable, Pausable {
     error EditionNotRegistered();
     error FactoryAlreadySet();
     error FactoryRequired();
+    error FactoryWiringMismatch();
     error InvalidMintWindow();
     error InvalidPreviewWindow();
     error InvalidRoyalty();
@@ -97,6 +110,7 @@ contract NexLaunchRegistry is Ownable, Pausable {
     function setFactory(address factory_) external onlyOwner {
         if (factory != address(0)) revert FactoryAlreadySet();
         if (factory_ == address(0) || factory_.code.length == 0) revert FactoryRequired();
+        _validateFactoryWiring(factory_);
         factory = factory_;
         emit FactorySet(factory_);
     }
@@ -233,6 +247,47 @@ contract NexLaunchRegistry is Ownable, Pausable {
         if (terms.mintEndsAt <= terms.mintStartsAt) revert InvalidMintWindow();
         if (terms.activeSupply < INexPassEditionLaunchView(edition).totalMinted()) {
             revert ActiveSupplyBelowMinted();
+        }
+    }
+
+    function _validateFactoryWiring(address factory_) internal view {
+        address controller;
+
+        try INexPassFactoryWiring(factory_).launchRegistry() returns (address registry_) {
+            if (registry_ != address(this)) revert FactoryWiringMismatch();
+        } catch {
+            revert FactoryWiringMismatch();
+        }
+
+        try INexPassFactoryWiring(factory_).protocolAdmin() returns (address protocolAdmin_) {
+            if (protocolAdmin_ != owner()) revert FactoryWiringMismatch();
+        } catch {
+            revert FactoryWiringMismatch();
+        }
+
+        try INexPassFactoryWiring(factory_).owner() returns (address factoryOwner_) {
+            if (factoryOwner_ != owner()) revert FactoryWiringMismatch();
+        } catch {
+            revert FactoryWiringMismatch();
+        }
+
+        try INexPassFactoryWiring(factory_).mintController() returns (address controller_) {
+            controller = controller_;
+        } catch {
+            revert FactoryWiringMismatch();
+        }
+        if (controller == address(0) || controller.code.length == 0) revert FactoryWiringMismatch();
+
+        try INexMintControllerWiring(controller).launchRegistry() returns (address registry_) {
+            if (registry_ != address(this)) revert FactoryWiringMismatch();
+        } catch {
+            revert FactoryWiringMismatch();
+        }
+
+        try INexMintControllerWiring(controller).owner() returns (address controllerOwner_) {
+            if (controllerOwner_ != owner()) revert FactoryWiringMismatch();
+        } catch {
+            revert FactoryWiringMismatch();
         }
     }
 }

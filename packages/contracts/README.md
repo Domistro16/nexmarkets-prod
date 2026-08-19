@@ -27,7 +27,7 @@ ownership to the Protocol Admin Safe. `NexLaunchRegistry` is the canonical
 Terms/Preview authority. Each material change creates a new version hash and
 restarts the Preview; it cannot lower active supply below already minted
 serials. `NexMintController` accepts only the active Registry version, settles
-exact USDG using the immutable protocol fee configuration, scopes idempotency
+exact USDG using the protocol-fixed 5% primary fee, scopes idempotency
 keys to the payer, and calls the Edition only after all validation succeeds.
 
 The deployment order is Registry (with the verified USDG address),

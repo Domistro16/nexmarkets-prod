@@ -23,6 +23,60 @@ contract RevertingMintReceiver {
     }
 }
 
+contract MiswiredFactory {
+    function launchRegistry() external pure returns (address) {
+        return address(0x1111);
+    }
+
+    function mintController() external pure returns (address) {
+        return address(0x2222);
+    }
+
+    function protocolAdmin() external pure returns (address) {
+        return address(0x3333);
+    }
+
+    function owner() external pure returns (address) {
+        return address(0x4444);
+    }
+}
+
+contract CallbackTermsPublisherReceiver {
+    NexLaunchRegistry public immutable registry;
+    address public immutable edition;
+    uint256 public immutable replacementSupply;
+    bool private _published;
+
+    constructor(NexLaunchRegistry registry_, address edition_, uint256 replacementSupply_) {
+        registry = registry_;
+        edition = edition_;
+        replacementSupply = replacementSupply_;
+    }
+
+    function onERC721Received(address, address, uint256, bytes calldata) external returns (bytes4) {
+        if (!_published) {
+            _published = true;
+            uint64 previewStartsAt = uint64(block.timestamp);
+            registry.publishTerms(
+                edition,
+                NexLaunchRegistry.Terms({
+                    activeSupply: replacementSupply,
+                    pricePerPass: 1_000_000,
+                    previewStartsAt: previewStartsAt,
+                    mintStartsAt: previewStartsAt + 1 days,
+                    mintEndsAt: previewStartsAt + 3 days,
+                    primaryRecipient: address(0xCAFE),
+                    royaltyReceiver: address(0xCAFE),
+                    royaltyBps: 0,
+                    advantagesHash: keccak256("callback:advantages"),
+                    referralTermsHash: keccak256("callback:referrals")
+                })
+            );
+        }
+        return 0x150b7a02;
+    }
+}
+
 contract PrimaryLaunchTrioTest is Test {
     MockUSDG internal usdg;
     NexLaunchRegistry internal registry;
@@ -46,7 +100,7 @@ contract PrimaryLaunchTrioTest is Test {
     function setUp() public {
         usdg = new MockUSDG();
         registry = new NexLaunchRegistry(address(this), address(usdg));
-        controller = new NexMintController(address(this), registry, usdg, FEE_RECIPIENT, 500);
+        controller = new NexMintController(address(this), registry, usdg, FEE_RECIPIENT);
         factory = new NexPassFactory(address(this), address(this), registry, controller);
         registry.setFactory(address(factory));
 
@@ -120,6 +174,24 @@ contract PrimaryLaunchTrioTest is Test {
         assertEq(registry.settlementToken(), address(usdg));
     }
 
+    function testFactoryBindingRejectsMiswiredContractBeforeConsumption() public {
+        NexLaunchRegistry freshRegistry = new NexLaunchRegistry(address(this), address(usdg));
+        NexMintController freshController = new NexMintController(address(this), freshRegistry, usdg, FEE_RECIPIENT);
+        NexPassFactory freshFactory = new NexPassFactory(address(this), address(this), freshRegistry, freshController);
+        MiswiredFactory wrongFactory = new MiswiredFactory();
+
+        vm.expectRevert(NexLaunchRegistry.FactoryWiringMismatch.selector);
+        freshRegistry.setFactory(address(wrongFactory));
+        assertEq(freshRegistry.factory(), address(0));
+
+        freshRegistry.setFactory(address(freshFactory));
+        assertEq(freshRegistry.factory(), address(freshFactory));
+    }
+
+    function testPrimaryFeeIsFixedAtFivePercent() public view {
+        assertEq(controller.PROTOCOL_FEE_BPS(), 500);
+    }
+
     function testTermsPublishCreatesVersionAndPreviewWindow() public {
         (bytes32 hash, uint64 mintStartsAt) = _publish(3);
         (bytes32 activeHash, NexLaunchRegistry.Terms memory terms) = registry.activeTerms(address(edition));
@@ -145,7 +217,7 @@ contract PrimaryLaunchTrioTest is Test {
             recipient: ALICE,
             quantity: 2,
             intentId: keccak256("alice:intent:1"),
-            referrer: BOB
+            referralHint: BOB
         });
 
         uint256 builderBefore = usdg.balanceOf(BUILDER);
@@ -183,7 +255,7 @@ contract PrimaryLaunchTrioTest is Test {
             recipient: ALICE,
             quantity: 1,
             intentId: keccak256("revision:first"),
-            referrer: address(0)
+            referralHint: address(0)
         });
         vm.prank(ALICE);
         controller.mint(first);
@@ -226,7 +298,7 @@ contract PrimaryLaunchTrioTest is Test {
             recipient: address(receiver),
             quantity: 1,
             intentId: keccak256("receiver:revert"),
-            referrer: address(0)
+            referralHint: address(0)
         });
 
         uint256 aliceBefore = usdg.balanceOf(ALICE);
@@ -236,6 +308,54 @@ contract PrimaryLaunchTrioTest is Test {
         assertEq(usdg.balanceOf(ALICE), aliceBefore);
         assertFalse(controller.isIntentConsumed(ALICE, request.intentId));
         assertEq(edition.totalMinted(), 0);
+    }
+
+    function testReceiverCannotLowerActiveSupplyDuringBatchMint() public {
+        (bytes32 termsHash, uint64 mintStartsAt) = _publish(3);
+        vm.warp(mintStartsAt);
+
+        CallbackTermsPublisherReceiver receiver = new CallbackTermsPublisherReceiver(registry, address(edition), 1);
+        registry.setEditionPublisher(address(edition), address(receiver));
+        NexMintController.MintRequest memory request = NexMintController.MintRequest({
+            edition: address(edition),
+            termsVersionHash: termsHash,
+            recipient: address(receiver),
+            quantity: 2,
+            intentId: keccak256("callback:lower-supply"),
+            referralHint: address(0)
+        });
+
+        vm.prank(ALICE);
+        vm.expectRevert(NexLaunchRegistry.ActiveSupplyBelowMinted.selector);
+        controller.mint(request);
+
+        assertEq(edition.totalMinted(), 0);
+        (bytes32 activeHash,) = registry.activeTerms(address(edition));
+        assertEq(activeHash, termsHash);
+    }
+
+    function testReceiverCannotChangeTermsDuringBatchMint() public {
+        (bytes32 termsHash, uint64 mintStartsAt) = _publish(3);
+        vm.warp(mintStartsAt);
+
+        CallbackTermsPublisherReceiver receiver = new CallbackTermsPublisherReceiver(registry, address(edition), 3);
+        registry.setEditionPublisher(address(edition), address(receiver));
+        NexMintController.MintRequest memory request = NexMintController.MintRequest({
+            edition: address(edition),
+            termsVersionHash: termsHash,
+            recipient: address(receiver),
+            quantity: 2,
+            intentId: keccak256("callback:terms-change"),
+            referralHint: address(0)
+        });
+
+        vm.prank(ALICE);
+        vm.expectRevert(NexMintController.TermsChangedDuringMint.selector);
+        controller.mint(request);
+
+        assertEq(edition.totalMinted(), 0);
+        (bytes32 activeHash,) = registry.activeTerms(address(edition));
+        assertEq(activeHash, termsHash);
     }
 
     function testTermsValidationRejectsUnsafeLaunches() public {
@@ -272,7 +392,7 @@ contract PrimaryLaunchTrioTest is Test {
             recipient: ALICE,
             quantity: 1,
             intentId: keccak256("paused"),
-            referrer: address(0)
+            referralHint: address(0)
         });
         vm.prank(ALICE);
         vm.expectRevert();

@@ -18,12 +18,11 @@ contract NexMintController is Ownable, Pausable, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
     uint16 public constant BPS_DENOMINATOR = 10_000;
-    uint16 public constant MAX_PROTOCOL_FEE_BPS = 500;
+    uint16 public constant PROTOCOL_FEE_BPS = 500;
 
     NexLaunchRegistry public immutable launchRegistry;
     IERC20 public immutable usdg;
     address public immutable protocolFeeRecipient;
-    uint16 public immutable protocolFeeBps;
 
     mapping(address => mapping(bytes32 => bool)) private _consumedIntent;
 
@@ -33,16 +32,17 @@ contract NexMintController is Ownable, Pausable, ReentrancyGuard {
         address recipient;
         uint256 quantity;
         bytes32 intentId;
-        address referrer;
+        /// @notice Optional user-supplied hint only; it is not canonical attribution.
+        address referralHint;
     }
 
     error AddressRequired();
     error IntentAlreadyConsumed();
     error IntentRequired();
     error InvalidEditionController();
-    error InvalidFee();
     error MintClosed();
     error QuantityRequired();
+    error TermsChangedDuringMint();
     error TermsNotActive();
 
     event PrimaryMintSettled(
@@ -56,17 +56,14 @@ contract NexMintController is Ownable, Pausable, ReentrancyGuard {
         uint256 totalPaid,
         uint256 protocolFee
     );
-    event MintReferralAttributed(
-        bytes32 indexed intentId, address indexed payer, address indexed edition, address referrer
+    /// @notice Noncanonical user hint; the backend Builder-Settled referral ledger must qualify it.
+    event ReferralHintSubmitted(
+        bytes32 indexed intentId, address indexed payer, address indexed edition, address referralHint
     );
 
-    constructor(
-        address initialOwner,
-        NexLaunchRegistry launchRegistry_,
-        IERC20 usdg_,
-        address protocolFeeRecipient_,
-        uint16 protocolFeeBps_
-    ) Ownable(initialOwner) {
+    constructor(address initialOwner, NexLaunchRegistry launchRegistry_, IERC20 usdg_, address protocolFeeRecipient_)
+        Ownable(initialOwner)
+    {
         if (
             address(launchRegistry_) == address(0) || address(usdg_) == address(0)
                 || protocolFeeRecipient_ == address(0)
@@ -76,11 +73,9 @@ contract NexMintController is Ownable, Pausable, ReentrancyGuard {
         if (address(launchRegistry_).code.length == 0 || address(usdg_).code.length == 0) revert AddressRequired();
         if (launchRegistry_.settlementToken() != address(usdg_)) revert AddressRequired();
         if (launchRegistry_.owner() != initialOwner) revert AddressRequired();
-        if (protocolFeeBps_ > MAX_PROTOCOL_FEE_BPS) revert InvalidFee();
         launchRegistry = launchRegistry_;
         usdg = usdg_;
         protocolFeeRecipient = protocolFeeRecipient_;
-        protocolFeeBps = protocolFeeBps_;
     }
 
     function mint(MintRequest calldata request) external whenNotPaused nonReentrant returns (uint256 firstTokenId) {
@@ -97,7 +92,7 @@ contract NexMintController is Ownable, Pausable, ReentrancyGuard {
         if (request.quantity > terms.activeSupply - NexPassEdition(request.edition).totalMinted()) revert MintClosed();
 
         uint256 totalPaid = terms.pricePerPass * request.quantity;
-        uint256 protocolFee = (totalPaid * protocolFeeBps) / BPS_DENOMINATOR;
+        uint256 protocolFee = (totalPaid * PROTOCOL_FEE_BPS) / BPS_DENOMINATOR;
         uint256 primaryAmount = totalPaid - protocolFee;
         _consumedIntent[msg.sender][request.intentId] = true;
 
@@ -112,6 +107,8 @@ contract NexMintController is Ownable, Pausable, ReentrancyGuard {
                 terms.royaltyReceiver,
                 terms.royaltyBps
             );
+        (bytes32 activeTermsHashAfter,) = launchRegistry.activeTerms(request.edition);
+        if (activeTermsHashAfter != request.termsVersionHash) revert TermsChangedDuringMint();
 
         emit PrimaryMintSettled(
             msg.sender,
@@ -124,8 +121,8 @@ contract NexMintController is Ownable, Pausable, ReentrancyGuard {
             totalPaid,
             protocolFee
         );
-        if (request.referrer != address(0)) {
-            emit MintReferralAttributed(request.intentId, msg.sender, request.edition, request.referrer);
+        if (request.referralHint != address(0)) {
+            emit ReferralHintSubmitted(request.intentId, msg.sender, request.edition, request.referralHint);
         }
     }
 
