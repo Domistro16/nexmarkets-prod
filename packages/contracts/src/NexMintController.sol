@@ -54,9 +54,10 @@ contract NexMintController is Ownable, Pausable, ReentrancyGuard {
         uint256 firstTokenId,
         uint256 quantity,
         uint256 totalPaid,
-        uint256 protocolFee,
-        address primaryRecipient,
-        address referrer
+        uint256 protocolFee
+    );
+    event MintReferralAttributed(
+        bytes32 indexed intentId, address indexed payer, address indexed edition, address referrer
     );
 
     constructor(
@@ -66,7 +67,10 @@ contract NexMintController is Ownable, Pausable, ReentrancyGuard {
         address protocolFeeRecipient_,
         uint16 protocolFeeBps_
     ) Ownable(initialOwner) {
-        if (address(launchRegistry_) == address(0) || address(usdg_) == address(0) || protocolFeeRecipient_ == address(0)) {
+        if (
+            address(launchRegistry_) == address(0) || address(usdg_) == address(0)
+                || protocolFeeRecipient_ == address(0)
+        ) {
             revert AddressRequired();
         }
         if (address(launchRegistry_).code.length == 0 || address(usdg_).code.length == 0) revert AddressRequired();
@@ -99,14 +103,15 @@ contract NexMintController is Ownable, Pausable, ReentrancyGuard {
 
         if (protocolFee != 0) usdg.safeTransferFrom(msg.sender, protocolFeeRecipient, protocolFee);
         usdg.safeTransferFrom(msg.sender, terms.primaryRecipient, primaryAmount);
-        firstTokenId = NexPassEdition(request.edition).mint(
-            request.recipient,
-            request.quantity,
-            request.termsVersionHash,
-            terms.activeSupply,
-            terms.royaltyReceiver,
-            terms.royaltyBps
-        );
+        firstTokenId = NexPassEdition(request.edition)
+            .mint(
+                request.recipient,
+                request.quantity,
+                request.termsVersionHash,
+                terms.activeSupply,
+                terms.royaltyReceiver,
+                terms.royaltyBps
+            );
 
         emit PrimaryMintSettled(
             msg.sender,
@@ -117,10 +122,11 @@ contract NexMintController is Ownable, Pausable, ReentrancyGuard {
             firstTokenId,
             request.quantity,
             totalPaid,
-            protocolFee,
-            terms.primaryRecipient,
-            request.referrer
+            protocolFee
         );
+        if (request.referrer != address(0)) {
+            emit MintReferralAttributed(request.intentId, msg.sender, request.edition, request.referrer);
+        }
     }
 
     function isIntentConsumed(address payer, bytes32 intentId) external view returns (bool) {

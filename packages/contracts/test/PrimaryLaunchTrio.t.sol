@@ -80,7 +80,11 @@ contract PrimaryLaunchTrioTest is Test {
         });
     }
 
-    function _terms(uint256 supply, uint64 previewStartsAt, uint64 mintStartsAt) internal pure returns (NexLaunchRegistry.Terms memory) {
+    function _terms(uint256 supply, uint64 previewStartsAt, uint64 mintStartsAt)
+        internal
+        pure
+        returns (NexLaunchRegistry.Terms memory)
+    {
         return NexLaunchRegistry.Terms({
             activeSupply: supply,
             pricePerPass: PRICE,
@@ -104,15 +108,14 @@ contract PrimaryLaunchTrioTest is Test {
     }
 
     function testFactoryWiresEditionAndRegistry() public view {
-        (bytes32 editionId, uint32 cap, address publisher, bytes32 activeHash, uint64 nextVersion, bool registered, bool disabled) =
-            registry.editionInfo(address(edition));
-        assertEq(editionId, EDITION_ID);
-        assertEq(cap, ABSOLUTE_CAP);
-        assertEq(publisher, PUBLISHER);
-        assertEq(activeHash, bytes32(0));
-        assertEq(nextVersion, 0);
-        assertTrue(registered);
-        assertFalse(disabled);
+        NexLaunchRegistry.EditionRecord memory record = registry.editionInfo(address(edition));
+        assertEq(record.editionId, EDITION_ID);
+        assertEq(record.absoluteSupplyCap, ABSOLUTE_CAP);
+        assertEq(record.publisher, PUBLISHER);
+        assertEq(record.activeTermsVersionHash, bytes32(0));
+        assertEq(record.nextTermsVersion, 0);
+        assertTrue(record.registered);
+        assertFalse(record.disabled);
         assertEq(registry.factory(), address(factory));
         assertEq(registry.settlementToken(), address(usdg));
     }
@@ -164,9 +167,10 @@ contract PrimaryLaunchTrioTest is Test {
         controller.mint(request);
 
         request.intentId = keccak256("bob:intent:1");
+        request.quantity = 1;
         vm.prank(BOB);
         controller.mint(request);
-        assertEq(edition.totalMinted(), 4);
+        assertEq(edition.totalMinted(), 3);
     }
 
     function testOldTermsCannotMintAfterMaterialRevision() public {

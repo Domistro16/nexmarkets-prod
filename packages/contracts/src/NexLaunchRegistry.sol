@@ -68,28 +68,11 @@ contract NexLaunchRegistry is Ownable, Pausable {
 
     event FactorySet(address indexed factory);
     event EditionRegistered(
-        address indexed edition,
-        bytes32 indexed editionId,
-        address indexed publisher,
-        uint32 absoluteSupplyCap
+        address indexed edition, bytes32 indexed editionId, address indexed publisher, uint32 absoluteSupplyCap
     );
     event EditionPublisherSet(address indexed edition, address indexed publisher);
     event EditionDisabledSet(address indexed edition, bool disabled);
-    event TermsPublished(
-        address indexed edition,
-        bytes32 indexed termsVersionHash,
-        uint64 indexed version,
-        uint256 activeSupply,
-        uint256 pricePerPass,
-        uint64 previewStartsAt,
-        uint64 mintStartsAt,
-        uint64 mintEndsAt,
-        address primaryRecipient,
-        address royaltyReceiver,
-        uint96 royaltyBps,
-        bytes32 advantagesHash,
-        bytes32 referralTermsHash
-    );
+    event TermsPublished(address indexed edition, bytes32 indexed termsVersionHash, uint64 indexed version);
 
     modifier onlyFactory() {
         if (msg.sender != factory) revert NotFactory();
@@ -154,10 +137,12 @@ contract NexLaunchRegistry is Ownable, Pausable {
     }
 
     /// @notice Publish a new immutable Terms version and restart Preview.
-    function publishTerms(
-        address edition,
-        Terms calldata terms
-    ) external whenNotPaused onlyEditionPublisher(edition) returns (bytes32 termsVersionHash) {
+    function publishTerms(address edition, Terms calldata terms)
+        external
+        whenNotPaused
+        onlyEditionPublisher(edition)
+        returns (bytes32 termsVersionHash)
+    {
         EditionRecord storage record = _editions[edition];
         _validateTerms(edition, record, terms);
 
@@ -170,47 +155,16 @@ contract NexLaunchRegistry is Ownable, Pausable {
         record.nextTermsVersion = version;
         record.activeTermsVersionHash = termsVersionHash;
 
-        emit TermsPublished(
-            edition,
-            termsVersionHash,
-            version,
-            terms.activeSupply,
-            terms.pricePerPass,
-            terms.previewStartsAt,
-            terms.mintStartsAt,
-            terms.mintEndsAt,
-            terms.primaryRecipient,
-            terms.royaltyReceiver,
-            terms.royaltyBps,
-            terms.advantagesHash,
-            terms.referralTermsHash
-        );
+        emit TermsPublished(edition, termsVersionHash, version);
     }
 
-    function hashTerms(
-        address edition,
-        bytes32 editionId,
-        uint64 version,
-        Terms calldata terms
-    ) public pure returns (bytes32) {
-        return keccak256(
-            abi.encode(
-                TERMS_DOMAIN,
-                edition,
-                editionId,
-                version,
-                terms.activeSupply,
-                terms.pricePerPass,
-                terms.previewStartsAt,
-                terms.mintStartsAt,
-                terms.mintEndsAt,
-                terms.primaryRecipient,
-                terms.royaltyReceiver,
-                terms.royaltyBps,
-                terms.advantagesHash,
-                terms.referralTermsHash
-            )
-        );
+    function hashTerms(address edition, bytes32 editionId, uint64 version, Terms calldata terms)
+        public
+        pure
+        returns (bytes32)
+    {
+        bytes32 encodedTermsHash = keccak256(abi.encode(terms));
+        return keccak256(abi.encode(TERMS_DOMAIN, edition, editionId, version, encodedTermsHash));
     }
 
     function editionInfo(address edition) external view returns (EditionRecord memory) {
@@ -241,7 +195,8 @@ contract NexLaunchRegistry is Ownable, Pausable {
         EditionRecord storage record = _editions[edition];
         if (!record.registered || record.disabled || record.activeTermsVersionHash != termsVersionHash) return false;
         Terms storage terms = _termsByHash[edition][termsVersionHash];
-        return terms.activeSupply != 0 && block.timestamp >= terms.previewStartsAt && block.timestamp < terms.mintStartsAt;
+        return
+            terms.activeSupply != 0 && block.timestamp >= terms.previewStartsAt && block.timestamp < terms.mintStartsAt;
     }
 
     function isMintOpen(address edition, bytes32 termsVersionHash) external view returns (bool) {
@@ -269,7 +224,10 @@ contract NexLaunchRegistry is Ownable, Pausable {
         if (terms.primaryRecipient == address(0)) revert AddressRequired();
         if (terms.royaltyReceiver == address(0) || terms.royaltyBps > MAX_ROYALTY_BPS) revert InvalidRoyalty();
         if (terms.previewStartsAt < block.timestamp) revert PreviewMustRestart();
-        if (terms.mintStartsAt < terms.previewStartsAt || terms.mintStartsAt - terms.previewStartsAt < MIN_PREVIEW_DURATION) {
+        if (
+            terms.mintStartsAt < terms.previewStartsAt
+                || terms.mintStartsAt - terms.previewStartsAt < MIN_PREVIEW_DURATION
+        ) {
             revert InvalidPreviewWindow();
         }
         if (terms.mintEndsAt <= terms.mintStartsAt) revert InvalidMintWindow();

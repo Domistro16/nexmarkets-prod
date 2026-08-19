@@ -39,12 +39,16 @@ contract NexPassFactory is Ownable {
         NexLaunchRegistry launchRegistry_,
         NexMintController mintController_
     ) Ownable(initialOwner) {
-        if (initialOwner == address(0) || protocolAdmin_ == address(0)) revert AddressRequired();
+        if (initialOwner == address(0) || protocolAdmin_ == address(0)) {
+            revert AddressRequired();
+        }
         if (address(launchRegistry_) == address(0) || address(mintController_) == address(0)) revert AddressRequired();
         if (address(launchRegistry_).code.length == 0 || address(mintController_).code.length == 0) {
             revert AddressRequired();
         }
-        if (initialOwner != protocolAdmin_ || launchRegistry_.owner() != protocolAdmin_) revert FactoryWiringMismatch();
+        if (initialOwner != protocolAdmin_ || launchRegistry_.owner() != protocolAdmin_) {
+            revert FactoryWiringMismatch();
+        }
         if (address(mintController_.launchRegistry()) != address(launchRegistry_)) revert FactoryWiringMismatch();
         launchRegistry = launchRegistry_;
         mintController = mintController_;
@@ -52,11 +56,11 @@ contract NexPassFactory is Ownable {
     }
 
     /// @notice Deploy, wire, register, and hand off one permanent Edition.
-    function createEdition(
-        NexPassEdition.EditionConfig calldata config,
-        address publisher,
-        bytes32 salt
-    ) external onlyOwner returns (address editionAddress) {
+    function createEdition(NexPassEdition.EditionConfig calldata config, address publisher, bytes32 salt)
+        external
+        onlyOwner
+        returns (address editionAddress)
+    {
         if (config.initialOwner != protocolAdmin) revert EditionOwnerMismatch();
         if (editionForId[config.editionId] != address(0)) revert EditionAlreadyCreated();
         if (publisher == address(0)) revert AddressRequired();
@@ -74,10 +78,11 @@ contract NexPassFactory is Ownable {
         emit EditionCreated(editionAddress, config.editionId, publisher, salt, protocolAdmin, address(mintController));
     }
 
-    function predictEditionAddress(
-        NexPassEdition.EditionConfig calldata config,
-        bytes32 salt
-    ) external view returns (address predicted) {
+    function predictEditionAddress(NexPassEdition.EditionConfig calldata config, bytes32 salt)
+        external
+        view
+        returns (address predicted)
+    {
         NexPassEdition.EditionConfig memory deployConfig = config;
         deployConfig.initialOwner = address(this);
         bytes memory bytecode = abi.encodePacked(type(NexPassEdition).creationCode, abi.encode(deployConfig));
