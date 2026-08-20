@@ -37,15 +37,16 @@ test('Safe Edition evidence binds predicted address, Protocol Admin and MintCont
 
 test('Postgres Goldsky raw log projects Edition and advances checkpoint', { skip: !process.env.DATABASE_URL }, async (t) => {
   const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
-  // Keep this fixture on an isolated synthetic chain identity. The production
-  // projector intentionally consumes every landed log for a chain; using the
-  // real testnet chain ID here would make this assertion race with the larger
-  // reorg fixture when Node runs DB tests concurrently.
   const suffix = `${Date.now()}${Math.floor(Math.random() * 10000)}`;
-  const chainId = 900000000 + Number(suffix.slice(-6));
+  const chainId = 46630;
   const accountId = `acct_it_${suffix}`; const projectId = `prj_it_${suffix}`; const requestId = `edreq_it_${suffix}`;
   const edition = addr(11); const editionId = hash('d'); const tx = hash('e'); const blockHash = hash('f');
+  const lockClient = await pool.connect();
   try {
+    // The projector intentionally consumes every landed log for a chain. The
+    // two DB-backed projector fixtures therefore serialize their shared
+    // testnet-chain journal while Node runs test files concurrently.
+    await lockClient.query('SELECT pg_advisory_lock($1::bigint)', [46630]);
     await pool.query('INSERT INTO account(id) VALUES($1)', [accountId]);
     await pool.query('INSERT INTO project(id,builder_account_id,slug,name) VALUES($1,$2,$3,$4)', [projectId, accountId, `integration-${suffix}`, 'Integration']);
     await pool.query(`INSERT INTO edition_request(id,project_id,builder_account_id,chain_id,edition_id_hash,request_payload,safe_status) VALUES($1,$2,$3,$4,$5,$6::jsonb,'SAFE_PENDING')`, [requestId, projectId, accountId, chainId, editionId, JSON.stringify({ editionId })]);
@@ -64,6 +65,8 @@ test('Postgres Goldsky raw log projects Edition and advances checkpoint', { skip
     await pool.query('DELETE FROM goldsky_raw_log WHERE chain_id=$1 AND transaction_hash=$2', [chainId, tx]);
     await pool.query('DELETE FROM indexer_event WHERE chain_id=$1 AND tx_hash=$2', [chainId, tx]);
     await pool.query('DELETE FROM outbox_event WHERE business_key=$1', [`${chainId}:${tx}:0`]); await pool.query('DELETE FROM notification WHERE business_key=$1', [`${chainId}:${tx}:0`]); await pool.query('DELETE FROM indexer_checkpoint WHERE chain_id=$1 AND pipeline=$2', [chainId, 'goldsky-turbo']); await pool.query('DELETE FROM edition_request WHERE id=$1', [requestId]); await pool.query('DELETE FROM project WHERE id=$1', [projectId]); await pool.query('DELETE FROM account WHERE id=$1', [accountId]);
+    await lockClient.query('SELECT pg_advisory_unlock($1::bigint)', [46630]);
+    lockClient.release();
     await pool.end();
   }
 });
