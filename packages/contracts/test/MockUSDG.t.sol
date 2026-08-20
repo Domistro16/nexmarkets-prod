@@ -27,7 +27,7 @@ contract MockUSDGTest is Test {
         vm.prank(ALICE);
         token.approve(OWNER, 250_000);
         vm.prank(OWNER);
-        token.transferFrom(ALICE, OWNER, 250_000);
+        assertTrue(token.transferFrom(ALICE, OWNER, 250_000));
         assertEq(token.balanceOf(ALICE), 750_000);
         assertEq(token.balanceOf(OWNER), 250_000);
     }
