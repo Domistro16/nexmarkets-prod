@@ -2,6 +2,11 @@
 
 No Robinhood mainnet deployment is authorized by this implementation PR.
 
+Testnet uses the isolated `MockUSDG` source at
+`packages/contracts/src/MockUSDG.sol` (six decimals, owner-controlled issuance)
+and the same production contract graph. Mainnet always uses the verified
+canonical USDG address; the planner rejects any MockUSDG substitution.
+
 `scripts/plan-v1-deployment.mjs` computes deterministic CREATE2 addresses from pinned Foundry artifacts and the verified immutable factory. It requires a Safe address, at least two distinct owners, threshold 1 or greater, exact fee recipients and a verified settlement token. Threshold 1 is permitted initially only with `RAISE_THRESHOLD_TO_2_PLUS` recorded. For contracts with Solidity immutables, the plan pins the normalized runtime template and immutable byte ranges; the exact observed runtime hash is read back and frozen only after deployment. It never mislabels the zero-placeholder artifact runtime as deployable runtime bytecode.
 
 Deployment order is LaunchRegistry, MintController, PassFactory, AdvantageRegistry, AdvantageInitializer, RoyaltyVault, ListingRegistry, Zone, NexPassAccount and TBAResolver. Before one-time calls, read back every runtime hash and immutable relationship. Then bind Factory, both Advantage initializer sides, Vault/ListingRegistry, Zone and listing authority in the manifest order.
