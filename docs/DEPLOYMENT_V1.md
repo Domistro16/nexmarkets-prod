@@ -76,16 +76,21 @@ remain process-environment/secret-manager inputs and were never committed.
    then execute the six one-time wiring calls only after every verification
    passes.
 8. Run the complete post-deployment verifier, render/deploy the official
-   `robinhood-testnet` Goldsky Turbo pipeline when credentials exist, apply the
-   PostgreSQL migrations, start projector/lifecycle/reconciliation/outbox
-   workers and require a healthy landed-block watermark.
+   `robinhood-testnet` Goldsky Turbo pipeline when an authorized CLI token is
+   available, apply the PostgreSQL migrations, start projector/lifecycle/
+   reconciliation/outbox workers and require a healthy landed-block watermark.
 9. A clearly identified test-only certification Edition was created at
    `0x4171D62F43B4168b07a01C04594455DBc3298437`. Terms were published with a
    real 24-hour Preview; `mintStartsAt` is `2026-08-21T21:42:30Z`. No production
    Genesis/Crier Edition was created.
-10. Goldsky execution is pending credentials and the configured PostgreSQL
-    endpoint was unavailable (`ECONNREFUSED localhost:5432`); those gates do
-    not invalidate the independently verified onchain deployment.
+10. The configured PostgreSQL endpoint is reachable and both migrations verify
+    all 34 required tables. A projector pass, chain-lifecycle pass and
+    reconciliation pass were run against testnet; no Goldsky rows were landed,
+    so reconciliation had zero projections to check. Goldsky config rendering
+    validates 22 events, but the supplied CLI credential was rejected with
+    `EACCES` during login/pipeline apply. The Goldsky pipeline and watermark
+    therefore remain an external gate and the testnet lifecycle is not
+    certified.
 
 The Safe execution tool is testnet-only and validates the frozen plan SHA,
 Safe ownership, CREATE2 init-code hashes, empty predicted addresses and exact

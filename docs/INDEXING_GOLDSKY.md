@@ -25,6 +25,9 @@ finalized-watermark and RPC-head values separate. Readiness therefore does not
 mistake a quiet protocol (few events) for an unhealthy indexer. It is resumable
 and idempotent by `(chain_id,tx_hash,log_index)`.
 
-Goldsky execution still requires a project/API credential and a configured
-Postgres sink secret; those are external release gates. Never commit either
-secret.
+Goldsky execution still requires an authorized project/API credential and a
+configured Postgres sink secret; those are external release gates. In the
+current testnet evidence, the template and 22-event catalog validate locally
+and PostgreSQL is reachable, but the configured CLI credential was rejected by
+Goldsky with `EACCES`, so no pipeline or landed watermark is claimed. Never
+commit either secret.

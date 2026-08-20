@@ -1,6 +1,6 @@
 import { spawnSync } from 'node:child_process';
 const commands=[
-  ['node',['--test']],
+  ['node',['--test','test/*.test.mjs']],
   ['node',['scripts/verify-config.mjs']],
   ['node',['scripts/verify-product-authority.mjs']],
   ['node',['scripts/verify-primitives.mjs','--network','robinhood-mainnet','--offline','--allow-blocked']]

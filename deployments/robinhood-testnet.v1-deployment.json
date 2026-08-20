@@ -81,10 +81,34 @@
     "pricePerPassMockUsdgBaseUnits": 1000000,
     "royaltyBps": 300,
     "advantageConfigCount": 3,
+    "latestChainObservation": {
+      "block": 104658268,
+      "timestamp": 1787269042,
+      "timestampUtc": "2026-08-20T23:37:22.000Z",
+      "previewOpen": true,
+      "mintOpen": false
+    },
     "testOnly": true
   },
-  "goldsky": { "network": "robinhood-testnet", "status": "BLOCKED_BY_GOLDSKY_CREDENTIALS", "apiKeyPresent": false },
-  "postgres": { "status": "BLOCKED_DATABASE_UNAVAILABLE", "migrationAttempt": "ECONNREFUSED localhost:5432" },
+  "goldsky": {
+    "network": "robinhood-testnet",
+    "status": "CONFIG_VALIDATED_PIPELINE_BLOCKED_BY_CLI_AUTHORIZATION",
+    "apiKeyConfigured": true,
+    "configValidation": "PASS_22_EVENTS",
+    "pipelineName": "nexmarkets-robinhood-v1",
+    "pipelineId": null,
+    "authEvidence": "goldsky_cli_login_rejected_and_pipeline_apply_returned_EACCES",
+    "landedBlock": null,
+    "projectorCheckpoint": { "head": 104628987, "latestEventBlock": 0, "landedBlock": 0, "processed": 0 }
+  },
+  "postgres": {
+    "status": "MIGRATED_REACHABLE",
+    "migrations": ["0001_phase0_authority.sql", "0002_nexmarkets_v1.sql"],
+    "requiredTables": 34,
+    "projectorRun": { "status": "PASS", "head": 104628987, "latestEventBlock": 0, "landedBlock": 0, "processed": 0 },
+    "reconciliationRun": { "status": "NO_PROJECTIONS_TO_CHECK", "checkedCount": 0, "discrepancies": 0 },
+    "chainWorkerRun": { "status": "PASS", "head": 104629341, "inspected": 0, "progressed": 0, "pending": 0, "failed": 0 }
+  },
   "lifecycle": { "status": "TESTNET_PREVIEW_ACTIVE", "mintLifecycle": "WAITING_FOR_MINT_START", "unexplainedReconciliationDiscrepancies": null },
   "mainnetCustomDeploymentPerformed": false,
   "recordedAt": "2026-08-20T21:37:30.000Z"

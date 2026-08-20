@@ -55,12 +55,19 @@
     "certificationEdition": "0x4171D62F43B4168b07a01C04594455DBc3298437",
     "termsHash": "0xe357b55e43ce7d7724a3c4fab02814fd0dd590d731247c6e54237f47f2635745",
     "mintStartsAt": "2026-08-21T21:42:30Z",
+    "latestChainObservation": { "block": 104658268, "timestampUtc": "2026-08-20T23:37:22.000Z", "previewOpen": true, "mintOpen": false },
     "reconciliationDiscrepancies": null,
     "blockingReasons": [
-      "GOLDSKY_CREDENTIALS_ABSENT",
-      "DATABASE_UNAVAILABLE",
-      "TESTNET_MINT_WINDOW_NOT_OPEN"
-    ]
+      "GOLDSKY_CLI_AUTHORIZATION_REJECTED_EACCES",
+      "TESTNET_MINT_WINDOW_NOT_OPEN",
+      "LIVE_RECONCILIATION_NOT_CERTIFIED_WITHOUT_GOLDSKY_PROJECTIONS"
+    ],
+    "runtimeEvidence": {
+      "postgres": { "status": "MIGRATED_REACHABLE", "migrations": 2, "requiredTables": 34 },
+      "projector": { "status": "PASS_NO_LANDED_GOLDSKY_ROWS", "chainHead": 104628987, "processed": 0 },
+      "chainWorker": { "status": "PASS_NO_SUBMITTED_JOBS", "chainHead": 104629341 },
+      "reconciliation": { "status": "NO_PROJECTIONS_TO_CHECK", "checkedCount": 0, "discrepancies": 0 }
+    }
   },
   "mainnet": {
     "network": "robinhood-mainnet",
@@ -133,6 +140,7 @@
     "foundry": "71/71",
     "serialFuzzRuns": 5000,
     "nodePostgres": "77/77",
+    "livePostgresIntegration": "12/14 pass; 2 hosted-provider statement-timeout failures during projector fixtures",
     "webTests": "6/6",
     "webBuildRoutes": 10,
     "migrations": "2 migrations / 34 required tables",
@@ -150,15 +158,18 @@
     "provider": "GOLDSKY_TURBO",
     "networks": ["robinhood-mainnet", "robinhood-testnet"],
     "configValidation": "PASS",
-    "pipelineDeployment": "BLOCKED_BY_GOLDSKY_CREDENTIALS",
+    "pipelineDeployment": "BLOCKED_BY_GOLDSKY_CLI_AUTHORIZATION_EACCES",
+    "apiKeyConfigured": true,
+    "authEvidence": "goldsky_cli_login_rejected_and_pipeline_apply_returned_EACCES",
+    "pipelineName": "nexmarkets-robinhood-v1",
     "pipelineId": null,
     "landedBlock": null,
     "projectorCheckpoint": null
   },
   "infrastructure": {
-    "postgres": "BLOCKED_DATABASE_UNAVAILABLE_ECONNREFUSED_LOCALHOST",
-    "api": "LOCAL_TESTS_ONLY",
-    "workers": "NOT_STARTED_WITHOUT_DATABASE",
+    "postgres": "MIGRATED_REACHABLE_34_TABLES",
+    "api": "LOCAL_HEALTHZ_VERIFIED_READYZ_BLOCKED_BY_MISSING_INDEXER_WATERMARK",
+    "workers": "PROJECTOR_CHAIN_WORKER_RECONCILIATION_ONESHOTS_VERIFIED",
     "web": "LOCAL_BUILD_ONLY",
     "objectStorage": "OBJECT_STORAGE_PROVIDER_SELECTION_REQUIRED"
   },
@@ -171,8 +182,8 @@
     "readyForMainnetApproval": false
   },
   "externalDependencies": [
-    "Goldsky API/project and PostgreSQL sink credentials",
-    "Reachable production-equivalent DATABASE_URL",
+    "Goldsky CLI token with project permission (configured key currently rejected with EACCES)",
+    "Goldsky pipeline landing and projector watermark",
     "Testnet Preview/mint window and live lifecycle execution",
     "Approved hosting and object-storage credentials"
   ]
