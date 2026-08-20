@@ -33,7 +33,7 @@ test('Postgres Goldsky raw log projects Edition and advances checkpoint', { skip
     const result = await worker.runOnce(); assert.equal(result.processed, 1);
     const editionRow = await pool.query('SELECT project_id,edition_address,absolute_supply_cap FROM edition WHERE chain_id=$1 AND edition_address=$2', [chainId, edition]);
     assert.equal(editionRow.rows[0].project_id, projectId); assert.equal(editionRow.rows[0].absolute_supply_cap, 10);
-    const checkpoint = await pool.query('SELECT latest_block_number,finalized_block_number FROM indexer_checkpoint WHERE chain_id=$1', [chainId]);
+    const checkpoint = await pool.query('SELECT latest_block_number,finalized_block_number FROM indexer_checkpoint WHERE chain_id=$1 AND pipeline=$2', [chainId, 'goldsky-turbo']);
     assert.equal(Number(checkpoint.rows[0].latest_block_number), 10); assert.equal(Number(checkpoint.rows[0].finalized_block_number), 10);
     t.after(async () => {});
   } finally {

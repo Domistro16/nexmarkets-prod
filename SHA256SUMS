@@ -162,7 +162,7 @@ e0e07ae56ae225d592072843d999fe0d7f48a34fe5776c45e9b41d96a0a8578c  ./test/keccak.
 fae9984973c877d295f6e1db31ce099bbf356710c3b09d8c31445be764285c2a  ./test/outbox.test.mjs
 a688809a3d69c0c27236b08d485baa25bcac8216627dc29ab72d31d70f09a5a3  ./test/reconciliation.test.mjs
 27e616a7254c1ec1c36d41d11abf0759042d59563281e066bcac67a1faa88d27  ./test/referral-media.test.mjs
-eb9dcb3148f2cf162a11a0a9be0b265ec7aacf9e978069712a045362014e52df  ./test/runtime-integration.test.mjs
+bded946a1da2862466831f6385f476f537ca9dfca4db33e4c830f6d01082c91d  ./test/runtime-integration.test.mjs
 f41e2b34bdc2b9ad94908ee418a1b32a56e54fd9c5084e6bfa801f03d4198aff  ./test/schema.test.mjs
 470ddc51826bcb351d9290f16f9634ed11ce31d9b2d7cbf24c33259f62bb2175  ./test/seaport-order.test.mjs
 f3ab49089c06036bca30b050ae794797b311cee8587bc1cf66bbfba30eca6f4c  ./test/transaction-calldata.test.mjs
