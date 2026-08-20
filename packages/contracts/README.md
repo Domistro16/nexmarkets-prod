@@ -36,16 +36,22 @@ creation. No contract in this trio is upgradeable. Production deployment still
 requires the release evidence and Protocol Admin Safe policy recorded in the
 repository.
 
-The next reviewed boundary is `NexListingRegistry` plus the thin
-`NexMarketsZone`. The registry binds each Seaport order to one exact
-Edition/token ID, seller, historical Terms version, USDG price, ERC-2981
-Builder Royalty snapshot, and expiry. The zone only authenticates the verified
-Seaport 1.6 caller and forwards the canonical authorize/validate callbacks; it
-does not fork or redeploy Seaport. Listing state is the one-time authority that
-locks `NexAdvantageRegistry`, and cancellation, fill, expiry, or direct transfer
-cannot leave a stale order usable. The immediately following boundary is
-`NexRoyaltyVault`, which will hold secondary Builder Royalty for 30 days before
-withdrawal.
+The secondary settlement boundary is `NexListingRegistry` plus the thin
+`NexMarketsZone` and `NexRoyaltyVault`. The registry binds each Seaport order
+to one exact Edition/token ID, seller, historical Terms version, USDG price,
+ERC-2981 Builder Royalty snapshot, and expiry. It fixes NexMarkets' secondary
+fee at 1% and requires the signed price to split exactly into protocol fee,
+Vaulted Builder Royalty, and seller proceeds. The buyer pays no surcharge. The
+royalty still enters the Vault when Builder equals seller, then becomes
+withdrawable only after 30 days. The zone authenticates the verified Seaport
+1.6 caller and forwards the canonical pre/post-transfer callbacks; it does not
+fork or redeploy Seaport. Listing state drives the one-time Advantage lock, and
+cancellation, fill, expiry, or direct transfer cannot leave a stale order
+usable.
+
+The next contract boundary is ERC-6551/TBA plus complete Pass lifecycle
+integration, followed by backend/indexer reconciliation and production-facing
+contract integration.
 
 Next contract set after this primary-launch boundary:
 

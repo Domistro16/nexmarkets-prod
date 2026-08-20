@@ -2,6 +2,8 @@
 pragma solidity ^0.8.24;
 
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import {Test} from "forge-std/Test.sol";
 
 import {NexAdvantageRegistry} from "../src/NexAdvantageRegistry.sol";
@@ -11,6 +13,7 @@ import {NexMarketsZone} from "../src/NexMarketsZone.sol";
 import {NexMintController} from "../src/NexMintController.sol";
 import {NexPassEdition} from "../src/NexPassEdition.sol";
 import {NexPassFactory} from "../src/NexPassFactory.sol";
+import {NexRoyaltyVault} from "../src/NexRoyaltyVault.sol";
 import {
     INexSeaportZone,
     SeaportItemType,
@@ -28,7 +31,24 @@ contract ListingMockUSDG is ERC20 {
     }
 }
 
-contract ListingSeaportMock {}
+contract ListingSeaportMock {
+    function fulfill(
+        NexMarketsZone zone,
+        SeaportZoneParameters calldata parameters,
+        address buyer,
+        bool omitRoyaltyTransfer
+    ) external {
+        zone.authorizeOrder(parameters);
+        IERC721(parameters.offer[0].token).transferFrom(parameters.offerer, buyer, parameters.offer[0].identifier);
+
+        for (uint256 i; i < parameters.consideration.length; ++i) {
+            if (omitRoyaltyTransfer && parameters.consideration.length == 3 && i == 1) continue;
+            SeaportReceivedItem calldata item = parameters.consideration[i];
+            require(IERC20(item.token).transferFrom(buyer, item.recipient, item.amount), "USDG transfer failed");
+        }
+        zone.validateOrder(parameters);
+    }
+}
 
 contract ListingAdvantageInitializerMock {
     NexAdvantageRegistry public immutable advantageRegistry;
@@ -74,6 +94,7 @@ contract NexListingRegistryTest is Test {
     NexPassFactory internal factory;
     NexPassEdition internal edition;
     NexAdvantageRegistry internal advantageRegistry;
+    NexRoyaltyVault internal royaltyVault;
     NexListingRegistry internal listingRegistry;
     NexMarketsZone internal zone;
     ListingAdvantageInitializerMock internal initializer;
@@ -82,6 +103,7 @@ contract NexListingRegistryTest is Test {
     address internal constant PUBLISHER = address(0xBEEF);
     address internal constant BUILDER = address(0xCAFE);
     address internal constant FEE_RECIPIENT = address(0xFEE);
+    address internal constant SECONDARY_FEE_RECIPIENT = address(0x5EC);
     address internal constant ALICE = address(0xA1);
     address internal constant BOB = address(0xB2);
     bytes32 internal constant EDITION_ID = keccak256("nexlisting:edition");
@@ -93,8 +115,11 @@ contract NexListingRegistryTest is Test {
 
     bytes32 internal advantagesHash;
     bytes32 internal termsHash;
+    bytes32 internal zeroRoyaltyTermsHash;
+    bytes32 internal sellerRoyaltyTermsHash;
     uint64 internal advantageStartsAt;
     uint64 internal advantageEndsAt;
+    uint256 internal listingNonce;
 
     function setUp() public {
         usdg = new ListingMockUSDG();
@@ -155,11 +180,46 @@ contract NexListingRegistryTest is Test {
         vm.prank(ALICE);
         mintController.mint(request);
 
+        vm.warp(block.timestamp + 1);
+        uint64 zeroRoyaltyPreview = uint64(block.timestamp);
+        uint64 zeroRoyaltyMintStart = zeroRoyaltyPreview + 1 days;
+        terms.activeSupply = 3;
+        terms.previewStartsAt = zeroRoyaltyPreview;
+        terms.mintStartsAt = zeroRoyaltyMintStart;
+        terms.mintEndsAt = zeroRoyaltyMintStart + 2 days;
+        terms.royaltyBps = 0;
+        vm.prank(PUBLISHER);
+        zeroRoyaltyTermsHash = launchRegistry.publishTerms(address(edition), terms);
+        vm.warp(zeroRoyaltyMintStart);
+        _mintOne(zeroRoyaltyTermsHash, keccak256("nexlisting:mint:zero-royalty"));
+
+        vm.warp(block.timestamp + 1);
+        uint64 sellerRoyaltyPreview = uint64(block.timestamp);
+        uint64 sellerRoyaltyMintStart = sellerRoyaltyPreview + 1 days;
+        terms.activeSupply = 4;
+        terms.previewStartsAt = sellerRoyaltyPreview;
+        terms.mintStartsAt = sellerRoyaltyMintStart;
+        terms.mintEndsAt = sellerRoyaltyMintStart + 2 days;
+        terms.royaltyReceiver = ALICE;
+        terms.royaltyBps = 500;
+        vm.prank(PUBLISHER);
+        sellerRoyaltyTermsHash = launchRegistry.publishTerms(address(edition), terms);
+        vm.warp(sellerRoyaltyMintStart);
+        _mintOne(sellerRoyaltyTermsHash, keccak256("nexlisting:mint:seller-royalty"));
+
         advantageRegistry = new NexAdvantageRegistry(OWNER, launchRegistry);
+        royaltyVault = new NexRoyaltyVault(OWNER, usdg);
         listingRegistry = new NexListingRegistry(
-            OWNER, launchRegistry, INexAdvantageListingController(address(advantageRegistry)), address(seaport)
+            OWNER,
+            launchRegistry,
+            INexAdvantageListingController(address(advantageRegistry)),
+            royaltyVault,
+            SECONDARY_FEE_RECIPIENT,
+            address(seaport)
         );
         zone = new NexMarketsZone(OWNER, listingRegistry, address(seaport));
+        vm.prank(OWNER);
+        royaltyVault.setListingRegistry(address(listingRegistry));
         vm.prank(OWNER);
         listingRegistry.setZone(address(zone));
 
@@ -169,6 +229,27 @@ contract NexListingRegistryTest is Test {
         vm.prank(OWNER);
         advantageRegistry.setListingAuthority(address(listingRegistry));
         initializer.initializePass(address(edition), 1, termsHash, advantagesHash, configs);
+        initializer.initializePass(address(edition), 3, zeroRoyaltyTermsHash, advantagesHash, configs);
+        initializer.initializePass(address(edition), 4, sellerRoyaltyTermsHash, advantagesHash, configs);
+
+        usdg.mint(BOB, 20 * PRICE);
+        vm.prank(ALICE);
+        edition.setApprovalForAll(address(seaport), true);
+        vm.prank(BOB);
+        usdg.approve(address(seaport), type(uint256).max);
+    }
+
+    function _mintOne(bytes32 mintTermsHash, bytes32 intentId) internal {
+        NexMintController.MintRequest memory request = NexMintController.MintRequest({
+            edition: address(edition),
+            termsVersionHash: mintTermsHash,
+            recipient: ALICE,
+            quantity: 1,
+            intentId: intentId,
+            referralHint: address(0)
+        });
+        vm.prank(ALICE);
+        mintController.mint(request);
     }
 
     function _advantageConfigs() internal view returns (NexAdvantageRegistry.AdvantageConfig[] memory configs) {
@@ -184,11 +265,19 @@ contract NexListingRegistryTest is Test {
     }
 
     function _request(bytes32 orderHash) internal view returns (NexListingRegistry.ListingRequest memory request) {
+        return _requestFor(orderHash, 1, termsHash);
+    }
+
+    function _requestFor(bytes32 orderHash, uint256 tokenId, bytes32 tokenTermsHash)
+        internal
+        view
+        returns (NexListingRegistry.ListingRequest memory request)
+    {
         request = NexListingRegistry.ListingRequest({
             orderHash: orderHash,
             edition: address(edition),
-            tokenId: 1,
-            termsVersionHash: termsHash,
+            tokenId: tokenId,
+            termsVersionHash: tokenTermsHash,
             usdGPrice: 2 * PRICE,
             startTime: uint64(block.timestamp),
             expiry: uint64(block.timestamp + 7 days)
@@ -197,7 +286,9 @@ contract NexListingRegistryTest is Test {
 
     function _zoneParameters(bytes32 orderHash) internal view returns (SeaportZoneParameters memory parameters) {
         NexListingRegistry.Listing memory listing = listingRegistry.listingInfo(orderHash);
+        uint256 protocolFee = listing.usdGPrice / 100;
         uint256 royaltyAmount = listing.usdGPrice * listing.royaltyBps / 10_000;
+        uint256 sellerAmount = listing.usdGPrice - protocolFee - royaltyAmount;
         parameters.orderHash = orderHash;
         parameters.fulfiller = BOB;
         parameters.offerer = listing.seller;
@@ -205,21 +296,38 @@ contract NexListingRegistryTest is Test {
         parameters.offer[0] = SeaportSpentItem({
             itemType: SeaportItemType.ERC721, token: listing.edition, identifier: listing.tokenId, amount: 1
         });
-        parameters.consideration = new SeaportReceivedItem[](2);
+        parameters.consideration = new SeaportReceivedItem[](royaltyAmount == 0 ? 2 : 3);
         parameters.consideration[0] = SeaportReceivedItem({
             itemType: SeaportItemType.ERC20,
             token: address(usdg),
             identifier: 0,
-            amount: listing.usdGPrice - royaltyAmount,
-            recipient: payable(listing.seller)
+            amount: protocolFee,
+            recipient: payable(SECONDARY_FEE_RECIPIENT)
         });
-        parameters.consideration[1] = SeaportReceivedItem({
-            itemType: SeaportItemType.ERC20,
-            token: address(usdg),
-            identifier: 0,
-            amount: royaltyAmount,
-            recipient: payable(listing.royaltyReceiver)
-        });
+        if (royaltyAmount == 0) {
+            parameters.consideration[1] = SeaportReceivedItem({
+                itemType: SeaportItemType.ERC20,
+                token: address(usdg),
+                identifier: 0,
+                amount: sellerAmount,
+                recipient: payable(listing.seller)
+            });
+        } else {
+            parameters.consideration[1] = SeaportReceivedItem({
+                itemType: SeaportItemType.ERC20,
+                token: address(usdg),
+                identifier: 0,
+                amount: royaltyAmount,
+                recipient: payable(address(royaltyVault))
+            });
+            parameters.consideration[2] = SeaportReceivedItem({
+                itemType: SeaportItemType.ERC20,
+                token: address(usdg),
+                identifier: 0,
+                amount: sellerAmount,
+                recipient: payable(listing.seller)
+            });
+        }
         parameters.orderHashes = new bytes32[](1);
         parameters.orderHashes[0] = orderHash;
         parameters.startTime = listing.startTime;
@@ -228,9 +336,17 @@ contract NexListingRegistryTest is Test {
     }
 
     function _create() internal returns (bytes32 orderHash) {
-        orderHash = keccak256(abi.encode("nexlisting:order", block.timestamp, edition.totalMinted()));
+        return _createFor(1, termsHash);
+    }
+
+    function _createFor(uint256 tokenId, bytes32 tokenTermsHash) internal returns (bytes32 orderHash) {
+        orderHash = keccak256(abi.encode("nexlisting:order", tokenId, ++listingNonce));
         vm.prank(ALICE);
-        listingRegistry.createListing(_request(orderHash));
+        listingRegistry.createListing(_requestFor(orderHash, tokenId, tokenTermsHash));
+    }
+
+    function _fulfill(bytes32 orderHash, bool omitRoyaltyTransfer) internal {
+        seaport.fulfill(zone, _zoneParameters(orderHash), BOB, omitRoyaltyTransfer);
     }
 
     function testCreateBindsExactPassTermsPriceRoyaltyAndZoneHash() public {
@@ -253,6 +369,19 @@ contract NexListingRegistryTest is Test {
         assertTrue(listingRegistry.isListingActive(orderHash));
         assertEq(listingRegistry.activeListingFor(address(edition), 1), orderHash);
         assertTrue(advantageRegistry.isListed(address(edition), 1));
+        assertEq(listingRegistry.SECONDARY_PROTOCOL_FEE_BPS(), 100);
+        assertEq(listingRegistry.protocolFeeRecipient(), SECONDARY_FEE_RECIPIENT);
+        assertEq(address(listingRegistry.royaltyVault()), address(royaltyVault));
+        assertEq(royaltyVault.listingRegistry(), address(listingRegistry));
+    }
+
+    function testSecondaryFeeCannotRoundToZero() public {
+        bytes32 orderHash = keccak256("nexlisting:tiny-price");
+        NexListingRegistry.ListingRequest memory request = _request(orderHash);
+        request.usdGPrice = 99;
+        vm.prank(ALICE);
+        vm.expectRevert(NexListingRegistry.InvalidSecondaryFee.selector);
+        listingRegistry.createListing(request);
     }
 
     function testZoneAuthorizesExactOrderAndMarksFilledAfterOwnershipChanges() public {
@@ -262,16 +391,97 @@ contract NexListingRegistryTest is Test {
         vm.prank(address(seaport));
         assertEq(zone.authorizeOrder(parameters), zone.authorizeOrder.selector);
 
-        vm.prank(ALICE);
-        edition.transferFrom(ALICE, BOB, 1);
-        vm.prank(address(seaport));
-        assertEq(zone.validateOrder(parameters), zone.validateOrder.selector);
+        _fulfill(orderHash, false);
 
         NexListingRegistry.Listing memory listing = listingRegistry.listingInfo(orderHash);
         assertEq(uint256(listing.status), uint256(NexListingRegistry.ListingStatus.Filled));
         assertEq(listingRegistry.activeListingFor(address(edition), 1), bytes32(0));
         assertFalse(listingRegistry.isListingActive(orderHash));
         assertFalse(advantageRegistry.isListed(address(edition), 1));
+    }
+
+    function testSecondarySettlementChargesExactOnePercentAndVaultsFivePercent() public {
+        bytes32 orderHash = _create();
+        uint256 buyerBefore = usdg.balanceOf(BOB);
+        uint256 sellerBefore = usdg.balanceOf(ALICE);
+        uint256 protocolBefore = usdg.balanceOf(SECONDARY_FEE_RECIPIENT);
+        uint256 vaultBefore = usdg.balanceOf(address(royaltyVault));
+        uint256 settledAt = block.timestamp;
+
+        _fulfill(orderHash, false);
+
+        uint256 salePrice = 2 * PRICE;
+        uint256 protocolFee = salePrice / 100;
+        uint256 royaltyAmount = salePrice * 5 / 100;
+        assertEq(buyerBefore - usdg.balanceOf(BOB), salePrice);
+        assertEq(usdg.balanceOf(SECONDARY_FEE_RECIPIENT) - protocolBefore, protocolFee);
+        assertEq(usdg.balanceOf(address(royaltyVault)) - vaultBefore, royaltyAmount);
+        assertEq(usdg.balanceOf(ALICE) - sellerBefore, salePrice - protocolFee - royaltyAmount);
+        assertEq(edition.ownerOf(1), BOB);
+
+        NexRoyaltyVault.RoyaltyClaim memory claim = royaltyVault.claimInfo(orderHash);
+        assertEq(claim.edition, address(edition));
+        assertEq(claim.tokenId, 1);
+        assertEq(claim.builder, BUILDER);
+        assertEq(claim.amount, royaltyAmount);
+        assertEq(claim.releaseAt, settledAt + 30 days);
+        assertFalse(claim.withdrawn);
+    }
+
+    function testZeroRoyaltyStillChargesOnePercentWithoutVaultClaim() public {
+        bytes32 orderHash = _createFor(3, zeroRoyaltyTermsHash);
+        uint256 buyerBefore = usdg.balanceOf(BOB);
+        uint256 sellerBefore = usdg.balanceOf(ALICE);
+        uint256 protocolBefore = usdg.balanceOf(SECONDARY_FEE_RECIPIENT);
+        uint256 vaultBefore = usdg.balanceOf(address(royaltyVault));
+
+        _fulfill(orderHash, false);
+
+        uint256 salePrice = 2 * PRICE;
+        uint256 protocolFee = salePrice / 100;
+        assertEq(buyerBefore - usdg.balanceOf(BOB), salePrice);
+        assertEq(usdg.balanceOf(SECONDARY_FEE_RECIPIENT) - protocolBefore, protocolFee);
+        assertEq(usdg.balanceOf(ALICE) - sellerBefore, salePrice - protocolFee);
+        assertEq(usdg.balanceOf(address(royaltyVault)), vaultBefore);
+        assertEq(royaltyVault.claimInfo(orderHash).amount, 0);
+    }
+
+    function testBuilderEqualSellerStillRoutesRoyaltyThroughVault() public {
+        bytes32 orderHash = _createFor(4, sellerRoyaltyTermsHash);
+        uint256 sellerBefore = usdg.balanceOf(ALICE);
+        uint256 vaultBefore = usdg.balanceOf(address(royaltyVault));
+
+        _fulfill(orderHash, false);
+
+        uint256 salePrice = 2 * PRICE;
+        uint256 protocolFee = salePrice / 100;
+        uint256 royaltyAmount = salePrice * 5 / 100;
+        assertEq(usdg.balanceOf(ALICE) - sellerBefore, salePrice - protocolFee - royaltyAmount);
+        assertEq(usdg.balanceOf(address(royaltyVault)) - vaultBefore, royaltyAmount);
+        NexRoyaltyVault.RoyaltyClaim memory claim = royaltyVault.claimInfo(orderHash);
+        assertEq(claim.builder, ALICE);
+        assertEq(claim.amount, royaltyAmount);
+        assertFalse(claim.withdrawn);
+    }
+
+    function testRoyaltyRecordingFailureRollsBackWholeSettlement() public {
+        bytes32 orderHash = _create();
+        uint256 buyerBefore = usdg.balanceOf(BOB);
+        uint256 sellerBefore = usdg.balanceOf(ALICE);
+        uint256 protocolBefore = usdg.balanceOf(SECONDARY_FEE_RECIPIENT);
+        SeaportZoneParameters memory parameters = _zoneParameters(orderHash);
+
+        vm.expectRevert(NexRoyaltyVault.InsufficientBacking.selector);
+        seaport.fulfill(zone, parameters, BOB, true);
+
+        assertEq(edition.ownerOf(1), ALICE);
+        assertEq(usdg.balanceOf(BOB), buyerBefore);
+        assertEq(usdg.balanceOf(ALICE), sellerBefore);
+        assertEq(usdg.balanceOf(SECONDARY_FEE_RECIPIENT), protocolBefore);
+        assertEq(usdg.balanceOf(address(royaltyVault)), 0);
+        assertEq(royaltyVault.claimInfo(orderHash).amount, 0);
+        assertTrue(listingRegistry.isListingActive(orderHash));
+        assertTrue(advantageRegistry.isListed(address(edition), 1));
     }
 
     function testZoneRejectsWrongPassPriceAndZoneHash() public {
@@ -306,6 +516,7 @@ contract NexListingRegistryTest is Test {
         NexListingRegistry.Listing memory listing = listingRegistry.listingInfo(orderHash);
         assertEq(uint256(listing.status), uint256(NexListingRegistry.ListingStatus.Cancelled));
         assertFalse(advantageRegistry.isListed(address(edition), 1));
+        assertEq(royaltyVault.claimInfo(orderHash).amount, 0);
     }
 
     function testDirectTransferBecomesStaleAndPermissionlessSyncReleasesLock() public {
@@ -318,6 +529,7 @@ contract NexListingRegistryTest is Test {
         NexListingRegistry.Listing memory listing = listingRegistry.listingInfo(orderHash);
         assertEq(uint256(listing.status), uint256(NexListingRegistry.ListingStatus.Stale));
         assertFalse(advantageRegistry.isListed(address(edition), 1));
+        assertEq(royaltyVault.claimInfo(orderHash).amount, 0);
     }
 
     function testExpiryBecomesInactiveAndSyncReleasesLock() public {
@@ -330,6 +542,7 @@ contract NexListingRegistryTest is Test {
         NexListingRegistry.Listing memory listing = listingRegistry.listingInfo(orderHash);
         assertEq(uint256(listing.status), uint256(NexListingRegistry.ListingStatus.Expired));
         assertFalse(advantageRegistry.isListed(address(edition), 1));
+        assertEq(royaltyVault.claimInfo(orderHash).amount, 0);
     }
 
     function testZoneRejectsExpiredOrTransferredOrderBeforeSync() public {
@@ -369,8 +582,14 @@ contract NexListingRegistryTest is Test {
         vm.expectRevert(NexMarketsZone.NotSeaport.selector);
         zone.authorizeOrder(parameters);
 
+        NexRoyaltyVault freshVault = new NexRoyaltyVault(OWNER, usdg);
         NexListingRegistry fresh = new NexListingRegistry(
-            OWNER, launchRegistry, INexAdvantageListingController(address(advantageRegistry)), address(seaport)
+            OWNER,
+            launchRegistry,
+            INexAdvantageListingController(address(advantageRegistry)),
+            freshVault,
+            SECONDARY_FEE_RECIPIENT,
+            address(seaport)
         );
         MiswiredListingZone wrongZone = new MiswiredListingZone();
         vm.prank(OWNER);

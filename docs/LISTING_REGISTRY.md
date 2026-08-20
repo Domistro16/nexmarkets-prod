@@ -1,9 +1,10 @@
-# NexListingRegistry + NexMarketsZone boundary
+# NexListingRegistry + NexMarketsZone + NexRoyaltyVault boundary
 
 `NexListingRegistry` is the canonical NexMarkets state machine for a secondary
 listing of one exact `NexPassEdition` serial. `NexMarketsZone` is deliberately a
-thin adapter for the already verified Robinhood Seaport 1.6 deployment. Neither
-contract deploys, upgrades, or forks Seaport.
+thin adapter for the already verified Robinhood Seaport 1.6 deployment.
+`NexRoyaltyVault` is the order-backed 30-day Builder Royalty ledger. None of
+these contracts deploys, upgrades, or forks Seaport.
 
 ## What a listing commits
 
@@ -24,6 +25,13 @@ Seaport order must reproduce the stored offer, USDG consideration, seller,
 timestamps, and `zoneHash`. ERC-721 orders are exact-quantity orders; extra or
 incorrect consideration items fail closed.
 
+Secondary economics are fixed in code. For a signed sale price `P`, the buyer
+pays exactly `P`: 1% goes to the NexMarkets fee recipient, the token's
+snapshotted Builder Royalty goes to `NexRoyaltyVault`, and the seller receives
+the remainder. The royalty leg remains separate even when the Builder is also
+the seller. A zero-royalty Pass still pays the fixed 1% protocol fee and creates
+no Vault claim.
+
 ## Seaport callback boundary
 
 `NexMarketsZone` accepts `authorizeOrder` and `validateOrder` only from the
@@ -33,9 +41,24 @@ one-time wired zone, so an arbitrary contract cannot drive listing state.
 
 Before authorization, the registry requires the listing to be active, inside
 its time window, still owned by the original seller, and structurally equal to
-the stored order. After Seaport has transferred the Pass, validation requires a
-nonzero owner different from the seller, then marks the listing filled and
-releases the Advantage lock.
+the stored order. The exact consideration is protocol fee, Vault royalty when
+nonzero, and seller proceeds; the three components sum to the signed price.
+After Seaport has transferred the Pass and USDG, validation requires a nonzero
+owner different from the seller. It then records the royalty claim, marks the
+listing filled, and releases the Advantage lock. Any failure reverts the whole
+Seaport fulfillment, including its NFT and USDG transfers.
+
+## Thirty-day royalty hold
+
+Only the permanently bound `NexListingRegistry` may record a claim. Each
+nonzero claim stores the Seaport order hash, Edition, token ID, Builder, amount,
+and `releaseAt = settlement timestamp + 30 days`. The order hash may be
+recorded only once, and the Vault refuses to create liabilities beyond its
+actual USDG balance.
+
+Only the immutable Builder recipient may withdraw. Withdrawal before
+`releaseAt` and a second withdrawal both fail. The Vault exposes no admin path
+that can redirect or accelerate an outstanding Builder claim.
 
 ## Stale state and Advantage locking
 
@@ -55,13 +78,16 @@ external Seaport indexer.
 
 ## One-time wiring
 
-The Protocol Admin binds the registry to the immutable LaunchRegistry,
-AdvantageRegistry, and verified Seaport address at construction. It then binds
-`NexMarketsZone` once. Before consuming that irreversible slot, the registry
-checks the zone exposes this registry, the same Seaport address, and the same
-Protocol Admin owner. `NexAdvantageRegistry` independently validates that the
-listing authority points back to it and has the expected owner.
+The Protocol Admin deploys the Vault first, then binds the registry to the
+immutable LaunchRegistry, AdvantageRegistry, Vault, fixed fee recipient, and
+verified Seaport address at construction. The Vault permanently binds that
+registry only after checking the registry points back to it and has the same
+owner. The registry then binds `NexMarketsZone` once. Before consuming that
+irreversible slot, the registry checks the zone exposes this registry, the same
+Seaport address, and the same Protocol Admin owner. `NexAdvantageRegistry`
+independently validates that the listing authority points back to it and has
+the expected owner.
 
 This is a contract-boundary review only. It does not deploy to Robinhood or
-authorize production deployment. `NexRoyaltyVault` is the next boundary and
-will separately enforce the 30-day secondary Builder Royalty hold.
+authorize production deployment. ERC-6551/TBA and complete Pass lifecycle
+integration are the next contract boundary.

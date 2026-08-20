@@ -6,6 +6,7 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 
 import {NexLaunchRegistry} from "./NexLaunchRegistry.sol";
+import {NexRoyaltyVault} from "./NexRoyaltyVault.sol";
 import {SeaportItemType, SeaportReceivedItem, SeaportSpentItem, SeaportZoneParameters} from "./SeaportTypes.sol";
 
 interface INexAdvantageListingController {
@@ -36,6 +37,7 @@ interface INexMarketsZoneWiring {
 ///      registry is also the one-time listing authority of NexAdvantageRegistry.
 contract NexListingRegistry is Ownable, ReentrancyGuard {
     uint16 public constant BPS_DENOMINATOR = 10_000;
+    uint16 public constant SECONDARY_PROTOCOL_FEE_BPS = 100;
     bytes32 public constant LISTING_ZONE_DOMAIN = keccak256("NEXMARKETS_LISTING_ZONE_V1");
 
     enum ListingStatus {
@@ -73,6 +75,8 @@ contract NexListingRegistry is Ownable, ReentrancyGuard {
 
     NexLaunchRegistry public immutable launchRegistry;
     INexAdvantageListingController public immutable advantageRegistry;
+    NexRoyaltyVault public immutable royaltyVault;
+    address public immutable protocolFeeRecipient;
     address public immutable seaport;
     address public zone;
 
@@ -85,6 +89,7 @@ contract NexListingRegistry is Ownable, ReentrancyGuard {
     error ConsiderationMismatch();
     error EditionTermsMismatch();
     error FillNotSettled();
+    error InvalidSecondaryFee();
     error InvalidListingWindow();
     error ListingAlreadyExists();
     error ListingNotActive();
@@ -97,6 +102,7 @@ contract NexListingRegistry is Ownable, ReentrancyGuard {
     error PassNotOwned();
     error RoyaltyMismatch();
     error TermsVersionNotFound();
+    error VaultWiringMismatch();
     error ZoneRequired();
     error ZoneWiringMismatch();
 
@@ -116,6 +122,14 @@ contract NexListingRegistry is Ownable, ReentrancyGuard {
     );
     event ListingCancelled(bytes32 indexed orderHash, address indexed caller);
     event ListingFilled(bytes32 indexed orderHash, address indexed buyer);
+    event SecondarySaleSettled(
+        bytes32 indexed orderHash,
+        address indexed buyer,
+        uint256 salePrice,
+        uint256 protocolFee,
+        uint256 builderRoyalty,
+        uint256 sellerProceeds
+    );
     event ListingExpired(bytes32 indexed orderHash);
     event ListingStale(bytes32 indexed orderHash, address indexed currentOwner);
 
@@ -128,21 +142,32 @@ contract NexListingRegistry is Ownable, ReentrancyGuard {
         address initialOwner,
         NexLaunchRegistry launchRegistry_,
         INexAdvantageListingController advantageRegistry_,
+        NexRoyaltyVault royaltyVault_,
+        address protocolFeeRecipient_,
         address seaport_
     ) Ownable(initialOwner) {
         if (
             initialOwner == address(0) || address(launchRegistry_) == address(0)
-                || address(advantageRegistry_) == address(0) || seaport_ == address(0)
+                || address(advantageRegistry_) == address(0) || address(royaltyVault_) == address(0)
+                || protocolFeeRecipient_ == address(0) || seaport_ == address(0)
         ) revert AddressRequired();
         if (
             address(launchRegistry_).code.length == 0 || address(advantageRegistry_).code.length == 0
-                || seaport_.code.length == 0
+                || address(royaltyVault_).code.length == 0 || seaport_.code.length == 0
         ) revert AddressRequired();
         if (launchRegistry_.owner() != initialOwner || advantageRegistry_.owner() != initialOwner) {
             revert AddressRequired();
         }
+        if (
+            royaltyVault_.owner() != initialOwner
+                || address(royaltyVault_.settlementToken()) != launchRegistry_.settlementToken()
+                || royaltyVault_.listingRegistry() != address(0)
+        ) revert VaultWiringMismatch();
+        if (protocolFeeRecipient_ == address(royaltyVault_)) revert VaultWiringMismatch();
         launchRegistry = launchRegistry_;
         advantageRegistry = advantageRegistry_;
+        royaltyVault = royaltyVault_;
+        protocolFeeRecipient = protocolFeeRecipient_;
         seaport = seaport_;
     }
 
@@ -208,6 +233,9 @@ contract NexListingRegistry is Ownable, ReentrancyGuard {
         ) revert ListingNotFound();
         if (request.startTime > request.expiry || request.expiry <= block.timestamp) revert InvalidListingWindow();
         if (_listings[request.orderHash].status != ListingStatus.None) revert ListingAlreadyExists();
+        if (Math.mulDiv(request.usdGPrice, SECONDARY_PROTOCOL_FEE_BPS, BPS_DENOMINATOR) == 0) {
+            revert InvalidSecondaryFee();
+        }
 
         address currentOwner = _ownerOfOrZero(request.edition, request.tokenId);
         if (currentOwner != msg.sender) revert PassNotOwned();
@@ -352,8 +380,18 @@ contract NexListingRegistry is Ownable, ReentrancyGuard {
         _validateOrderShape(listing, zoneParameters);
         address currentOwner = _ownerOfOrZero(listing.edition, listing.tokenId);
         if (currentOwner == address(0) || currentOwner == listing.seller) revert FillNotSettled();
+
+        (uint256 protocolFee, uint256 royaltyAmount, uint256 sellerAmount) = _settlementAmounts(listing);
+        if (royaltyAmount != 0) {
+            royaltyVault.recordRoyalty(
+                zoneParameters.orderHash, listing.edition, listing.tokenId, listing.royaltyReceiver, royaltyAmount
+            );
+        }
         _deactivate(zoneParameters.orderHash, ListingStatus.Filled);
         emit ListingFilled(zoneParameters.orderHash, currentOwner);
+        emit SecondarySaleSettled(
+            zoneParameters.orderHash, currentOwner, listing.usdGPrice, protocolFee, royaltyAmount, sellerAmount
+        );
     }
 
     function listingInfo(bytes32 orderHash) external view returns (Listing memory) {
@@ -432,32 +470,29 @@ contract NexListingRegistry is Ownable, ReentrancyGuard {
                 || offer.identifier != listing.tokenId || offer.amount != 1
         ) revert OfferMismatch();
 
-        uint256 royaltyAmount = Math.mulDiv(listing.usdGPrice, listing.royaltyBps, BPS_DENOMINATOR);
-        uint256 sellerAmount = listing.usdGPrice - royaltyAmount;
-        if (listing.royaltyBps == 0 || listing.royaltyReceiver == listing.seller) {
-            if (zoneParameters.consideration.length != 1) revert ConsiderationMismatch();
-            _requireReceived(zoneParameters.consideration[0], listing.seller, listing.usdGPrice);
+        (uint256 protocolFee, uint256 royaltyAmount, uint256 sellerAmount) = _settlementAmounts(listing);
+        uint256 expectedLength = royaltyAmount == 0 ? 2 : 3;
+        if (zoneParameters.consideration.length != expectedLength) revert ConsiderationMismatch();
+
+        // Canonical consideration order makes equal dynamic recipients
+        // unambiguous while still keeping every economic component separate.
+        _requireReceived(zoneParameters.consideration[0], protocolFeeRecipient, protocolFee);
+        if (royaltyAmount == 0) {
+            _requireReceived(zoneParameters.consideration[1], listing.seller, sellerAmount);
             return;
         }
+        _requireReceived(zoneParameters.consideration[1], address(royaltyVault), royaltyAmount);
+        _requireReceived(zoneParameters.consideration[2], listing.seller, sellerAmount);
+    }
 
-        if (zoneParameters.consideration.length != 2) revert ConsiderationMismatch();
-        bool sellerSeen;
-        bool royaltySeen;
-        for (uint256 i; i < zoneParameters.consideration.length; ++i) {
-            SeaportReceivedItem calldata item = zoneParameters.consideration[i];
-            if (item.recipient == listing.seller) {
-                if (sellerSeen) revert ConsiderationMismatch();
-                _requireReceived(item, listing.seller, sellerAmount);
-                sellerSeen = true;
-            } else if (item.recipient == listing.royaltyReceiver) {
-                if (royaltySeen) revert ConsiderationMismatch();
-                _requireReceived(item, listing.royaltyReceiver, royaltyAmount);
-                royaltySeen = true;
-            } else {
-                revert ConsiderationMismatch();
-            }
-        }
-        if (!sellerSeen || !royaltySeen) revert ConsiderationMismatch();
+    function _settlementAmounts(Listing storage listing)
+        internal
+        view
+        returns (uint256 protocolFee, uint256 royaltyAmount, uint256 sellerAmount)
+    {
+        protocolFee = Math.mulDiv(listing.usdGPrice, SECONDARY_PROTOCOL_FEE_BPS, BPS_DENOMINATOR);
+        royaltyAmount = Math.mulDiv(listing.usdGPrice, listing.royaltyBps, BPS_DENOMINATOR);
+        sellerAmount = listing.usdGPrice - protocolFee - royaltyAmount;
     }
 
     function _requireReceived(SeaportReceivedItem calldata item, address expectedRecipient, uint256 expectedAmount)
