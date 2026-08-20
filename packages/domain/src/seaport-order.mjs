@@ -1,4 +1,4 @@
-import { AbiCoder, Interface, concat, getAddress, isAddress, keccak256, toUtf8Bytes } from 'ethers';
+import { AbiCoder, Interface, concat, getAddress, isAddress, keccak256, toUtf8Bytes, verifyTypedData } from 'ethers';
 
 export const SEAPORT_ITEM = Object.freeze({ ERC20: 1, ERC721: 2 });
 export const SECONDARY_PROTOCOL_FEE_BPS = 100n;
@@ -10,6 +10,23 @@ const OFFER_ITEM_TYPEHASH = keccak256(toUtf8Bytes('OfferItem(uint8 itemType,addr
 const CONSIDERATION_ITEM_TYPEHASH = keccak256(toUtf8Bytes('ConsiderationItem(uint8 itemType,address token,uint256 identifierOrCriteria,uint256 startAmount,uint256 endAmount,address recipient)'));
 const ORDER_COMPONENTS_TYPEHASH = keccak256(toUtf8Bytes('OrderComponents(address offerer,address zone,OfferItem[] offer,ConsiderationItem[] consideration,uint8 orderType,uint256 startTime,uint256 endTime,bytes32 zoneHash,uint256 salt,bytes32 conduitKey,uint256 counter)ConsiderationItem(uint8 itemType,address token,uint256 identifierOrCriteria,uint256 startAmount,uint256 endAmount,address recipient)OfferItem(uint8 itemType,address token,uint256 identifierOrCriteria,uint256 startAmount,uint256 endAmount)'));
 const listingInterface = new Interface(['function createListing((bytes32 orderHash,address edition,uint256 tokenId,bytes32 termsVersionHash,uint256 usdGPrice,uint64 startTime,uint64 expiry) request) returns (bytes32 zoneHash)']);
+const seaportInterface = new Interface(['function fulfillOrder(((address offerer,address zone,(uint8 itemType,address token,uint256 identifierOrCriteria,uint256 startAmount,uint256 endAmount)[] offer,(uint8 itemType,address token,uint256 identifierOrCriteria,uint256 startAmount,uint256 endAmount,address recipient)[] consideration,uint8 orderType,uint256 startTime,uint256 endTime,bytes32 zoneHash,uint256 salt,bytes32 conduitKey,uint256 totalOriginalConsiderationItems) parameters,bytes signature) order,bytes32 fulfillerConduitKey) returns (bool fulfilled)']);
+const SEAPORT_TYPES = Object.freeze({
+  OfferItem: [
+    { name: 'itemType', type: 'uint8' }, { name: 'token', type: 'address' }, { name: 'identifierOrCriteria', type: 'uint256' },
+    { name: 'startAmount', type: 'uint256' }, { name: 'endAmount', type: 'uint256' }
+  ],
+  ConsiderationItem: [
+    { name: 'itemType', type: 'uint8' }, { name: 'token', type: 'address' }, { name: 'identifierOrCriteria', type: 'uint256' },
+    { name: 'startAmount', type: 'uint256' }, { name: 'endAmount', type: 'uint256' }, { name: 'recipient', type: 'address' }
+  ],
+  OrderComponents: [
+    { name: 'offerer', type: 'address' }, { name: 'zone', type: 'address' }, { name: 'offer', type: 'OfferItem[]' },
+    { name: 'consideration', type: 'ConsiderationItem[]' }, { name: 'orderType', type: 'uint8' },
+    { name: 'startTime', type: 'uint256' }, { name: 'endTime', type: 'uint256' }, { name: 'zoneHash', type: 'bytes32' },
+    { name: 'salt', type: 'uint256' }, { name: 'conduitKey', type: 'bytes32' }, { name: 'counter', type: 'uint256' }
+  ]
+});
 
 function address(value, label) {
   if (!isAddress(value)) throw new Error(`${label} must be an EVM address`);
@@ -65,6 +82,30 @@ export function seaportOrderHash(order, counter) {
     [ORDER_COMPONENTS_TYPEHASH,order.offerer,order.zone,offerHash,considerationHash,order.orderType,order.startTime,
       order.endTime,order.zoneHash,order.salt,order.conduitKey,uint(counter, 'counter')]
   ));
+}
+
+export function seaportTypedData(order, counter, { chainId, seaport }) {
+  return {
+    domain: { name: 'Seaport', version: '1.6', chainId: Number(chainId), verifyingContract: address(seaport, 'seaport') },
+    types: SEAPORT_TYPES,
+    value: { ...order, counter: uint(counter, 'counter') }
+  };
+}
+
+export function verifySeaportOrderSignature({ order, counter, signature, chainId, seaport }) {
+  const typed = seaportTypedData(order, counter, { chainId, seaport });
+  const signer = verifyTypedData(typed.domain, typed.types, typed.value, signature);
+  if (getAddress(signer) !== getAddress(order.offerer)) throw new Error('Seaport signature does not match seller');
+  return signer;
+}
+
+export function buildSeaportFulfillment({ order, signature, seaport, fulfillerConduitKey = `0x${'00'.repeat(32)}` }) {
+  if (!/^0x[0-9a-fA-F]+$/.test(signature ?? '')) throw new Error('Seaport signature required');
+  return {
+    to: address(seaport, 'seaport'),
+    data: seaportInterface.encodeFunctionData('fulfillOrder', [[order, signature], fulfillerConduitKey]),
+    value: '0x0'
+  };
 }
 
 export function buildNexMarketsOrder(input) {
@@ -168,5 +209,28 @@ export function validateNexMarketsOrder(order, policy) {
   if (order.endTime <= order.startTime) throw new Error('invalid listing window');
   if (policy.now !== undefined && order.endTime <= BigInt(policy.now)) throw new Error('listing already expired');
   if (policy.currentOwner !== undefined && address(policy.currentOwner, 'currentOwner') !== address(policy.seller, 'seller')) throw new Error('seller no longer owns Pass');
+  return true;
+}
+
+export function validateProjectedNexMarketsOrder(order, listing, policy) {
+  if (getAddress(order.offerer) !== getAddress(listing.seller_address ?? listing.sellerAddress)) throw new Error('projected seller mismatch');
+  if (getAddress(order.zone) !== getAddress(policy.zone) || order.orderType !== 2) throw new Error('projected zone mismatch');
+  if (order.zoneHash.toLowerCase() !== String(listing.zone_hash ?? listing.zoneHash).toLowerCase()) throw new Error('projected zoneHash mismatch');
+  if (order.offer.length !== 1) throw new Error('projected exact Pass offer mismatch');
+  const offered = order.offer[0];
+  if (Number(offered.itemType) !== SEAPORT_ITEM.ERC721 || getAddress(offered.token) !== getAddress(listing.edition_address ?? listing.editionAddress) || BigInt(offered.identifierOrCriteria) !== BigInt(listing.token_id ?? listing.tokenId) || BigInt(offered.startAmount) !== 1n || BigInt(offered.endAmount) !== 1n) throw new Error('projected exact Pass offer mismatch');
+  const expectedRoyalty = BigInt(listing.royalty_usdg ?? listing.royaltyUsdg); const expectedLength = expectedRoyalty === 0n ? 2 : 3;
+  if (order.consideration.length !== expectedLength) throw new Error('projected extra or missing consideration');
+  const legs = expectedRoyalty === 0n
+    ? [[policy.protocolFeeRecipient, listing.protocol_fee_usdg ?? listing.protocolFeeUsdg], [listing.seller_address ?? listing.sellerAddress, listing.seller_proceeds_usdg ?? listing.sellerProceedsUsdg]]
+    : [[policy.protocolFeeRecipient, listing.protocol_fee_usdg ?? listing.protocolFeeUsdg], [policy.royaltyVault, expectedRoyalty], [listing.seller_address ?? listing.sellerAddress, listing.seller_proceeds_usdg ?? listing.sellerProceedsUsdg]];
+  let total = 0n;
+  for (let index = 0; index < legs.length; index += 1) {
+    const item = order.consideration[index]; const [recipient, expectedAmount] = legs[index]; const amount = BigInt(expectedAmount);
+    if (Number(item.itemType) !== SEAPORT_ITEM.ERC20 || getAddress(item.token) !== getAddress(policy.usdg) || getAddress(item.recipient) !== getAddress(recipient) || BigInt(item.identifierOrCriteria) !== 0n || BigInt(item.startAmount) !== amount || BigInt(item.endAmount) !== amount) throw new Error(`projected consideration ${index} mismatch`);
+    total += amount;
+  }
+  if (total !== BigInt(listing.price_usdg ?? listing.priceUsdg)) throw new Error('projected buyer surcharge or underpayment');
+  if (BigInt(order.startTime) !== BigInt(Math.floor(new Date(listing.starts_at ?? listing.startsAt).getTime() / 1000)) || BigInt(order.endTime) !== BigInt(Math.floor(new Date(listing.expires_at ?? listing.expiresAt).getTime() / 1000))) throw new Error('projected listing window mismatch');
   return true;
 }

@@ -7,5 +7,6 @@ test('production schema keeps chain projections provenance-complete', async () =
   for (const field of ['source_block_number','source_block_hash','source_tx_hash','source_log_index','orphaned_at','finalized']) assert.ok(sql.includes(field));
   assert.match(sql, /PRIMARY KEY\(chain_id,tx_hash,log_index\)/);
   assert.match(sql, /tier_percent IN \(5,10,15,20\)/);
+  assert.match(sql, /CREATE TABLE IF NOT EXISTS signed_seaport_order/);
   assert.match(sql, /state IN \('PREPARED','WALLET_PENDING','SUBMITTED','CONFIRMED','FINALIZED','CANCELLED','REVERTED','REORGED'\)/);
 });

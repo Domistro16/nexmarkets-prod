@@ -3,7 +3,7 @@ import { readdir, readFile } from 'node:fs/promises';
 const required = [
   'account','wallet','app_session','project','edition','terms_version','pass_token_projection',
   'advantage_definition','advantage_state_projection','mint_intent','chain_transaction','transaction_event','transaction_job',
-  'listing_projection','listing_event','royalty_claim_projection','referral_account','referral_attribution',
+  'listing_projection','listing_event','signed_seaport_order','royalty_claim_projection','referral_account','referral_attribution',
   'referral_settlement','notification','outbox_event','audit_log','indexer_event','indexer_checkpoint',
   'reconciliation_run','reconciliation_incident','media_asset','serial_artwork','goldsky_raw_log'
 ];

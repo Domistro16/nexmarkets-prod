@@ -22,6 +22,10 @@ jobs:
         with:
           version: v1.7.1
           cache: true
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with: { node-version: 22, cache: npm, cache-dependency-path: package-lock.json }
+      - name: Install pinned Node dependencies
+        run: npm ci --prefix ../..
       - name: Install pinned Solidity dependencies
         run: |
           install_repo() {
@@ -39,5 +43,13 @@ jobs:
         run: forge fmt --check
       - name: Build contracts
         run: forge build
+      - name: Run high-severity Solidity lint
+        run: forge lint --severity high --deny warnings
+      - name: Verify pinned NexPassAccount runtime build
+        run: test "$(cast keccak "$(forge inspect NexPassAccount deployedBytecode)")" = "0xc849f1d83cf1d83f7f1de0a071c117b32e94d59aacf3e8c3599ee7cc69e52963"
+      - name: Verify deterministic Safe deployment planner and bundles
+        run: |
+          node ../../scripts/plan-v1-deployment.mjs --inputs=test/fixtures/deployment-inputs.testnet.json
+          node ../../scripts/build-v1-safe-bundles.mjs
       - name: Run contract tests
         run: forge test -vvv

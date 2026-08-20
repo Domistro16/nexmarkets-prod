@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
 import { getAddress, id, isAddress } from 'ethers';
 import { issueSession, issueWalletChallenge, assertChallengeUsable, assertSession, sessionCookie, verifyWalletChallengeSignature } from '../../../packages/auth/src/index.mjs';
-import { buildNexMarketsOrder, transitionTransaction } from '../../../packages/domain/src/index.mjs';
+import { buildNexMarketsOrder, buildProtocolCalldata, buildSeaportFulfillment, seaportOrderHash, seaportTypedData, transitionTransaction, validateProjectedNexMarketsOrder, verifySeaportOrderSignature } from '../../../packages/domain/src/index.mjs';
 import { PostgresStore } from '../../../packages/data/src/postgres-store.mjs';
 import { MetricsRegistry } from '../../../packages/observability/src/metrics.mjs';
 
@@ -18,7 +18,7 @@ const INTENT_SELECTORS = Object.freeze({
   EDITION_CREATE: [id('createEdition((string,string,address,bytes32,uint32,bytes32,string),address,bytes32)').slice(0, 10)],
   TERMS_PUBLISH: [id('publishTerms(address,(uint256,uint256,uint64,uint64,uint64,address,address,uint96,bytes32,bytes32))').slice(0, 10)],
   LISTING_CANCEL: [id('cancelListing(bytes32)').slice(0, 10)],
-  ADVANTAGE_USE: [id('consumeQuantity(address,uint256,bytes32,uint256,bytes32)').slice(0, 10), id('redeem(address,uint256,bytes32,bytes32)').slice(0, 10)],
+  ADVANTAGE_USE: [id('consumeQuantity(address,uint256,bytes32,uint256,bytes32)').slice(0, 10), id('redeem(address,uint256,bytes32,bytes32)').slice(0, 10), id('useAmount(address,uint256,bytes32,bytes32)').slice(0, 10)],
   ROYALTY_WITHDRAW: [id('withdraw(bytes32)').slice(0, 10)]
 });
 
@@ -29,6 +29,8 @@ export function productionOrderPolicy(env = process.env) {
     royaltyVault: env.NEX_ROYALTY_VAULT_ADDRESS,
     zone: env.NEX_MARKETS_ZONE_ADDRESS,
     listingRegistry: env.NEX_LISTING_REGISTRY_ADDRESS,
+    seaport: env.SEAPORT_16_ADDRESS ?? '0x0000000000000068F116a894984e2DB1123eB395',
+    protocolAdminSafe: env.PROTOCOL_ADMIN_SAFE_ADDRESS,
     transactionTargets: {
       MINT: env.NEX_MINT_CONTROLLER_ADDRESS,
       EDITION_CREATE: env.NEX_PASS_FACTORY_ADDRESS,
@@ -185,6 +187,33 @@ export function createApiServer({
         return json(res, 201, { data: row, upload: await storage.prepareUpload({ key, mimeType: input.mimeType, byteSize: input.byteSize }) });
       }
 
+      if (req.method === 'POST' && url.pathname === '/v1/listings/signed-order') {
+        const input = await readBody(req); const listing = await store.listing(input.orderHash ?? '');
+        if (String(input.order?.offerer ?? '').toLowerCase() !== session.walletAddress.toLowerCase()) throw Object.assign(new Error('SELLER_SESSION_MISMATCH'), { status: 403 });
+        const computedHash = seaportOrderHash(input.order, input.counter);
+        if (computedHash.toLowerCase() !== String(input.orderHash).toLowerCase()) throw Object.assign(new Error('ORDER_HASH_MISMATCH'), { status: 400 });
+        if (listing) validateProjectedNexMarketsOrder(input.order, listing, orderPolicy);
+        else if (String(input.order.zone).toLowerCase() !== String(orderPolicy.zone).toLowerCase()) throw Object.assign(new Error('ZONE_MISMATCH'), { status: 400 });
+        verifySeaportOrderSignature({ order: input.order, counter: input.counter, signature: input.signature, chainId: session.chainId, seaport: orderPolicy.seaport });
+        const stored = await store.storeSignedOrder({ accountId: session.accountId, chainId: session.chainId, orderHash: computedHash, seller: session.walletAddress, order: input.order, counter: input.counter, signature: input.signature });
+        await store.recordAudit?.({ accountId: session.accountId, walletAddress: session.walletAddress, action: 'SEAPORT_ORDER_STORED', objectType: 'LISTING', objectId: computedHash, requestId, correlationId });
+        return json(res, 201, { data: stored, authority: 'SIGNED_ORDER_CAPABILITY_ONLY' });
+      }
+
+      if (req.method === 'POST' && url.pathname === '/v1/listings/buy') {
+        const input = await readBody(req); const idempotencyKey = req.headers['idempotency-key']?.toString();
+        if (!idempotencyKey || idempotencyKey.length > 128) throw Object.assign(new Error('IDEMPOTENCY_KEY_REQUIRED'), { status: 400 });
+        const signed = await store.signedOrder(input.orderHash ?? '');
+        if (!signed || signed.status !== 'ACTIVE' || new Date(signed.expires_at ?? signed.expiresAt).getTime() <= Date.now()) throw Object.assign(new Error('ACTIVE_SIGNED_LISTING_REQUIRED'), { status: 409 });
+        const order = signed.order_payload ?? signed.order;
+        const listing = await store.listing(input.orderHash); validateProjectedNexMarketsOrder(order, listing, orderPolicy);
+        verifySeaportOrderSignature({ order, counter: signed.counter, signature: signed.signature, chainId: session.chainId, seaport: orderPolicy.seaport });
+        const prepared = buildSeaportFulfillment({ order, signature: signed.signature, seaport: orderPolicy.seaport });
+        const transaction = await store.prepareTransaction({ accountId: session.accountId, walletAddress: session.walletAddress, chainId: session.chainId, intentType: 'LISTING_BUY', intentId: input.orderHash, idempotencyKey, correlationId, requestId });
+        await store.recordAudit?.({ accountId: session.accountId, walletAddress: session.walletAddress, action: 'TRANSACTION_PREPARED', objectType: 'CHAIN_TRANSACTION', objectId: transaction.id, requestId, correlationId, metadata: { intentType: 'LISTING_BUY', orderHash: input.orderHash } });
+        return json(res, 201, { transaction, prepared, totalBuyerPayment: String(listing.price_usdg ?? listing.priceUsdg), walletMustSign: true, serverCustodiesKey: false });
+      }
+
       if (req.method === 'POST' && INTENT_TYPE[url.pathname]) {
         const input = await readBody(req); const idempotencyKey = req.headers['idempotency-key']?.toString();
         if (!idempotencyKey || idempotencyKey.length > 128) throw Object.assign(new Error('IDEMPOTENCY_KEY_REQUIRED'), { status: 400 });
@@ -193,12 +222,20 @@ export function createApiServer({
           if (String(input.seller).toLowerCase() !== session.walletAddress.toLowerCase()) throw Object.assign(new Error('SELLER_SESSION_MISMATCH'), { status: 403 });
           // Deployment policy wins over untrusted request fields.
           prepared = buildNexMarketsOrder({ ...input, ...orderPolicy });
+          if (prepared.orderHash) prepared.typedData = seaportTypedData(prepared.order, input.counter, { chainId: session.chainId, seaport: orderPolicy.seaport });
         } else {
           const intentType = INTENT_TYPE[url.pathname]; const target = orderPolicy.transactionTargets?.[intentType];
           if (!isAddress(target ?? '')) throw Object.assign(new Error('CONTRACT_CONFIGURATION_REQUIRED'), { status: 503 });
-          if (!isAddress(input.to ?? '') || getAddress(input.to) !== getAddress(target)) throw Object.assign(new Error('TRANSACTION_TARGET_REJECTED'), { status: 400 });
-          if (!/^0x[0-9a-fA-F]+$/.test(input.calldata ?? '') || !INTENT_SELECTORS[intentType]?.includes(input.calldata.slice(0, 10).toLowerCase())) throw Object.assign(new Error('CALLDATA_SELECTOR_REJECTED'), { status: 400 });
-          prepared = { to: getAddress(target), data: input.calldata, value: '0x0' };
+          if (input.to !== undefined && (!isAddress(input.to) || getAddress(input.to) !== getAddress(target))) throw Object.assign(new Error('TRANSACTION_TARGET_REJECTED'), { status: 400 });
+          let calldata = input.calldata; let protocolInput = input;
+          if (intentType === 'EDITION_CREATE') {
+            if (!isAddress(orderPolicy.protocolAdminSafe ?? '')) throw Object.assign(new Error('PROTOCOL_ADMIN_SAFE_CONFIGURATION_REQUIRED'), { status: 503 });
+            if (input.initialOwner !== undefined && getAddress(input.initialOwner) !== getAddress(orderPolicy.protocolAdminSafe)) throw Object.assign(new Error('PROTOCOL_ADMIN_SAFE_REQUIRED'), { status: 400 });
+            protocolInput = { ...input, initialOwner: orderPolicy.protocolAdminSafe };
+          }
+          if (calldata === undefined) calldata = buildProtocolCalldata(intentType, protocolInput, { walletAddress: session.walletAddress, idempotencyKey });
+          if (!/^0x[0-9a-fA-F]+$/.test(calldata ?? '') || !INTENT_SELECTORS[intentType]?.includes(calldata.slice(0, 10).toLowerCase())) throw Object.assign(new Error('CALLDATA_SELECTOR_REJECTED'), { status: 400 });
+          prepared = { to: getAddress(target), data: calldata, value: '0x0' };
         }
         const transaction = await store.prepareTransaction({ accountId: session.accountId, walletAddress: session.walletAddress, chainId: session.chainId, intentType: INTENT_TYPE[url.pathname], intentId: input.intentId ?? idempotencyKey, idempotencyKey, correlationId, requestId });
         await store.recordAudit?.({ accountId: session.accountId, walletAddress: session.walletAddress, action: 'TRANSACTION_PREPARED', objectType: 'CHAIN_TRANSACTION', objectId: transaction.id, requestId, correlationId, metadata: { intentType: INTENT_TYPE[url.pathname] } });

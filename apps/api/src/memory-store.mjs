@@ -5,7 +5,7 @@ function hash(value) { return createHash('sha256').update(value).digest('hex'); 
 export class MemoryStore {
   constructor() {
     this.challenges = new Map(); this.sessions = new Map(); this.transactions = new Map();
-    this.projects = []; this.editions = []; this.passes = []; this.listingRows = []; this.media = [];
+    this.projects = []; this.editions = []; this.passes = []; this.listingRows = []; this.signedOrders = new Map(); this.media = [];
   }
   async ready() { return true; }
   async indexerHealth() { return { latest_block_number: 1, finalized_block_number: 1 }; }
@@ -45,6 +45,9 @@ export class MemoryStore {
   async editionByAddress(address) { return structuredClone(this.editions.find((edition) => edition.editionAddress === address.toLowerCase()) ?? null); }
   async pass(edition, tokenId) { return structuredClone(this.passes.find((pass) => pass.editionAddress === edition.toLowerCase() && String(pass.tokenId) === String(tokenId)) ?? null); }
   async listings() { return structuredClone(this.listingRows.filter((listing) => listing.status === 'ACTIVE')); }
+  async storeSignedOrder(input) { this.signedOrders.set(input.orderHash.toLowerCase(), structuredClone(input)); return structuredClone(input); }
+  async signedOrder(orderHash) { const signed = this.signedOrders.get(orderHash.toLowerCase()); if (!signed) return null; const listing = this.listingRows.find((item) => item.order_hash?.toLowerCase() === orderHash.toLowerCase() || item.orderHash?.toLowerCase() === orderHash.toLowerCase()); return structuredClone({ ...signed, status: listing?.status ?? 'ACTIVE', expires_at: listing?.expires_at ?? listing?.expiresAt }); }
+  async listing(orderHash) { return structuredClone(this.listingRows.find((item) => item.order_hash?.toLowerCase() === orderHash.toLowerCase() || item.orderHash?.toLowerCase() === orderHash.toLowerCase()) ?? null); }
   async ownedPasses(address) { return structuredClone(this.passes.filter((pass) => pass.ownerAddress === address.toLowerCase())); }
   async advantagesForOwner(address) { return structuredClone(this.passes.filter((pass) => pass.ownerAddress === address.toLowerCase()).flatMap((pass) => pass.advantages ?? [])); }
   async builderDashboard(accountId) { return { projects: structuredClone(this.projects.filter((project) => project.builderAccountId === accountId)), editions: [], royalties: [], referrals: [] }; }

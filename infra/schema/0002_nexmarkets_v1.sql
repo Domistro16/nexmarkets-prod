@@ -253,6 +253,20 @@ CREATE TABLE IF NOT EXISTS listing_event (
   UNIQUE(chain_id,tx_hash,log_index)
 );
 
+-- Seller-authorized Seaport payload. This enables fulfillment but never overrides
+-- ListingRegistry status or Seaport fill/cancel authority.
+CREATE TABLE IF NOT EXISTS signed_seaport_order (
+  order_hash text PRIMARY KEY,
+  chain_id bigint NOT NULL CHECK (chain_id IN (4663,46630)),
+  seller_address text NOT NULL,
+  order_payload jsonb NOT NULL,
+  counter numeric(78,0) NOT NULL,
+  signature text NOT NULL,
+  submitted_by_account_id text NOT NULL REFERENCES account(id),
+  created_at timestamptz NOT NULL DEFAULT now(),
+  CHECK (signature ~ '^0x[0-9a-fA-F]+$')
+);
+
 -- Projection only; claim release and withdrawal authority remain in NexRoyaltyVault.
 CREATE TABLE IF NOT EXISTS royalty_claim_projection (
   order_hash text PRIMARY KEY,

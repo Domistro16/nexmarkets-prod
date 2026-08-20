@@ -10,3 +10,7 @@ out/
 cache/
 broadcast/
 .DS_Store
+.tmp-*/
+.npm-cache/
+packages/contracts/lib/
+artifacts/deployment-plan/

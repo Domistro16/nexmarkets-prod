@@ -176,20 +176,27 @@ export class PostgresStore {
        WHERE e.edition_address=$1 AND e.orphaned_at IS NULL`, [address.toLowerCase()]
     );
     if (!rows[0]) return null;
-    const terms = await this.pool.query('SELECT * FROM terms_version WHERE edition_id=$1 AND orphaned_at IS NULL ORDER BY version DESC', [rows[0].id]);
-    return { ...rows[0], termsHistory: terms.rows };
+    const [terms, advantages] = await Promise.all([
+      this.pool.query('SELECT * FROM terms_version WHERE edition_id=$1 AND orphaned_at IS NULL ORDER BY version DESC', [rows[0].id]),
+      this.pool.query('SELECT * FROM advantage_definition WHERE edition_id=$1 ORDER BY starts_at,advantage_id_hash', [rows[0].id])
+    ]);
+    const kind = { TIME_BASED: 0, QUANTITY_BASED: 1, CONNECTED: 2, REDEMPTION: 3 };
+    return { ...rows[0], termsHistory: terms.rows.map((term) => ({ ...term, advantageConfigs: advantages.rows.filter((advantage) => advantage.terms_hash === term.terms_hash).map((advantage) => ({ advantageId: advantage.advantage_id_hash, kind: kind[advantage.kind], startsAt: Math.floor(advantage.starts_at.getTime() / 1000), endsAt: Math.floor(advantage.ends_at.getTime() / 1000), totalUnits: advantage.total_units, definitionHash: advantage.definition_hash })) })) };
   }
 
   async pass(editionAddress, tokenId) {
     const { rows } = await this.pool.query(
-      `SELECT pt.*,e.edition_address,p.slug,p.name FROM pass_token_projection pt
+      `SELECT pt.*,e.edition_address,p.slug,p.name,t.royalty_receiver,t.royalty_bps FROM pass_token_projection pt
        JOIN edition e ON e.id=pt.edition_id JOIN project p ON p.id=e.project_id
+       LEFT JOIN terms_version t ON t.edition_id=pt.edition_id AND t.terms_hash=pt.terms_hash AND t.orphaned_at IS NULL
        WHERE e.edition_address=$1 AND pt.token_id=$2 AND pt.orphaned_at IS NULL`,
       [editionAddress.toLowerCase(), tokenId]
     );
     if (!rows[0]) return null;
     const [advantages, listing] = await Promise.all([
-      this.pool.query('SELECT * FROM advantage_state_projection WHERE edition_id=$1 AND token_id=$2 AND orphaned_at IS NULL', [rows[0].edition_id, tokenId]),
+      this.pool.query(`SELECT a.*,d.kind,d.definition FROM advantage_state_projection a
+       LEFT JOIN advantage_definition d ON d.edition_id=a.edition_id AND d.terms_hash=$3 AND d.advantage_id_hash=a.advantage_id_hash
+       WHERE a.edition_id=$1 AND a.token_id=$2 AND a.orphaned_at IS NULL`, [rows[0].edition_id, tokenId, rows[0].terms_hash]),
       this.pool.query(`SELECT * FROM listing_projection WHERE edition_id=$1 AND token_id=$2 AND orphaned_at IS NULL ORDER BY updated_at DESC LIMIT 1`, [rows[0].edition_id, tokenId])
     ]);
     return { ...rows[0], advantages: advantages.rows, listing: listing.rows[0] ?? null };
@@ -197,11 +204,42 @@ export class PostgresStore {
 
   async listings() {
     const { rows } = await this.pool.query(
-      `SELECT l.*,e.edition_address,p.name project_name FROM listing_projection l
+      `SELECT l.*,e.edition_address,p.name project_name,s.order_payload,s.counter,s.signature FROM listing_projection l
        JOIN edition e ON e.id=l.edition_id JOIN project p ON p.id=e.project_id
+       LEFT JOIN signed_seaport_order s ON s.order_hash=l.order_hash AND s.chain_id=e.chain_id
        WHERE l.status='ACTIVE' AND l.orphaned_at IS NULL AND l.expires_at>now() ORDER BY l.updated_at DESC LIMIT 200`
     );
     return rows;
+  }
+
+  async storeSignedOrder({ accountId, chainId, orderHash, seller, order, counter, signature }) {
+    const { rows } = await this.pool.query(
+      `INSERT INTO signed_seaport_order(order_hash,chain_id,seller_address,order_payload,counter,signature,submitted_by_account_id)
+       VALUES($1,$2,$3,$4::jsonb,$5,$6,$7)
+       ON CONFLICT(order_hash) DO UPDATE SET order_payload=excluded.order_payload,counter=excluded.counter,signature=excluded.signature
+       WHERE signed_seaport_order.seller_address=excluded.seller_address AND signed_seaport_order.chain_id=excluded.chain_id
+       RETURNING *`,
+      [orderHash.toLowerCase(), chainId, seller.toLowerCase(), JSON.stringify(order), String(counter), signature, accountId]
+    );
+    if (!rows[0]) throw new Error('SIGNED_ORDER_CONFLICT');
+    return rows[0];
+  }
+
+  async signedOrder(orderHash) {
+    const { rows } = await this.pool.query(
+      `SELECT s.*,l.status,l.expires_at,e.edition_address FROM signed_seaport_order s
+       JOIN listing_projection l ON l.order_hash=s.order_hash JOIN edition e ON e.id=l.edition_id
+       WHERE s.order_hash=$1 AND l.orphaned_at IS NULL`, [orderHash.toLowerCase()]
+    );
+    return rows[0] ?? null;
+  }
+
+  async listing(orderHash) {
+    const { rows } = await this.pool.query(
+      `SELECT l.*,e.edition_address FROM listing_projection l JOIN edition e ON e.id=l.edition_id
+       WHERE l.order_hash=$1 AND l.orphaned_at IS NULL`, [orderHash.toLowerCase()]
+    );
+    return rows[0] ?? null;
   }
 
   async createProject({ accountId, body }) {
