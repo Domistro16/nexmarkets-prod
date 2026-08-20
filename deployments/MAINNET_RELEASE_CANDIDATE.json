@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "releaseGitSha": "d81d59097f85b4c122125faf2dfa4da8b43de7a9",
+  "releaseGitSha": "af097863de943a15d909c223ab74faf175e42901",
   "deploymentSourceCommit": "af097863de943a15d909c223ab74faf175e42901",
   "mergedPr6": {
     "number": 6,
