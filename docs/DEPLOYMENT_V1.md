@@ -16,6 +16,12 @@ mainnet flags and records only public deployment metadata.
 
 `scripts/plan-v1-deployment.mjs` computes deterministic CREATE2 addresses from pinned Foundry artifacts and the verified immutable factory. It requires a Safe address, at least two distinct owners, threshold 1 or greater, exact fee recipients and a verified settlement token. Threshold 1 is permitted initially only with `RAISE_THRESHOLD_TO_2_PLUS` recorded. For contracts with Solidity immutables, the plan pins the normalized runtime template and immutable byte ranges; the exact observed runtime hash is read back and frozen only after deployment. It never mislabels the zero-placeholder artifact runtime as deployable runtime bytecode.
 
+The current public mainnet input record is
+`deployments/nexmarkets-v1.inputs.robinhood-mainnet.json`. It records the
+already-verified Safe as both fee recipients but explicitly sets
+`mainnetBroadcastAuthorized` to `false`; use it only for a dry-run after the
+release source and Foundry artifacts are frozen.
+
 Deployment order is LaunchRegistry, MintController, PassFactory, AdvantageRegistry, AdvantageInitializer, RoyaltyVault, ListingRegistry, Zone, NexPassAccount and TBAResolver. Before one-time calls, read back every runtime hash and immutable relationship. Then bind Factory, both Advantage initializer sides, Vault/ListingRegistry, Zone and listing authority in the manifest order.
 
 The CREATE2 salts are prefixed with the Protocol Admin Safe address because the verified `ImmutableCreate2Factory.safeCreate2` requires the first 20 salt bytes to match the caller (or be zero). `scripts/build-v1-safe-bundles.mjs` emits two unsigned Safe Transaction Builder bundles: deployment first, and irreversible wiring separately. The wiring bundle is explicitly blocked until the runtime and immutable verification gate passes.

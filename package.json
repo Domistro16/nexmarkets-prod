@@ -22,6 +22,7 @@
     "goldsky:render": "node scripts/render-goldsky-config.mjs",
     "verify:production": "node scripts/verify-production-config.mjs",
     "deploy:v1:bundles": "node scripts/build-v1-safe-bundles.mjs",
+    "deploy:v1:plan:mainnet": "node scripts/plan-v1-deployment.mjs --mainnet --inputs=deployments/nexmarkets-v1.inputs.robinhood-mainnet.json",
     "verify:checksums": "node scripts/verify-checksums.mjs",
     "checksums:regenerate": "node scripts/regenerate-checksums.mjs",
     "security:audit": "npm audit --audit-level=high",
