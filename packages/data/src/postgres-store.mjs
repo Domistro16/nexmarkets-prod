@@ -2,6 +2,20 @@ import { createHash, randomUUID } from 'node:crypto';
 import pg from 'pg';
 
 function sha256(value) { return createHash('sha256').update(value).digest('hex'); }
+function projectedAdvantageRemaining(row, now = Math.floor(Date.now() / 1000)) {
+  const kind = String(row.kind ?? '').toUpperCase();
+  const starts = row.starts_at ? Math.floor(new Date(row.starts_at).getTime() / 1000) : 0;
+  const ends = row.ends_at ? Math.floor(new Date(row.ends_at).getTime() / 1000) : 0;
+  let effective = Math.max(0, now - Number(row.frozen_seconds ?? 0));
+  if (kind === 'TIME_BASED' && row.listed && row.listed_at) {
+    const listedTimestamp = Math.floor(new Date(row.listed_at).getTime() / 1000) - Number(row.frozen_seconds ?? 0);
+    if (listedTimestamp < ends) effective = effective < Math.max(listedTimestamp, starts) ? effective : Math.max(listedTimestamp, starts);
+  }
+  if (effective < starts || effective >= ends) return '0';
+  if (kind === 'TIME_BASED') return String(ends - effective);
+  if (kind === 'CONNECTED') return '1';
+  return String(row.remaining_units ?? 0);
+}
 
 export class PostgresStore {
   constructor({ connectionString = process.env.DATABASE_URL, pool } = {}) {
@@ -202,12 +216,12 @@ export class PostgresStore {
     );
     if (!rows[0]) return null;
     const [advantages, listing] = await Promise.all([
-      this.pool.query(`SELECT a.*,d.kind,d.definition FROM advantage_state_projection a
+      this.pool.query(`SELECT a.*,d.kind,d.starts_at,d.ends_at,d.total_units,d.definition_hash,d.definition FROM advantage_state_projection a
        LEFT JOIN advantage_definition d ON d.edition_id=a.edition_id AND d.terms_hash=$3 AND d.advantage_id_hash=a.advantage_id_hash
        WHERE a.edition_id=$1 AND a.token_id=$2 AND a.orphaned_at IS NULL`, [rows[0].edition_id, tokenId, rows[0].terms_hash]),
       this.pool.query(`SELECT * FROM listing_projection WHERE edition_id=$1 AND token_id=$2 AND orphaned_at IS NULL ORDER BY updated_at DESC LIMIT 1`, [rows[0].edition_id, tokenId])
     ]);
-    return { ...rows[0], advantages: advantages.rows, listing: listing.rows[0] ?? null };
+    return { ...rows[0], advantages: advantages.rows.map((row) => { const remaining = projectedAdvantageRemaining(row); return { ...row, remaining, userFacingRemaining: remaining, consumesOnchain: ['QUANTITY_BASED', 'REDEMPTION'].includes(String(row.kind).toUpperCase()) }; }), listing: listing.rows[0] ?? null };
   }
 
   async listings() {
@@ -262,11 +276,13 @@ export class PostgresStore {
   async createEditionRequest({ projectId, builderAccountId, chainId, payload, transactionId = null }) {
     const id = `edreq_${randomUUID()}`;
     const { rows } = await this.pool.query(
-      `INSERT INTO edition_request(id,project_id,builder_account_id,chain_id,edition_id_hash,request_payload,safe_status,transaction_id)
-       SELECT $1,p.id,$3,$4,$5,$6::jsonb,'REQUESTED',$7 FROM project p
+      `INSERT INTO edition_request(id,project_id,builder_account_id,chain_id,edition_id_hash,request_payload,predicted_edition_address,safe_status,transaction_id)
+       SELECT $1,p.id,$3,$4,$5,$6::jsonb,$8,'REQUESTED',$7 FROM project p
        WHERE p.id=$2 AND p.builder_account_id=$3
-       ON CONFLICT(chain_id,edition_id_hash) DO UPDATE SET updated_at=now() RETURNING *`,
-      [id, projectId, builderAccountId, chainId, String(payload.editionId).toLowerCase(), JSON.stringify(payload), transactionId]
+       ON CONFLICT(chain_id,edition_id_hash) DO UPDATE SET updated_at=now()
+       WHERE edition_request.builder_account_id=EXCLUDED.builder_account_id AND edition_request.project_id=EXCLUDED.project_id
+       RETURNING *`,
+      [id, projectId, builderAccountId, chainId, String(payload.editionId).toLowerCase(), JSON.stringify(payload), transactionId, payload.predictedEditionAddress?.toLowerCase() ?? null]
     );
     if (!rows[0]) throw new Error('PROJECT_BUILDER_MISMATCH');
     return rows[0];
@@ -321,13 +337,14 @@ export class PostgresStore {
 
   async advantagesForOwner(address) {
     const { rows } = await this.pool.query(
-      `SELECT a.*,p.token_id,e.edition_address,p.terms_hash FROM advantage_state_projection a
+      `SELECT a.*,d.kind,d.starts_at,d.ends_at,d.total_units,p.token_id,e.edition_address,p.terms_hash FROM advantage_state_projection a
        JOIN pass_token_projection p ON p.edition_id=a.edition_id AND p.token_id=a.token_id
        JOIN edition e ON e.id=a.edition_id
+       LEFT JOIN advantage_definition d ON d.edition_id=a.edition_id AND d.advantage_id_hash=a.advantage_id_hash AND d.terms_hash=p.terms_hash
        WHERE p.owner_address=$1 AND p.orphaned_at IS NULL AND a.orphaned_at IS NULL`,
       [address.toLowerCase()]
     );
-    return rows;
+    return rows.map((row) => { const remaining = projectedAdvantageRemaining(row); return { ...row, remaining, userFacingRemaining: remaining, consumesOnchain: ['QUANTITY_BASED', 'REDEMPTION'].includes(String(row.kind).toUpperCase()) }; });
   }
 
   async builderDashboard(accountId) {

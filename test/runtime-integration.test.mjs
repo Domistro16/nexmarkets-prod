@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import pg from 'pg';
 import { Interface, id } from 'ethers';
 import { PostgresProjectionWorker, decodeGoldskyLog } from '../services/indexer/src/runtime.mjs';
+import { ChainLifecycleWorker } from '../services/worker/src/chain-lifecycle.mjs';
 
 const EVENT = new Interface(['event TermsPublished(address indexed edition,bytes32 indexed termsVersionHash,uint64 indexed version,uint256 activeSupply,uint256 pricePerPass,uint64 previewStartsAt,uint64 mintStartsAt,uint64 mintEndsAt,address primaryRecipient,address royaltyReceiver,uint96 royaltyBps,bytes32 advantagesHash,bytes32 referralTermsHash)']);
 const addr = (n) => `0x${String(n).padStart(40, '0')}`;
@@ -16,6 +17,22 @@ test('Goldsky decoder reconstructs complete immutable Terms event fields', () =>
   assert.equal(decoded.args.edition, edition.toLowerCase());
   assert.equal(decoded.args.activeSupply, '9');
   assert.equal(decoded.args.advantagesHash, advantages);
+});
+
+test('Safe Edition evidence binds predicted address, Protocol Admin and MintController', () => {
+  const safe = addr(20); const factory = addr(21); const mintController = addr(22); const edition = addr(23);
+  const editionId = hash('a'); const salt = hash('b'); const artwork = hash('c'); const safeTxHash = hash('d');
+  const safeEvents = new Interface(['event ExecutionSuccess(bytes32 indexed txHash,uint256 payment)']);
+  const factoryEvents = new Interface(['event EditionCreated(address indexed edition,bytes32 indexed editionId,address indexed publisher,bytes32 salt,address protocolAdmin,address mintController,uint32 absoluteSupplyCap,bytes32 artworkCommitment)']);
+  const safeLog = safeEvents.encodeEventLog(safeEvents.getEvent('ExecutionSuccess'), [safeTxHash, 0]);
+  const factoryLog = factoryEvents.encodeEventLog(factoryEvents.getEvent('EditionCreated'), [edition, editionId, addr(24), salt, safe, mintController, 50, artwork]);
+  const worker = new ChainLifecycleWorker({ pool: {}, protocolAdminSafe: safe, factoryAddress: factory, mintController });
+  const request = { edition_id_hash: editionId, predicted_edition_address: edition, safe_transaction_hash: safeTxHash, request_payload: { editionId, predictedEditionAddress: edition, publisher: addr(24), absoluteSupplyCap: 50, artworkCommitment: artwork, salt, mintController } };
+  const receipt = { status: '0x1', logs: [{ address: safe, ...safeLog }, { address: factory, ...factoryLog }] };
+  const evidence = worker.verifyEditionSafeEvidence(request, receipt, { to: safe });
+  assert.equal(evidence.ok, true);
+  const altered = { ...request, predicted_edition_address: addr(25) };
+  assert.equal(worker.verifyEditionSafeEvidence(altered, receipt, { to: safe }).reason, 'SAFE_EDITION_ADDRESS_MISMATCH');
 });
 
 test('Postgres Goldsky raw log projects Edition and advances checkpoint', { skip: !process.env.DATABASE_URL }, async (t) => {
@@ -43,4 +60,13 @@ test('Postgres Goldsky raw log projects Edition and advances checkpoint', { skip
     await pool.query('DELETE FROM outbox_event WHERE business_key=$1', [`${chainId}:${tx}:0`]); await pool.query('DELETE FROM notification WHERE business_key=$1', [`${chainId}:${tx}:0`]); await pool.query('DELETE FROM indexer_checkpoint WHERE chain_id=$1 AND pipeline=$2', [chainId, 'goldsky-turbo']); await pool.query('DELETE FROM edition_request WHERE id=$1', [requestId]); await pool.query('DELETE FROM project WHERE id=$1', [projectId]); await pool.query('DELETE FROM account WHERE id=$1', [accountId]);
     await pool.end();
   }
+});
+
+test('Goldsky landed watermark remains progress when the protocol has no recent events', { skip: !process.env.DATABASE_URL }, async () => {
+  const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL }); const chainId = 46630; const pipeline = `goldsky-watermark-${Date.now()}`; const blockHash = `0x${'ab'.repeat(32)}`;
+  try {
+    await pool.query('INSERT INTO goldsky_chain_watermark(chain_id,block_number,block_hash,block_timestamp) VALUES($1,1000,$2,now())', [chainId, blockHash]);
+    const worker = new PostgresProjectionWorker({ pool, chainId, pipeline, rpc: { async getBlockNumber() { return 1005; }, async getBlockByNumber() { return { hash: `0x${'ac'.repeat(32)}` }; } }, finalityDepth: 2 });
+    await worker.runOnce(); const checkpoint = (await pool.query('SELECT landed_block_number,latest_event_block_number,landed_block_hash FROM indexer_checkpoint WHERE chain_id=$1 AND pipeline=$2', [chainId, pipeline])).rows[0]; assert.equal(Number(checkpoint.landed_block_number), 1000); assert.equal(Number(checkpoint.latest_event_block_number), 0); assert.equal(checkpoint.landed_block_hash, blockHash);
+  } finally { await pool.query('DELETE FROM goldsky_chain_watermark WHERE chain_id=$1 AND block_number=1000', [chainId]); await pool.query('DELETE FROM indexer_checkpoint WHERE chain_id=$1 AND pipeline=$2', [chainId, pipeline]); await pool.end(); }
 });

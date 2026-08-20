@@ -16,7 +16,7 @@ const hexNumber = (value) => value == null ? null : Number(BigInt(value));
  * backed by an RPC receipt and block evidence and is idempotent by event_id.
  */
 export class ChainLifecycleWorker {
-  constructor({ pool, connectionString = process.env.DATABASE_URL, rpc, rpcUrl = process.env.RH_MAINNET_RPC_URL, chainId = 4663, finalityDepth = 12, maxAttempts = 12, protocolAdminSafe = process.env.PROTOCOL_ADMIN_SAFE_ADDRESS, factoryAddress = process.env.NEX_PASS_FACTORY_ADDRESS, logger = console } = {}) {
+  constructor({ pool, connectionString = process.env.DATABASE_URL, rpc, rpcUrl = process.env.RH_MAINNET_RPC_URL, chainId = 4663, finalityDepth = 12, maxAttempts = 12, protocolAdminSafe = process.env.PROTOCOL_ADMIN_SAFE_ADDRESS, factoryAddress = process.env.NEX_PASS_FACTORY_ADDRESS, mintController = process.env.NEX_MINT_CONTROLLER_ADDRESS, logger = console } = {}) {
     this.pool = pool ?? new pg.Pool({ connectionString, max: 4, application_name: 'nexmarkets-chain-worker' });
     this.ownsPool = !pool;
     this.rpc = rpc ?? new JsonRpcClient(rpcUrl);
@@ -25,6 +25,7 @@ export class ChainLifecycleWorker {
     this.maxAttempts = Number(maxAttempts);
     this.protocolAdminSafe = lower(protocolAdminSafe);
     this.factoryAddress = lower(factoryAddress);
+    this.mintController = lower(mintController);
     this.logger = logger;
   }
 
@@ -155,6 +156,11 @@ export class ChainLifecycleWorker {
     if (!execution || (request.safe_transaction_hash && executionHash !== lower(request.safe_transaction_hash))) return { ok: false, reason: 'SAFE_EXECUTION_EVIDENCE_MISSING' };
     if (!edition || lower(edition.editionId) !== expectedId) return { ok: false, reason: 'EDITION_CREATED_EVIDENCE_MISSING' };
     const payload = request.request_payload ?? {};
+    const predictedEdition = lower(request.predicted_edition_address ?? payload.predictedEditionAddress ?? payload.predicted_edition_address);
+    if (!predictedEdition || lower(edition.edition) !== predictedEdition) return { ok: false, reason: 'SAFE_EDITION_ADDRESS_MISMATCH' };
+    if (!this.protocolAdminSafe || lower(edition.protocolAdmin) !== this.protocolAdminSafe) return { ok: false, reason: 'SAFE_PROTOCOL_ADMIN_MISMATCH' };
+    const expectedMintController = lower(payload.mintController ?? payload.mint_controller ?? this.mintController);
+    if (!expectedMintController || lower(edition.mintController) !== expectedMintController) return { ok: false, reason: 'SAFE_MINT_CONTROLLER_MISMATCH' };
     if (payload.publisher && lower(edition.publisher) !== lower(payload.publisher)) return { ok: false, reason: 'SAFE_CALLDATA_PUBLISHER_MISMATCH' };
     if (payload.absoluteSupplyCap != null && String(edition.absoluteSupplyCap) !== String(payload.absoluteSupplyCap)) return { ok: false, reason: 'SAFE_CALLDATA_SUPPLY_MISMATCH' };
     if (payload.artworkCommitment && lower(edition.artworkCommitment) !== lower(payload.artworkCommitment)) return { ok: false, reason: 'SAFE_CALLDATA_ARTWORK_MISMATCH' };

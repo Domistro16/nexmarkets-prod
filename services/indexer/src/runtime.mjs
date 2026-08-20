@@ -137,6 +137,61 @@ async function resolveEventContext(client, row, decoded) {
   return { editionAddress, editionId, projectId, orderHash, tokenId: a.tokenId == null ? null : String(a.tokenId) };
 }
 function asDate(value) { return value instanceof Date ? value : new Date(value); }
+function unixSeconds(value) {
+  if (value == null) return 0;
+  if (value instanceof Date) return Math.floor(value.getTime() / 1000);
+  if (typeof value === 'number') return Math.floor(value);
+  const parsed = Number(value);
+  if (Number.isFinite(parsed)) return Math.floor(parsed);
+  return Math.floor(new Date(value).getTime() / 1000);
+}
+function advantageKind(value) {
+  if (typeof value === 'number') return KIND[value] ?? String(value);
+  if (typeof value === 'bigint') return KIND[Number(value)] ?? String(value);
+  return String(value ?? '').toUpperCase();
+}
+function effectiveAdvantageTimestamp(config, state, now = Math.floor(Date.now() / 1000)) {
+  let current = Math.max(0, now - Number(state.frozenSeconds ?? 0));
+  if (advantageKind(config.kind) !== 'TIME_BASED' || !state.listed || state.listedAt == null) return current;
+  const listedTimestamp = Number(state.listedAt) - Number(state.frozenSeconds ?? 0);
+  if (listedTimestamp >= Number(config.endsAt)) return current;
+  const freezeAt = Math.max(listedTimestamp, Number(config.startsAt));
+  return current < freezeAt ? current : freezeAt;
+}
+export function advantageRemaining(config, state, now = Math.floor(Date.now() / 1000)) {
+  const effective = effectiveAdvantageTimestamp(config, state, now);
+  if (effective < Number(config.startsAt) || effective >= Number(config.endsAt)) return '0';
+  const kind = advantageKind(config.kind);
+  if (kind === 'TIME_BASED') return String(Math.max(0, Number(config.endsAt) - effective));
+  if (kind === 'CONNECTED') return '1';
+  return String(state.remainingUnits ?? config.totalUnits ?? 0);
+}
+function applyListingFreeze(state, config, at) {
+  if (!state.listed || state.listedAt == null || advantageKind(config.kind) !== 'TIME_BASED') return;
+  const frozen = Number(state.frozenSeconds ?? 0);
+  const listedTimestamp = Number(state.listedAt) - frozen;
+  if (listedTimestamp >= Number(config.endsAt)) return;
+  const freezeAt = Math.max(listedTimestamp, Number(config.startsAt));
+  const currentTimestamp = Number(at) - frozen;
+  if (currentTimestamp <= freezeAt) return;
+  state.frozenSeconds = frozen + currentTimestamp - freezeAt;
+}
+function replayAdvantageState(config, events) {
+  const state = { remainingUnits: String(config.totalUnits ?? 0), frozenSeconds: 0, listed: false, listedAt: null };
+  for (const event of events) {
+    const args = eventArgs(event);
+    if (event.event_name === 'AdvantageConsumed' && lower(args.advantageId) === lower(config.advantageId)) {
+      state.remainingUnits = String(args.remainingUnits ?? state.remainingUnits);
+    }
+    if (event.event_name !== 'PassListingStateSet') continue;
+    const listed = Boolean(args.listed);
+    const at = unixSeconds(event.block_timestamp);
+    if (listed === state.listed) continue;
+    if (listed) { state.listed = true; state.listedAt = at; }
+    else { applyListingFreeze(state, config, at); state.listed = false; state.listedAt = null; }
+  }
+  return state;
+}
 
 export function decodeGoldskyLog(row) {
   const topic0 = String(row.topic0).toLowerCase();
@@ -170,15 +225,26 @@ export class PostgresProjectionWorker {
     let processed = 0; let removed = 0;
     for (const row of rows) { await this.processRaw(row, finalityBlock); processed += 1; if (row.removed) removed += 1; }
     await this.finalize(finalityBlock);
-    const latest = await this.pool.query('SELECT COALESCE(MAX(block_number),0) latest FROM indexer_event WHERE chain_id=$1 AND orphaned_at IS NULL', [this.chainId]);
-    const latestBlock = Number(latest.rows[0].latest);
+    const latest = await this.pool.query('SELECT block_number,block_hash FROM indexer_event WHERE chain_id=$1 AND orphaned_at IS NULL ORDER BY block_number DESC,log_index DESC LIMIT 1', [this.chainId]);
+    const latestBlock = Number(latest.rows[0]?.block_number ?? 0);
+    const latestEventHash = latest.rows[0]?.block_hash ?? ZERO;
+    const landed = await this.pool.query('SELECT block_number,block_hash,block_timestamp FROM goldsky_chain_watermark WHERE chain_id=$1 AND removed=false ORDER BY block_number DESC LIMIT 1', [this.chainId]);
+    const fallbackLanded = await this.pool.query('SELECT block_number,block_hash,block_timestamp FROM goldsky_raw_log WHERE chain_id=$1 AND removed=false ORDER BY block_number DESC LIMIT 1', [this.chainId]);
+    const landedRow = landed.rows[0] ?? fallbackLanded.rows[0] ?? (latest.rows[0] ? { block_number: latestBlock, block_hash: latestEventHash } : { block_number: 0, block_hash: ZERO });
+    const landedBlock = Number(landedRow.block_number ?? 0);
+    const landedHash = landedRow.block_hash ?? ZERO;
+    const finalizedEvent = await this.pool.query('SELECT block_number,block_hash FROM indexer_event WHERE chain_id=$1 AND orphaned_at IS NULL AND block_number<=$2 ORDER BY block_number DESC,log_index DESC LIMIT 1', [this.chainId, finalityBlock]);
+    const finalizedEventBlock = Number(finalizedEvent.rows[0]?.block_number ?? 0);
+    const finalizedEventHash = finalizedEvent.rows[0]?.block_hash ?? ZERO;
+    const finalizedWatermark = Math.min(landedBlock, finalityBlock);
+    const finalizedWatermarkHash = finalizedWatermark === landedBlock ? landedHash : (await this.pool.query('SELECT block_hash FROM goldsky_chain_watermark WHERE chain_id=$1 AND block_number=$2 AND removed=false LIMIT 1', [this.chainId, finalizedWatermark])).rows[0]?.block_hash ?? ZERO;
     await this.pool.query(
-      `INSERT INTO indexer_checkpoint(pipeline,chain_id,latest_block_number,latest_block_hash,finalized_block_number,chain_head_block_number,chain_head_block_hash)
-       VALUES($1,$2,$3,$4,$5,$6,$7)
-       ON CONFLICT(pipeline,chain_id) DO UPDATE SET latest_block_number=excluded.latest_block_number,latest_block_hash=excluded.latest_block_hash,finalized_block_number=excluded.finalized_block_number,chain_head_block_number=excluded.chain_head_block_number,chain_head_block_hash=excluded.chain_head_block_hash,updated_at=now()`,
-      [this.pipeline, this.chainId, latestBlock, headBlock?.hash ?? ZERO, Math.min(latestBlock, finalityBlock), head, headBlock?.hash ?? ZERO]
+      `INSERT INTO indexer_checkpoint(pipeline,chain_id,latest_block_number,latest_block_hash,finalized_block_number,chain_head_block_number,chain_head_block_hash,landed_block_number,landed_block_hash,landed_block_timestamp,latest_event_block_number,latest_event_block_hash,finalized_event_block_number,finalized_event_block_hash,finalized_watermark_block_number,finalized_watermark_block_hash)
+       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$3,$4,$11,$12,$13,$14)
+       ON CONFLICT(pipeline,chain_id) DO UPDATE SET latest_block_number=excluded.latest_block_number,latest_block_hash=excluded.latest_block_hash,finalized_block_number=excluded.finalized_block_number,chain_head_block_number=excluded.chain_head_block_number,chain_head_block_hash=excluded.chain_head_block_hash,landed_block_number=excluded.landed_block_number,landed_block_hash=excluded.landed_block_hash,landed_block_timestamp=excluded.landed_block_timestamp,latest_event_block_number=excluded.latest_event_block_number,latest_event_block_hash=excluded.latest_event_block_hash,finalized_event_block_number=excluded.finalized_event_block_number,finalized_event_block_hash=excluded.finalized_event_block_hash,finalized_watermark_block_number=excluded.finalized_watermark_block_number,finalized_watermark_block_hash=excluded.finalized_watermark_block_hash,updated_at=now()`,
+      [this.pipeline, this.chainId, latestBlock, latestEventHash, finalizedEventBlock, head, headBlock?.hash ?? ZERO, landedBlock, landedHash, landedRow.block_timestamp ? asDate(landedRow.block_timestamp) : null, finalizedEventBlock, finalizedEventHash, finalizedWatermark, finalizedWatermarkHash]
     );
-    return { head, finalityBlock, latestBlock, processed, removed };
+    return { head, finalityBlock, latestBlock, landedBlock, processed, removed };
   }
 
   async processRaw(row, finalityBlock) {
@@ -282,10 +348,24 @@ export class PostgresProjectionWorker {
     if (context.editionId && context.tokenId != null) {
       await client.query('DELETE FROM pass_token_projection WHERE edition_id=$1 AND token_id=$2', [context.editionId, context.tokenId]);
       await client.query('DELETE FROM advantage_state_projection WHERE edition_id=$1 AND token_id=$2', [context.editionId, context.tokenId]);
-      const events = await this.canonicalEvents(client, row, (event, args) => {
+      // EditionMinted is range-scoped (firstTokenId + quantity), not
+      // tokenId-scoped.  Build the token journal from the whole Edition and
+      // retain the mint event whose range contains this serial, otherwise a
+      // rebuild after a Transfer/TBA/Advantage reorg loses its historical
+      // Terms hash.
+      const editionEvents = await this.canonicalEvents(client, row, (event, args) => {
         const address = lower(args.edition ?? (event.event_name === 'ERC6551AccountCreated' ? args.tokenContract : event.contract_address));
-        return address === context.editionAddress && args.tokenId != null && String(args.tokenId) === context.tokenId;
+        return address === context.editionAddress;
       });
+      const tokenEvents = editionEvents.filter((event) => {
+        const args = eventArgs(event);
+        if (event.event_name === 'EditionMinted') {
+          const token = BigInt(context.tokenId); const first = BigInt(args.firstTokenId ?? 0); const quantity = BigInt(args.quantity ?? 0);
+          return token >= first && token < first + quantity;
+        }
+        return args.tokenId != null && String(args.tokenId) === context.tokenId;
+      });
+      const events = tokenEvents;
       await this.replayEvents(client, events, {
         editionAddress: context.editionAddress,
         editionId: context.editionId,
@@ -307,7 +387,7 @@ export class PostgresProjectionWorker {
         await client.query(
           `INSERT INTO pass_token_projection(edition_id,token_id,owner_address,terms_hash,minted_block_number,latest_block_number,latest_block_hash,latest_tx_hash,latest_log_index,finalized)
            VALUES($1,$2,$3,$4,$5,$5,$6,$7,$8,false)
-           ON CONFLICT(edition_id,token_id) DO UPDATE SET owner_address=excluded.owner_address,terms_hash=CASE WHEN pass_token_projection.terms_hash=$4 THEN excluded.terms_hash ELSE pass_token_projection.terms_hash END,orphaned_at=NULL`,
+            ON CONFLICT(edition_id,token_id) DO UPDATE SET owner_address=excluded.owner_address,terms_hash=excluded.terms_hash,orphaned_at=NULL`,
           [context.editionId, context.tokenId, lower(transferArgs.to), termsHash, lastTransfer.block_number, lastTransfer.block_hash, lastTransfer.transaction_hash.toLowerCase(), lastTransfer.log_index]
         );
       }
@@ -317,21 +397,26 @@ export class PostgresProjectionWorker {
         const commitment = await client.query('SELECT configs FROM terms_advantage_commitment WHERE advantages_hash=$1', [lower(initializedArgs.advantagesHash)]);
         for (const config of commitment.rows[0]?.configs ?? []) {
           const advantageId = lower(config.advantageId);
-          const consumed = events.filter((event) => event.event_name === 'AdvantageConsumed' && lower(eventArgs(event).advantageId) === advantageId).at(-1);
-          const listedEvent = events.filter((event) => event.event_name === 'PassListingStateSet').at(-1);
-          const sourceEvent = consumed ?? listedEvent ?? initialized;
-          const sourceArgs = eventArgs(sourceEvent);
+          const state = replayAdvantageState(config, events);
+          const relevant = events.filter((event) => ['PassAdvantagesInitialized', 'AdvantageConsumed', 'PassListingStateSet'].includes(event.event_name) && (event.event_name !== 'AdvantageConsumed' || lower(eventArgs(event).advantageId) === advantageId));
+          const sourceEvent = relevant.at(-1) ?? initialized;
           await client.query(
-            `INSERT INTO advantage_state_projection(edition_id,token_id,advantage_id_hash,remaining_units,frozen_seconds,listed,source_block_number,source_block_hash,source_tx_hash,source_log_index,finalized)
-             VALUES($1,$2,$3,$4,0,$5,$6,$7,$8,$9,false)
-             ON CONFLICT(edition_id,token_id,advantage_id_hash) DO UPDATE SET remaining_units=excluded.remaining_units,listed=excluded.listed,source_block_number=excluded.source_block_number,source_block_hash=excluded.source_block_hash,source_tx_hash=excluded.source_tx_hash,source_log_index=excluded.source_log_index,orphaned_at=NULL`,
-            [context.editionId, context.tokenId, advantageId, consumed ? sourceArgs.remainingUnits : (config.totalUnits ?? 0), listedEvent ? Boolean(eventArgs(listedEvent).listed) : false, sourceEvent.block_number, sourceEvent.block_hash, sourceEvent.transaction_hash.toLowerCase(), sourceEvent.log_index]
+            `INSERT INTO advantage_state_projection(edition_id,token_id,advantage_id_hash,remaining_units,frozen_seconds,listed,listed_at,source_block_number,source_block_hash,source_tx_hash,source_log_index,finalized)
+             VALUES($1,$2,$3,$4,$5,$6,CASE WHEN $6 THEN to_timestamp($7) ELSE NULL END,$8,$9,$10,$11,false)
+             ON CONFLICT(edition_id,token_id,advantage_id_hash) DO UPDATE SET remaining_units=excluded.remaining_units,frozen_seconds=excluded.frozen_seconds,listed=excluded.listed,listed_at=excluded.listed_at,source_block_number=excluded.source_block_number,source_block_hash=excluded.source_block_hash,source_tx_hash=excluded.source_tx_hash,source_log_index=excluded.source_log_index,orphaned_at=NULL`,
+            [context.editionId, context.tokenId, advantageId, advantageKind(config.kind) === 'TIME_BASED' || advantageKind(config.kind) === 'CONNECTED' ? '0' : state.remainingUnits, state.frozenSeconds, state.listed, state.listedAt ?? 0, sourceEvent.block_number, sourceEvent.block_hash, sourceEvent.transaction_hash.toLowerCase(), sourceEvent.log_index]
           );
         }
       }
     } else if (context.editionId) {
       await client.query('UPDATE terms_version SET orphaned_at=COALESCE(orphaned_at,now()),finalized=false WHERE edition_id=$1', [context.editionId]);
       await client.query('UPDATE edition SET orphaned_at=COALESCE(orphaned_at,now()),finalized=false WHERE id=$1', [context.editionId]);
+      // Edition-wide events such as EditionMinted are range-scoped rather
+      // than token-scoped. Rebuild all Pass/Advantage rows so a removed mint
+      // cannot leave serials whose latest Transfer no longer has a valid
+      // historical Terms source.
+      await client.query('DELETE FROM advantage_state_projection WHERE edition_id=$1', [context.editionId]);
+      await client.query('DELETE FROM pass_token_projection WHERE edition_id=$1', [context.editionId]);
       const events = await this.canonicalEvents(client, row, (event, args) => {
         const address = lower(args.edition ?? (event.event_name === 'ERC6551AccountCreated' ? args.tokenContract : event.contract_address));
         return address === context.editionAddress && !LISTING_CONTEXT_EVENTS.has(event.event_name) && event.event_name !== 'RoyaltyWithdrawn' && event.event_name !== 'OrderFulfilled';
@@ -353,6 +438,14 @@ export class PostgresProjectionWorker {
     if (decoded.eventName === 'EditionCreated') {
       const request = await client.query('SELECT * FROM edition_request WHERE chain_id=$1 AND edition_id_hash=$2', [row.chain_id, lower(a.editionId)]);
       if (!request.rows[0]) return;
+      const requested = request.rows[0].request_payload ?? {};
+      const predicted = request.rows[0].predicted_edition_address ?? requested.predictedEditionAddress;
+      if (predicted && lower(predicted) !== lower(a.edition)) throw new Error('EDITION_REQUEST_PREDICTED_ADDRESS_MISMATCH');
+      if (requested.protocolAdmin && lower(requested.protocolAdmin) !== lower(a.protocolAdmin)) throw new Error('EDITION_REQUEST_PROTOCOL_ADMIN_MISMATCH');
+      if (requested.mintController && lower(requested.mintController) !== lower(a.mintController)) throw new Error('EDITION_REQUEST_MINT_CONTROLLER_MISMATCH');
+      if (requested.absoluteSupplyCap != null && String(requested.absoluteSupplyCap) !== String(a.absoluteSupplyCap)) throw new Error('EDITION_REQUEST_SUPPLY_MISMATCH');
+      if (requested.artworkCommitment && lower(requested.artworkCommitment) !== lower(a.artworkCommitment)) throw new Error('EDITION_REQUEST_ARTWORK_MISMATCH');
+      if (requested.salt && lower(requested.salt) !== lower(a.salt)) throw new Error('EDITION_REQUEST_SALT_MISMATCH');
       const editionId = idFor('ed', `${row.chain_id}:${lower(a.edition)}`);
       await client.query(
         `INSERT INTO edition(id,project_id,chain_id,edition_address,edition_id_hash,factory_address,publisher_address,absolute_supply_cap,artwork_commitment,source_block_number,source_block_hash,source_tx_hash,source_log_index,finalized)
@@ -416,24 +509,43 @@ export class PostgresProjectionWorker {
       }
       case 'EditionMinted': {
         const quantity = BigInt(a.quantity); const first = BigInt(a.firstTokenId);
-        for (let offset = 0n; offset < quantity; offset += 1n) await client.query('UPDATE pass_token_projection SET terms_hash=$1,owner_address=$2,latest_block_number=$3,latest_block_hash=$4,latest_tx_hash=$5,latest_log_index=$6 WHERE edition_id=$7 AND token_id=$8', [lower(a.termsVersionHash), lower(a.to), ...source, editionId, String(first + offset)]);
+        for (let offset = 0n; offset < quantity; offset += 1n) await client.query(
+          `INSERT INTO pass_token_projection(edition_id,token_id,owner_address,terms_hash,minted_block_number,latest_block_number,latest_block_hash,latest_tx_hash,latest_log_index,finalized)
+           VALUES($1,$2,$3,$4,$5,$5,$6,$7,$8,false)
+           ON CONFLICT(edition_id,token_id) DO UPDATE SET owner_address=excluded.owner_address,terms_hash=excluded.terms_hash,minted_block_number=LEAST(pass_token_projection.minted_block_number,excluded.minted_block_number),latest_block_number=excluded.latest_block_number,latest_block_hash=excluded.latest_block_hash,latest_tx_hash=excluded.latest_tx_hash,latest_log_index=excluded.latest_log_index,orphaned_at=NULL`,
+          [editionId, String(first + offset), lower(a.to), lower(a.termsVersionHash), ...source]
+        );
         break;
       }
       case 'PassAdvantagesInitialized': {
         const commitment = await client.query('SELECT configs FROM terms_advantage_commitment WHERE advantages_hash=$1', [lower(a.advantagesHash)]);
         for (const config of commitment.rows[0]?.configs ?? []) await client.query(
-          `INSERT INTO advantage_state_projection(edition_id,token_id,advantage_id_hash,remaining_units,source_block_number,source_block_hash,source_tx_hash,source_log_index,finalized)
-           VALUES($1,$2,$3,$4,$5,$6,$7,$8,false) ON CONFLICT(edition_id,token_id,advantage_id_hash) DO UPDATE SET remaining_units=excluded.remaining_units,orphaned_at=NULL`,
-          [editionId, String(a.tokenId), lower(config.advantageId), config.totalUnits ?? 0, ...source]
+          `INSERT INTO advantage_state_projection(edition_id,token_id,advantage_id_hash,remaining_units,frozen_seconds,listed,listed_at,source_block_number,source_block_hash,source_tx_hash,source_log_index,finalized)
+           VALUES($1,$2,$3,$4,0,false,NULL,$5,$6,$7,$8,false) ON CONFLICT(edition_id,token_id,advantage_id_hash) DO UPDATE SET remaining_units=excluded.remaining_units,frozen_seconds=0,listed=false,listed_at=NULL,orphaned_at=NULL`,
+          [editionId, String(a.tokenId), lower(config.advantageId), ['TIME_BASED', 'CONNECTED'].includes(advantageKind(config.kind)) ? 0 : (config.totalUnits ?? 0), ...source]
         );
         break;
       }
       case 'AdvantageConsumed':
         await client.query('UPDATE advantage_state_projection SET remaining_units=$1,source_block_number=$2,source_block_hash=$3,source_tx_hash=$4,source_log_index=$5,orphaned_at=NULL WHERE edition_id=$6 AND token_id=$7 AND advantage_id_hash=$8', [a.remainingUnits, ...source, editionId, String(a.tokenId), lower(a.advantageId)]);
         break;
-      case 'PassListingStateSet':
-        await client.query('UPDATE advantage_state_projection SET listed=$1,source_block_number=$2,source_block_hash=$3,source_tx_hash=$4,source_log_index=$5,orphaned_at=NULL WHERE edition_id=$6 AND token_id=$7', [a.listed, ...source, editionId, String(a.tokenId)]);
+      case 'PassListingStateSet': {
+        const states = await client.query(
+          `SELECT s.*,d.kind,d.starts_at,d.ends_at,d.total_units FROM advantage_state_projection s
+           JOIN pass_token_projection p ON p.edition_id=s.edition_id AND p.token_id=s.token_id AND p.orphaned_at IS NULL
+           LEFT JOIN advantage_definition d ON d.edition_id=s.edition_id AND d.terms_hash=p.terms_hash AND d.advantage_id_hash=s.advantage_id_hash
+           WHERE s.edition_id=$1 AND s.token_id=$2 AND s.orphaned_at IS NULL`, [editionId, String(a.tokenId)]
+        );
+        const at = unixSeconds(row.block_timestamp);
+        for (const state of states.rows) {
+          const config = { kind: state.kind, startsAt: unixSeconds(state.starts_at), endsAt: unixSeconds(state.ends_at), totalUnits: state.total_units };
+          const nextListed = Boolean(a.listed); const prior = { listed: Boolean(state.listed), listedAt: state.listed_at ? unixSeconds(state.listed_at) : null, frozenSeconds: Number(state.frozen_seconds ?? 0) };
+          if (nextListed && !prior.listed) { prior.listed = true; prior.listedAt = at; }
+          else if (!nextListed && prior.listed) { applyListingFreeze(prior, config, at); prior.listed = false; prior.listedAt = null; }
+          await client.query('UPDATE advantage_state_projection SET listed=$1,listed_at=CASE WHEN $1 THEN to_timestamp($2) ELSE NULL END,frozen_seconds=$3,source_block_number=$4,source_block_hash=$5,source_tx_hash=$6,source_log_index=$7,orphaned_at=NULL WHERE edition_id=$8 AND token_id=$9 AND advantage_id_hash=$10', [prior.listed, prior.listedAt ?? 0, prior.frozenSeconds, ...source, editionId, String(a.tokenId), state.advantage_id_hash]);
+        }
         break;
+      }
       case 'ListingCreated':
         await client.query(
           `INSERT INTO listing_projection(order_hash,edition_id,token_id,seller_address,terms_hash,price_usdg,protocol_fee_usdg,royalty_usdg,seller_proceeds_usdg,zone_hash,starts_at,expires_at,status,source_block_number,source_block_hash,source_tx_hash,source_log_index,finalized)

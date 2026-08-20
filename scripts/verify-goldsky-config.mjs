@@ -14,7 +14,7 @@ if (chains.networks['robinhood-mainnet'].chainId !== 4663 || chains.networks['ro
 if (!pipeline.includes('__ROBINHOOD_DATASET_PREFIX__.raw_logs') || !pipeline.includes('type: postgres')) throw new Error('Turbo pipeline source/sink incomplete');
 if (!pipeline.includes('primary_key: chain_id,transaction_hash,log_index')) throw new Error('Goldsky idempotency key missing');
 if (!pipeline.includes('__NEXMARKETS_EVENT_TOPIC0_LIST__')) throw new Error('Goldsky event topic deployment placeholder missing');
-if (!config.sources?.robinhood_logs || !config.sources?.robinhood_blocks || !config.transforms?.nexmarkets_logs || !config.sinks?.postgres_events) throw new Error('Goldsky YAML topology incomplete');
+if (!config.sources?.robinhood_logs || !config.sources?.robinhood_blocks || !config.transforms?.nexmarkets_logs || !config.transforms?.nexmarkets_watermarks || !config.sinks?.postgres_events || !config.sinks?.postgres_watermarks) throw new Error('Goldsky YAML topology incomplete');
 const requiredRoles = ['NexPassFactory','NexLaunchRegistry','NexMintController','NexPassEdition','NexAdvantageRegistry','NexListingRegistry','NexRoyaltyVault','ERC6551Registry','Seaport16'];
 for (const role of requiredRoles) if (!catalog.events.some((event) => event.role === role)) throw new Error(`Goldsky event role missing: ${role}`);
 const topics = catalog.events.map((event) => ({ ...event, topic0: id(event.signature) }));

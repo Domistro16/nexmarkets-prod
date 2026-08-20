@@ -9,7 +9,7 @@ NexMarkets V1 is an exact-serial Pass market for Robinhood Chain. USDG is the on
 - Exact-Pass Advantage state, listing locks and approved per-Advantage TimeBased freezing.
 - Seaport 1.6 ListingRegistry/Zone policy with exact 1% secondary fee, no surcharge and a 30-day Builder Royalty Vault.
 - ERC-6551 canonical-registry integration with a deterministic, source-pinned Pass account and resolver. TBA state is never canonical NexMarkets state.
-- Goldsky Turbo-first indexing templates, dynamic Edition event catalog, idempotent/reorg-safe projection and chain reconciliation.
+- Goldsky Turbo-first indexing templates (raw logs plus landed-block watermark), dynamic Edition event catalog, idempotent/reorg-safe projection and independent chain reconciliation entities.
 - A runnable Postgres projector consumes Goldsky raw logs, decodes complete Terms, advances checkpoints/finality and resumes safely; a separate Robinhood receipt worker advances transaction jobs through CONFIRMED/FINALIZED or REVERTED/REORGED.
 - PostgreSQL V1 migrations for product, indexed, transaction, referral, outbox, audit, media and reconciliation data.
 - Wallet-signed authentication, opaque sessions, CSRF/origin/rate controls, transaction/order preparation and a no-custody API.

@@ -19,7 +19,11 @@ projection consumer, not a replacement RPC polling indexer. It ABI-decodes the
 pinned event catalog, admits Editions only through durable Factory requests,
 persists complete Terms/Advantage definitions, writes provenance-bearing
 projections, handles `removed`/reorg records, and updates indexed/finalized
-checkpoints. It is resumable and idempotent by `(chain_id,tx_hash,log_index)`.
+checkpoints. `goldsky_chain_watermark` records landed raw-block progress while
+`indexer_checkpoint` keeps landed, latest-event, finalized-event,
+finalized-watermark and RPC-head values separate. Readiness therefore does not
+mistake a quiet protocol (few events) for an unhealthy indexer. It is resumable
+and idempotent by `(chain_id,tx_hash,log_index)`.
 
 Goldsky must first enable the dedicated Robinhood dataset and provide the
 Postgres sink secret; those are external release gates. Never commit either

@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { once } from 'node:events';
 import { Interface, Wallet, id } from 'ethers';
-import { createApiServer, RateLimiter } from '../apps/api/src/server.mjs';
+import { createApiServer, RateLimiter, predictEditionAddress } from '../apps/api/src/server.mjs';
 import { MemoryStore } from '../apps/api/src/memory-store.mjs';
 
 async function running(options = {}) {
@@ -75,11 +75,11 @@ test('wallet reports transaction lifecycle idempotently without treating a hash 
 });
 
 test('Builder Edition creation is a Safe workflow and Terms commitments are exact', async (t) => {
-  const safe = '0x9999999999999999999999999999999999999999'; const builder = Wallet.createRandom(); const factory = '0x7777777777777777777777777777777777777777'; const edition = '0x6666666666666666666666666666666666666666'; const txHash = `0x${'22'.repeat(32)}`; const safeTxHash = `0x${'33'.repeat(32)}`;
+  const safe = '0x9999999999999999999999999999999999999999'; const builder = Wallet.createRandom(); const factory = '0x7777777777777777777777777777777777777777'; const edition = predictEditionAddress({ factoryAddress: factory, name: 'Safe Edition', symbol: 'SAFE', initialOwner: safe, editionId: `0x${'11'.repeat(32)}`, absoluteSupplyCap: 10, artworkCommitment: `0x${'12'.repeat(32)}`, baseTokenURI: 'https://example.test/metadata/', salt: `0x${'13'.repeat(32)}` }); const txHash = `0x${'22'.repeat(32)}`; const safeTxHash = `0x${'33'.repeat(32)}`;
   const safeInterface = new Interface(['event ExecutionSuccess(bytes32 indexed txHash,uint256 payment)']); const factoryInterface = new Interface(['event EditionCreated(address indexed edition,bytes32 indexed editionId,address indexed publisher,bytes32 salt,address protocolAdmin,address mintController,uint32 absoluteSupplyCap,bytes32 artworkCommitment)']);
   const safeLog = safeInterface.encodeEventLog(safeInterface.getEvent('ExecutionSuccess'), [safeTxHash, 0]); const factoryLog = factoryInterface.encodeEventLog(factoryInterface.getEvent('EditionCreated'), [edition, `0x${'11'.repeat(32)}`, builder.address, `0x${'13'.repeat(32)}`, safe, '0x8888888888888888888888888888888888888888', 10, `0x${'12'.repeat(32)}`]);
   const chain = { async getTransactionReceipt() { return { status: '0x1', blockNumber: '0x10', blockHash: `0x${'44'.repeat(32)}`, logs: [{ address: safe, ...safeLog }, { address: factory, ...factoryLog }] }; }, async getTransactionByHash() { return { to: safe, from: builder.address, input: '0x' }; } };
-  const { server, base } = await running({ chain, orderPolicy: { protocolAdminSafe: safe, transactionTargets: { EDITION_CREATE: factory, TERMS_PUBLISH: '0x8888888888888888888888888888888888888888' } } }); t.after(() => server.close());
+  const { server, base } = await running({ chain, orderPolicy: { protocolAdminSafe: safe, transactionTargets: { MINT: '0x8888888888888888888888888888888888888888', EDITION_CREATE: factory, TERMS_PUBLISH: '0x8888888888888888888888888888888888888888' } } }); t.after(() => server.close());
   const auth = await authenticate(base, builder); const headers = { cookie: auth.cookie, 'x-csrf-token': auth.verified.csrfToken, 'content-type': 'application/json', origin: 'https://nexmarkets.fun' };
   const project = await fetch(`${base}/v1/builder/projects`, { method: 'POST', headers: { ...headers, 'idempotency-key': 'project-safe' }, body: JSON.stringify({ slug: `safe-${Date.now()}`, name: 'Safe Edition' }) }); const projectRow = await project.json();
   const requestResponse = await fetch(`${base}/v1/editions/prepare`, { method: 'POST', headers: { ...headers, 'idempotency-key': 'edition-safe' }, body: JSON.stringify({ projectId: projectRow.data.id, name: 'Safe Edition', symbol: 'SAFE', editionId: `0x${'11'.repeat(32)}`, initialOwner: safe, absoluteSupplyCap: 10, artworkCommitment: `0x${'12'.repeat(32)}`, baseTokenURI: 'https://example.test/metadata/', publisher: builder.address, salt: `0x${'13'.repeat(32)}` }) });
@@ -88,7 +88,27 @@ test('Builder Edition creation is a Safe workflow and Terms commitments are exac
   const other = await authenticate(base, Wallet.createRandom()); const crossAccount = await fetch(`${base}/v1/editions/prepare`, { method: 'POST', headers: { cookie: other.cookie, 'x-csrf-token': other.verified.csrfToken, 'content-type': 'application/json', origin: 'https://nexmarkets.fun', 'idempotency-key': 'cross-account-edition' }, body: JSON.stringify({ projectId: projectRow.data.id, name: 'Wrong Builder', symbol: 'WRONG', editionId: `0x${'55'.repeat(32)}`, initialOwner: safe, absoluteSupplyCap: 10, artworkCommitment: `0x${'56'.repeat(32)}`, baseTokenURI: 'https://example.test/metadata/', publisher: builder.address, salt: `0x${'57'.repeat(32)}` }) }); assert.equal(crossAccount.status, 400);
 });
 
+test('Factory Safe evidence prediction binds the complete Edition config', () => {
+  const base = { factoryAddress: '0x7777777777777777777777777777777777777777', name: 'Edition', symbol: 'ED', initialOwner: '0x9999999999999999999999999999999999999999', editionId: `0x${'11'.repeat(32)}`, absoluteSupplyCap: 10, artworkCommitment: `0x${'12'.repeat(32)}`, baseTokenURI: 'https://example.test/metadata/', salt: `0x${'13'.repeat(32)}` };
+  const predicted = predictEditionAddress(base);
+  assert.notEqual(predicted, predictEditionAddress({ ...base, name: 'Altered Edition' }));
+  assert.notEqual(predicted, predictEditionAddress({ ...base, symbol: 'ALT' }));
+  assert.notEqual(predicted, predictEditionAddress({ ...base, baseTokenURI: 'https://example.test/other/' }));
+});
+
 test('/readyz compares projection freshness with the Robinhood chain head', async (t) => {
   const { server, base } = await running({ requireIndexedReadiness: true, chain: { async getBlockNumber() { return 200; } }, maxIndexerLagBlocks: 20, maxFinalityLagBlocks: 20 }); t.after(() => server.close());
+  const stale = await fetch(`${base}/readyz`, { headers: { origin: 'https://nexmarkets.fun' } }); assert.equal(stale.status, 503);
+});
+
+test('/readyz uses the Goldsky landed watermark, not the latest protocol event', async (t) => {
+  const { server, base, store } = await running({ requireIndexedReadiness: true, chain: { async getBlockNumber() { return 1005; } }, maxIndexerLagBlocks: 10, maxFinalityLagBlocks: 10 }); t.after(() => server.close());
+  store.indexerHealth = async () => ({ landed_block_number: 1000, latest_event_block_number: 400, finalized_watermark_block_number: 1000 });
+  const ready = await fetch(`${base}/readyz`, { headers: { origin: 'https://nexmarkets.fun' } }); assert.equal(ready.status, 200); assert.equal((await ready.json()).landedBlock, 1000);
+});
+
+test('/readyz reports a stale Goldsky watermark even when the event stream is quiet', async (t) => {
+  const { server, base, store } = await running({ requireIndexedReadiness: true, chain: { async getBlockNumber() { return 1005; } }, maxIndexerLagBlocks: 10, maxFinalityLagBlocks: 10 }); t.after(() => server.close());
+  store.indexerHealth = async () => ({ landed_block_number: 700, latest_event_block_number: 400, finalized_watermark_block_number: 700 });
   const stale = await fetch(`${base}/readyz`, { headers: { origin: 'https://nexmarkets.fun' } }); assert.equal(stale.status, 503);
 });

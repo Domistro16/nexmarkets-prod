@@ -4,7 +4,7 @@ The API is a no-custody transaction preparation and read-model service. Public r
 
 Authentication is a Robinhood-chain/domain-bound signed wallet challenge with a single-use nonce and expiration. Successful verification creates an opaque, server-stored, revocable session cookie and separate CSRF token. Mutation routes require the session, CSRF token, same origin and an idempotency key. User wallets sign and submit transactions; the server never stores a user key. Safe Edition submission is not authorized by pretending the Safe is an EOA: the chain worker/API accept it only after verifying a successful Safe `ExecutionSuccess` plus the expected Factory `EditionCreated` evidence for that request.
 
-Responses include request IDs and structured error codes. Security headers, body limits and rate limiting are enabled. Production should terminate TLS at the edge and use a distributed rate-limit adapter when horizontally scaled. `/healthz` checks process liveness; `/readyz` checks PostgreSQL plus actual Robinhood head-to-indexed/finalized freshness thresholds and fails closed when stale.
+Responses include request IDs and structured error codes. Security headers, body limits and rate limiting are enabled. Production should terminate TLS at the edge and use a distributed rate-limit adapter when horizontally scaled. `/healthz` checks process liveness; `/readyz` checks PostgreSQL plus actual Robinhood head-to-Goldsky-landed-watermark and finalized-watermark freshness thresholds and fails closed when stale. Latest protocol-event height is reported separately and is never used as ingestion progress.
 
 Listing preparation enforces that the seller is the authenticated wallet. The order builder derives or verifies the exact Registry `zoneHash`, reproduces Seaport 1.6 `getOrderHash(OrderComponents)`, emits the Registry `createListing` call when the counter and deployment address are supplied, and rejects wrong USDG, fee, royalty, seller, token, expiry or extra consideration. A submitted transaction hash moves a job only to `SUBMITTED`; confirmation and finalization require receipt/finality evidence from the chain worker.
 
@@ -18,5 +18,9 @@ Safe proposal payload. It does not ask the Builder EOA to submit
 `NexPassFactory.createEdition`, because Factory ownership remains with the
 Protocol Admin Safe. The API records a Safe execution only after its receipt
 contains the successful Safe execution event and the expected Factory
-`EditionCreated` event; Goldsky/chain workers then advance the request through
+`EditionCreated` event. The request stores the byte-exact CREATE2 prediction
+derived from the complete Edition config (name, symbol, Safe initial owner,
+edition ID, cap, artwork commitment, base URI and salt); the observed event
+must match that address and its configured Protocol Admin/MintController.
+Goldsky/chain workers then advance the request through
 submitted, confirmed and finalized states.

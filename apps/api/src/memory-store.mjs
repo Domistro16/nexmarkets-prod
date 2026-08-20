@@ -8,7 +8,7 @@ export class MemoryStore {
     this.projects = []; this.editions = []; this.passes = []; this.listingRows = []; this.signedOrders = new Map(); this.editionRequests = []; this.termsCommitments = new Map(); this.media = [];
   }
   async ready() { return true; }
-  async indexerHealth() { return { latest_block_number: 1, finalized_block_number: 1 }; }
+  async indexerHealth() { return { latest_block_number: 1, latest_event_block_number: 1, landed_block_number: 1, finalized_block_number: 1, finalized_watermark_block_number: 1 }; }
   async close() {}
   async saveChallenge(challenge) { this.challenges.set(challenge.nonce, structuredClone(challenge)); }
   async challenge(nonce) { return structuredClone(this.challenges.get(nonce) ?? null); }
@@ -52,7 +52,7 @@ export class MemoryStore {
   async advantagesForOwner(address) { return structuredClone(this.passes.filter((pass) => pass.ownerAddress === address.toLowerCase()).flatMap((pass) => pass.advantages ?? [])); }
   async builderDashboard(accountId) { return { projects: structuredClone(this.projects.filter((project) => project.builderAccountId === accountId)), editions: [], royalties: [], referrals: [] }; }
   async createProject({ accountId, body }) { const project = { id: `prj_${randomUUID()}`, builderAccountId: accountId, status: 'DRAFT', ...body }; this.projects.push(project); return structuredClone(project); }
-  async createEditionRequest({ projectId, builderAccountId, chainId, payload, transactionId = null }) { const project = this.projects.find((item) => item.id === projectId && item.builderAccountId === builderAccountId); if (!project) throw new Error('PROJECT_BUILDER_MISMATCH'); const request = { id: `edreq_${randomUUID()}`, projectId, builderAccountId, chainId, transactionId, editionIdHash: payload.editionId, requestPayload: payload, safeStatus: 'REQUESTED' }; this.editionRequests.push(request); return structuredClone(request); }
+  async createEditionRequest({ projectId, builderAccountId, chainId, payload, transactionId = null }) { const project = this.projects.find((item) => item.id === projectId && item.builderAccountId === builderAccountId); if (!project) throw new Error('PROJECT_BUILDER_MISMATCH'); const request = { id: `edreq_${randomUUID()}`, projectId, builderAccountId, chainId, transactionId, editionIdHash: payload.editionId, requestPayload: payload, predictedEditionAddress: payload.predictedEditionAddress ?? null, safeStatus: 'REQUESTED' }; this.editionRequests.push(request); return structuredClone(request); }
   async markEditionRequestSafePending(id, builderAccountId) { const request = this.editionRequests.find((item) => item.id === id && item.builderAccountId === builderAccountId && item.safeStatus !== 'REJECTED'); if (!request) throw new Error('EDITION_REQUEST_STATE_CONFLICT'); if (request.safeStatus === 'REQUESTED') request.safeStatus = 'SAFE_PENDING'; return structuredClone(request); }
   async saveTermsCommitment(input) { this.termsCommitments.set(input.advantagesHash.toLowerCase(), structuredClone(input)); return structuredClone(input); }
   async editionRequestById(id, builderAccountId) { return structuredClone(this.editionRequests.find((request) => request.id === id && request.builderAccountId === builderAccountId) ?? null); }

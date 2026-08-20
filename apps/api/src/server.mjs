@@ -1,7 +1,8 @@
 import http from 'node:http';
 import { randomUUID } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
-import { AbiCoder, getAddress, id, Interface, isAddress, keccak256, toUtf8Bytes } from 'ethers';
+import { AbiCoder, concat, getAddress, getCreate2Address, id, Interface, isAddress, keccak256, toUtf8Bytes } from 'ethers';
 import { issueSession, issueWalletChallenge, assertChallengeUsable, assertSession, sessionCookie, verifyWalletChallengeSignature } from '../../../packages/auth/src/index.mjs';
 import { buildNexMarketsOrder, buildProtocolCalldata, buildSeaportFulfillment, seaportOrderHash, seaportTypedData, transitionTransaction, validateProjectedNexMarketsOrder, verifySeaportOrderSignature } from '../../../packages/domain/src/index.mjs';
 import { PostgresStore } from '../../../packages/data/src/postgres-store.mjs';
@@ -31,6 +32,20 @@ const SAFE_EVIDENCE_ABI = new Interface([
 const FACTORY_EVIDENCE_ABI = new Interface([
   'event EditionCreated(address indexed edition,bytes32 indexed editionId,address indexed publisher,bytes32 salt,address protocolAdmin,address mintController,uint32 absoluteSupplyCap,bytes32 artworkCommitment)'
 ]);
+const FACTORY_CONFIG_TUPLE = 'tuple(string name,string symbol,address initialOwner,bytes32 editionId,uint32 absoluteSupplyCap,bytes32 artworkCommitment,string baseTokenURI)';
+function editionCreationCode() {
+  try {
+    const artifact = JSON.parse(readFileSync(new URL('../../../packages/contracts/out/NexPassEdition.sol/NexPassEdition.json', import.meta.url), 'utf8'));
+    const bytecode = typeof artifact.bytecode === 'string' ? artifact.bytecode : artifact.bytecode?.object;
+    if (!bytecode || bytecode === '0x') throw new Error('empty bytecode');
+    return bytecode;
+  } catch (error) { throw Object.assign(new Error(`FACTORY_BYTECODE_REQUIRED:${error.message}`), { status: 503 }); }
+}
+export function predictEditionAddress({ factoryAddress, name, symbol, initialOwner, editionId, absoluteSupplyCap, artworkCommitment, baseTokenURI, salt }) {
+  if (!isAddress(factoryAddress) || !isAddress(initialOwner)) throw Object.assign(new Error('FACTORY_CONFIGURATION_REQUIRED'), { status: 503 });
+  const encodedConfig = AbiCoder.defaultAbiCoder().encode([FACTORY_CONFIG_TUPLE], [[name, symbol, factoryAddress, editionId, absoluteSupplyCap, artworkCommitment, baseTokenURI]]);
+  return getCreate2Address(getAddress(factoryAddress), salt, keccak256(concat([editionCreationCode(), encodedConfig]))).toLowerCase();
+}
 function canonicalAdvantagesHash(configs) {
   if (!Array.isArray(configs) || configs.length === 0) return '0x' + '00'.repeat(32);
   try {
@@ -66,6 +81,11 @@ async function verifySafeExecutionEvidence({ chain, request, txHash, safeTransac
   if (!execution || (safeTransactionHash && executionHash !== safeTransactionHash.toLowerCase())) throw Object.assign(new Error('SAFE_EXECUTION_EVENT_REQUIRED'), { status: 409 });
   if (!editionEvent || String(editionEvent.editionId).toLowerCase() !== expectedEditionId) throw Object.assign(new Error('EDITION_CREATED_EVIDENCE_REQUIRED'), { status: 409 });
   const payload = request.request_payload ?? request.requestPayload ?? {};
+  const predictedEdition = request.predicted_edition_address ?? request.predictedEditionAddress ?? payload.predictedEditionAddress ?? payload.predicted_edition_address;
+  if (!predictedEdition || editionEvent.edition.toLowerCase() !== predictedEdition.toLowerCase()) throw Object.assign(new Error('SAFE_EDITION_ADDRESS_MISMATCH'), { status: 409 });
+  if (editionEvent.protocolAdmin.toLowerCase() !== orderPolicy.protocolAdminSafe.toLowerCase()) throw Object.assign(new Error('SAFE_PROTOCOL_ADMIN_MISMATCH'), { status: 409 });
+  const expectedController = orderPolicy.transactionTargets?.MINT;
+  if (!expectedController || editionEvent.mintController.toLowerCase() !== expectedController.toLowerCase()) throw Object.assign(new Error('SAFE_MINT_CONTROLLER_MISMATCH'), { status: 409 });
   if (payload.publisher && editionEvent.publisher.toLowerCase() !== payload.publisher.toLowerCase()) throw Object.assign(new Error('SAFE_CALLDATA_PUBLISHER_MISMATCH'), { status: 409 });
   if (payload.absoluteSupplyCap != null && String(editionEvent.absoluteSupplyCap) !== String(payload.absoluteSupplyCap)) throw Object.assign(new Error('SAFE_CALLDATA_SUPPLY_MISMATCH'), { status: 409 });
   if (payload.artworkCommitment && editionEvent.artworkCommitment.toLowerCase() !== payload.artworkCommitment.toLowerCase()) throw Object.assign(new Error('SAFE_CALLDATA_ARTWORK_MISMATCH'), { status: 409 });
@@ -172,11 +192,14 @@ export function createApiServer({
         if (requireIndexedReadiness && !chain?.getBlockNumber) throw Object.assign(new Error('CHAIN_HEAD_UNAVAILABLE'), { status: 503 });
         let chainHead = null; let indexedLag = null; let finalityLag = null;
         if (indexer && chain?.getBlockNumber) {
-          chainHead = await chain.getBlockNumber(); indexedLag = chainHead - Number(indexer.latest_block_number); finalityLag = chainHead - Number(indexer.finalized_block_number);
+          chainHead = await chain.getBlockNumber();
+          const landed = Number(indexer.landed_block_number ?? indexer.latest_block_number ?? 0);
+          const finalized = Number(indexer.finalized_watermark_block_number ?? indexer.finalized_block_number ?? 0);
+          indexedLag = chainHead - landed; finalityLag = chainHead - finalized;
           if (indexedLag > maxIndexerLagBlocks || finalityLag > maxFinalityLagBlocks) throw Object.assign(new Error('INDEXER_STALE'), { status: 503 });
         }
-        if (indexer) { metrics.set('nexmarkets_indexer_latest_block', Number(indexer.latest_block_number)); metrics.set('nexmarkets_indexer_lag_blocks', indexedLag ?? Number(indexer.latest_block_number) - Number(indexer.finalized_block_number)); }
-        return json(res, 200, { status: 'ready', database: 'ok', indexer: indexer ? 'fresh' : 'not-required', chainHead, indexedLag, finalityLag, requestId });
+        if (indexer) { const landed = Number(indexer.landed_block_number ?? indexer.latest_block_number ?? 0); metrics.set('nexmarkets_indexer_latest_block', landed); metrics.set('nexmarkets_indexer_lag_blocks', indexedLag ?? landed - Number(indexer.finalized_watermark_block_number ?? indexer.finalized_block_number ?? 0)); }
+        return json(res, 200, { status: 'ready', database: 'ok', indexer: indexer ? 'fresh' : 'not-required', chainHead, landedBlock: indexer ? Number(indexer.landed_block_number ?? indexer.latest_block_number ?? 0) : null, latestEventBlock: indexer ? Number(indexer.latest_event_block_number ?? indexer.latest_block_number ?? 0) : null, indexedLag, finalityLag, requestId });
       }
       if (req.method === 'GET' && url.pathname === '/metrics') { res.writeHead(200, { 'content-type': 'text/plain; version=0.0.4' }); return res.end(metrics.render()); }
       if (req.method === 'GET' && url.pathname === '/v1/discover') return json(res, 200, { data: await store.discover(), authority: 'POSTGRES_READ_MODEL' });
@@ -301,7 +324,9 @@ export function createApiServer({
             if (!input.projectId) throw Object.assign(new Error('PROJECT_ID_REQUIRED'), { status: 400 });
             if (!isAddress(orderPolicy.protocolAdminSafe ?? '')) throw Object.assign(new Error('PROTOCOL_ADMIN_SAFE_CONFIGURATION_REQUIRED'), { status: 503 });
             if (input.initialOwner !== undefined && getAddress(input.initialOwner) !== getAddress(orderPolicy.protocolAdminSafe)) throw Object.assign(new Error('PROTOCOL_ADMIN_SAFE_REQUIRED'), { status: 400 });
-            protocolInput = { ...input, initialOwner: orderPolicy.protocolAdminSafe };
+            protocolInput = { ...input, initialOwner: orderPolicy.protocolAdminSafe, protocolAdmin: orderPolicy.protocolAdminSafe, mintController: orderPolicy.transactionTargets?.MINT ?? null };
+            const predictedEditionAddress = predictEditionAddress({ factoryAddress: target, ...protocolInput });
+            protocolInput = { ...protocolInput, predictedEditionAddress };
             workflowPayload = protocolInput;
             calldata = undefined;
           }
@@ -316,7 +341,7 @@ export function createApiServer({
           }
           if (calldata === undefined) calldata = buildProtocolCalldata(intentType, protocolInput, { walletAddress: session.walletAddress, idempotencyKey });
           if (!/^0x[0-9a-fA-F]+$/.test(calldata ?? '') || !INTENT_SELECTORS[intentType]?.includes(calldata.slice(0, 10).toLowerCase())) throw Object.assign(new Error('CALLDATA_SELECTOR_REJECTED'), { status: 400 });
-          prepared = { to: getAddress(target), data: calldata, value: '0x0' };
+          prepared = { to: getAddress(target), data: calldata, value: '0x0', ...(intentType === 'EDITION_CREATE' ? { predictedEditionAddress: protocolInput.predictedEditionAddress } : {}) };
         }
         const transaction = await store.prepareTransaction({ accountId: session.accountId, walletAddress: session.walletAddress, chainId: session.chainId, intentType: INTENT_TYPE[url.pathname], intentId: input.intentId ?? idempotencyKey, idempotencyKey, correlationId, requestId, toAddress: prepared.to ?? prepared.registryTransaction?.to ?? null, calldata: prepared.data ?? prepared.registryTransaction?.data ?? null });
         await store.recordAudit?.({ accountId: session.accountId, walletAddress: session.walletAddress, action: 'TRANSACTION_PREPARED', objectType: 'CHAIN_TRANSACTION', objectId: transaction.id, requestId, correlationId, metadata: { intentType: INTENT_TYPE[url.pathname] } });

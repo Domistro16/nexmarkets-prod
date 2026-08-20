@@ -524,3 +524,34 @@ CREATE INDEX IF NOT EXISTS idx_outbox_ready ON outbox_event(available_at) WHERE 
 CREATE INDEX IF NOT EXISTS idx_indexer_block ON indexer_event(chain_id,block_number) WHERE orphaned_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_goldsky_raw_block ON goldsky_raw_log(chain_id,block_number);
 CREATE INDEX IF NOT EXISTS idx_reconciliation_open ON reconciliation_incident(status,authority);
+
+-- Runtime correctness extensions.  These are additive and idempotent so a
+-- database created from this migration and a database that already applied
+-- the prior V1 schema converge on the same projection shape.
+ALTER TABLE advantage_state_projection ADD COLUMN IF NOT EXISTS listed_at timestamptz;
+ALTER TABLE pass_token_projection DROP CONSTRAINT IF EXISTS pass_token_projection_latest_tx_hash_latest_log_index_key;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_pass_token_latest_source ON pass_token_projection(latest_tx_hash,latest_log_index,token_id);
+
+-- Goldsky lands raw blocks as well as protocol logs.  This table is the
+-- ingestion watermark; it is deliberately independent of the latest
+-- NexMarkets event because a quiet protocol can still be fully caught up.
+CREATE TABLE IF NOT EXISTS goldsky_chain_watermark (
+  chain_id bigint NOT NULL,
+  block_number bigint NOT NULL,
+  block_hash text NOT NULL,
+  block_timestamp timestamptz NOT NULL,
+  removed boolean NOT NULL DEFAULT false,
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY(chain_id,block_number)
+);
+CREATE INDEX IF NOT EXISTS idx_goldsky_watermark_latest ON goldsky_chain_watermark(chain_id,block_number DESC) WHERE removed=false;
+
+ALTER TABLE indexer_checkpoint ADD COLUMN IF NOT EXISTS landed_block_number bigint;
+ALTER TABLE indexer_checkpoint ADD COLUMN IF NOT EXISTS landed_block_hash text;
+ALTER TABLE indexer_checkpoint ADD COLUMN IF NOT EXISTS landed_block_timestamp timestamptz;
+ALTER TABLE indexer_checkpoint ADD COLUMN IF NOT EXISTS latest_event_block_number bigint;
+ALTER TABLE indexer_checkpoint ADD COLUMN IF NOT EXISTS latest_event_block_hash text;
+ALTER TABLE indexer_checkpoint ADD COLUMN IF NOT EXISTS finalized_event_block_number bigint;
+ALTER TABLE indexer_checkpoint ADD COLUMN IF NOT EXISTS finalized_event_block_hash text;
+ALTER TABLE indexer_checkpoint ADD COLUMN IF NOT EXISTS finalized_watermark_block_number bigint;
+ALTER TABLE indexer_checkpoint ADD COLUMN IF NOT EXISTS finalized_watermark_block_hash text;
