@@ -7,7 +7,7 @@
     "mergeCommit": "d564e4c49037549c123e7182c37ab03576856c91",
     "approvedHead": "940a761d5d3883d38d53966953eb77451660d615"
   },
-  "status": "READY_FOR_MAINNET_APPROVAL_AFTER_TESTNET_RUNTIME_GATES",
+  "status": "TESTNET_RUNTIME_GATES_INCOMPLETE",
   "testnetCertification": "TESTNET_PREVIEW_ACTIVE_WAITING_FOR_MINT_START",
   "mergedPr7": {
     "number": 7,
