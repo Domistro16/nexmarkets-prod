@@ -207,11 +207,18 @@ export class PostgresProjectionWorker {
   }
 
   async orphanProjection(client, row) {
-    const params = [row.chain_id, row.transaction_hash.toLowerCase(), row.log_index];
     for (const table of ['edition','terms_version','pass_token_projection','advantage_state_projection','listing_projection','listing_event','royalty_claim_projection','seaport_fulfillment_projection']) {
       const txColumn = table === 'listing_event' ? 'tx_hash' : 'source_tx_hash';
       const logColumn = table === 'listing_event' ? 'log_index' : table === 'pass_token_projection' ? 'latest_log_index' : 'source_log_index';
-      await client.query(`UPDATE ${table} SET orphaned_at=COALESCE(orphaned_at,now()),finalized=false WHERE ${table === 'pass_token_projection' ? 'latest_tx_hash' : txColumn}=$2 AND ${logColumn}=$3`, params);
+      const txValueColumn = table === 'pass_token_projection' ? 'latest_tx_hash' : txColumn;
+      const scoped = table === 'edition' || table === 'listing_event';
+      const where = scoped
+        ? `chain_id=$1 AND ${txValueColumn}=$2 AND ${logColumn}=$3`
+        : `${txValueColumn}=$1 AND ${logColumn}=$2`;
+      const params = scoped
+        ? [row.chain_id, row.transaction_hash.toLowerCase(), row.log_index]
+        : [row.transaction_hash.toLowerCase(), row.log_index];
+      await client.query(`UPDATE ${table} SET orphaned_at=COALESCE(orphaned_at,now()),finalized=false WHERE ${where}`, params);
     }
   }
 
