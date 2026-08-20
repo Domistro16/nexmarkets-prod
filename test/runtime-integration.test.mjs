@@ -6,6 +6,7 @@ import { PostgresProjectionWorker, decodeGoldskyLog } from '../services/indexer/
 import { ChainLifecycleWorker } from '../services/worker/src/chain-lifecycle.mjs';
 
 const EVENT = new Interface(['event TermsPublished(address indexed edition,bytes32 indexed termsVersionHash,uint64 indexed version,uint256 activeSupply,uint256 pricePerPass,uint64 previewStartsAt,uint64 mintStartsAt,uint64 mintEndsAt,address primaryRecipient,address royaltyReceiver,uint96 royaltyBps,bytes32 advantagesHash,bytes32 referralTermsHash)']);
+const FIXTURE_LOCK_KEY = 466300001;
 const addr = (n) => `0x${String(n).padStart(40, '0')}`;
 const hash = (n) => `0x${String(n).repeat(64).slice(0, 64)}`;
 
@@ -46,7 +47,7 @@ test('Postgres Goldsky raw log projects Edition and advances checkpoint', { skip
     // The projector intentionally consumes every landed log for a chain. The
     // two DB-backed projector fixtures therefore serialize their shared
     // testnet-chain journal while Node runs test files concurrently.
-    await lockClient.query('SELECT pg_advisory_lock($1::bigint)', [46630]);
+    await lockClient.query('SELECT pg_advisory_lock($1::bigint)', [FIXTURE_LOCK_KEY]);
     await pool.query('INSERT INTO account(id) VALUES($1)', [accountId]);
     await pool.query('INSERT INTO project(id,builder_account_id,slug,name) VALUES($1,$2,$3,$4)', [projectId, accountId, `integration-${suffix}`, 'Integration']);
     await pool.query(`INSERT INTO edition_request(id,project_id,builder_account_id,chain_id,edition_id_hash,request_payload,safe_status) VALUES($1,$2,$3,$4,$5,$6::jsonb,'SAFE_PENDING')`, [requestId, projectId, accountId, chainId, editionId, JSON.stringify({ editionId })]);
@@ -65,7 +66,7 @@ test('Postgres Goldsky raw log projects Edition and advances checkpoint', { skip
     await pool.query('DELETE FROM goldsky_raw_log WHERE chain_id=$1 AND transaction_hash=$2', [chainId, tx]);
     await pool.query('DELETE FROM indexer_event WHERE chain_id=$1 AND tx_hash=$2', [chainId, tx]);
     await pool.query('DELETE FROM outbox_event WHERE business_key=$1', [`${chainId}:${tx}:0`]); await pool.query('DELETE FROM notification WHERE business_key=$1', [`${chainId}:${tx}:0`]); await pool.query('DELETE FROM indexer_checkpoint WHERE chain_id=$1 AND pipeline=$2', [chainId, 'goldsky-turbo']); await pool.query('DELETE FROM edition_request WHERE id=$1', [requestId]); await pool.query('DELETE FROM project WHERE id=$1', [projectId]); await pool.query('DELETE FROM account WHERE id=$1', [accountId]);
-    await lockClient.query('SELECT pg_advisory_unlock($1::bigint)', [46630]);
+    await lockClient.query('SELECT pg_advisory_unlock($1::bigint)', [FIXTURE_LOCK_KEY]);
     lockClient.release();
     await pool.end();
   }
