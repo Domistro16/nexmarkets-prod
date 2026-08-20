@@ -1,0 +1,43 @@
+{
+  "version": "1.0",
+  "chainId": "4663",
+  "createdAt": 1787252340699,
+  "meta": {
+    "name": "NexMarkets V1 one-time wiring",
+    "description": "BLOCKED_UNTIL_RUNTIME_AND_IMMUTABLE_VERIFICATION_PASS; source 8790b635ba55512e5d0e295fb1217a3993ecdafb",
+    "txBuilderVersion": "1.18.0",
+    "createdFromSafeAddress": "0x722ADAadD314dafE97979AF27Ec7F09F36766d08"
+  },
+  "transactions": [
+    {
+      "to": "0xD3eB84F0B832747C257bDA424160b3DA12256719",
+      "value": "0",
+      "data": "0x5bb4780800000000000000000000000049fa1708e07edbe3b31244c3904c7abc2e0892f1"
+    },
+    {
+      "to": "0xd015717C8c5bd24C5Ef73815f6fa5dddebD76F57",
+      "value": "0",
+      "data": "0x5c24b0740000000000000000000000006d82fc757ad54a3f7ab071276a7a2f8bb77ee22e"
+    },
+    {
+      "to": "0x528fdeE55A903E3297838f3Fb96854b7e9684A13",
+      "value": "0",
+      "data": "0xd92c68910000000000000000000000006d82fc757ad54a3f7ab071276a7a2f8bb77ee22e"
+    },
+    {
+      "to": "0xdFe5327223C865E7107F8D21F73c19da3f1300A4",
+      "value": "0",
+      "data": "0x82a0be770000000000000000000000002962b12b8ca459c19dbf0dde7b5d066ca83a026b"
+    },
+    {
+      "to": "0x2962B12B8Ca459C19dBf0DDE7b5D066CA83A026B",
+      "value": "0",
+      "data": "0x531f4dd2000000000000000000000000477ec9790c6fd6cc06de79fb185b7f0a7debe096"
+    },
+    {
+      "to": "0xd015717C8c5bd24C5Ef73815f6fa5dddebD76F57",
+      "value": "0",
+      "data": "0xd2fc42b30000000000000000000000002962b12b8ca459c19dbf0dde7b5d066ca83a026b"
+    }
+  ]
+}

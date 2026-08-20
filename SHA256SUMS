@@ -4,7 +4,7 @@ f7f9167338cc6010f78cb379778c434304eb4c8b66c0087c49f4b28a3b5e9f7e  ./.github/work
 75f6372d4415f01dbe14f448040cc96605cd046a9cf9278afeb0feb971184043  ./.github/workflows/contracts-ci.yml
 186305e645ef56b21070fc675ac390f6fde07485258194489118686adf35de97  ./.github/workflows/primitive-gate.yml
 aa00ec1159235cd75270b679c56333e2cea22d924224e34a3294497b1748cc36  ./.github/workflows/robinhood-release-attestation.yml
-060a8125cd61b78f2ae843c2798af83e1b15bcea679b30c4be5e95bb27a5930e  ./.gitignore
+765c894b33b5997e58f4c3a3f91fe4251c9b96b82816443b891d8c64a9335b43  ./.gitignore
 d431330e32b9ccb9761aa443b3f418f133e022ea16a64eeb962ffd5b9df5f472  ./README.md
 52e589e857d5557d7ca2137492e11d2f3078ad44292ef5d7c4829c2cd56b666c  ./apps/api/package.json
 c573401ca7d72418a20d2705689c0da88203c37c6faba47a37c341e8331f2865  ./apps/api/src/memory-store.mjs
@@ -18,7 +18,10 @@ aa2804995edb5cc1c13954f7705aee805e604efcf587f390ef2afce1c717e52d  ./apps/web/pub
 cc0e87a6cfdd7679a1a2113d75288db8cffb9335c6e0b7d522de74fb5d3a12a7  ./apps/web/public/styles.css
 8a561c290fccd6d13b6c95e92db64aa7bf8567378afbcbc76b5735d640d6d97a  ./apps/web/public/transaction.mjs
 9475eca46351ac83d629b3bed656a1322cea06b6feb37ee12932ca7b95033449  ./apps/web/public/wallet.mjs
-088c72207a9e6116cea40542b5c78e339070a10b8e654edb6d6d64e76744adc2  ./deployments/MAINNET_RELEASE_CANDIDATE.json
+b21597207da73b4a82995b2d7843a783dc6a7653dfa775effb23d909d34d5f80  ./artifacts/deployment-plan/robinhood-mainnet.deploy.safe.json
+38c8046fba9be8749ae874dd269a9f534df8eac7f0a7640b34374196674e29ac  ./artifacts/deployment-plan/robinhood-mainnet.json
+269b9931a2ea117459241375f85c1299a04a47d7350080cfb4baf80f667842ce  ./artifacts/deployment-plan/robinhood-mainnet.wire.safe.json
+ea2926a194ac924b5c9efcc4137ed944df9b1fc2da0a595390f2784e4d210056  ./deployments/MAINNET_RELEASE_CANDIDATE.json
 da73b13c730791d2d785e1d767dda42f44ac11a2e6de54b6ccb09cbbf937e0c6  ./deployments/erc6551.robinhood-mainnet.json
 554614c2e1fbe31580443d682e9c3c7206a897e0f7d2848e4403b2e6f6d3a0e4  ./deployments/erc6551.robinhood-testnet.json
 6862b90b72e991d42d10d2d72ff0053eb432bc001583071e5809244c6e8538d7  ./deployments/nexmarkets-v1.inputs.example.json
