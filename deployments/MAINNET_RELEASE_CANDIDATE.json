@@ -66,7 +66,7 @@
     "sourceVerification": {
       "mode": "FROZEN_SOURCE_COMMIT",
       "sourceCommit": "8790b635ba55512e5d0e295fb1217a3993ecdafb",
-      "comparedAgainst": "e5da0d18bf1f09ab358bc82d9c14c9db7a461825",
+      "comparedAgainst": "158b099ccc08fd6e9571be623c8ea1e8405705cb",
       "deploymentInputsHash": "48c5f2c5cbd13d9688e679ea7c38e45655de1c088dd7545b82924cfb5b5e808e",
       "differences": [],
       "mainnetReproduction": "EXACT_ADDRESS_SET_REPRODUCED"
@@ -84,7 +84,7 @@
       "NexTBAResolver": { "salt": "0x722adaadd314dafe97979af27ec7f09f36766d08535e778ec502383cf7bc92a1", "initCodeHash": "0x3cc8a1dd3b34c9eded185393c9600bacc16c2ccbc0bda0cf2aa8b7dbf0b9158d", "normalizedRuntimeTemplateHash": "0x11531698f02c0e67448a825806d5b91d62b7be2851a40755b5dc9f4faced50da" }
     },
     "releaseArtifacts": {
-      "deploymentPlan": { "path": "artifacts/deployment-plan/robinhood-mainnet.json", "sha256": "302d97a465d7ebe08c074b18966393dc9e55ce7650c9af4d7ee3686c776827d4" },
+      "deploymentPlan": { "path": "artifacts/deployment-plan/robinhood-mainnet.json", "sha256": "50c5667acce61d35348365d1d1961b95948c1a4d3675ae4b071308fee0d88594" },
       "safeDeploymentBundle": { "path": "artifacts/deployment-plan/robinhood-mainnet.deploy.safe.json", "sha256": "b21597207da73b4a82995b2d7843a783dc6a7653dfa775effb23d909d34d5f80", "transactions": 10 },
       "safeWiringBundle": { "path": "artifacts/deployment-plan/robinhood-mainnet.wire.safe.json", "sha256": "269b9931a2ea117459241375f85c1299a04a47d7350080cfb4baf80f667842ce", "transactions": 6 }
     }
