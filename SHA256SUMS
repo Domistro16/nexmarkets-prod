@@ -71,7 +71,7 @@ e75e728941c09c3399e953dff0bf3e98f586bcbb08aa2bc04bf3f841ca77212a  ./packages/cha
 092bf10b012fe98605c61a34da59962418c0ceeb4444de1d33103b4fd686f696  ./packages/config/src/env.mjs
 57a2cf6fadd55fe43ffa9953636f3fa7c791e2c4b1291dbcc40b294155fc99e5  ./packages/config/src/index.mjs
 ba9fa91f34fe9d81a78924f1f2e7cf3c907bd60b3ab3a499b133d9d74af67fd8  ./packages/config/src/networks.mjs
-243f561595e56e4a131c7f6f9ef0466a79e2b108db23f3cdfa70dd07302360da  ./packages/contracts/README.md
+c2abd97d71573ad300df4df8ba9cbc1b42ccf862a722b911ecb43b96e164fd68  ./packages/contracts/README.md
 eca73c557592173c926cd9db1016d7ac04ee4b86e1ca70e5a59426c7c03e19a4  ./packages/contracts/bytecode/NexPassEdition.creation.hex
 b5215136ce7c301bb4e143ce5c5b94b2a75ef936157b07f64c80c76ad76bd711  ./packages/contracts/foundry.toml
 d8d78efc303b3d32915aff6e35ed9c36fbd6bdd5787c54613d87a68996004acb  ./packages/contracts/remappings.txt
