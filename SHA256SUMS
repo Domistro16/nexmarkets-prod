@@ -18,7 +18,7 @@ aa2804995edb5cc1c13954f7705aee805e604efcf587f390ef2afce1c717e52d  ./apps/web/pub
 cc0e87a6cfdd7679a1a2113d75288db8cffb9335c6e0b7d522de74fb5d3a12a7  ./apps/web/public/styles.css
 8a561c290fccd6d13b6c95e92db64aa7bf8567378afbcbc76b5735d640d6d97a  ./apps/web/public/transaction.mjs
 9475eca46351ac83d629b3bed656a1322cea06b6feb37ee12932ca7b95033449  ./apps/web/public/wallet.mjs
-8e5694c2da7af1faa916a4d2a23568d59c5ed50addb45773605937d263c85951  ./deployments/MAINNET_RELEASE_CANDIDATE.json
+9a840d104f6207024696f75ecd431416fc9ab59ccff00f7f0a423b5c158e4aa8  ./deployments/MAINNET_RELEASE_CANDIDATE.json
 da73b13c730791d2d785e1d767dda42f44ac11a2e6de54b6ccb09cbbf937e0c6  ./deployments/erc6551.robinhood-mainnet.json
 554614c2e1fbe31580443d682e9c3c7206a897e0f7d2848e4403b2e6f6d3a0e4  ./deployments/erc6551.robinhood-testnet.json
 6862b90b72e991d42d10d2d72ff0053eb432bc001583071e5809244c6e8538d7  ./deployments/nexmarkets-v1.inputs.example.json
@@ -138,7 +138,7 @@ c909f6917ae9babec757ed78415e60a3808b179586a4f7830a188ac491517bc5  ./services/ind
 6be293d4be2e98e13ad28a8edfa98625b2b4f46543c9064e7ac3761b254ee905  ./services/indexer/src/fixtures.mjs
 818a34d70f19b6d7118289fbde4c90f260192fc2a1a7a7aebf9bfb56c1ec57c9  ./services/indexer/src/projector.mjs
 6d0f364c3db2c61424ff5251aaccaaed409056d647164c58fa3949e72d4be8d6  ./services/indexer/src/run.mjs
-d54b5e267da1d2f76c1fe6433581daa7e95490626d961e1c36e85c504d694c30  ./services/indexer/src/runtime.mjs
+6da2c005dd277b59a095ce87d06d2685212057c7bf0bdae858e44257a8a66b0a  ./services/indexer/src/runtime.mjs
 75c1f311303ce6c9b91404af4f31903622c07c78ac56e6db5cbd0ec245c8342e  ./services/reconciler/README.md
 b5182ba4359702f518b8ff09308ae4552e46c610af1f4eae64b479001c09ab7e  ./services/reconciler/package.json
 048f58799ba233ef40f757058d1d2b511a5a60eca6d3523a8f4e2544ba587db8  ./services/reconciler/src/postgres-adapter.mjs

@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "releaseGitSha": "af097863de943a15d909c223ab74faf175e42901",
-  "deploymentSourceCommit": "af097863de943a15d909c223ab74faf175e42901",
+  "releaseGitSha": "3ca3bd599c5f7dea21b442af6ea93060105c7e7d",
+  "deploymentSourceCommit": "3ca3bd599c5f7dea21b442af6ea93060105c7e7d",
   "mergedPr6": {
     "number": 6,
     "mergeCommit": "d564e4c49037549c123e7182c37ab03576856c91",
@@ -46,16 +46,16 @@
     "erc6551Registry": "0x000000006551c19487814612e58FE06813775758",
     "immutableCreate2Factory": "0x0000000000ffe8b47b3e2130213b802212439497",
     "predictedContracts": [
-      { "name": "NexLaunchRegistry", "address": "0x793fB7eb7faeB912054fdE41675afdcD5c30b6F8", "codeEmptyAtPreflight": true },
-      { "name": "NexMintController", "address": "0xb2A5f4b43dA312D9F3b5069C024fC9f47196d6eA", "codeEmptyAtPreflight": true },
-      { "name": "NexPassFactory", "address": "0xd01ff3D0C2dBB4505B2F5929e2716c1E2De792cf", "codeEmptyAtPreflight": true },
-      { "name": "NexAdvantageRegistry", "address": "0x84A4e7399252186c66BBDFf56cffe9E859F668A4", "codeEmptyAtPreflight": true },
-      { "name": "NexAdvantageInitializer", "address": "0x6A1b3689EE14074F5917A01BA87C579A751F684C", "codeEmptyAtPreflight": true },
-      { "name": "NexRoyaltyVault", "address": "0x5D9Ed6aE87E6c99381517d34ACba7AdfAB1B3c31", "codeEmptyAtPreflight": true },
-      { "name": "NexListingRegistry", "address": "0x52F832E6f82951658Ff4871856da7f78A7Cae752", "codeEmptyAtPreflight": true },
-      { "name": "NexMarketsZone", "address": "0xB7305df7806884167B6A5522bEF46744fd7d8440", "codeEmptyAtPreflight": true },
-      { "name": "NexPassAccount", "address": "0x2e875917957f69b16EAbe68Bd318a2a07292be9e", "codeEmptyAtPreflight": true },
-      { "name": "NexTBAResolver", "address": "0x9D75e2e1287cBA5E5064F4350b9fDEf0C5b8b201", "codeEmptyAtPreflight": true }
+      { "name": "NexLaunchRegistry", "address": "0xdd654B7d826a994a45d3F90286ca0b31bAb985bB", "codeEmptyAtPreflight": true },
+      { "name": "NexMintController", "address": "0xc2Fc7F61eA573f98e7f437B6dE652c3f21B84229", "codeEmptyAtPreflight": true },
+      { "name": "NexPassFactory", "address": "0xf300F5be320605dD3734FF37d70bC13da2AEbBD2", "codeEmptyAtPreflight": true },
+      { "name": "NexAdvantageRegistry", "address": "0x717f277877C92Aa25B307b1F7E8Cc6B618704024", "codeEmptyAtPreflight": true },
+      { "name": "NexAdvantageInitializer", "address": "0x070F6aa46c04dA144a322D2F69DCb6772C39c0f2", "codeEmptyAtPreflight": true },
+      { "name": "NexRoyaltyVault", "address": "0xB3b3AB5B06175a7eE475694b6a06e9c94d884DAF", "codeEmptyAtPreflight": true },
+      { "name": "NexListingRegistry", "address": "0x1651341C9f1A27795CA2eE146980CC97066b3c18", "codeEmptyAtPreflight": true },
+      { "name": "NexMarketsZone", "address": "0xb14AAFa9e38540c4e56fb23e5fCdedC6810cCbB4", "codeEmptyAtPreflight": true },
+      { "name": "NexPassAccount", "address": "0x86771f386bBabCe7F8539a172026A4C219478988", "codeEmptyAtPreflight": true },
+      { "name": "NexTBAResolver", "address": "0x0A8d00b5CCD51bFDf187DC38d501B1cDAB9A95ac", "codeEmptyAtPreflight": true }
     ],
     "dryRun": {
       "status": "DRY_RUN_ONLY",
@@ -84,7 +84,7 @@
   "ci": {
     "contracts": "PASS",
     "static": "PASS",
-    "exactHead": "d81d59097f85b4c122125faf2dfa4da8b43de7a9"
+    "sourceCommit": "3ca3bd599c5f7dea21b442af6ea93060105c7e7d"
   },
   "goldsky": {
     "provider": "GOLDSKY_TURBO",
