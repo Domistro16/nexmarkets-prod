@@ -251,13 +251,21 @@ export class PostgresProjectionWorker {
       await client.query('DELETE FROM royalty_claim_projection WHERE order_hash=$1', [context.orderHash]);
       await client.query('DELETE FROM seaport_fulfillment_projection WHERE order_hash=$1', [context.orderHash]);
       const events = await this.canonicalEvents(client, row, (event, args) => orderHashOf(args) === context.orderHash);
-      await this.replayEvents(client, events, {
+      const orderContext = {
         editionAddress: context.editionAddress,
         editionId: context.editionId,
         projectId: context.projectId,
         orderHash: context.orderHash,
         tokenId: context.tokenId
-      });
+      };
+      await this.replayEvents(client, events, orderContext);
+      // Re-apply the retained creation/record events once more when a prior
+      // incarnation was orphaned. The operations are idempotent and this
+      // guarantees the canonical journal can never leave an order projection
+      // absent merely because its latest status event was removed.
+      for (const event of events.filter((item) => ['ListingCreated', 'RoyaltyRecorded'].includes(item.event_name))) {
+        await this.applyProjection(client, event, { eventName: event.event_name, eventSignature: event.event_signature, args: eventArgs(event) }, orderContext);
+      }
     }
     if (context.editionId && context.tokenId != null) {
       await client.query('DELETE FROM pass_token_projection WHERE edition_id=$1 AND token_id=$2', [context.editionId, context.tokenId]);
