@@ -247,8 +247,6 @@ export class PostgresProjectionWorker {
     const context = await resolveEventContext(client, row, decoded);
     if (context.orderHash) {
       await client.query('DELETE FROM listing_event WHERE order_hash=$1', [context.orderHash]);
-      await client.query('DELETE FROM listing_projection WHERE order_hash=$1', [context.orderHash]);
-      await client.query('DELETE FROM royalty_claim_projection WHERE order_hash=$1', [context.orderHash]);
       await client.query('DELETE FROM seaport_fulfillment_projection WHERE order_hash=$1', [context.orderHash]);
       const { rows: events } = await client.query(
         `SELECT chain_id,block_number,block_hash,tx_hash AS transaction_hash,log_index,contract_address,event_signature,event_name,payload,block_timestamp
@@ -271,6 +269,14 @@ export class PostgresProjectionWorker {
       for (const event of events.filter((item) => ['ListingCreated', 'RoyaltyRecorded'].includes(item.event_name))) {
         await this.applyProjection(client, event, { eventName: event.event_name, eventSignature: event.event_signature, args: eventArgs(event) }, orderContext);
       }
+      const created = events.some((event) => event.event_name === 'ListingCreated');
+      if (!created) await client.query('DELETE FROM listing_projection WHERE order_hash=$1', [context.orderHash]);
+      else {
+        const statusEvent = events.filter((event) => LISTING_CONTEXT_EVENTS.has(event.event_name)).at(-1);
+        const status = statusEvent ? statusEvent.event_name.replace('Listing', '').toUpperCase() : 'ACTIVE';
+        await client.query('UPDATE listing_projection SET status=$1,orphaned_at=NULL WHERE order_hash=$2', [status, context.orderHash]);
+      }
+      if (!events.some((event) => event.event_name === 'RoyaltyRecorded')) await client.query('DELETE FROM royalty_claim_projection WHERE order_hash=$1', [context.orderHash]);
     }
     if (context.editionId && context.tokenId != null) {
       await client.query('DELETE FROM pass_token_projection WHERE edition_id=$1 AND token_id=$2', [context.editionId, context.tokenId]);
@@ -433,7 +439,7 @@ export class PostgresProjectionWorker {
       case 'RoyaltyRecorded':
         await client.query(
           `INSERT INTO royalty_claim_projection(order_hash,edition_id,token_id,builder_address,amount_usdg,release_at,source_block_number,source_block_hash,source_tx_hash,source_log_index,finalized)
-           VALUES($1,$2,$3,$4,$5,to_timestamp($6),$7,$8,$9,$10,false) ON CONFLICT(order_hash) DO UPDATE SET amount_usdg=excluded.amount_usdg,release_at=excluded.release_at,orphaned_at=NULL`,
+           VALUES($1,$2,$3,$4,$5,to_timestamp($6),$7,$8,$9,$10,false) ON CONFLICT(order_hash) DO UPDATE SET amount_usdg=excluded.amount_usdg,release_at=excluded.release_at,withdrawn=false,withdrawn_tx_hash=NULL,orphaned_at=NULL`,
           [lower(a.orderHash), editionId, String(a.tokenId), lower(a.builder), a.amount, a.releaseAt, ...source]
         );
         break;
