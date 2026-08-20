@@ -35,6 +35,10 @@ const FACTORY_EVIDENCE_ABI = new Interface([
 const FACTORY_CONFIG_TUPLE = 'tuple(string name,string symbol,address initialOwner,bytes32 editionId,uint32 absoluteSupplyCap,bytes32 artworkCommitment,string baseTokenURI)';
 function editionCreationCode() {
   try {
+    const pinned = readFileSync(new URL('../../../packages/contracts/bytecode/NexPassEdition.creation.hex', import.meta.url), 'utf8').trim();
+    if (pinned.startsWith('0x')) return pinned;
+  } catch { /* local source checkouts may rely on the generated artifact */ }
+  try {
     const artifact = JSON.parse(readFileSync(new URL('../../../packages/contracts/out/NexPassEdition.sol/NexPassEdition.json', import.meta.url), 'utf8'));
     const bytecode = typeof artifact.bytecode === 'string' ? artifact.bytecode : artifact.bytecode?.object;
     if (!bytecode || bytecode === '0x') throw new Error('empty bytecode');
