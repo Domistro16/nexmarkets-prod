@@ -18,6 +18,7 @@ aa2804995edb5cc1c13954f7705aee805e604efcf587f390ef2afce1c717e52d  ./apps/web/pub
 cc0e87a6cfdd7679a1a2113d75288db8cffb9335c6e0b7d522de74fb5d3a12a7  ./apps/web/public/styles.css
 8a561c290fccd6d13b6c95e92db64aa7bf8567378afbcbc76b5735d640d6d97a  ./apps/web/public/transaction.mjs
 9475eca46351ac83d629b3bed656a1322cea06b6feb37ee12932ca7b95033449  ./apps/web/public/wallet.mjs
+4f77ce981778107540247e42bb21c3ebeed40578e4f7f41b3a42521c6488f6ee  ./deployments/MAINNET_RELEASE_CANDIDATE.json
 da73b13c730791d2d785e1d767dda42f44ac11a2e6de54b6ccb09cbbf937e0c6  ./deployments/erc6551.robinhood-mainnet.json
 554614c2e1fbe31580443d682e9c3c7206a897e0f7d2848e4403b2e6f6d3a0e4  ./deployments/erc6551.robinhood-testnet.json
 6862b90b72e991d42d10d2d72ff0053eb432bc001583071e5809244c6e8538d7  ./deployments/nexmarkets-v1.inputs.example.json
