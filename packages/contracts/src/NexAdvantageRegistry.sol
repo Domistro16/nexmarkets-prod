@@ -54,7 +54,6 @@ contract NexAdvantageRegistry is Ownable, ReentrancyGuard {
         bool listed;
         bool initialized;
         uint64 listedAt;
-        uint64 frozenSeconds;
     }
 
     struct Advantage {
@@ -65,6 +64,8 @@ contract NexAdvantageRegistry is Ownable, ReentrancyGuard {
         uint256 totalUnits;
         uint256 remainingUnits;
         bytes32 definitionHash;
+        /// @dev Listing pause accumulated only for this TimeBased Advantage.
+        uint64 frozenSeconds;
     }
 
     NexLaunchRegistry public immutable launchRegistry;
@@ -231,7 +232,8 @@ contract NexAdvantageRegistry is Ownable, ReentrancyGuard {
                 endsAt: config.endsAt,
                 totalUnits: config.totalUnits,
                 remainingUnits: config.totalUnits,
-                definitionHash: config.definitionHash
+                definitionHash: config.definitionHash,
+                frozenSeconds: 0
             });
             _advantageIds[edition][tokenId].push(config.advantageId);
         }
@@ -242,6 +244,7 @@ contract NexAdvantageRegistry is Ownable, ReentrancyGuard {
     /// @notice Lock or unlock utility use while the exact Pass is listed.
     /// @dev Listing state is independent of ERC-721 ownership and therefore
     ///      survives direct transfers until the listing authority clears it.
+    ///      On unlock, each TimeBased Advantage accounts for its own overlap.
     function setListed(address edition, uint256 tokenId, bool listed) external onlyListingAuthority {
         PassRecord storage record = _passRecords[edition][tokenId];
         if (!record.initialized) revert PassNotInitialized();
@@ -251,9 +254,13 @@ contract NexAdvantageRegistry is Ownable, ReentrancyGuard {
             if (block.timestamp > type(uint64).max) revert ListingDurationOverflow();
             record.listedAt = uint64(block.timestamp);
         } else {
-            uint256 elapsed = block.timestamp - record.listedAt;
-            if (elapsed > type(uint64).max - record.frozenSeconds) revert ListingDurationOverflow();
-            record.frozenSeconds += uint64(elapsed);
+            bytes32[] storage ids = _advantageIds[edition][tokenId];
+            for (uint256 i; i < ids.length; ++i) {
+                Advantage storage advantage = _advantages[edition][tokenId][ids[i]];
+                if (advantage.kind == AdvantageKind.TimeBased) {
+                    _applyListingFreeze(record, advantage);
+                }
+            }
             record.listedAt = 0;
         }
         record.listed = listed;
@@ -315,9 +322,9 @@ contract NexAdvantageRegistry is Ownable, ReentrancyGuard {
         PassRecord memory record = _passRecords[edition][tokenId];
         if (!record.initialized) revert PassNotInitialized();
         Advantage memory advantage = _getAdvantageView(edition, tokenId, advantageId);
-        if (!_isActive(advantage, _effectiveTimestamp(record, advantage.kind))) return 0;
+        if (!_isActive(advantage, _effectiveTimestamp(record, advantage))) return 0;
         if (advantage.kind == AdvantageKind.TimeBased) {
-            return advantage.endsAt - _effectiveTimestamp(record, advantage.kind);
+            return advantage.endsAt - _effectiveTimestamp(record, advantage);
         }
         if (advantage.kind == AdvantageKind.Connected) return 1;
         return advantage.remainingUnits;
@@ -327,7 +334,7 @@ contract NexAdvantageRegistry is Ownable, ReentrancyGuard {
         PassRecord memory record = _passRecords[edition][tokenId];
         if (!record.initialized || record.listed) return false;
         Advantage memory advantage = _advantages[edition][tokenId][advantageId];
-        if (advantage.advantageId == bytes32(0) || !_isActive(advantage, _effectiveTimestamp(record, advantage.kind))) {
+        if (advantage.advantageId == bytes32(0) || !_isActive(advantage, _effectiveTimestamp(record, advantage))) {
             return false;
         }
         if (advantage.kind == AdvantageKind.QuantityBased || advantage.kind == AdvantageKind.Redemption) {
@@ -358,7 +365,7 @@ contract NexAdvantageRegistry is Ownable, ReentrancyGuard {
             revert UseIdAmountMismatch();
         }
         if (record.listed) revert ListedPass();
-        if (!_isActive(advantage, _effectiveTimestamp(record, advantage.kind)) || advantage.remainingUnits < amount) {
+        if (!_isActive(advantage, _effectiveTimestamp(record, advantage)) || advantage.remainingUnits < amount) {
             revert AdvantageUnavailable();
         }
         _requirePassOwner(edition, tokenId);
@@ -414,14 +421,32 @@ contract NexAdvantageRegistry is Ownable, ReentrancyGuard {
         if (currentOwner != msg.sender) revert NotPassOwner();
     }
 
-    function _effectiveTimestamp(PassRecord memory record, AdvantageKind kind) internal view returns (uint256) {
-        if (kind != AdvantageKind.TimeBased) return block.timestamp;
-        if (record.listed) return uint256(record.listedAt) - record.frozenSeconds;
-        return block.timestamp - record.frozenSeconds;
+    function _effectiveTimestamp(PassRecord memory record, Advantage memory advantage) internal view returns (uint256) {
+        uint256 currentTimestamp = block.timestamp - advantage.frozenSeconds;
+        if (advantage.kind != AdvantageKind.TimeBased || !record.listed) return currentTimestamp;
+
+        uint256 listedTimestamp = uint256(record.listedAt) - advantage.frozenSeconds;
+        if (listedTimestamp >= advantage.endsAt) return currentTimestamp;
+
+        uint256 freezeAt = listedTimestamp < advantage.startsAt ? advantage.startsAt : listedTimestamp;
+        return currentTimestamp < freezeAt ? currentTimestamp : freezeAt;
     }
 
     function _isActive(Advantage memory advantage, uint256 timestamp) internal pure returns (bool) {
         return timestamp >= advantage.startsAt && timestamp < advantage.endsAt;
+    }
+
+    function _applyListingFreeze(PassRecord storage record, Advantage storage advantage) internal {
+        uint256 listedTimestamp = uint256(record.listedAt) - advantage.frozenSeconds;
+        if (listedTimestamp >= advantage.endsAt) return;
+
+        uint256 freezeAt = listedTimestamp < advantage.startsAt ? advantage.startsAt : listedTimestamp;
+        uint256 currentTimestamp = block.timestamp - advantage.frozenSeconds;
+        if (currentTimestamp <= freezeAt) return;
+
+        uint256 freezeDuration = currentTimestamp - freezeAt;
+        if (freezeDuration > type(uint64).max - advantage.frozenSeconds) revert ListingDurationOverflow();
+        advantage.frozenSeconds += uint64(freezeDuration);
     }
 
     function _validateInitializerWiring(address initializer_) internal view {

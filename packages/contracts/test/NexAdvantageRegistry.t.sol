@@ -78,6 +78,8 @@ contract NexAdvantageRegistryTest is Test {
     uint256 internal constant PRICE = 1_000_000;
     uint64 internal advantageStartsAt;
     uint64 internal advantageEndsAt;
+    uint64 internal lateAdvantageStartsAt;
+    uint64 internal lateAdvantageEndsAt;
 
     function setUp() public {
         usdg = new AdvantageMockUSDG();
@@ -104,6 +106,8 @@ contract NexAdvantageRegistryTest is Test {
         uint64 mintStartsAt = previewStartsAt + 1 days;
         advantageStartsAt = mintStartsAt;
         advantageEndsAt = mintStartsAt + 30 days;
+        lateAdvantageStartsAt = mintStartsAt + 60 days;
+        lateAdvantageEndsAt = mintStartsAt + 90 days;
         NexAdvantageRegistry.AdvantageConfig[] memory canonicalConfigs = _canonicalConfigs();
         ADVANTAGES_HASH = keccak256(abi.encode(keccak256("NEXMARKETS_ADVANTAGES_V1"), canonicalConfigs));
         NexLaunchRegistry.Terms memory terms = NexLaunchRegistry.Terms({
@@ -163,7 +167,7 @@ contract NexAdvantageRegistryTest is Test {
     }
 
     function _canonicalConfigs() internal view returns (NexAdvantageRegistry.AdvantageConfig[] memory configs) {
-        configs = new NexAdvantageRegistry.AdvantageConfig[](4);
+        configs = new NexAdvantageRegistry.AdvantageConfig[](5);
         configs[0] = _config(
             keccak256("time"), NexAdvantageRegistry.AdvantageKind.TimeBased, advantageStartsAt, advantageEndsAt, 0
         );
@@ -184,6 +188,13 @@ contract NexAdvantageRegistryTest is Test {
             advantageEndsAt,
             3
         );
+        configs[4] = _config(
+            keccak256("late-time"),
+            NexAdvantageRegistry.AdvantageKind.TimeBased,
+            lateAdvantageStartsAt,
+            lateAdvantageEndsAt,
+            0
+        );
     }
 
     function _initialize(uint256 tokenId, NexAdvantageRegistry.AdvantageConfig[] memory configs) internal {
@@ -200,7 +211,7 @@ contract NexAdvantageRegistryTest is Test {
         assertEq(advantages.hashAdvantages(configs), ADVANTAGES_HASH);
         assertEq(record.termsVersionHash, edition.termsVersionHashOf(1));
         assertEq(record.advantagesHash, ADVANTAGES_HASH);
-        assertEq(record.advantageCount, 4);
+        assertEq(record.advantageCount, 5);
         assertFalse(record.listed);
         assertEq(advantages.remaining(address(edition), 1, configs[0].advantageId), 30 days);
         assertEq(advantages.remaining(address(edition), 1, configs[1].advantageId), 5);
@@ -347,6 +358,71 @@ contract NexAdvantageRegistryTest is Test {
 
         vm.warp(advantageStartsAt + 40 days);
         assertEq(advantages.remaining(address(edition), 1, configs[0].advantageId), 0);
+    }
+
+    function testListingBeforeTimeAdvantageDoesNotShiftStart() public {
+        NexAdvantageRegistry.AdvantageConfig[] memory configs = _canonicalConfigs();
+        _initialize(1, configs);
+
+        listingAuthority.setListed(address(edition), 1, true);
+        vm.warp(lateAdvantageStartsAt - 1 days);
+        listingAuthority.setListed(address(edition), 1, false);
+        assertEq(advantages.remaining(address(edition), 1, configs[4].advantageId), 0);
+
+        vm.warp(lateAdvantageStartsAt);
+        assertEq(advantages.remaining(address(edition), 1, configs[4].advantageId), 30 days);
+    }
+
+    function testListingAfterTimeAdvantageExpiryDoesNotExtendIt() public {
+        NexAdvantageRegistry.AdvantageConfig[] memory configs = _canonicalConfigs();
+        _initialize(1, configs);
+
+        vm.warp(advantageEndsAt + 1);
+        listingAuthority.setListed(address(edition), 1, true);
+        vm.warp(advantageEndsAt + 10 days);
+        listingAuthority.setListed(address(edition), 1, false);
+
+        assertEq(advantages.remaining(address(edition), 1, configs[0].advantageId), 0);
+        assertFalse(advantages.isUsable(address(edition), 1, configs[0].advantageId));
+    }
+
+    function testTwoTimeAdvantagesFreezeIndependently() public {
+        NexAdvantageRegistry.AdvantageConfig[] memory configs = _canonicalConfigs();
+        _initialize(1, configs);
+
+        vm.warp(advantageStartsAt + 10 days);
+        listingAuthority.setListed(address(edition), 1, true);
+        vm.warp(advantageStartsAt + 20 days);
+
+        vm.prank(ALICE);
+        edition.transferFrom(ALICE, BOB, 1);
+        listingAuthority.setListed(address(edition), 1, false);
+
+        assertEq(advantages.remaining(address(edition), 1, configs[0].advantageId), 20 days);
+        assertEq(advantages.remaining(address(edition), 1, configs[4].advantageId), 0);
+
+        vm.warp(lateAdvantageStartsAt);
+        assertEq(advantages.remaining(address(edition), 1, configs[4].advantageId), 30 days);
+    }
+
+    function testRepeatedListingCyclesPreserveExactRemainingTime() public {
+        NexAdvantageRegistry.AdvantageConfig[] memory configs = _canonicalConfigs();
+        _initialize(1, configs);
+
+        vm.warp(advantageStartsAt + 5 days);
+        listingAuthority.setListed(address(edition), 1, true);
+        vm.warp(advantageStartsAt + 10 days);
+        listingAuthority.setListed(address(edition), 1, false);
+        assertEq(advantages.remaining(address(edition), 1, configs[0].advantageId), 25 days);
+
+        vm.warp(advantageStartsAt + 15 days);
+        listingAuthority.setListed(address(edition), 1, true);
+        vm.warp(advantageStartsAt + 20 days);
+        listingAuthority.setListed(address(edition), 1, false);
+        assertEq(advantages.remaining(address(edition), 1, configs[0].advantageId), 20 days);
+
+        vm.warp(advantageStartsAt + 30 days);
+        assertEq(advantages.remaining(address(edition), 1, configs[0].advantageId), 10 days);
     }
 
     function testAuthorityWiringCannotBeConsumedByMisconfiguredContracts() public {

@@ -52,8 +52,9 @@ Next contract set after this primary-launch boundary:
 `NexAdvantageRegistry` authenticates each initialized config array against the
 Terms `advantagesHash` using its versioned `ADVANTAGES_DOMAIN`. Use IDs are
 scoped to the exact Edition, serial, and Advantage and bind the applied
-quantity. Listing locks survive direct transfers, and TimeBased utility time
-pauses for the listed interval.
+quantity. Listing locks survive direct transfers, and each TimeBased
+Advantage pauses only for the portion of a listed interval that reaches its
+own window.
 
 ## NexPassEdition boundary
 

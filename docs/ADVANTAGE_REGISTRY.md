@@ -21,8 +21,8 @@ utility definitions under the published Terms hash.
 
 The definitions support four mechanisms:
 
-- `TimeBased`: remaining seconds inside a start/end window whose clock pauses
-  while the Pass is listed;
+- `TimeBased`: remaining seconds inside a start/end window whose own clock
+  pauses only for a listing interval that reaches its window;
 - `QuantityBased`: remaining units, consumed with an idempotent use ID;
 - `Connected`: a non-consuming entitlement active inside a fixed window; and
 - `Redemption`: remaining claims, consumed one at a time with an idempotent
@@ -43,9 +43,10 @@ sets the exact Pass to `listed` before a listing is active and clears it only
 when the listing is cancelled or otherwise inactive. All state-changing
 utility calls fail while the Pass is listed. A direct ERC-721 transfer does
 not clear the lock; this is deliberately conservative until the listing
-authority clears stale market state.
-TimeBased utility time is frozen for the full listed interval and resumes when
-the listing is cleared.
+authority clears stale market state. Each TimeBased Advantage tracks its own
+listing overlap: a listing before its start does not shift that start, a
+listing after expiry cannot revive it, and an active window resumes with its
+unused time when the listing is cleared.
 
 ## Authority and integration boundary
 
