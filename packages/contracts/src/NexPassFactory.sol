@@ -30,7 +30,9 @@ contract NexPassFactory is Ownable {
         address indexed publisher,
         bytes32 salt,
         address protocolAdmin,
-        address mintController
+        address mintController,
+        uint32 absoluteSupplyCap,
+        bytes32 artworkCommitment
     );
 
     constructor(
@@ -75,7 +77,16 @@ contract NexPassFactory is Ownable {
         editionAddress = address(edition);
         editionForId[config.editionId] = editionAddress;
         isFactoryEdition[editionAddress] = true;
-        emit EditionCreated(editionAddress, config.editionId, publisher, salt, protocolAdmin, address(mintController));
+        emit EditionCreated(
+            editionAddress,
+            config.editionId,
+            publisher,
+            salt,
+            protocolAdmin,
+            address(mintController),
+            config.absoluteSupplyCap,
+            config.artworkCommitment
+        );
     }
 
     function predictEditionAddress(NexPassEdition.EditionConfig calldata config, bytes32 salt)

@@ -5,6 +5,7 @@ import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {Test} from "forge-std/Test.sol";
 
 import {NexAdvantageRegistry} from "../src/NexAdvantageRegistry.sol";
+import {NexAdvantageInitializer} from "../src/NexAdvantageInitializer.sol";
 import {NexLaunchRegistry} from "../src/NexLaunchRegistry.sol";
 import {NexMintController} from "../src/NexMintController.sol";
 import {NexPassEdition} from "../src/NexPassEdition.sol";
@@ -61,6 +62,8 @@ contract NexAdvantageRegistryTest is Test {
     NexPassFactory internal factory;
     NexPassEdition internal edition;
     NexAdvantageRegistry internal advantages;
+    NexAdvantageRegistry internal mintAdvantages;
+    NexAdvantageInitializer internal mintInitializer;
     AdvantageInitializerMock internal initializer;
     AdvantageListingAuthorityMock internal listingAuthority;
 
@@ -102,6 +105,16 @@ contract NexAdvantageRegistryTest is Test {
         vm.prank(OWNER);
         edition = NexPassEdition(factory.createEdition(config, PUBLISHER, SALT));
 
+        // The primary path initializes a production-wired utility registry
+        // atomically. This test contract keeps a second isolated registry for
+        // direct Advantage-ledger adversarial tests below.
+        mintAdvantages = new NexAdvantageRegistry(OWNER, launchRegistry);
+        mintInitializer = new NexAdvantageInitializer(OWNER, launchRegistry, mintAdvantages, address(mintController));
+        vm.prank(OWNER);
+        mintAdvantages.setInitializer(address(mintInitializer));
+        vm.prank(OWNER);
+        mintController.setAdvantageInitializer(address(mintInitializer));
+
         uint64 previewStartsAt = uint64(block.timestamp);
         uint64 mintStartsAt = previewStartsAt + 1 days;
         advantageStartsAt = mintStartsAt;
@@ -135,7 +148,8 @@ contract NexAdvantageRegistryTest is Test {
             recipient: ALICE,
             quantity: 2,
             intentId: keccak256("nexadvantage:mint"),
-            referralHint: address(0)
+            referralHint: address(0),
+            advantageConfigs: canonicalConfigs
         });
         vm.prank(ALICE);
         mintController.mint(request);

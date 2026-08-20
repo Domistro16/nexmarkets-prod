@@ -1,0 +1,10 @@
+{
+  "network": "robinhood-testnet",
+  "protocolAdminSafe": null,
+  "safeOwners": [],
+  "safeThreshold": 1,
+  "primaryFeeRecipient": null,
+  "secondaryFeeRecipient": null,
+  "mockUsdgAddress": null,
+  "governanceTransition": "RAISE_THRESHOLD_TO_2_PLUS"
+}

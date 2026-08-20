@@ -28,7 +28,7 @@ jobs:
       EXPECTED_MANIFEST_SHA256: ${{ inputs.manifest_sha256 }}
     steps:
       - name: Checkout the release commit
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           fetch-depth: 0
 
@@ -58,7 +58,7 @@ jobs:
           echo "manifestSha256=$manifest_sha"
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: 22
           cache: npm
@@ -69,6 +69,7 @@ jobs:
           npm run verify:authority
           npm run verify:config
           npm test
+          npm run web:build
           npm run verify:primitives:mainnet:strict
 
       - name: Build deterministic production release artifact
@@ -76,8 +77,8 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p release
-          # This repository does not yet expose an application build command;
-          # attest the exact tracked production source bundle until it does.
+          # The exact source bundle includes the deterministic web build inputs;
+          # web:build is independently exercised immediately above.
           git archive --format=tar --prefix="nexmarkets-production-${GITHUB_SHA}/" HEAD > release/nexmarkets-production-source.tar
           gzip -n release/nexmarkets-production-source.tar
           mv release/nexmarkets-production-source.tar.gz release/nexmarkets-production-source-${GITHUB_SHA}.tar.gz
@@ -86,14 +87,14 @@ jobs:
       - name: Attest frozen manifest
         id: attest_manifest
         continue-on-error: true
-        uses: actions/attest@v4
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6
         with:
           subject-path: deployments/robinhood-mainnet.bootstrap.json
 
       - name: Attest production release artifact
         id: attest_artifact
         continue-on-error: true
-        uses: actions/attest@v4
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6
         with:
           subject-path: release/nexmarkets-production-source-${{ github.sha }}.tar.gz
 
@@ -207,7 +208,7 @@ jobs:
           NODE
 
       - name: Upload release bundle
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: robinhood-mainnet-release-${{ github.sha }}
           path: release/

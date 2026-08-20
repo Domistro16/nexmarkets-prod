@@ -1,4 +1,8 @@
-# Phase 0/1 Status — 2026-08-17
+# Phase 0/1 historical status — 2026-08-17
+
+> Historical bootstrap record. The current V1 implementation status is in the
+> root README and `docs/RELEASE_CHECKLIST_V1.md`; later contract, API, database,
+> Goldsky, reconciliation and web work supersedes the implementation bullets below.
 
 ## Live infrastructure gate update — 2026-08-18
 
@@ -34,7 +38,8 @@ GitHub artifact attestations remain optional provenance for NexMarkets Edition.
 - Deployment-manifest schema and mainnet/testnet bootstrap manifests created.
 - Opaque domain ID generator created.
 - Fail-closed chain transaction lifecycle created.
-- Wallet-signature challenge lifecycle skeleton created (signature cryptography intentionally waits for the selected wallet library).
+- Wallet-signature challenge lifecycle created (later replaced by the complete
+  domain/chain-bound signature verification and opaque session implementation).
 - Initial PostgreSQL authority tables defined.
 - API/indexer/worker service boundaries created.
 - Contract package created with the first gated NexMarkets feature contract,
@@ -64,7 +69,7 @@ The verifier is deliberately **fail closed**:
 
 ## Runtime status in this build environment
 
-The local artifact container cannot resolve external RPC hosts. Therefore no fake RPC PASS is recorded. The static Phase 0/1 implementation is tested here; the runtime gate must execute from CI/deployment infrastructure with Robinhood RPC connectivity.
+The original local Phase 0/1 run could not resolve external RPC hosts. A later read-only Robinhood testnet preflight on 2026-08-20 verified chain ID 46630, Seaport 1.6 and its ConduitController link, the ConduitController, immutable CREATE2 factory, Safe singleton and canonical ERC-6551 Registry runtime. Testnet remains blocked for deployment because MockUSDG and custom NexMarkets addresses are intentionally unset.
 
 ## Newly surfaced USDG consideration
 
@@ -79,16 +84,10 @@ the 2026-08-18 live RPC and independent-build verification recorded above.
 
 OpenSea's current deployment documentation explicitly supports deploying Seaport 1.6 and ConduitController to their canonical addresses on EVM chains via CREATE2. The official verification instructions pin Seaport-core commit `523097f` for Seaport 1.6 and Seaport commit `821a049` for ConduitController verification.
 
-## Remaining before additional Phase 2 contracts
+## Remaining external gates after the V1 implementation
 
-1. Finish `NexPassEdition` review and test it against the pinned OpenZeppelin
-   5.6.1 dependency; do not deploy it until the contract review is complete.
-2. Record and execute the planned governance transition from the initial
-   threshold-1 Safe to threshold >= 2 once ongoing protocol governance is
-   established; the initial production Safe must retain at least two owners.
-3. Resolve the separate testnet manifest and official Paxos testnet USDG before
-   testnet economic integration.
-4. Review and pin the Tokenbound account implementation selected for
-   NexMarkets accounts.
-5. Design and review the separate factory, launch, mint, Advantage, listing,
-   zone, and royalty-vault contracts.
+1. Goldsky dedicated Robinhood dataset enablement.
+2. A testnet MockUSDG decision/address before economic testnet deployment.
+3. Safe-approved custom-contract deployment and runtime/immutable readback.
+4. The planned governance transition to threshold >= 2 for ongoing protocol
+   administration. The initial production Safe must retain at least two owners.

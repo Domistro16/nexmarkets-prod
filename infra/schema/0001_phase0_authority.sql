@@ -1,4 +1,4 @@
--- Phase 0 authority skeleton. This is a schema contract, not a production migration runner.
+-- Historical Phase 0 authority base; applied by the production migration runner before 0002.
 CREATE TABLE IF NOT EXISTS chain_transaction (
   id text PRIMARY KEY,
   chain_id bigint NOT NULL,
