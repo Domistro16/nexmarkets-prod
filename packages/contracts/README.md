@@ -36,6 +36,15 @@ creation. No contract in this trio is upgradeable. Production deployment still
 requires the release evidence and Protocol Admin Safe policy recorded in the
 repository.
 
+The next reviewed boundary is `NexAdvantageRegistry`. It binds each exact
+Edition/token ID to its minted Terms version and committed Advantages hash,
+tracks time, quantity, connected, and redemption utility without changing
+ERC-721 ownership, preserves remaining utility across transfers, and blocks
+state-changing use while the Pass is listed. Redemption and quantity-use IDs
+are idempotent. Its initializer and listing authority are one-time deployed
+contract bindings; production wiring is intentionally deferred to the next
+integration review.
+
 Next contract set after this primary-launch boundary:
 
 `NexPassFactory`, `NexLaunchRegistry`, `NexMintController`, `NexAdvantageRegistry`, `NexListingRegistry`, `NexMarketsZone`, `NexRoyaltyVault`.
