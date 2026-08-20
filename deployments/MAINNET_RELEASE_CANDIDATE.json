@@ -142,8 +142,8 @@
     "secretScan": "190 files / 0 findings"
   },
   "ci": {
-    "contracts": "PASS",
-    "static": "PASS",
+    "contracts": "LOCAL_PASS_71/71 (no new contracts-ci workflow triggered)",
+    "static": "PASS phase01-ci 32421090847",
     "sourceCommit": "8790b635ba55512e5d0e295fb1217a3993ecdafb"
   },
   "goldsky": {
@@ -156,7 +156,7 @@
     "projectorCheckpoint": null
   },
   "infrastructure": {
-    "postgres": "BLOCKED_BY_DATABASE_URL",
+    "postgres": "BLOCKED_DATABASE_UNAVAILABLE_ECONNREFUSED_LOCALHOST",
     "api": "LOCAL_TESTS_ONLY",
     "workers": "NOT_STARTED_WITHOUT_DATABASE",
     "web": "LOCAL_BUILD_ONLY",
