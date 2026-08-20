@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "network": "robinhood-testnet",
+  "chainId": 46630,
+  "safeAddress": "0xCE54c8453fF48670781a6b908c1A3e9209FC95A0",
+  "safeVersion": "1.4.1",
+  "owners": [
+    "0x7ec76611Da0AeE7C1B11273E9767FDA1Faa31790",
+    "0xD83deFbA240568040b39bb2C8B4DB7dB02d40593"
+  ],
+  "threshold": 1,
+  "governanceProfile": "INITIAL_PRODUCTION_THRESHOLD_1_MINIMUM_2_OWNERS",
+  "plannedGovernanceTransition": "RAISE_THRESHOLD_TO_2_PLUS",
+  "runtimeCodeHash": "0xd7d408ebcd99b2b70be43e20253d6d92a8ea8fab29bd3be7f55b10032331fb4c",
+  "deploymentTxHash": "0xc54cb8e350a93b7dbafd1b80dc031b5879bc024a948e55575c55b0cf3a592545",
+  "deploymentBlock": 104607055,
+  "status": "DEPLOYED_VERIFIED"
+}

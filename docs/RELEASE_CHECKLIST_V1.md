@@ -11,3 +11,14 @@
 - [ ] API, web, object storage, observability and secret-manager configuration installed.
 - [ ] Reconciliation is current and outbox has no unexplained dead letters.
 - [ ] No mainnet deployment occurs from a PR review workflow.
+
+## Testnet evidence (2026-08-20)
+
+The testnet Safe, test-only MockUSDG, ten frozen-source V1 contracts and six
+one-time bindings are deployed and independently verified. A certification
+Edition at `0x4171D62F43B4168b07a01C04594455DBc3298437` has Terms published with
+the mandatory 24-hour Preview; mint opens at `2026-08-21T21:42:30Z`. The
+machine-readable record is
+`deployments/robinhood-testnet.v1-deployment.json`. Goldsky deployment and the
+PostgreSQL runtime remain blocked by external credentials/availability, and no
+mainnet custom deployment has occurred.

@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "network": "robinhood-testnet",
+  "chainId": 46630,
+  "testnetOnly": true,
+  "address": "0x6A4F8832c23C51ba626Eba9d50c8F862647C1679",
+  "owner": "0xCE54c8453fF48670781a6b908c1A3e9209FC95A0",
+  "symbol": "USDG",
+  "decimals": 6,
+  "creationBytecodeSha256": "eb5a885965499fd878e4f94ecf5c45bf3443e7e5edd43534264717198dbd4a95",
+  "runtimeCodeHash": "0x56fd890d80943131158d88c67f0e4c4fe0af415cf3378d11826eb72bed709bcf",
+  "deploymentTxHash": "0x8e1e08b195bdd8f302631c4fd14bc81b42bae57b129ca707cca9aa19dce621aa",
+  "deploymentBlock": 104608738,
+  "status": "DEPLOYED_VERIFIED"
+}

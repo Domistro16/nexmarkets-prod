@@ -7,24 +7,59 @@
     "mergeCommit": "d564e4c49037549c123e7182c37ab03576856c91",
     "approvedHead": "940a761d5d3883d38d53966953eb77451660d615"
   },
-  "status": "BLOCKED_BEFORE_MAINNET_BROADCAST",
-  "testnetCertification": "BLOCKED_TESTNET_DEPLOYMENT_PREREQUISITES",
+  "status": "READY_FOR_MAINNET_APPROVAL_AFTER_TESTNET_RUNTIME_GATES",
+  "testnetCertification": "TESTNET_PREVIEW_ACTIVE_WAITING_FOR_MINT_START",
+  "mergedPr7": {
+    "number": 7,
+    "approvedHead": "263ffee8372b5ca432936b5e0f16be8af679ec44",
+    "mergeCommit": "91a883cffc0619e95529833b24b4de2b6d4aa072"
+  },
   "testnet": {
     "network": "robinhood-testnet",
     "chainId": 46630,
-    "mockUsdgAddress": null,
-    "protocolAdminSafe": null,
-    "nexmarketsContracts": {},
-    "deploymentTxHashes": [],
-    "wiringTxHashes": [],
-    "lifecycleStatus": "NOT_STARTED",
+    "mockUsdgAddress": "0x6A4F8832c23C51ba626Eba9d50c8F862647C1679",
+    "protocolAdminSafe": "0xCE54c8453fF48670781a6b908c1A3e9209FC95A0",
+    "nexmarketsContracts": {
+      "NexLaunchRegistry": "0xeE3C8F330C0B2738201fDb2F1720D06c0D27620d",
+      "NexMintController": "0x0ea6F883808447f115C7b6C037902361C365555A",
+      "NexPassFactory": "0x957DE0de07D33c9a89c791B876074657a7fFeEb6",
+      "NexAdvantageRegistry": "0x1e265Fee39d75b5211895820926B4ff77B4f1cDd",
+      "NexAdvantageInitializer": "0x4024bB2A5134c2066E2FDE6fC3a1311e2234499A",
+      "NexRoyaltyVault": "0x9D69ab1897aFA9d6ffc97EEa6A936233a999DFa1",
+      "NexListingRegistry": "0xF8fD8D378F6a61Ecb207732F4f1d0c3E4Eb2c75c",
+      "NexMarketsZone": "0xF21dA23d8928b320124fBc17bd678c7C48c55af6",
+      "NexPassAccount": "0x1d687CE71479cFa3e626ed604c48d65fd86D7923",
+      "NexTBAResolver": "0x55b64D8c1f17ba08a39c939D3248E7A2731Fa8b8"
+    },
+    "deploymentTxHashes": [
+      "0x49bdfd485b2509a548412b0f3ce75223dff3ba9ec7cee717adc2712d9661de44",
+      "0x65ec837b2b2b844a0e3d96f4e4d9ff6a87f685c187bebfc01881ea14757353f",
+      "0xe324a16c175bc9bb67e291990bc63774d9fe05bdd9180069b4f35b969370ac5e",
+      "0x4739626202f35eccfdee578b52e7522d4b096d621034320a6b5042f511389b28",
+      "0x964beb2db88c433c01cef4016e1e9d03a166cdb6f5fbb2e836d9f35f39de723d",
+      "0x93f1e3af74a1e07d490495c593643edea364b154d7b78bd99e27deb95dfb9697",
+      "0xa144a10ea2c88d1fa21303323477363b4401503162486efaac45988bd88daad9",
+      "0xc6a263602d661f8bae87732f0ac3413f8c49ecf17e3ca3095f0ad73abfdc7b6f",
+      "0xbc23aa838c42bf6311d8e72336e3e200a04e19f5d0d4634f998b1f59c67506e2",
+      "0x724f49691eb203414ea1fb4859dacca80b7bb51a1b5ed7760b55a0b5431df74d"
+    ],
+    "wiringTxHashes": [
+      "0x80bdeb30b4c19c0c137bb9c0a86d27398c66a0c7af013d37514631b30622145d",
+      "0x7d297e986073582996d034f3d8ebd24d3c06630c23de1abf45f5559fac2e21de",
+      "0x41943f5a0aedacc7a6b702d0a43144e0a83b73a6f6d7fd3eecc308b79bed1f42",
+      "0xe361ecd32df6ca2df10de0538005c31367b98c9f829963f2e2fce249a6d504d9",
+      "0xa39494e39f2a8b08c913fd833af7f51f6f2eca226c02bc0c11f32801559ad7cb",
+      "0x221e86ef68cd82db624f1194d64a60ed11b40a1e7718da7348e07af934d50f4d"
+    ],
+    "lifecycleStatus": "TESTNET_PREVIEW_ACTIVE",
+    "certificationEdition": "0x4171D62F43B4168b07a01C04594455DBc3298437",
+    "termsHash": "0xe357b55e43ce7d7724a3c4fab02814fd0dd590d731247c6e54237f47f2635745",
+    "mintStartsAt": "2026-08-21T21:42:30Z",
     "reconciliationDiscrepancies": null,
     "blockingReasons": [
-      "TESTNET_SAFE_NOT_DEPLOYED",
-      "MOCK_USDG_NOT_DEPLOYED",
-      "DEPLOYER_PRIVATE_KEY_ABSENT",
       "GOLDSKY_CREDENTIALS_ABSENT",
-      "DATABASE_URL_ABSENT"
+      "DATABASE_UNAVAILABLE",
+      "TESTNET_MINT_WINDOW_NOT_OPEN"
     ]
   },
   "mainnet": {
@@ -66,7 +101,7 @@
     "sourceVerification": {
       "mode": "FROZEN_SOURCE_COMMIT",
       "sourceCommit": "8790b635ba55512e5d0e295fb1217a3993ecdafb",
-      "comparedAgainst": "978e2147afde0f96e41d1b8511d6ff7cdb4c26e3",
+      "comparedAgainst": "91a883cffc0619e95529833b24b4de2b6d4aa072",
       "deploymentInputsHash": "48c5f2c5cbd13d9688e679ea7c38e45655de1c088dd7545b82924cfb5b5e808e",
       "differences": [],
       "mainnetReproduction": "EXACT_ADDRESS_SET_REPRODUCED"
@@ -84,14 +119,14 @@
       "NexTBAResolver": { "salt": "0x722adaadd314dafe97979af27ec7f09f36766d08535e778ec502383cf7bc92a1", "initCodeHash": "0x3cc8a1dd3b34c9eded185393c9600bacc16c2ccbc0bda0cf2aa8b7dbf0b9158d", "normalizedRuntimeTemplateHash": "0x11531698f02c0e67448a825806d5b91d62b7be2851a40755b5dc9f4faced50da" }
     },
     "releaseArtifacts": {
-      "deploymentPlan": { "path": "artifacts/deployment-plan/robinhood-mainnet.json", "sha256": "9b20b1a1697cfa3443982c4026b611871f2f42552a924f851b3fc36a3a49ccb8" },
-      "safeDeploymentBundle": { "path": "artifacts/deployment-plan/robinhood-mainnet.deploy.safe.json", "sha256": "b21597207da73b4a82995b2d7843a783dc6a7653dfa775effb23d909d34d5f80", "transactions": 10 },
-      "safeWiringBundle": { "path": "artifacts/deployment-plan/robinhood-mainnet.wire.safe.json", "sha256": "269b9931a2ea117459241375f85c1299a04a47d7350080cfb4baf80f667842ce", "transactions": 6 }
+      "deploymentPlan": { "path": "artifacts/deployment-plan/robinhood-mainnet.json", "sha256": "e77eee28af3b4556b6309574251f2063f5469c45bb8a9d946c94ab2c824c96ff" },
+      "safeDeploymentBundle": { "path": "artifacts/deployment-plan/robinhood-mainnet.deploy.safe.json", "sha256": "55032cb5e1da28cbef359d506e9af505def0ee6170732595b71affb4dd13c740", "transactions": 10 },
+      "safeWiringBundle": { "path": "artifacts/deployment-plan/robinhood-mainnet.wire.safe.json", "sha256": "c851e50f2301f921858da6f1ef8b1c47fc9b921af209149c02eec97ab0e84185", "transactions": 6 }
     }
   },
   "primitiveRuntimePreflight": {
     "mainnet": "PASS_READ_ONLY_RPC",
-    "testnet": "BLOCKED_ONLY_MOCK_USDG_MISSING",
+    "testnet": "PASS_READ_ONLY_RPC",
     "observedHashesPinned": true
   },
   "tests": {
@@ -102,9 +137,9 @@
     "webBuildRoutes": 10,
     "migrations": "2 migrations / 34 required tables",
     "goldskyCatalogEvents": 22,
-    "checksums": 183,
+    "checksums": 189,
     "npmAudit": "0 vulnerabilities",
-    "secretScan": "184 files / 0 findings"
+    "secretScan": "190 files / 0 findings"
   },
   "ci": {
     "contracts": "PASS",
@@ -132,14 +167,13 @@
     "firstEditionReleaseApproved": false,
     "mainnetCustomDeploymentPerformed": false,
     "approvedFeaturePrMerged": true,
-    "releasePrMerged": false,
+    "releasePrMerged": true,
     "readyForMainnetApproval": false
   },
   "externalDependencies": [
-    "Testnet Safe deployment and public owner metadata",
-    "Testnet MockUSDG deployment and faucet funding",
     "Goldsky API/project and PostgreSQL sink credentials",
-    "Production-equivalent DATABASE_URL",
+    "Reachable production-equivalent DATABASE_URL",
+    "Testnet Preview/mint window and live lifecycle execution",
     "Approved hosting and object-storage credentials"
   ]
 }

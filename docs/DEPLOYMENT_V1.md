@@ -50,11 +50,11 @@ Abort before any irreversible setter when an address, code hash, owner, settleme
 
 Run `verify-v1-deployment.mjs` without flags after deployment and before the wiring bundle; it requires every one-time slot to still be empty. After the separately reviewed wiring Safe transaction, run it again with `--post-wire` to require every slot to equal its planned counterpart.
 
-## Testnet execution checklist (not broadcast by this release branch)
+## Testnet execution checklist and evidence
 
-The following public inputs are required before any testnet transaction is
-authorized. Private keys remain process-environment/secret-manager inputs and
-must never be pasted into chat or committed.
+The following sequence was executed on Robinhood testnet using public metadata
+recorded in `deployments/robinhood-testnet.v1-deployment.json`. Private keys
+remain process-environment/secret-manager inputs and were never committed.
 
 1. Configure two distinct Safe owner addresses and threshold `1`, recording
    `RAISE_THRESHOLD_TO_2_PLUS`.
@@ -79,7 +79,27 @@ must never be pasted into chat or committed.
    `robinhood-testnet` Goldsky Turbo pipeline when credentials exist, apply the
    PostgreSQL migrations, start projector/lifecycle/reconciliation/outbox
    workers and require a healthy landed-block watermark.
-9. Create only a clearly identified certification Edition. Publish Terms with
-   a real 24-hour Preview, record the exact `mintStartsAt`, and resume the live
-   lifecycle only after that timestamp. No production Genesis/Crier Edition is
-   created by this checklist.
+9. A clearly identified test-only certification Edition was created at
+   `0x4171D62F43B4168b07a01C04594455DBc3298437`. Terms were published with a
+   real 24-hour Preview; `mintStartsAt` is `2026-08-21T21:42:30Z`. No production
+   Genesis/Crier Edition was created.
+10. Goldsky execution is pending credentials and the configured PostgreSQL
+    endpoint was unavailable (`ECONNREFUSED localhost:5432`); those gates do
+    not invalidate the independently verified onchain deployment.
+
+The Safe execution tool is testnet-only and validates the frozen plan SHA,
+Safe ownership, CREATE2 init-code hashes, empty predicted addresses and exact
+wiring calldata before it can broadcast:
+
+```text
+node scripts/execute-safe-bundle.mjs --network=robinhood-testnet --phase=deploy --plan-sha256=<plan-sha> --broadcast
+node scripts/execute-safe-bundle.mjs --network=robinhood-testnet --phase=wire --plan-sha256=<plan-sha> --broadcast
+```
+
+Certification Edition creation and Terms publication use a separate test-only
+tool with an explicit confirmation guard. It never accepts a mainnet network:
+
+```text
+node scripts/testnet-certification-edition.mjs --phase=create --broadcast
+node scripts/testnet-certification-edition.mjs --phase=terms --broadcast
+```
