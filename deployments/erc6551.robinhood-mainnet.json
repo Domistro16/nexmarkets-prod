@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "network": "robinhood-mainnet",
+  "chainId": 4663,
+  "registry": {
+    "address": "0x000000006551c19487814612e58FE06813775758",
+    "source": "erc6551/reference",
+    "sourceCommit": "43a84573bb47b0df3ab543a20365f4974f56a809",
+    "expectedRuntimeCodeHash": "0xda1d5b06e579f9e42e59b00fbc22939896ecb38dc8830d40de0a2508fecd6735",
+    "verificationStatus": "PINNED_IN_BOOTSTRAP_MANIFEST"
+  },
+  "accountImplementation": {
+    "contract": "NexPassAccount",
+    "sourcePath": "packages/contracts/src/erc6551/NexPassAccount.sol",
+    "referenceCommit": "43a84573bb47b0df3ab543a20365f4974f56a809",
+    "compiler": "solc-0.8.30",
+    "optimizerRuns": 20000,
+    "expectedBuildRuntimeCodeHash": "0xc849f1d83cf1d83f7f1de0a071c117b32e94d59aacf3e8c3599ee7cc69e52963",
+    "deployedAddress": null,
+    "deployedRuntimeCodeHash": null
+  },
+  "resolver": { "accountSaltDomain": "NEXMARKETS_PASS_TBA_V1", "deployedAddress": null },
+  "runtimeVerification": "BLOCKED_UNTIL_DEPLOYMENT_PREFLIGHT",
+  "mainnetDeploymentPerformed": false
+}

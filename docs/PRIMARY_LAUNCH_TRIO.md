@@ -20,6 +20,9 @@ The primary mint path is one security boundary:
   post-mint Terms-hash check rejects any publisher mutation made from an NFT
   receiver callback. Any referral hint emitted by the controller is
   noncanonical; the backend Builder-Settled referral ledger remains authoritative.
+  For Terms with Advantages, it also invokes the permanently wired
+  `NexAdvantageInitializer` before the final Terms recheck, so USDG settlement,
+  minting and exact-serial utility initialization are one atomic transaction.
 - `NexPassEdition` remains the permanent serial/ownership layer. It independently
   enforces its absolute cap and snapshots the exact Terms hash and Builder
   Royalty for each minted token.
@@ -46,7 +49,9 @@ The primary mint path is one security boundary:
    Admin Safe as owner and the fee recipient. The primary fee rate is fixed in
    the contract at 5% (500 bps).
 3. Deploy `NexPassFactory` with the same Safe, Registry, and Controller.
-4. Have the Protocol Admin Safe bind the Factory once in the Registry.
+4. Deploy and cross-bind `NexAdvantageRegistry` and
+   `NexAdvantageInitializer`, then have the Protocol Admin Safe bind the
+   Factory and initializer one-time slots only after wiring verification.
 5. Use the Factory to create and wire an Edition, then publish its first Terms
    version from the authorized publisher.
 6. Independently review the full trio and Safe-controlled deployment record

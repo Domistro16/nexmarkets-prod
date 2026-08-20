@@ -23,19 +23,19 @@
     "seaport16": {
       "address": "0x0000000000000068F116a894984e2DB1123eB395",
       "expectedVersion": "1.6",
-      "expectedRuntimeCodeHash": null
+      "expectedRuntimeCodeHash": "0x3c34f01b93b6bdb7adcc543eb870c27c8357ae3192df0f054365947e0714ece6"
     },
     "conduitController": {
       "address": "0x00000000F9490004C11Cef243f5400493c00Ad63",
-      "expectedRuntimeCodeHash": null
+      "expectedRuntimeCodeHash": "0x880348b652e7cce91216153a4d0107e70c77b92192f3d7a127ff1f1351961948"
     },
     "immutableCreate2Factory": {
       "address": "0x0000000000ffe8b47b3e2130213b802212439497",
-      "expectedRuntimeCodeHash": null
+      "expectedRuntimeCodeHash": "0x767db8f19b71e367540fa372e8e81e4dcb7ca8feede0ae58a0c0bd08b7320dee"
     },
     "erc6551Registry": {
       "address": "0x000000006551c19487814612e58FE06813775758",
-      "expectedRuntimeCodeHash": null,
+      "expectedRuntimeCodeHash": "0xda1d5b06e579f9e42e59b00fbc22939896ecb38dc8830d40de0a2508fecd6735",
       "allowCanonicalDeploymentIfEmpty": true
     },
     "safeSingleton": {

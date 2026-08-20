@@ -88,6 +88,7 @@ Seaport address, and the same Protocol Admin owner. `NexAdvantageRegistry`
 independently validates that the listing authority points back to it and has
 the expected owner.
 
-This is a contract-boundary review only. It does not deploy to Robinhood or
-authorize production deployment. ERC-6551/TBA and complete Pass lifecycle
-integration are the next contract boundary.
+This boundary remains unchanged by the later V1 integration. ERC-6551/TBA,
+Goldsky projection, reconciliation, API and web layers attach to it without
+replacing Seaport, ERC-721 ownership, listing policy or Vault authority. No
+Robinhood mainnet deployment has been performed.

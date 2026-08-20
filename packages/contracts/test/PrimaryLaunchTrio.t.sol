@@ -5,6 +5,7 @@ import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {Test} from "forge-std/Test.sol";
 
 import {NexLaunchRegistry} from "../src/NexLaunchRegistry.sol";
+import {NexAdvantageRegistry} from "../src/NexAdvantageRegistry.sol";
 import {NexMintController} from "../src/NexMintController.sol";
 import {NexPassEdition} from "../src/NexPassEdition.sol";
 import {NexPassFactory} from "../src/NexPassFactory.sol";
@@ -68,7 +69,7 @@ contract CallbackTermsPublisherReceiver {
                     primaryRecipient: address(0xCAFE),
                     royaltyReceiver: address(0xCAFE),
                     royaltyBps: 0,
-                    advantagesHash: keccak256("callback:advantages"),
+                    advantagesHash: bytes32(0),
                     referralTermsHash: keccak256("callback:referrals")
                 })
             );
@@ -92,7 +93,6 @@ contract PrimaryLaunchTrioTest is Test {
     bytes32 internal constant EDITION_ID = keccak256("nexstudio:primary:01");
     bytes32 internal constant ARTWORK_COMMITMENT = keccak256("nexstudio:primary:artwork");
     bytes32 internal constant SALT = keccak256("nexstudio:primary:salt");
-    bytes32 internal constant ADVANTAGES_V1 = keccak256("advantage:v1");
     bytes32 internal constant REFERRALS_V1 = keccak256("referrals:v1");
     uint32 internal constant ABSOLUTE_CAP = 5;
     uint256 internal constant PRICE = 1_000_000;
@@ -148,7 +148,7 @@ contract PrimaryLaunchTrioTest is Test {
             primaryRecipient: BUILDER,
             royaltyReceiver: BUILDER,
             royaltyBps: 500,
-            advantagesHash: ADVANTAGES_V1,
+            advantagesHash: bytes32(0),
             referralTermsHash: REFERRALS_V1
         });
     }
@@ -217,7 +217,8 @@ contract PrimaryLaunchTrioTest is Test {
             recipient: ALICE,
             quantity: 2,
             intentId: keccak256("alice:intent:1"),
-            referralHint: BOB
+            referralHint: BOB,
+            advantageConfigs: new NexAdvantageRegistry.AdvantageConfig[](0)
         });
 
         uint256 builderBefore = usdg.balanceOf(BUILDER);
@@ -255,7 +256,8 @@ contract PrimaryLaunchTrioTest is Test {
             recipient: ALICE,
             quantity: 1,
             intentId: keccak256("revision:first"),
-            referralHint: address(0)
+            referralHint: address(0),
+            advantageConfigs: new NexAdvantageRegistry.AdvantageConfig[](0)
         });
         vm.prank(ALICE);
         controller.mint(first);
@@ -298,7 +300,8 @@ contract PrimaryLaunchTrioTest is Test {
             recipient: address(receiver),
             quantity: 1,
             intentId: keccak256("receiver:revert"),
-            referralHint: address(0)
+            referralHint: address(0),
+            advantageConfigs: new NexAdvantageRegistry.AdvantageConfig[](0)
         });
 
         uint256 aliceBefore = usdg.balanceOf(ALICE);
@@ -322,7 +325,8 @@ contract PrimaryLaunchTrioTest is Test {
             recipient: address(receiver),
             quantity: 2,
             intentId: keccak256("callback:lower-supply"),
-            referralHint: address(0)
+            referralHint: address(0),
+            advantageConfigs: new NexAdvantageRegistry.AdvantageConfig[](0)
         });
 
         vm.prank(ALICE);
@@ -346,7 +350,8 @@ contract PrimaryLaunchTrioTest is Test {
             recipient: address(receiver),
             quantity: 2,
             intentId: keccak256("callback:terms-change"),
-            referralHint: address(0)
+            referralHint: address(0),
+            advantageConfigs: new NexAdvantageRegistry.AdvantageConfig[](0)
         });
 
         vm.prank(ALICE);
@@ -392,7 +397,8 @@ contract PrimaryLaunchTrioTest is Test {
             recipient: ALICE,
             quantity: 1,
             intentId: keccak256("paused"),
-            referralHint: address(0)
+            referralHint: address(0),
+            advantageConfigs: new NexAdvantageRegistry.AdvantageConfig[](0)
         });
         vm.prank(ALICE);
         vm.expectRevert();

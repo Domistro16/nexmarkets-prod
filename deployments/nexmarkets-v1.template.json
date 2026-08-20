@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "release": "NEXMARKETS_V1",
+  "deploymentStatus": "NOT_DEPLOYED",
+  "mainnetDeploymentPerformed": false,
+  "governancePolicy": {
+    "ownerType": "SAFE",
+    "minimumOwners": 2,
+    "minimumInitialThreshold": 1,
+    "initialThresholdOnePermitted": true,
+    "plannedTransition": "RAISE_THRESHOLD_TO_2_PLUS"
+  },
+  "networks": {
+    "robinhood-mainnet": { "chainId": 4663, "settlement": "USDG", "productionDeploymentAllowedByThisFile": false },
+    "robinhood-testnet": { "chainId": 46630, "settlement": "MockUSDG", "productionDeploymentAllowedByThisFile": false }
+  },
+  "deploymentOrder": [
+    "NexLaunchRegistry", "NexMintController", "NexPassFactory", "NexAdvantageRegistry",
+    "NexAdvantageInitializer", "NexRoyaltyVault", "NexListingRegistry", "NexMarketsZone",
+    "NexPassAccount", "NexTBAResolver"
+  ],
+  "oneTimeWiringOrder": [
+    "NexLaunchRegistry.setFactory", "NexAdvantageRegistry.setInitializer",
+    "NexMintController.setAdvantageInitializer", "NexRoyaltyVault.setListingRegistry",
+    "NexListingRegistry.setZone", "NexAdvantageRegistry.setListingAuthority"
+  ]
+}

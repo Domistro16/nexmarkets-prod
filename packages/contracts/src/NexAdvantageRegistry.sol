@@ -140,7 +140,7 @@ contract NexAdvantageRegistry is Ownable, ReentrancyGuard {
         launchRegistry = launchRegistry_;
     }
 
-    /// @notice Bind the future mint/utility initializer exactly once.
+    /// @notice Bind the permanent mint/utility initializer exactly once.
     /// @dev The initializer is expected to be a contract such as the gated
     ///      mint/controller integration, never an EOA.
     function setInitializer(address initializer_) external onlyOwner {
@@ -152,7 +152,7 @@ contract NexAdvantageRegistry is Ownable, ReentrancyGuard {
         emit AdvantageAuthoritySet(initializer, listingAuthority);
     }
 
-    /// @notice Bind the future listing registry exactly once.
+    /// @notice Bind the permanent listing registry exactly once.
     function setListingAuthority(address listingAuthority_) external onlyOwner {
         if (listingAuthority != address(0)) revert AuthorityAlreadySet();
         if (listingAuthority_ == address(0)) revert AddressRequired();
@@ -446,6 +446,7 @@ contract NexAdvantageRegistry is Ownable, ReentrancyGuard {
 
         uint256 freezeDuration = currentTimestamp - freezeAt;
         if (freezeDuration > type(uint64).max - advantage.frozenSeconds) revert ListingDurationOverflow();
+        // forge-lint: disable-next-line(unsafe-typecast)
         advantage.frozenSeconds += uint64(freezeDuration);
     }
 

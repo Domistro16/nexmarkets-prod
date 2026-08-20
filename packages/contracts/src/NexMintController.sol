@@ -9,6 +9,22 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import {NexLaunchRegistry} from "./NexLaunchRegistry.sol";
 import {NexPassEdition} from "./NexPassEdition.sol";
+import {NexAdvantageRegistry} from "./NexAdvantageRegistry.sol";
+
+interface INexAdvantageMintInitializer {
+    function advantageRegistry() external view returns (address);
+    function launchRegistry() external view returns (address);
+    function mintController() external view returns (address);
+    function owner() external view returns (address);
+
+    function initializeMint(
+        address edition,
+        uint256 firstTokenId,
+        uint256 quantity,
+        bytes32 termsVersionHash,
+        NexAdvantageRegistry.AdvantageConfig[] calldata configs
+    ) external;
+}
 
 /// @title NexMintController
 /// @notice Validates active launch Terms, settles exact USDG, and mints serials.
@@ -23,6 +39,7 @@ contract NexMintController is Ownable, Pausable, ReentrancyGuard {
     NexLaunchRegistry public immutable launchRegistry;
     IERC20 public immutable usdg;
     address public immutable protocolFeeRecipient;
+    address public advantageInitializer;
 
     mapping(address => mapping(bytes32 => bool)) private _consumedIntent;
 
@@ -34,9 +51,16 @@ contract NexMintController is Ownable, Pausable, ReentrancyGuard {
         bytes32 intentId;
         /// @notice Optional user-supplied hint only; it is not canonical attribution.
         address referralHint;
+        /// @notice Exact Advantage definitions committed by the active Terms.
+        ///         Must be empty when the Terms have no Advantages.
+        NexAdvantageRegistry.AdvantageConfig[] advantageConfigs;
     }
 
     error AddressRequired();
+    error AdvantageInitializerAlreadySet();
+    error AdvantageInitializerRequired();
+    error AdvantageInitializerWiringMismatch();
+    error UnexpectedAdvantages();
     error IntentAlreadyConsumed();
     error IntentRequired();
     error InvalidEditionController();
@@ -60,6 +84,7 @@ contract NexMintController is Ownable, Pausable, ReentrancyGuard {
     event ReferralHintSubmitted(
         bytes32 indexed intentId, address indexed payer, address indexed edition, address referralHint
     );
+    event AdvantageInitializerSet(address indexed advantageInitializer);
 
     constructor(address initialOwner, NexLaunchRegistry launchRegistry_, IERC20 usdg_, address protocolFeeRecipient_)
         Ownable(initialOwner)
@@ -76,6 +101,38 @@ contract NexMintController is Ownable, Pausable, ReentrancyGuard {
         launchRegistry = launchRegistry_;
         usdg = usdg_;
         protocolFeeRecipient = protocolFeeRecipient_;
+    }
+
+    /// @notice Permanently bind the contract that initializes committed utility.
+    /// @dev Optional until an Edition publishes Terms with Advantages; once set,
+    ///      the authority cannot be replaced.
+    function setAdvantageInitializer(address advantageInitializer_) external onlyOwner {
+        if (advantageInitializer != address(0)) revert AdvantageInitializerAlreadySet();
+        if (advantageInitializer_ == address(0) || advantageInitializer_.code.length == 0) revert AddressRequired();
+
+        try INexAdvantageMintInitializer(advantageInitializer_).launchRegistry() returns (address registry_) {
+            if (registry_ != address(launchRegistry)) revert AdvantageInitializerWiringMismatch();
+        } catch {
+            revert AdvantageInitializerWiringMismatch();
+        }
+        try INexAdvantageMintInitializer(advantageInitializer_).mintController() returns (address controller_) {
+            if (controller_ != address(this)) revert AdvantageInitializerWiringMismatch();
+        } catch {
+            revert AdvantageInitializerWiringMismatch();
+        }
+        try INexAdvantageMintInitializer(advantageInitializer_).owner() returns (address initializerOwner) {
+            if (initializerOwner != owner()) revert AdvantageInitializerWiringMismatch();
+        } catch {
+            revert AdvantageInitializerWiringMismatch();
+        }
+        try INexAdvantageMintInitializer(advantageInitializer_).advantageRegistry() returns (address registry_) {
+            if (registry_ == address(0) || registry_.code.length == 0) revert AdvantageInitializerWiringMismatch();
+        } catch {
+            revert AdvantageInitializerWiringMismatch();
+        }
+
+        advantageInitializer = advantageInitializer_;
+        emit AdvantageInitializerSet(advantageInitializer_);
     }
 
     function mint(MintRequest calldata request) external whenNotPaused nonReentrant returns (uint256 firstTokenId) {
@@ -107,6 +164,15 @@ contract NexMintController is Ownable, Pausable, ReentrancyGuard {
                 terms.royaltyReceiver,
                 terms.royaltyBps
             );
+        if (terms.advantagesHash == bytes32(0)) {
+            if (request.advantageConfigs.length != 0) revert UnexpectedAdvantages();
+        } else {
+            if (advantageInitializer == address(0)) revert AdvantageInitializerRequired();
+            INexAdvantageMintInitializer(advantageInitializer)
+                .initializeMint(
+                    request.edition, firstTokenId, request.quantity, request.termsVersionHash, request.advantageConfigs
+                );
+        }
         (bytes32 activeTermsHashAfter,) = launchRegistry.activeTerms(request.edition);
         if (activeTermsHashAfter != request.termsVersionHash) revert TermsChangedDuringMint();
 

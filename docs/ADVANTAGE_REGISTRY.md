@@ -50,10 +50,11 @@ active window resumes with its unused time when the listing is cleared.
 
 ## Authority and integration boundary
 
-The Protocol Admin binds the initializer once. The initializer is expected to
-be the future mint/Advantage integration contract and must be deployed code,
-not an EOA. Before either one-time authority slot is consumed, the registry
-verifies the expected immutable registry, LaunchRegistry, and owner wiring
-exposed by that contract. This boundary adds the listing authority, but does
-not alter `NexMintController` or wire the initializer after each successful
-mint. Production deployment is not performed by this contract gate.
+The Protocol Admin binds `NexAdvantageInitializer` once; it must be deployed
+code, never an EOA. The MintController independently binds the same initializer
+and calls it atomically for every serial in a successful mint when the active
+Terms commit Advantages. Payment, mint and all Advantage initialization revert
+together on any mismatch or failure. Before either one-time authority slot is
+consumed, the contracts verify the immutable registry, LaunchRegistry,
+MintController and Protocol Admin back-references. Production deployment has
+not been performed.

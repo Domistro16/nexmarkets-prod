@@ -15,7 +15,8 @@ Pinned baseline:
   in `.github/workflows/contracts-ci.yml`
 - Seaport 1.6: canonical source `ProjectOpenSea/seaport-core@523097f`; the Robinhood canonical address is deployed and runtime-verified, so no NexMarkets deployment is required
 - ConduitController: canonical `ProjectOpenSea/seaport@821a049` build is deployed and runtime-verified at Robinhood's canonical address
-- ERC-6551: canonical registry, pinned account implementation after review
+- ERC-6551 registry: canonical `0x000000006551c19487814612e58FE06813775758`, pinned reference commit `43a84573bb47b0df3ab543a20365f4974f56a809`
+- NexPassAccount build runtime hash: `0xc849f1d83cf1d83f7f1de0a071c117b32e94d59aacf3e8c3599ee7cc69e52963`
 
 The first connected primary-launch boundary is now:
 
@@ -49,13 +50,20 @@ fork or redeploy Seaport. Listing state drives the one-time Advantage lock, and
 cancellation, fill, expiry, or direct transfer cannot leave a stale order
 usable.
 
-The next contract boundary is ERC-6551/TBA plus complete Pass lifecycle
-integration, followed by backend/indexer reconciliation and production-facing
-contract integration.
+The complete Pass lifecycle also contains `NexAdvantageInitializer`, which is
+permanently wired to `NexMintController` and `NexAdvantageRegistry`. Terms with
+a nonzero Advantages commitment cannot mint unless every exact serial is
+initialized in the same transaction. Any commitment or initialization failure
+reverts USDG settlement, serial minting and the payer-scoped intent.
 
-Next contract set after this primary-launch boundary:
+`NexTBAResolver` deterministically maps a factory Edition/token ID to a
+canonical-registry ERC-6551 account using the pinned `NexPassAccount`
+implementation. TBA control follows ERC-721 `ownerOf`; the TBA is never the
+authority for Terms, serials, Advantage, listings or royalties.
 
-`NexPassFactory`, `NexLaunchRegistry`, `NexMintController`, `NexAdvantageRegistry`, `NexListingRegistry`, `NexMarketsZone`, `NexRoyaltyVault`.
+Complete V1 custom contract set:
+
+`NexPassFactory`, `NexLaunchRegistry`, `NexMintController`, `NexAdvantageRegistry`, `NexAdvantageInitializer`, `NexListingRegistry`, `NexMarketsZone`, `NexRoyaltyVault`, `NexPassAccount`, `NexTBAResolver`.
 
 `NexAdvantageRegistry` authenticates each initialized config array against the
 Terms `advantagesHash` using its versioned `ADVANTAGES_DOMAIN`. Use IDs are
@@ -84,6 +92,6 @@ and its advertised supply/Royalty snapshot, and must collect/account for USDG
 before calling `mint`. The Edition independently enforces its absolute cap and
 the supplied active Terms supply, then snapshots the Terms version hash and
 Builder Royalty into every minted token. `termsVersionHashOf(tokenId)` is the
-canonical onchain association used by future Advantage, Market, and settlement
+canonical onchain association used by Advantage, Market, and settlement
 contracts. The edition contract does not pull funds or implement Terms,
 Preview, Advantage, referral, or royalty-lock logic.

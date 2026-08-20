@@ -7,6 +7,7 @@ import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import {Test} from "forge-std/Test.sol";
 
 import {NexAdvantageRegistry} from "../src/NexAdvantageRegistry.sol";
+import {NexAdvantageInitializer} from "../src/NexAdvantageInitializer.sol";
 import {NexLaunchRegistry} from "../src/NexLaunchRegistry.sol";
 import {INexAdvantageListingController, NexListingRegistry} from "../src/NexListingRegistry.sol";
 import {NexMarketsZone} from "../src/NexMarketsZone.sol";
@@ -50,28 +51,6 @@ contract ListingSeaportMock {
     }
 }
 
-contract ListingAdvantageInitializerMock {
-    NexAdvantageRegistry public immutable advantageRegistry;
-    NexLaunchRegistry public immutable launchRegistry;
-    address public immutable owner;
-
-    constructor(NexAdvantageRegistry advantageRegistry_, NexLaunchRegistry launchRegistry_, address owner_) {
-        advantageRegistry = advantageRegistry_;
-        launchRegistry = launchRegistry_;
-        owner = owner_;
-    }
-
-    function initializePass(
-        address edition,
-        uint256 tokenId,
-        bytes32 termsVersionHash,
-        bytes32 advantagesHash,
-        NexAdvantageRegistry.AdvantageConfig[] calldata configs
-    ) external {
-        advantageRegistry.initializePass(edition, tokenId, termsVersionHash, advantagesHash, configs);
-    }
-}
-
 contract MiswiredListingZone {
     function listingRegistry() external pure returns (address) {
         return address(0x1111);
@@ -97,7 +76,7 @@ contract NexListingRegistryTest is Test {
     NexRoyaltyVault internal royaltyVault;
     NexListingRegistry internal listingRegistry;
     NexMarketsZone internal zone;
-    ListingAdvantageInitializerMock internal initializer;
+    NexAdvantageInitializer internal initializer;
 
     address internal constant OWNER = address(0xA11CE);
     address internal constant PUBLISHER = address(0xBEEF);
@@ -143,6 +122,13 @@ contract NexListingRegistryTest is Test {
         vm.prank(OWNER);
         edition = NexPassEdition(factory.createEdition(editionConfig, PUBLISHER, SALT));
 
+        advantageRegistry = new NexAdvantageRegistry(OWNER, launchRegistry);
+        initializer = new NexAdvantageInitializer(OWNER, launchRegistry, advantageRegistry, address(mintController));
+        vm.prank(OWNER);
+        advantageRegistry.setInitializer(address(initializer));
+        vm.prank(OWNER);
+        mintController.setAdvantageInitializer(address(initializer));
+
         uint64 previewStartsAt = uint64(block.timestamp);
         uint64 mintStartsAt = previewStartsAt + 1 days;
         advantageStartsAt = mintStartsAt;
@@ -175,7 +161,8 @@ contract NexListingRegistryTest is Test {
             recipient: ALICE,
             quantity: 2,
             intentId: keccak256("nexlisting:mint"),
-            referralHint: address(0)
+            referralHint: address(0),
+            advantageConfigs: configs
         });
         vm.prank(ALICE);
         mintController.mint(request);
@@ -207,7 +194,6 @@ contract NexListingRegistryTest is Test {
         vm.warp(sellerRoyaltyMintStart);
         _mintOne(sellerRoyaltyTermsHash, keccak256("nexlisting:mint:seller-royalty"));
 
-        advantageRegistry = new NexAdvantageRegistry(OWNER, launchRegistry);
         royaltyVault = new NexRoyaltyVault(OWNER, usdg);
         listingRegistry = new NexListingRegistry(
             OWNER,
@@ -223,14 +209,8 @@ contract NexListingRegistryTest is Test {
         vm.prank(OWNER);
         listingRegistry.setZone(address(zone));
 
-        initializer = new ListingAdvantageInitializerMock(advantageRegistry, launchRegistry, OWNER);
-        vm.prank(OWNER);
-        advantageRegistry.setInitializer(address(initializer));
         vm.prank(OWNER);
         advantageRegistry.setListingAuthority(address(listingRegistry));
-        initializer.initializePass(address(edition), 1, termsHash, advantagesHash, configs);
-        initializer.initializePass(address(edition), 3, zeroRoyaltyTermsHash, advantagesHash, configs);
-        initializer.initializePass(address(edition), 4, sellerRoyaltyTermsHash, advantagesHash, configs);
 
         usdg.mint(BOB, 20 * PRICE);
         vm.prank(ALICE);
@@ -240,13 +220,15 @@ contract NexListingRegistryTest is Test {
     }
 
     function _mintOne(bytes32 mintTermsHash, bytes32 intentId) internal {
+        NexAdvantageRegistry.AdvantageConfig[] memory configs = _advantageConfigs();
         NexMintController.MintRequest memory request = NexMintController.MintRequest({
             edition: address(edition),
             termsVersionHash: mintTermsHash,
             recipient: ALICE,
             quantity: 1,
             intentId: intentId,
-            referralHint: address(0)
+            referralHint: address(0),
+            advantageConfigs: configs
         });
         vm.prank(ALICE);
         mintController.mint(request);
