@@ -277,6 +277,7 @@ export class PostgresProjectionWorker {
         await client.query('UPDATE listing_projection SET status=$1,orphaned_at=NULL WHERE order_hash=$2', [status, context.orderHash]);
       }
       if (!events.some((event) => event.event_name === 'RoyaltyRecorded')) await client.query('DELETE FROM royalty_claim_projection WHERE order_hash=$1', [context.orderHash]);
+      return;
     }
     if (context.editionId && context.tokenId != null) {
       await client.query('DELETE FROM pass_token_projection WHERE edition_id=$1 AND token_id=$2', [context.editionId, context.tokenId]);
