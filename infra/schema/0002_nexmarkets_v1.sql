@@ -77,6 +77,7 @@ CREATE TABLE IF NOT EXISTS edition_request (
   UNIQUE(chain_id,edition_id_hash)
 );
 ALTER TABLE edition_request ADD COLUMN IF NOT EXISTS transaction_id text REFERENCES chain_transaction(id);
+ALTER TABLE edition_request ADD COLUMN IF NOT EXISTS safe_execution_evidence jsonb;
 CREATE INDEX IF NOT EXISTS idx_edition_request_safe_status ON edition_request(chain_id,safe_status,updated_at);
 
 CREATE TABLE IF NOT EXISTS edition (
@@ -435,6 +436,25 @@ CREATE TABLE IF NOT EXISTS goldsky_raw_log (
   removed boolean NOT NULL DEFAULT false,
   received_at timestamptz NOT NULL DEFAULT now(),
   PRIMARY KEY(chain_id,transaction_hash,log_index)
+);
+
+-- Canonical Seaport settlement evidence. This is a projection of Seaport's
+-- OrderFulfilled log and is never used as an ownership authority.
+CREATE TABLE IF NOT EXISTS seaport_fulfillment_projection (
+  order_hash text PRIMARY KEY,
+  offerer_address text NOT NULL,
+  zone_address text NOT NULL,
+  recipient_address text NOT NULL,
+  payload jsonb NOT NULL,
+  chain_id bigint NOT NULL,
+  source_block_number bigint NOT NULL,
+  source_block_hash text NOT NULL,
+  source_tx_hash text NOT NULL,
+  source_log_index integer NOT NULL,
+  finalized boolean NOT NULL DEFAULT false,
+  orphaned_at timestamptz,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE(chain_id,source_tx_hash,source_log_index)
 );
 
 CREATE TABLE IF NOT EXISTS indexer_checkpoint (

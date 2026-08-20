@@ -33,6 +33,22 @@ test('missing event is detected by chain comparison with bounded retries', async
   assert.equal(calls, 3); assert.equal(result.checkedCount, 1); assert.equal(result.discrepancies.length, 1);
 });
 
+test('reconciliation compares normalized edition, Terms, Advantage, listing, royalty and TBA state', async () => {
+  const store = evidence();
+  const expected = {
+    edition: true, totalMinted: '1', owner: '0xaa', tokenTerms: '0xt', activeTerms: { hash: '0xactive', terms: { activeSupply: '1' } },
+    advantage: { remaining: '4', listed: false }, listing: { status: 'ACTIVE', usdGPrice: '101' },
+    royalty: { amount: '5', withdrawn: false }, withdrawal: false, tba: '0xtba'
+  };
+  const chain = Object.fromEntries(Object.entries(expected).map(([key, value]) => [key, async () => value]));
+  const projections = { async items() { return [{ key: 'pass:full', identity: { edition: '0xed', tokenId: '1', advantageId: '0xa', orderHash: '0xo' }, expected, authority: Object.fromEntries(Object.keys(expected).map((key) => [key, 'CHAIN'])), repair: {} }]; } };
+  let result = await new ReconciliationService({ chain, projections, evidenceStore: store }).run('FULL');
+  assert.equal(result.discrepancies.length, 0); assert.equal(result.checkedCount, Object.keys(expected).length);
+  const corrupted = { ...expected, listing: { ...expected.listing, status: 'FILLED' } };
+  result = await new ReconciliationService({ chain, projections: { async items() { return [{ key: 'pass:full', identity: {}, expected: corrupted, authority: { listing: 'NEX_LISTING_REGISTRY' }, repair: {} }]; } }, evidenceStore: evidence() }).run('LISTING');
+  assert.equal(result.discrepancies.length, 1); assert.equal(result.discrepancies[0].check, 'listing');
+});
+
 test('RPC reconciliation adapter reads canonical owner and token Terms', async () => {
   const calls = [];
   const chain = new RobinhoodReconciliationChain({ rpc: { async ethCall(to, data) { calls.push({ to, data }); return `0x${'00'.repeat(12)}${'11'.repeat(20)}`; } } });

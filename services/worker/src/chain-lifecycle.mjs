@@ -1,8 +1,11 @@
 import pg from 'pg';
 import { createHash } from 'node:crypto';
+import { Interface } from 'ethers';
 import { JsonRpcClient } from '../../../packages/chain/src/rpc.mjs';
 
 const TERMINAL = new Set(['FINALIZED', 'CANCELLED', 'REVERTED', 'REORGED']);
+const SAFE_ABI = new Interface(['event ExecutionSuccess(bytes32 indexed txHash,uint256 payment)','event ExecutionFailure(bytes32 indexed txHash,uint256 payment)']);
+const FACTORY_ABI = new Interface(['event EditionCreated(address indexed edition,bytes32 indexed editionId,address indexed publisher,bytes32 salt,address protocolAdmin,address mintController,uint32 absoluteSupplyCap,bytes32 artworkCommitment)']);
 const sha = (value) => createHash('sha256').update(value).digest('hex').slice(0, 24);
 const lower = (value) => typeof value === 'string' ? value.toLowerCase() : value;
 const hexNumber = (value) => value == null ? null : Number(BigInt(value));
@@ -13,13 +16,15 @@ const hexNumber = (value) => value == null ? null : Number(BigInt(value));
  * backed by an RPC receipt and block evidence and is idempotent by event_id.
  */
 export class ChainLifecycleWorker {
-  constructor({ pool, connectionString = process.env.DATABASE_URL, rpc, rpcUrl = process.env.RH_MAINNET_RPC_URL, chainId = 4663, finalityDepth = 12, maxAttempts = 12, logger = console } = {}) {
+  constructor({ pool, connectionString = process.env.DATABASE_URL, rpc, rpcUrl = process.env.RH_MAINNET_RPC_URL, chainId = 4663, finalityDepth = 12, maxAttempts = 12, protocolAdminSafe = process.env.PROTOCOL_ADMIN_SAFE_ADDRESS, factoryAddress = process.env.NEX_PASS_FACTORY_ADDRESS, logger = console } = {}) {
     this.pool = pool ?? new pg.Pool({ connectionString, max: 4, application_name: 'nexmarkets-chain-worker' });
     this.ownsPool = !pool;
     this.rpc = rpc ?? new JsonRpcClient(rpcUrl);
     this.chainId = Number(chainId);
     this.finalityDepth = Number(finalityDepth);
     this.maxAttempts = Number(maxAttempts);
+    this.protocolAdminSafe = lower(protocolAdminSafe);
+    this.factoryAddress = lower(factoryAddress);
     this.logger = logger;
   }
 
@@ -63,6 +68,7 @@ export class ChainLifecycleWorker {
     const receiptHash = lower(receipt.blockHash);
     if (tx?.from && lower(tx.from) !== lower(row.wallet_address)) return { pending: false, transitions: await this.transition(row, 'REVERTED', { failureCode: 'TX_FROM_MISMATCH', txHash: row.tx_hash, blockNumber: receiptBlock, blockHash: receiptHash }) };
     if (row.to_address && (tx?.to ?? receipt.to) && lower(row.to_address) !== lower(tx?.to ?? receipt.to)) return { pending: false, transitions: await this.transition(row, 'REVERTED', { failureCode: 'TX_TO_MISMATCH', txHash: row.tx_hash, blockNumber: receiptBlock, blockHash: receiptHash }) };
+    if (row.calldata && (!tx?.input || lower(tx.input) !== lower(row.calldata))) return { pending: false, transitions: await this.transition(row, 'REVERTED', { failureCode: 'TX_CALLDATA_MISMATCH', txHash: row.tx_hash, blockNumber: receiptBlock, blockHash: receiptHash }) };
     const canonicalBlock = receiptBlock == null ? null : await this.rpc.getBlockByNumber(receiptBlock);
     if (canonicalBlock?.hash && receiptHash && lower(canonicalBlock.hash) !== receiptHash) {
       return { pending: false, transitions: await this.transition(row, 'REORGED', { failureCode: 'RECEIPT_BLOCK_REORGED', txHash: row.tx_hash, blockNumber: receiptBlock, blockHash: receiptHash }) };
@@ -118,7 +124,7 @@ export class ChainLifecycleWorker {
     await this.pool.query(
       `INSERT INTO transaction_job(id,transaction_id,job_type,attempt,next_attempt_at,last_error)
        VALUES($1,$2,'CHAIN_LIFECYCLE',$3,now()+($4::text||' seconds')::interval,$5)
-       ON CONFLICT(transaction_id,job_type) DO UPDATE SET attempt=$3,next_attempt_at=now()+($4::text||' seconds')::interval,last_error=$5,completed_at=CASE WHEN $6 THEN now() ELSE transaction_job.completed_at END`,
+       ON CONFLICT(transaction_id,job_type) DO UPDATE SET attempt=$3,next_attempt_at=now()+($4::text||' seconds')::interval,last_error=$5,completed_at=NULL`,
       [`job_${sha(row.id)}`, row.id, attempt, Math.min(900, 2 ** Math.min(attempt, 9)), String(error.message).slice(0, 1000), dead]
     );
   }
@@ -134,14 +140,39 @@ export class ChainLifecycleWorker {
     await this.pool.query(`INSERT INTO outbox_event(id,aggregate_type,aggregate_id,event_type,business_key,payload) VALUES($1,'CHAIN_TRANSACTION',$2,$3,$4,$5::jsonb) ON CONFLICT(event_type,business_key) DO NOTHING`, [outboxId, row.id, type, row.id, JSON.stringify({ transactionId: row.id, state, evidence })]);
   }
 
+  verifyEditionSafeEvidence(request, receipt, tx) {
+    if (!this.protocolAdminSafe || !this.factoryAddress || !tx?.to || lower(tx.to) !== this.protocolAdminSafe) return { ok: false, reason: 'SAFE_TARGET_MISMATCH' };
+    if (receipt.status === '0x0' || receipt.status === 0 || receipt.status === false) return { ok: false, reason: 'SAFE_REVERTED' };
+    const expectedId = lower(request.edition_id_hash ?? request.request_payload?.editionId ?? '');
+    let execution = false; let executionHash = null; let edition = null;
+    for (const log of receipt.logs ?? []) {
+      if (lower(log.address) === this.protocolAdminSafe) {
+        try { const parsed = SAFE_ABI.parseLog({ topics: log.topics, data: log.data }); if (parsed?.name === 'ExecutionFailure') return { ok: false, reason: 'SAFE_EXECUTION_FAILURE' }; if (parsed?.name === 'ExecutionSuccess') { execution = true; executionHash = lower(parsed.args.txHash); } } catch { /* unrelated Safe log */ }
+      }
+      if (lower(log.address) === this.factoryAddress) {
+        try { const parsed = FACTORY_ABI.parseLog({ topics: log.topics, data: log.data }); if (parsed?.name === 'EditionCreated') edition = parsed.args; } catch { /* unrelated Factory log */ }
+      }
+    }
+    if (!execution || (request.safe_transaction_hash && executionHash !== lower(request.safe_transaction_hash))) return { ok: false, reason: 'SAFE_EXECUTION_EVIDENCE_MISSING' };
+    if (!edition || lower(edition.editionId) !== expectedId) return { ok: false, reason: 'EDITION_CREATED_EVIDENCE_MISSING' };
+    const payload = request.request_payload ?? {};
+    if (payload.publisher && lower(edition.publisher) !== lower(payload.publisher)) return { ok: false, reason: 'SAFE_CALLDATA_PUBLISHER_MISMATCH' };
+    if (payload.absoluteSupplyCap != null && String(edition.absoluteSupplyCap) !== String(payload.absoluteSupplyCap)) return { ok: false, reason: 'SAFE_CALLDATA_SUPPLY_MISMATCH' };
+    if (payload.artworkCommitment && lower(edition.artworkCommitment) !== lower(payload.artworkCommitment)) return { ok: false, reason: 'SAFE_CALLDATA_ARTWORK_MISMATCH' };
+    if (payload.salt && lower(edition.salt) !== lower(payload.salt)) return { ok: false, reason: 'SAFE_CALLDATA_SALT_MISMATCH' };
+    return { ok: true, edition: lower(edition.edition), editionId: lower(edition.editionId) };
+  }
+
   async processEditionRequests(head, limit) {
     const { rows } = await this.pool.query(`SELECT * FROM edition_request WHERE chain_id=$1 AND safe_status IN ('SUBMITTED','CONFIRMED') AND tx_hash IS NOT NULL ORDER BY updated_at LIMIT $2`, [this.chainId, limit]);
     let changed = 0;
     for (const request of rows) {
       const receipt = await this.rpc.getTransactionReceipt(request.tx_hash);
       if (!receipt) continue;
+      const tx = this.rpc.getTransactionByHash ? await this.rpc.getTransactionByHash(request.tx_hash) : null;
+      const evidence = this.verifyEditionSafeEvidence(request, receipt, tx);
       const blockNumber = hexNumber(receipt.blockNumber); const block = blockNumber == null ? null : await this.rpc.getBlockByNumber(blockNumber);
-      const good = receipt.status !== '0x0' && (!block?.hash || lower(block.hash) === lower(receipt.blockHash));
+      const good = evidence.ok && (!block?.hash || lower(block.hash) === lower(receipt.blockHash));
       const final = good && blockNumber != null && head - blockNumber + 1 >= this.finalityDepth;
       const status = !good ? 'REJECTED' : final ? 'FINALIZED' : 'CONFIRMED';
       await this.pool.query('UPDATE edition_request SET safe_status=$2,updated_at=now() WHERE id=$1 AND safe_status IN (\'SUBMITTED\',\'CONFIRMED\')', [request.id, status]);

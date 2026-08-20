@@ -71,5 +71,5 @@ test('seller signature is verified and an active listing prepares exact Seaport 
   assert.equal(storedResponse.status, 201);
   const buyResponse = await fetch(`${base}/v1/listings/buy`, { method: 'POST', headers: { ...headers, 'idempotency-key': 'buy-1' }, body: JSON.stringify({ orderHash: built.orderHash }) });
   assert.equal(buyResponse.status, 201); const buy = await buyResponse.json();
-  assert.equal(buy.totalBuyerPayment, '1000000'); assert.equal(buy.prepared.to, policy.seaport); assert.match(buy.prepared.data, /^0x[0-9a-f]+$/i);
+  assert.equal(buy.totalBuyerPayment, '1000000'); assert.equal(buy.prepared.to, policy.seaport); assert.match(buy.prepared.data, /^0x[0-9a-f]+$/i); assert.equal(buy.transaction.toAddress.toLowerCase(), policy.seaport.toLowerCase()); assert.equal(buy.transaction.calldata, buy.prepared.data);
 });

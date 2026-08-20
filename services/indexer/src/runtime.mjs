@@ -56,6 +56,77 @@ function rowTopics(row) {
 }
 function rawIdentity(row) { return `${row.chain_id}:${String(row.transaction_hash).toLowerCase()}:${row.log_index}`; }
 function eventAddress(args, row) { return lower(args.edition ?? row.contract_address); }
+const LISTING_CONTEXT_EVENTS = new Set(['ListingCancelled', 'ListingFilled', 'ListingExpired', 'ListingStale']);
+
+function eventArgs(row) {
+  return row?.payload && typeof row.payload === 'object' ? row.payload : {};
+}
+
+function orderHashOf(args) { return lower(args?.orderHash); }
+
+/**
+ * Events emitted by Seaport-adjacent contracts intentionally omit the Edition
+ * in a few cases. Resolve that context from the canonical order/claim journal
+ * before applying a projection; never discard an event merely because its
+ * emitting contract is not an Edition.
+ */
+async function resolveEventContext(client, row, decoded) {
+  const a = decoded.args ?? {};
+  let editionAddress = lower(a.edition ?? null);
+  let editionId = null;
+  let projectId = null;
+  const orderHash = orderHashOf(a);
+  if (!editionAddress && LISTING_CONTEXT_EVENTS.has(decoded.eventName)) {
+    const listing = await client.query(
+      `SELECT e.edition_address,l.edition_id FROM listing_projection l
+       JOIN edition e ON e.id=l.edition_id WHERE l.order_hash=$1 LIMIT 1`, [orderHash]
+    );
+    editionAddress = lower(listing.rows[0]?.edition_address ?? null);
+    editionId = listing.rows[0]?.edition_id ?? null;
+    if (!editionAddress) {
+      const journal = await client.query(
+        `SELECT payload->>'edition' AS edition FROM indexer_event
+         WHERE chain_id=$1 AND event_name='ListingCreated' AND payload->>'orderHash'=$2
+           AND orphaned_at IS NULL ORDER BY block_number,log_index DESC LIMIT 1`, [row.chain_id, orderHash]
+      );
+      editionAddress = lower(journal.rows[0]?.edition ?? null);
+    }
+  }
+  if (!editionAddress && decoded.eventName === 'RoyaltyWithdrawn') {
+    const claim = await client.query(
+      `SELECT e.edition_address,r.edition_id FROM royalty_claim_projection r
+       JOIN edition e ON e.id=r.edition_id WHERE r.order_hash=$1 LIMIT 1`, [orderHash]
+    );
+    editionAddress = lower(claim.rows[0]?.edition_address ?? null);
+    editionId = claim.rows[0]?.edition_id ?? null;
+    if (!editionAddress) {
+      const journal = await client.query(
+        `SELECT payload->>'edition' AS edition FROM indexer_event
+         WHERE chain_id=$1 AND event_name='RoyaltyRecorded' AND payload->>'orderHash'=$2
+           AND orphaned_at IS NULL ORDER BY block_number,log_index DESC LIMIT 1`, [row.chain_id, orderHash]
+      );
+      editionAddress = lower(journal.rows[0]?.edition ?? null);
+    }
+  }
+  if (!editionAddress && decoded.eventName === 'ERC6551AccountCreated') editionAddress = lower(a.tokenContract);
+  if (!editionAddress && decoded.eventName === 'OrderFulfilled') {
+    const listing = await client.query(
+      `SELECT e.edition_address,l.edition_id FROM listing_projection l
+       JOIN edition e ON e.id=l.edition_id WHERE l.order_hash=$1 LIMIT 1`, [orderHash]
+    );
+    editionAddress = lower(listing.rows[0]?.edition_address ?? null);
+    editionId = listing.rows[0]?.edition_id ?? null;
+  }
+  if (editionAddress && !editionId) {
+    const edition = await client.query('SELECT id,project_id FROM edition WHERE chain_id=$1 AND edition_address=$2 LIMIT 1', [row.chain_id, editionAddress]);
+    editionId = edition.rows[0]?.id ?? null;
+    projectId = edition.rows[0]?.project_id ?? null;
+  } else if (editionId) {
+    const edition = await client.query('SELECT project_id FROM edition WHERE id=$1', [editionId]);
+    projectId = edition.rows[0]?.project_id ?? null;
+  }
+  return { editionAddress, editionId, projectId, orderHash, tokenId: a.tokenId == null ? null : String(a.tokenId) };
+}
 function asDate(value) { return value instanceof Date ? value : new Date(value); }
 
 export function decodeGoldskyLog(row) {
@@ -84,7 +155,7 @@ export class PostgresProjectionWorker {
     const { rows } = await this.pool.query(
       `SELECT r.* FROM goldsky_raw_log r
        LEFT JOIN indexer_event i ON i.chain_id=r.chain_id AND i.tx_hash=r.transaction_hash AND i.log_index=r.log_index
-       WHERE r.chain_id=$1 AND (i.tx_hash IS NULL OR (r.removed=true AND i.orphaned_at IS NULL))
+       WHERE r.chain_id=$1 AND (i.tx_hash IS NULL OR (r.removed=true AND i.orphaned_at IS NULL) OR (r.removed=false AND i.orphaned_at IS NOT NULL))
        ORDER BY r.block_number,r.log_index LIMIT $2`, [this.chainId, this.batchSize]
     );
     let processed = 0; let removed = 0;
@@ -105,16 +176,28 @@ export class PostgresProjectionWorker {
     const decoded = decodeGoldskyLog(row); const identity = rawIdentity(row); const client = await this.pool.connect();
     try {
       await client.query('BEGIN');
-      const existing = await client.query('SELECT block_hash FROM indexer_event WHERE chain_id=$1 AND tx_hash=$2 AND log_index=$3 FOR UPDATE', [row.chain_id, row.transaction_hash.toLowerCase(), row.log_index]);
-      if (existing.rows[0] && existing.rows[0].block_hash !== row.block_hash) throw new Error(`EVENT_IDENTITY_COLLISION:${identity}`);
+      const existing = await client.query('SELECT block_hash,orphaned_at FROM indexer_event WHERE chain_id=$1 AND tx_hash=$2 AND log_index=$3 FOR UPDATE', [row.chain_id, row.transaction_hash.toLowerCase(), row.log_index]);
+      if (existing.rows[0] && existing.rows[0].block_hash !== row.block_hash && !existing.rows[0].orphaned_at) throw new Error(`EVENT_IDENTITY_COLLISION:${identity}`);
       if (row.removed) {
-        await client.query('UPDATE indexer_event SET orphaned_at=COALESCE(orphaned_at,now()),finalized=false WHERE chain_id=$1 AND tx_hash=$2 AND log_index=$3', [row.chain_id, row.transaction_hash.toLowerCase(), row.log_index]);
+        if (existing.rows[0]) await client.query('UPDATE indexer_event SET orphaned_at=COALESCE(orphaned_at,now()),finalized=false WHERE chain_id=$1 AND tx_hash=$2 AND log_index=$3', [row.chain_id, row.transaction_hash.toLowerCase(), row.log_index]);
         await this.orphanProjection(client, row);
+        await this.rebuildAffected(client, row, decoded);
       } else if (!existing.rows[0]) {
         await client.query(
           `INSERT INTO indexer_event(chain_id,block_number,block_hash,tx_hash,log_index,contract_address,event_signature,event_name,payload,block_timestamp,finalized)
            VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10,$11)`,
           [row.chain_id, row.block_number, row.block_hash, row.transaction_hash.toLowerCase(), row.log_index, row.contract_address.toLowerCase(), decoded.eventSignature, decoded.eventName, JSON.stringify(decoded.args), asDate(row.block_timestamp), Number(row.block_number) <= finalityBlock]
+        );
+        await this.applyProjection(client, row, decoded);
+        await this.enqueueProjectionNotification(client, row, decoded);
+      } else if (existing.rows[0].orphaned_at) {
+        // A removed log can be re-included at the same tx/log identity with a
+        // new block hash. Replace the orphaned incarnation and replay it.
+        await this.orphanProjection(client, row);
+        await client.query(
+          `UPDATE indexer_event SET block_number=$4,block_hash=$5,contract_address=$6,event_signature=$7,event_name=$8,payload=$9::jsonb,block_timestamp=$10,finalized=$11,orphaned_at=NULL
+           WHERE chain_id=$1 AND tx_hash=$2 AND log_index=$3`,
+          [row.chain_id, row.transaction_hash.toLowerCase(), row.log_index, row.block_number, row.block_hash, row.contract_address.toLowerCase(), decoded.eventSignature, decoded.eventName, JSON.stringify(decoded.args), asDate(row.block_timestamp), Number(row.block_number) <= finalityBlock]
         );
         await this.applyProjection(client, row, decoded);
         await this.enqueueProjectionNotification(client, row, decoded);
@@ -125,10 +208,59 @@ export class PostgresProjectionWorker {
 
   async orphanProjection(client, row) {
     const params = [row.chain_id, row.transaction_hash.toLowerCase(), row.log_index];
-    for (const table of ['edition','terms_version','pass_token_projection','advantage_state_projection','listing_projection','listing_event','royalty_claim_projection']) {
+    for (const table of ['edition','terms_version','pass_token_projection','advantage_state_projection','listing_projection','listing_event','royalty_claim_projection','seaport_fulfillment_projection']) {
       const txColumn = table === 'listing_event' ? 'tx_hash' : 'source_tx_hash';
       const logColumn = table === 'listing_event' ? 'log_index' : table === 'pass_token_projection' ? 'latest_log_index' : 'source_log_index';
       await client.query(`UPDATE ${table} SET orphaned_at=COALESCE(orphaned_at,now()),finalized=false WHERE ${table === 'pass_token_projection' ? 'latest_tx_hash' : txColumn}=$2 AND ${logColumn}=$3`, params);
+    }
+  }
+
+  async canonicalEvents(client, row, matcher) {
+    const { rows } = await client.query(
+      `SELECT chain_id,block_number,block_hash,tx_hash AS transaction_hash,log_index,contract_address,event_signature,event_name,payload,block_timestamp
+       FROM indexer_event WHERE chain_id=$1 AND orphaned_at IS NULL ORDER BY block_number,log_index`, [row.chain_id]
+    );
+    return rows.filter((event) => matcher(event, eventArgs(event)));
+  }
+
+  async replayEvents(client, events) {
+    for (const event of events) await this.applyProjection(client, event, { eventName: event.event_name, eventSignature: event.event_signature, args: eventArgs(event) });
+  }
+
+  async rebuildAffected(client, row, decoded) {
+    const context = await resolveEventContext(client, row, decoded);
+    if (context.orderHash) {
+      await client.query('DELETE FROM listing_event WHERE order_hash=$1', [context.orderHash]);
+      await client.query('DELETE FROM listing_projection WHERE order_hash=$1', [context.orderHash]);
+      await client.query('DELETE FROM royalty_claim_projection WHERE order_hash=$1', [context.orderHash]);
+      await client.query('DELETE FROM seaport_fulfillment_projection WHERE order_hash=$1', [context.orderHash]);
+      const events = await this.canonicalEvents(client, row, (event, args) => orderHashOf(args) === context.orderHash);
+      await this.replayEvents(client, events);
+    }
+    if (context.editionId && context.tokenId != null) {
+      await client.query('DELETE FROM pass_token_projection WHERE edition_id=$1 AND token_id=$2', [context.editionId, context.tokenId]);
+      await client.query('DELETE FROM advantage_state_projection WHERE edition_id=$1 AND token_id=$2', [context.editionId, context.tokenId]);
+      const events = await this.canonicalEvents(client, row, (event, args) => {
+        const address = lower(args.edition ?? (event.event_name === 'ERC6551AccountCreated' ? args.tokenContract : event.contract_address));
+        return address === context.editionAddress && args.tokenId != null && String(args.tokenId) === context.tokenId;
+      });
+      await this.replayEvents(client, events);
+    } else if (context.editionId) {
+      await client.query('UPDATE terms_version SET orphaned_at=COALESCE(orphaned_at,now()),finalized=false WHERE edition_id=$1', [context.editionId]);
+      await client.query('UPDATE edition SET orphaned_at=COALESCE(orphaned_at,now()),finalized=false WHERE id=$1', [context.editionId]);
+      const events = await this.canonicalEvents(client, row, (event, args) => {
+        const address = lower(args.edition ?? (event.event_name === 'ERC6551AccountCreated' ? args.tokenContract : event.contract_address));
+        return address === context.editionAddress && !LISTING_CONTEXT_EVENTS.has(event.event_name) && event.event_name !== 'RoyaltyWithdrawn' && event.event_name !== 'OrderFulfilled';
+      });
+      await this.replayEvents(client, events);
+      if (context.projectId) {
+        const terms = await client.query('SELECT 1 FROM terms_version WHERE edition_id=$1 AND orphaned_at IS NULL LIMIT 1', [context.editionId]);
+        await client.query('UPDATE project SET status=$2,published_at=CASE WHEN $2=\'PUBLISHED\' THEN COALESCE(published_at,now()) ELSE NULL END,updated_at=now() WHERE id=$1', [context.projectId, terms.rows[0] ? 'PUBLISHED' : 'DRAFT']);
+      }
+      await client.query(
+        `UPDATE terms_advantage_commitment c SET status=CASE WHEN EXISTS (SELECT 1 FROM terms_version t WHERE t.edition_id=$1 AND t.terms_hash=c.terms_hash AND t.orphaned_at IS NULL) THEN 'PUBLISHED' ELSE 'ORPHANED' END,updated_at=now() WHERE c.edition_address=$2 AND c.status='PUBLISHED'`,
+        [context.editionId, context.editionAddress]
+      );
     }
   }
 
@@ -147,9 +279,21 @@ export class PostgresProjectionWorker {
       await client.query(`UPDATE edition_request SET predicted_edition_address=$1,safe_status=CASE WHEN safe_status IN ('CONFIRMED','FINALIZED') THEN safe_status ELSE 'SUBMITTED' END,tx_hash=$2,source_block_number=$3,source_block_hash=$4,source_log_index=$5,updated_at=now() WHERE id=$6`, [lower(a.edition), row.transaction_hash.toLowerCase(), ...source.slice(0, 2), source[3], request.rows[0].id]);
       return;
     }
-    const editionAddress = eventAddress(a, row); const edition = await client.query('SELECT id,project_id FROM edition WHERE chain_id=$1 AND edition_address=$2 AND orphaned_at IS NULL', [row.chain_id, editionAddress]);
+    if (decoded.eventName === 'OrderFulfilled') {
+      const orderHash = lower(a.orderHash); if (!orderHash) return;
+      await client.query(
+        `INSERT INTO seaport_fulfillment_projection(order_hash,offerer_address,zone_address,recipient_address,payload,chain_id,source_block_number,source_block_hash,source_tx_hash,source_log_index,finalized)
+         VALUES($1,$2,$3,$4,$5::jsonb,$6,$7,$8,$9,$10,false)
+         ON CONFLICT(order_hash) DO UPDATE SET offerer_address=excluded.offerer_address,zone_address=excluded.zone_address,recipient_address=excluded.recipient_address,payload=excluded.payload,source_block_number=excluded.source_block_number,source_block_hash=excluded.source_block_hash,source_tx_hash=excluded.source_tx_hash,source_log_index=excluded.source_log_index,orphaned_at=NULL`,
+        [orderHash, lower(a.offerer), lower(a.zone), lower(a.recipient), JSON.stringify(a), row.chain_id, ...source]
+      );
+      return;
+    }
+    const context = await resolveEventContext(client, row, decoded);
+    const editionAddress = context.editionAddress ?? eventAddress(a, row);
+    const edition = await client.query('SELECT id,project_id FROM edition WHERE chain_id=$1 AND edition_address=$2 AND orphaned_at IS NULL', [row.chain_id, editionAddress]);
     if (!edition.rows[0] && decoded.eventName !== 'EditionRegistered') return;
-    const editionId = edition.rows[0]?.id;
+    const editionId = context.editionId ?? edition.rows[0]?.id;
     switch (decoded.eventName) {
       case 'EditionRegistered':
       case 'EditionPublisherSet':
@@ -209,7 +353,7 @@ export class PostgresProjectionWorker {
       case 'ListingCreated':
         await client.query(
           `INSERT INTO listing_projection(order_hash,edition_id,token_id,seller_address,terms_hash,price_usdg,protocol_fee_usdg,royalty_usdg,seller_proceeds_usdg,zone_hash,starts_at,expires_at,status,source_block_number,source_block_hash,source_tx_hash,source_log_index,finalized)
-           VALUES($1,$2,$3,$4,$5,$6,$6/100,$6*$7/10000,$6-$6/100-($6*$7/10000),$8,to_timestamp($9),to_timestamp($10),'ACTIVE',$11,$12,$13,$14,false)
+           VALUES($1,$2,$3,$4,$5,$6,floor($6::numeric/100),floor($6::numeric*$7::numeric/10000),$6-floor($6::numeric/100)-floor($6::numeric*$7::numeric/10000),$8,to_timestamp($9),to_timestamp($10),'ACTIVE',$11,$12,$13,$14,false)
            ON CONFLICT(order_hash) DO UPDATE SET status='ACTIVE',orphaned_at=NULL`,
           [lower(a.orderHash), editionId, String(a.tokenId), lower(a.seller), lower(a.termsVersionHash), a.usdGPrice, Number(a.royaltyBps), lower(a.zoneHash), a.startTime, a.expiry, ...source]
         );
@@ -264,7 +408,7 @@ export class PostgresProjectionWorker {
 
   async finalize(finalityBlock) {
     await this.pool.query('UPDATE indexer_event SET finalized=true WHERE chain_id=$1 AND block_number<=$2 AND orphaned_at IS NULL', [this.chainId, finalityBlock]);
-    for (const table of ['edition','terms_version','pass_token_projection','advantage_state_projection','listing_projection','royalty_claim_projection']) {
+    for (const table of ['edition','terms_version','pass_token_projection','advantage_state_projection','listing_projection','royalty_claim_projection','seaport_fulfillment_projection']) {
       const blockColumn = table === 'pass_token_projection' ? 'latest_block_number' : 'source_block_number';
       await this.pool.query(`UPDATE ${table} SET finalized=true WHERE ${blockColumn}<=$1 AND orphaned_at IS NULL`, [finalityBlock]);
     }

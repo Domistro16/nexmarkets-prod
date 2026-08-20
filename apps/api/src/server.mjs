@@ -1,7 +1,7 @@
 import http from 'node:http';
 import { randomUUID } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
-import { AbiCoder, getAddress, id, isAddress, keccak256, toUtf8Bytes } from 'ethers';
+import { AbiCoder, getAddress, id, Interface, isAddress, keccak256, toUtf8Bytes } from 'ethers';
 import { issueSession, issueWalletChallenge, assertChallengeUsable, assertSession, sessionCookie, verifyWalletChallengeSignature } from '../../../packages/auth/src/index.mjs';
 import { buildNexMarketsOrder, buildProtocolCalldata, buildSeaportFulfillment, seaportOrderHash, seaportTypedData, transitionTransaction, validateProjectedNexMarketsOrder, verifySeaportOrderSignature } from '../../../packages/domain/src/index.mjs';
 import { PostgresStore } from '../../../packages/data/src/postgres-store.mjs';
@@ -24,12 +24,53 @@ const INTENT_SELECTORS = Object.freeze({
 });
 const ADVANTAGES_DOMAIN = keccak256(toUtf8Bytes('NEXMARKETS_ADVANTAGES_V1'));
 const ADVANTAGE_TUPLE = 'tuple(bytes32 advantageId,uint8 kind,uint64 startsAt,uint64 endsAt,uint256 totalUnits,bytes32 definitionHash)[]';
+const SAFE_EVIDENCE_ABI = new Interface([
+  'event ExecutionSuccess(bytes32 indexed txHash,uint256 payment)',
+  'event ExecutionFailure(bytes32 indexed txHash,uint256 payment)'
+]);
+const FACTORY_EVIDENCE_ABI = new Interface([
+  'event EditionCreated(address indexed edition,bytes32 indexed editionId,address indexed publisher,bytes32 salt,address protocolAdmin,address mintController,uint32 absoluteSupplyCap,bytes32 artworkCommitment)'
+]);
 function canonicalAdvantagesHash(configs) {
   if (!Array.isArray(configs) || configs.length === 0) return '0x' + '00'.repeat(32);
   try {
     const coder = AbiCoder.defaultAbiCoder();
     return keccak256(coder.encode(['bytes32', ADVANTAGE_TUPLE], [ADVANTAGES_DOMAIN, configs.map((config) => [config.advantageId, config.kind, config.startsAt, config.endsAt, config.totalUnits, config.definitionHash])]));
   } catch { return null; }
+}
+
+async function verifySafeExecutionEvidence({ chain, request, txHash, safeTransactionHash, orderPolicy }) {
+  if (!chain?.getTransactionReceipt || !chain?.getTransactionByHash) throw Object.assign(new Error('SAFE_CHAIN_EVIDENCE_UNAVAILABLE'), { status: 503 });
+  const receipt = await chain.getTransactionReceipt(txHash);
+  const tx = await chain.getTransactionByHash(txHash);
+  if (!receipt || receipt.status === '0x0' || receipt.status === 0 || receipt.status === false) throw Object.assign(new Error('SAFE_EXECUTION_NOT_SUCCESSFUL'), { status: 409 });
+  if (!tx?.to || !orderPolicy.protocolAdminSafe || tx.to.toLowerCase() !== orderPolicy.protocolAdminSafe.toLowerCase()) throw Object.assign(new Error('SAFE_EXECUTION_TARGET_MISMATCH'), { status: 400 });
+  const expectedEditionId = String(request.edition_id_hash ?? request.editionIdHash ?? request.request_payload?.editionId ?? request.requestPayload?.editionId ?? '').toLowerCase();
+  const factory = orderPolicy.transactionTargets?.EDITION_CREATE?.toLowerCase();
+  let execution = false; let executionHash = null; let editionEvent = null;
+  for (const log of receipt.logs ?? []) {
+    if (log.address?.toLowerCase() === orderPolicy.protocolAdminSafe.toLowerCase()) {
+      try {
+        const parsed = SAFE_EVIDENCE_ABI.parseLog({ topics: log.topics, data: log.data });
+        if (parsed?.name === 'ExecutionFailure') throw Object.assign(new Error('SAFE_EXECUTION_FAILED'), { status: 409 });
+        if (parsed?.name === 'ExecutionSuccess') { execution = true; executionHash = parsed.args.txHash.toLowerCase(); }
+      } catch (error) { if (error.status) throw error; }
+    }
+    if (factory && log.address?.toLowerCase() === factory) {
+      try {
+        const parsed = FACTORY_EVIDENCE_ABI.parseLog({ topics: log.topics, data: log.data });
+        if (parsed?.name === 'EditionCreated') editionEvent = parsed.args;
+      } catch { /* unrelated factory log */ }
+    }
+  }
+  if (!execution || (safeTransactionHash && executionHash !== safeTransactionHash.toLowerCase())) throw Object.assign(new Error('SAFE_EXECUTION_EVENT_REQUIRED'), { status: 409 });
+  if (!editionEvent || String(editionEvent.editionId).toLowerCase() !== expectedEditionId) throw Object.assign(new Error('EDITION_CREATED_EVIDENCE_REQUIRED'), { status: 409 });
+  const payload = request.request_payload ?? request.requestPayload ?? {};
+  if (payload.publisher && editionEvent.publisher.toLowerCase() !== payload.publisher.toLowerCase()) throw Object.assign(new Error('SAFE_CALLDATA_PUBLISHER_MISMATCH'), { status: 409 });
+  if (payload.absoluteSupplyCap != null && String(editionEvent.absoluteSupplyCap) !== String(payload.absoluteSupplyCap)) throw Object.assign(new Error('SAFE_CALLDATA_SUPPLY_MISMATCH'), { status: 409 });
+  if (payload.artworkCommitment && editionEvent.artworkCommitment.toLowerCase() !== payload.artworkCommitment.toLowerCase()) throw Object.assign(new Error('SAFE_CALLDATA_ARTWORK_MISMATCH'), { status: 409 });
+  if (payload.salt && editionEvent.salt.toLowerCase() !== payload.salt.toLowerCase()) throw Object.assign(new Error('SAFE_CALLDATA_SALT_MISMATCH'), { status: 409 });
+  return { txHash: txHash.toLowerCase(), safeTransactionHash: safeTransactionHash?.toLowerCase() ?? null, blockNumber: receipt.blockNumber, blockHash: receipt.blockHash, edition: editionEvent.edition.toLowerCase(), editionId: editionEvent.editionId.toLowerCase(), verified: true };
 }
 
 export function productionOrderPolicy(env = process.env) {
@@ -172,11 +213,12 @@ export function createApiServer({
       if (req.method === 'GET' && url.pathname.startsWith('/v1/transactions/')) { const tx = await store.transaction(url.pathname.slice(17), session.accountId); if (!tx) throw Object.assign(new Error('NOT_FOUND'), { status: 404 }); return json(res, 200, { data: tx }); }
       if (req.method === 'GET' && url.pathname.startsWith('/v1/edition-requests/')) { const request = await store.editionRequestById(url.pathname.slice(21), session.accountId); if (!request) throw Object.assign(new Error('NOT_FOUND'), { status: 404 }); return json(res, 200, { data: request, authority: 'SAFE_WORKFLOW_REQUEST' }); }
       if (req.method === 'POST' && /^\/v1\/edition-requests\/[^/]+\/safe-submit$/.test(url.pathname)) {
-        if (!orderPolicy.protocolAdminSafe || session.walletAddress.toLowerCase() !== orderPolicy.protocolAdminSafe.toLowerCase()) throw Object.assign(new Error('PROTOCOL_ADMIN_SAFE_REQUIRED'), { status: 403 });
-        const input = await readBody(req); if (!/^0x[0-9a-fA-F]{64}$/.test(input.txHash ?? '')) throw Object.assign(new Error('TX_HASH_REQUIRED'), { status: 400 });
-        const request = await store.submitEditionRequest({ id: url.pathname.split('/')[3], safeTransactionHash: input.safeTransactionHash ?? null, txHash: input.txHash.toLowerCase() });
-        await store.recordAudit?.({ accountId: session.accountId, walletAddress: session.walletAddress, action: 'EDITION_SAFE_SUBMITTED', objectType: 'EDITION_REQUEST', objectId: request.id, requestId, correlationId, metadata: { txHash: request.txHash } });
-        return json(res, 200, { data: request, authority: 'PROTOCOL_ADMIN_SAFE' });
+        const requestId = url.pathname.split('/')[3]; const request = await store.editionRequestById(requestId, session.accountId); if (!request) throw Object.assign(new Error('NOT_FOUND'), { status: 404 });
+        const input = await readBody(req); if (!/^0x[0-9a-fA-F]{64}$/.test(input.txHash ?? '') || !/^0x[0-9a-fA-F]{64}$/.test(input.safeTransactionHash ?? '')) throw Object.assign(new Error('SAFE_TX_HASH_REQUIRED'), { status: 400 });
+        const evidence = await verifySafeExecutionEvidence({ chain, request, txHash: input.txHash.toLowerCase(), safeTransactionHash: input.safeTransactionHash.toLowerCase(), orderPolicy });
+        const submitted = await store.submitEditionRequest({ id: requestId, safeTransactionHash: input.safeTransactionHash.toLowerCase(), txHash: input.txHash.toLowerCase(), evidence });
+        await store.recordAudit?.({ accountId: session.accountId, walletAddress: session.walletAddress, action: 'EDITION_SAFE_SUBMITTED', objectType: 'EDITION_REQUEST', objectId: submitted.id, requestId, correlationId, metadata: { txHash: submitted.txHash, safeTransactionHash: submitted.safeTransactionHash, evidence } });
+        return json(res, 200, { data: submitted, authority: 'PROTOCOL_ADMIN_SAFE_EVIDENCE' });
       }
       if (req.method === 'POST' && /^\/v1\/transactions\/[^/]+\/events$/.test(url.pathname)) {
         const id = url.pathname.split('/')[3]; const input = await readBody(req);
@@ -236,7 +278,7 @@ export function createApiServer({
         const listing = await store.listing(input.orderHash); validateProjectedNexMarketsOrder(order, listing, orderPolicy);
         verifySeaportOrderSignature({ order, counter: signed.counter, signature: signed.signature, chainId: session.chainId, seaport: orderPolicy.seaport });
         const prepared = buildSeaportFulfillment({ order, signature: signed.signature, seaport: orderPolicy.seaport });
-        const transaction = await store.prepareTransaction({ accountId: session.accountId, walletAddress: session.walletAddress, chainId: session.chainId, intentType: 'LISTING_BUY', intentId: input.orderHash, idempotencyKey, correlationId, requestId });
+        const transaction = await store.prepareTransaction({ accountId: session.accountId, walletAddress: session.walletAddress, chainId: session.chainId, intentType: 'LISTING_BUY', intentId: input.orderHash, idempotencyKey, correlationId, requestId, toAddress: prepared.to, calldata: prepared.data });
         await store.recordAudit?.({ accountId: session.accountId, walletAddress: session.walletAddress, action: 'TRANSACTION_PREPARED', objectType: 'CHAIN_TRANSACTION', objectId: transaction.id, requestId, correlationId, metadata: { intentType: 'LISTING_BUY', orderHash: input.orderHash } });
         return json(res, 201, { transaction, prepared, totalBuyerPayment: String(listing.price_usdg ?? listing.priceUsdg), walletMustSign: true, serverCustodiesKey: false });
       }
@@ -288,7 +330,7 @@ export function createApiServer({
       return json(res, 404, { error: { code: 'NOT_FOUND', requestId } });
     } catch (error) {
       metrics.increment('nexmarkets_api_failures_total');
-      const clientFailure = /(?:INVALID|MISMATCH|REJECTED|REQUIRED|CONFLICT|expired|consumed|challenge|signature|wrong|extra|surcharge|price|tokenId|listing|seller|zoneHash|royaltyBps|CALLDATA|TARGET)/i.test(error.message);
+      const clientFailure = /(?:INVALID|MISMATCH|REJECTED|REQUIRED|CONFLICT|expired|consumed|challenge|signature|wrong|extra|surcharge|price|tokenId|listing|seller|zoneHash|royaltyBps|CALLDATA|TARGET|PROJECT_BUILDER)/i.test(error.message);
       const status = error.status ?? (/AUTH|SESSION/.test(error.message) ? 401 : /CSRF|ORIGIN/.test(error.message) ? 403 : clientFailure ? 400 : 500);
       const code = status >= 500 ? 'INTERNAL_ERROR' : error.message;
       logger.error?.({ event: 'api_request_failed', requestId, correlationId, method: req.method, path: req.url?.split('?')[0], code, durationMs: Date.now() - startedAt });

@@ -263,10 +263,12 @@ export class PostgresStore {
     const id = `edreq_${randomUUID()}`;
     const { rows } = await this.pool.query(
       `INSERT INTO edition_request(id,project_id,builder_account_id,chain_id,edition_id_hash,request_payload,safe_status,transaction_id)
-       VALUES($1,$2,$3,$4,$5,$6::jsonb,'REQUESTED',$7)
+       SELECT $1,p.id,$3,$4,$5,$6::jsonb,'REQUESTED',$7 FROM project p
+       WHERE p.id=$2 AND p.builder_account_id=$3
        ON CONFLICT(chain_id,edition_id_hash) DO UPDATE SET updated_at=now() RETURNING *`,
       [id, projectId, builderAccountId, chainId, String(payload.editionId).toLowerCase(), JSON.stringify(payload), transactionId]
     );
+    if (!rows[0]) throw new Error('PROJECT_BUILDER_MISMATCH');
     return rows[0];
   }
 
@@ -294,12 +296,16 @@ export class PostgresStore {
     return rows[0] ?? null;
   }
 
-  async submitEditionRequest({ id, safeTransactionHash, txHash }) {
+  async submitEditionRequest({ id, safeTransactionHash, txHash, evidence = null }) {
     const { rows } = await this.pool.query(
-      `UPDATE edition_request SET safe_status='SUBMITTED',safe_transaction_hash=$2,tx_hash=$3,updated_at=now()
-       WHERE id=$1 AND safe_status IN ('SAFE_PENDING','REQUESTED') RETURNING *`, [id, safeTransactionHash, txHash]
+      `UPDATE edition_request SET safe_status='SUBMITTED',safe_transaction_hash=$2,tx_hash=$3,safe_execution_evidence=$4::jsonb,updated_at=now()
+       WHERE id=$1 AND safe_status IN ('SAFE_PENDING','REQUESTED') RETURNING *`, [id, safeTransactionHash, txHash, JSON.stringify(evidence ?? {})]
     );
-    if (!rows[0]) throw new Error('EDITION_REQUEST_STATE_CONFLICT');
+    if (!rows[0]) {
+      const existing = await this.pool.query('SELECT * FROM edition_request WHERE id=$1', [id]);
+      if (existing.rows[0]?.safe_status === 'SUBMITTED' && existing.rows[0].tx_hash === txHash) return existing.rows[0];
+      throw new Error('EDITION_REQUEST_STATE_CONFLICT');
+    }
     return rows[0];
   }
 
