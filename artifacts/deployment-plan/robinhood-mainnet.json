@@ -8,7 +8,7 @@
   "sourceVerification": {
     "mode": "FROZEN_SOURCE_COMMIT",
     "sourceCommit": "8790b635ba55512e5d0e295fb1217a3993ecdafb",
-    "comparedAgainst": "158b099ccc08fd6e9571be623c8ea1e8405705cb",
+    "comparedAgainst": "978e2147afde0f96e41d1b8511d6ff7cdb4c26e3",
     "deploymentInputsHash": "48c5f2c5cbd13d9688e679ea7c38e45655de1c088dd7545b82924cfb5b5e808e",
     "comparedFiles": [
       ".github/workflows/contracts-ci.yml",
