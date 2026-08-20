@@ -16,14 +16,21 @@ import {
   zeroPadValue,
 } from 'ethers';
 
-const CHAIN_ID = 4663n;
+const requestedNetwork = process.argv.find((arg) => arg.startsWith('--network='))?.slice('--network='.length)
+  ?? (process.argv.includes('--testnet') ? 'robinhood-testnet' : 'robinhood-mainnet');
+if (!['robinhood-mainnet', 'robinhood-testnet'].includes(requestedNetwork)) {
+  throw new Error(`Unsupported Safe network: ${requestedNetwork}`);
+}
+const networkSlug = requestedNetwork;
+const CHAIN_ID = networkSlug === 'robinhood-mainnet' ? 4663n : 46630n;
+const RPC_ENV = networkSlug === 'robinhood-mainnet' ? 'RH_MAINNET_RPC_URL' : 'RH_TESTNET_RPC_URL';
 const MINIMUM_SAFE_OWNERS = 2;
 const DEFAULT_SINGLETON = '0x41675C099F32341bf84BFc5382aF534df5C7461a';
 const DEFAULT_PROXY_FACTORY = '0x4e1DCf7AD4e460CfD30791CCC4F9c8a4f820ec67';
 const DEFAULT_PROXY_FACTORY_CODE_HASH = '0x50c3cdc4074750a7a974204a716c999edd37482f907608d960b2b025ee0b3317';
 const DEFAULT_FALLBACK_HANDLER = '0xfd0732Dc9E303f09fCEf3a7388Ad10A83459Ec99';
-const MANIFEST_PATH = resolve('deployments/robinhood-mainnet.bootstrap.json');
-const OUTPUT_PATH = resolve('artifacts/safe-deployment/robinhood-mainnet.protocol-admin-safe.json');
+const MANIFEST_PATH = resolve(`deployments/${networkSlug}.bootstrap.json`);
+const OUTPUT_PATH = resolve(`artifacts/safe-deployment/${networkSlug}.protocol-admin-safe.json`);
 
 const FACTORY_ABI = [
   'function createProxyWithNonce(address _singleton,bytes initializer,uint256 saltNonce) returns (address proxy)',
@@ -101,13 +108,13 @@ async function main() {
   const args = new Set(process.argv.slice(2));
   if (args.has('--help')) {
     console.log([
-      'Safe v1.4.1 deployment planner for Robinhood Chain (4663).',
+      `Safe v1.4.1 deployment planner for ${networkSlug} (${CHAIN_ID}).`,
       '',
       'Default: read-only plan. Broadcast only with --broadcast and',
       'SAFE_DEPLOY_CONFIRM=I_UNDERSTAND_THIS_SUBMITS_A_TRANSACTION.',
       '',
       'Required environment:',
-      '  RH_MAINNET_RPC_URL',
+      `  ${RPC_ENV}`,
       '  SAFE_OWNER_ADDRESSES (comma/space-separated; sorted before setup)',
       '  SAFE_THRESHOLD',
       '',
@@ -124,11 +131,11 @@ async function main() {
     return;
   }
 
-  const rpcUrl = env('RH_MAINNET_RPC_URL');
+  const rpcUrl = env(RPC_ENV);
   const ownersRaw = env('SAFE_OWNER_ADDRESSES');
   const owners = parseAddressList(ownersRaw);
   if (owners.length < MINIMUM_SAFE_OWNERS) {
-    fail(`SAFE_OWNER_ADDRESSES must contain at least ${MINIMUM_SAFE_OWNERS} owners for production governance.`);
+    fail(`SAFE_OWNER_ADDRESSES must contain at least ${MINIMUM_SAFE_OWNERS} owners for protocol governance.`);
   }
   const threshold = parseUint('SAFE_THRESHOLD');
   if (threshold === 0n || threshold > BigInt(owners.length)) {
@@ -193,7 +200,7 @@ async function main() {
   const existingCode = await provider.getCode(predictedAddress);
   const baseRecord = {
     schemaVersion: 1,
-    network: 'robinhood-mainnet',
+    network: networkSlug,
     chainId: Number(CHAIN_ID),
     sourceCommit: manifest.sourceCommit ?? null,
     manifestSha256,
