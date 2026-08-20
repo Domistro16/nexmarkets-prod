@@ -150,7 +150,7 @@ b62586c8c42c2107363e31c40ab8286d3e0fb1e4d24b56732980dfd01bd2e25b  ./test/api-aut
 15e8a24e92eba5876ed96b781e1a8a830259c4e7febda4d6221f906e784e31fc  ./test/auth-session.test.mjs
 11327f902156ec6e373f31f4b6d029ed25bdc864ec744178d548b8a60112c3b6  ./test/auth.test.mjs
 17d3544a00d858114d46f8b1e0359608cd611cf7fc3af6dcf771fccc2d0c6f8e  ./test/browser-local.integration.test.mjs
-35b350295e75e493ad361d501181b6b167e60179ec3ee33d14340fb0779c1381  ./test/chain-worker-integration.test.mjs
+578690b8a1efcb65cd703923295d8788ccbc09399ff011b9d562d03627b5f748  ./test/chain-worker-integration.test.mjs
 280c0857e1a9052d14e7f8cdb3db9d04dcfe8356c2f5756ae28c71a33bb32c25  ./test/config.test.mjs
 e9c861cb835d92811807d13f95b5d2c2687b782d16088d209a38e225146cc945  ./test/domain.test.mjs
 4021fde2bab3e0c7f2ee5099e2d0d39790f36bd2b53e67efb86af97d893d9e86  ./test/fixtures/deployment-inputs.testnet.json
