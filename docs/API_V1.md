@@ -4,10 +4,18 @@ The API is a no-custody transaction preparation and read-model service. Public r
 
 Authentication is a Robinhood-chain/domain-bound signed wallet challenge with a single-use nonce and expiration. Successful verification creates an opaque, server-stored, revocable session cookie and separate CSRF token. Mutation routes require the session, CSRF token, same origin and an idempotency key. User wallets sign and submit transactions; the server never stores a user key.
 
-Responses include request IDs and structured error codes. Security headers, body limits and rate limiting are enabled. Production should terminate TLS at the edge and use a distributed rate-limit adapter when horizontally scaled. `/healthz` checks process liveness; `/readyz` checks PostgreSQL.
+Responses include request IDs and structured error codes. Security headers, body limits and rate limiting are enabled. Production should terminate TLS at the edge and use a distributed rate-limit adapter when horizontally scaled. `/healthz` checks process liveness; `/readyz` checks PostgreSQL plus actual Robinhood head-to-indexed/finalized freshness thresholds and fails closed when stale.
 
 Listing preparation enforces that the seller is the authenticated wallet. The order builder derives or verifies the exact Registry `zoneHash`, reproduces Seaport 1.6 `getOrderHash(OrderComponents)`, emits the Registry `createListing` call when the counter and deployment address are supplied, and rejects wrong USDG, fee, royalty, seller, token, expiry or extra consideration. A submitted transaction hash moves a job only to `SUBMITTED`; confirmation and finalization require receipt/finality evidence from the chain worker.
 
 `POST /v1/listings/signed-order` verifies the Seaport 1.6 EIP-712 signature against the authenticated seller and stores only the fulfillment capability. It does not activate a listing. `POST /v1/listings/buy` requires an active chain-projected ListingRegistry record, revalidates the stored order against that projection, and prepares canonical Seaport `fulfillOrder` calldata. The buyer wallet still signs and pays exactly the projected USDG price.
 
 For non-Seaport mutations, deployment-configured target addresses override all request data and only the expected function selectors are accepted. The API fails closed with `CONTRACT_CONFIGURATION_REQUIRED` before custom contracts are deployed; it never signs or submits on behalf of the user.
+# Builder Safe workflow
+
+`POST /v1/editions/prepare` creates a project-linked `edition_request` and a
+Safe proposal payload. It does not ask the Builder EOA to submit
+`NexPassFactory.createEdition`, because Factory ownership remains with the
+Protocol Admin Safe. A Safe owner records execution with
+`POST /v1/edition-requests/:id/safe-submit`; Goldsky/chain workers then advance
+the request through submitted, confirmed and finalized states.

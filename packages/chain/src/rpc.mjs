@@ -12,6 +12,10 @@ export class JsonRpcClient {
     } finally { clearTimeout(timer); }
   }
   chainId() { return this.call('eth_chainId').then(x=>Number(BigInt(x))); }
+  getBlockNumber() { return this.call('eth_blockNumber').then((value) => Number(BigInt(value))); }
+  getBlockByNumber(blockNumber) { return this.call('eth_getBlockByNumber', [`0x${BigInt(blockNumber).toString(16)}`, false]); }
+  getTransactionReceipt(txHash) { return this.call('eth_getTransactionReceipt', [txHash]); }
+  getTransactionByHash(txHash) { return this.call('eth_getTransactionByHash', [txHash]); }
   getCode(address, block='latest') { return this.call('eth_getCode',[address,block]); }
   getStorageAt(address, slot, block='latest') { return this.call('eth_getStorageAt',[address,slot,block]); }
   ethCall(to, data, block='latest') { return this.call('eth_call',[{to,data},block]); }

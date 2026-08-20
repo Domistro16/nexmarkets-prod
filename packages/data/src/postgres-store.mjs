@@ -15,6 +15,8 @@ export class PostgresStore {
     const { rows } = await this.pool.query('SELECT * FROM indexer_checkpoint WHERE chain_id=$1 ORDER BY updated_at DESC LIMIT 1', [chainId]);
     return rows[0] ?? null;
   }
+
+  async chainHead(chain) { return chain?.getBlockNumber ? chain.getBlockNumber() : null; }
   async close() { if (this.ownsPool) await this.pool.end(); }
 
   async saveChallenge(challenge) {
@@ -82,17 +84,22 @@ export class PostgresStore {
     );
   }
 
-  async prepareTransaction({ accountId, walletAddress, chainId, intentType, intentId, idempotencyKey, correlationId, requestId }) {
+  async prepareTransaction({ accountId, walletAddress, chainId, intentType, intentId, idempotencyKey, correlationId, requestId, toAddress = null, calldata = null }) {
     if (![4663, 46630].includes(Number(chainId))) throw new Error('ROBINHOOD_CHAIN_REQUIRED');
     const id = `txj_${randomUUID()}`;
     const result = await this.pool.query(
-      `INSERT INTO chain_transaction(id,chain_id,intent_type,intent_id,wallet_address,state,correlation_id,request_id)
-       VALUES($1,$2,$3,$4,$5,'PREPARED',$6,$7)
+      `INSERT INTO chain_transaction(id,chain_id,intent_type,intent_id,wallet_address,state,correlation_id,request_id,to_address,calldata)
+       VALUES($1,$2,$3,$4,$5,'PREPARED',$6,$7,$8,$9)
        ON CONFLICT(chain_id,wallet_address,intent_type,intent_id) DO UPDATE SET updated_at=chain_transaction.updated_at
        RETURNING *`,
-      [id, chainId, intentType, idempotencyKey ?? intentId, walletAddress.toLowerCase(), correlationId, requestId]
+      [id, chainId, intentType, idempotencyKey ?? intentId, walletAddress.toLowerCase(), correlationId, requestId, toAddress?.toLowerCase() ?? null, calldata]
     );
-    return result.rows[0];
+    const transaction = result.rows[0];
+    await this.pool.query(
+      `INSERT INTO transaction_job(id,transaction_id,job_type) VALUES($1,$2,'CHAIN_LIFECYCLE') ON CONFLICT(transaction_id,job_type) DO NOTHING`,
+      [`job_${sha256(transaction.id).slice(0, 24)}`, transaction.id]
+    );
+    return transaction;
   }
 
   async updateTransaction({ id, accountId, eventId, fromState, toState, evidence = {} }) {
@@ -112,6 +119,7 @@ export class PostgresStore {
       const updated = await client.query(
         `UPDATE chain_transaction t SET state=$3,tx_hash=COALESCE($4,tx_hash),block_number=COALESCE($5,block_number),
           block_hash=COALESCE($6,block_hash),confirmations=COALESCE($7,confirmations),
+          submitted_at=CASE WHEN $3='SUBMITTED' THEN COALESCE(submitted_at,now()) ELSE submitted_at END,
           finalized_at=CASE WHEN $3='FINALIZED' THEN COALESCE($8,now()) ELSE finalized_at END,
           failure_code=COALESCE($9,failure_code),updated_at=now()
          FROM wallet w WHERE t.id=$1 AND w.address=t.wallet_address AND w.chain_id=t.chain_id
@@ -248,6 +256,50 @@ export class PostgresStore {
       `INSERT INTO project(id,builder_account_id,slug,name,summary,content) VALUES($1,$2,$3,$4,$5,$6::jsonb) RETURNING *`,
       [id, accountId, body.slug, body.name, body.summary ?? '', JSON.stringify(body.launchDraft ?? {})]
     );
+    return rows[0];
+  }
+
+  async createEditionRequest({ projectId, builderAccountId, chainId, payload, transactionId = null }) {
+    const id = `edreq_${randomUUID()}`;
+    const { rows } = await this.pool.query(
+      `INSERT INTO edition_request(id,project_id,builder_account_id,chain_id,edition_id_hash,request_payload,safe_status,transaction_id)
+       VALUES($1,$2,$3,$4,$5,$6::jsonb,'REQUESTED',$7)
+       ON CONFLICT(chain_id,edition_id_hash) DO UPDATE SET updated_at=now() RETURNING *`,
+      [id, projectId, builderAccountId, chainId, String(payload.editionId).toLowerCase(), JSON.stringify(payload), transactionId]
+    );
+    return rows[0];
+  }
+
+  async markEditionRequestSafePending(id, builderAccountId) {
+    const { rows } = await this.pool.query(`UPDATE edition_request SET safe_status='SAFE_PENDING',updated_at=now() WHERE id=$1 AND builder_account_id=$2 AND safe_status='REQUESTED' RETURNING *`, [id, builderAccountId]);
+    if (rows[0]) return rows[0];
+    const existing = await this.pool.query('SELECT * FROM edition_request WHERE id=$1 AND builder_account_id=$2 AND safe_status NOT IN (\'REJECTED\')', [id, builderAccountId]);
+    if (!existing.rows[0]) throw new Error('EDITION_REQUEST_STATE_CONFLICT');
+    return existing.rows[0];
+  }
+
+  async saveTermsCommitment({ builderAccountId, editionAddress, advantagesHash, termsPayload, configs }) {
+    const { rows } = await this.pool.query(
+      `INSERT INTO terms_advantage_commitment(advantages_hash,builder_account_id,edition_address,terms_payload,configs)
+       VALUES($1,$2,$3,$4::jsonb,$5::jsonb)
+       ON CONFLICT(advantages_hash) DO UPDATE SET terms_payload=excluded.terms_payload,configs=excluded.configs,status='PREPARED',updated_at=now()
+       RETURNING *`,
+      [advantagesHash.toLowerCase(), builderAccountId, editionAddress.toLowerCase(), JSON.stringify(termsPayload), JSON.stringify(configs ?? [])]
+    );
+    return rows[0];
+  }
+
+  async editionRequestById(id, builderAccountId) {
+    const { rows } = await this.pool.query('SELECT * FROM edition_request WHERE id=$1 AND builder_account_id=$2', [id, builderAccountId]);
+    return rows[0] ?? null;
+  }
+
+  async submitEditionRequest({ id, safeTransactionHash, txHash }) {
+    const { rows } = await this.pool.query(
+      `UPDATE edition_request SET safe_status='SUBMITTED',safe_transaction_hash=$2,tx_hash=$3,updated_at=now()
+       WHERE id=$1 AND safe_status IN ('SAFE_PENDING','REQUESTED') RETURNING *`, [id, safeTransactionHash, txHash]
+    );
+    if (!rows[0]) throw new Error('EDITION_REQUEST_STATE_CONFLICT');
     return rows[0];
   }
 

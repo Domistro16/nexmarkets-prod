@@ -11,3 +11,16 @@ The pipeline ingests raw logs/blocks and upserts by `(chain_id, transaction_hash
 Every event retains chain ID, block number/hash, transaction hash, log index, address, signature, timestamp, finality and orphan status. Backfills start at `earliest`; resumability comes from Goldsky plus `indexer_checkpoint`. Reorged blocks are orphaned and projections rebuild deterministically. Referral hints are stored only as qualification inputs.
 
 Run `npm run verify:goldsky`. A PASS validates the committed template/catalog; it does not claim the external Goldsky pipeline is deployed or healthy. Operations must monitor Goldsky pipeline lag, latest indexed/finalized block and sink failures.
+# Runtime projection boundary
+
+Goldsky Turbo is the sole production indexer. Its Robinhood dataset lands
+`goldsky_raw_log`; `services/indexer/src/run.mjs` is the required Postgres
+projection consumer, not a replacement RPC polling indexer. It ABI-decodes the
+pinned event catalog, admits Editions only through durable Factory requests,
+persists complete Terms/Advantage definitions, writes provenance-bearing
+projections, handles `removed`/reorg records, and updates indexed/finalized
+checkpoints. It is resumable and idempotent by `(chain_id,tx_hash,log_index)`.
+
+Goldsky must first enable the dedicated Robinhood dataset and provide the
+Postgres sink secret; those are external release gates. Never commit either
+secret.

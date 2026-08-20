@@ -1,11 +1,12 @@
 import http from 'node:http';
 import { randomUUID } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
-import { getAddress, id, isAddress } from 'ethers';
+import { AbiCoder, getAddress, id, isAddress, keccak256, toUtf8Bytes } from 'ethers';
 import { issueSession, issueWalletChallenge, assertChallengeUsable, assertSession, sessionCookie, verifyWalletChallengeSignature } from '../../../packages/auth/src/index.mjs';
 import { buildNexMarketsOrder, buildProtocolCalldata, buildSeaportFulfillment, seaportOrderHash, seaportTypedData, transitionTransaction, validateProjectedNexMarketsOrder, verifySeaportOrderSignature } from '../../../packages/domain/src/index.mjs';
 import { PostgresStore } from '../../../packages/data/src/postgres-store.mjs';
 import { MetricsRegistry } from '../../../packages/observability/src/metrics.mjs';
+import { JsonRpcClient } from '../../../packages/chain/src/rpc.mjs';
 
 const JSON_HEADERS = { 'content-type': 'application/json; charset=utf-8' };
 const INTENT_TYPE = Object.freeze({
@@ -21,6 +22,15 @@ const INTENT_SELECTORS = Object.freeze({
   ADVANTAGE_USE: [id('consumeQuantity(address,uint256,bytes32,uint256,bytes32)').slice(0, 10), id('redeem(address,uint256,bytes32,bytes32)').slice(0, 10), id('useAmount(address,uint256,bytes32,bytes32)').slice(0, 10)],
   ROYALTY_WITHDRAW: [id('withdraw(bytes32)').slice(0, 10)]
 });
+const ADVANTAGES_DOMAIN = keccak256(toUtf8Bytes('NEXMARKETS_ADVANTAGES_V1'));
+const ADVANTAGE_TUPLE = 'tuple(bytes32 advantageId,uint8 kind,uint64 startsAt,uint64 endsAt,uint256 totalUnits,bytes32 definitionHash)[]';
+function canonicalAdvantagesHash(configs) {
+  if (!Array.isArray(configs) || configs.length === 0) return '0x' + '00'.repeat(32);
+  try {
+    const coder = AbiCoder.defaultAbiCoder();
+    return keccak256(coder.encode(['bytes32', ADVANTAGE_TUPLE], [ADVANTAGES_DOMAIN, configs.map((config) => [config.advantageId, config.kind, config.startsAt, config.endsAt, config.totalUnits, config.definitionHash])]));
+  } catch { return null; }
+}
 
 export function productionOrderPolicy(env = process.env) {
   return {
@@ -95,6 +105,9 @@ export function createApiServer({
   orderPolicy = {},
   metrics = new MetricsRegistry(),
   requireIndexedReadiness = false,
+  chain = null,
+  maxIndexerLagBlocks = 120,
+  maxFinalityLagBlocks = 120,
   storage = { async prepareUpload({ key }) { return { method: 'PUT', key, expiresInSeconds: 900 }; } }
 } = {}) {
   if (!store) throw new Error('store required');
@@ -115,8 +128,14 @@ export function createApiServer({
         await store.ready(); metrics.set('nexmarkets_db_ready', 1);
         const indexer = requireIndexedReadiness ? await store.indexerHealth(chainId) : null;
         if (requireIndexedReadiness && !indexer) throw Object.assign(new Error('INDEXER_NOT_READY'), { status: 503 });
-        if (indexer) { metrics.set('nexmarkets_indexer_latest_block', Number(indexer.latest_block_number)); metrics.set('nexmarkets_indexer_lag_blocks', Number(indexer.latest_block_number) - Number(indexer.finalized_block_number)); }
-        return json(res, 200, { status: 'ready', database: 'ok', indexer: indexer ? 'checkpoint-present' : 'not-required', requestId });
+        if (requireIndexedReadiness && !chain?.getBlockNumber) throw Object.assign(new Error('CHAIN_HEAD_UNAVAILABLE'), { status: 503 });
+        let chainHead = null; let indexedLag = null; let finalityLag = null;
+        if (indexer && chain?.getBlockNumber) {
+          chainHead = await chain.getBlockNumber(); indexedLag = chainHead - Number(indexer.latest_block_number); finalityLag = chainHead - Number(indexer.finalized_block_number);
+          if (indexedLag > maxIndexerLagBlocks || finalityLag > maxFinalityLagBlocks) throw Object.assign(new Error('INDEXER_STALE'), { status: 503 });
+        }
+        if (indexer) { metrics.set('nexmarkets_indexer_latest_block', Number(indexer.latest_block_number)); metrics.set('nexmarkets_indexer_lag_blocks', indexedLag ?? Number(indexer.latest_block_number) - Number(indexer.finalized_block_number)); }
+        return json(res, 200, { status: 'ready', database: 'ok', indexer: indexer ? 'fresh' : 'not-required', chainHead, indexedLag, finalityLag, requestId });
       }
       if (req.method === 'GET' && url.pathname === '/metrics') { res.writeHead(200, { 'content-type': 'text/plain; version=0.0.4' }); return res.end(metrics.render()); }
       if (req.method === 'GET' && url.pathname === '/v1/discover') return json(res, 200, { data: await store.discover(), authority: 'POSTGRES_READ_MODEL' });
@@ -151,6 +170,14 @@ export function createApiServer({
       if (req.method === 'GET' && url.pathname === '/v1/me/advantages') return json(res, 200, { data: await store.advantagesForOwner(session.walletAddress), authority: 'NEX_ADVANTAGE_REGISTRY_PROJECTION' });
       if (req.method === 'GET' && url.pathname === '/v1/builder/dashboard') return json(res, 200, { data: await store.builderDashboard(session.accountId), authority: 'MIXED_PROJECTION' });
       if (req.method === 'GET' && url.pathname.startsWith('/v1/transactions/')) { const tx = await store.transaction(url.pathname.slice(17), session.accountId); if (!tx) throw Object.assign(new Error('NOT_FOUND'), { status: 404 }); return json(res, 200, { data: tx }); }
+      if (req.method === 'GET' && url.pathname.startsWith('/v1/edition-requests/')) { const request = await store.editionRequestById(url.pathname.slice(21), session.accountId); if (!request) throw Object.assign(new Error('NOT_FOUND'), { status: 404 }); return json(res, 200, { data: request, authority: 'SAFE_WORKFLOW_REQUEST' }); }
+      if (req.method === 'POST' && /^\/v1\/edition-requests\/[^/]+\/safe-submit$/.test(url.pathname)) {
+        if (!orderPolicy.protocolAdminSafe || session.walletAddress.toLowerCase() !== orderPolicy.protocolAdminSafe.toLowerCase()) throw Object.assign(new Error('PROTOCOL_ADMIN_SAFE_REQUIRED'), { status: 403 });
+        const input = await readBody(req); if (!/^0x[0-9a-fA-F]{64}$/.test(input.txHash ?? '')) throw Object.assign(new Error('TX_HASH_REQUIRED'), { status: 400 });
+        const request = await store.submitEditionRequest({ id: url.pathname.split('/')[3], safeTransactionHash: input.safeTransactionHash ?? null, txHash: input.txHash.toLowerCase() });
+        await store.recordAudit?.({ accountId: session.accountId, walletAddress: session.walletAddress, action: 'EDITION_SAFE_SUBMITTED', objectType: 'EDITION_REQUEST', objectId: request.id, requestId, correlationId, metadata: { txHash: request.txHash } });
+        return json(res, 200, { data: request, authority: 'PROTOCOL_ADMIN_SAFE' });
+      }
       if (req.method === 'POST' && /^\/v1\/transactions\/[^/]+\/events$/.test(url.pathname)) {
         const id = url.pathname.split('/')[3]; const input = await readBody(req);
         const transaction = await store.transaction(id, session.accountId);
@@ -217,7 +244,7 @@ export function createApiServer({
       if (req.method === 'POST' && INTENT_TYPE[url.pathname]) {
         const input = await readBody(req); const idempotencyKey = req.headers['idempotency-key']?.toString();
         if (!idempotencyKey || idempotencyKey.length > 128) throw Object.assign(new Error('IDEMPOTENCY_KEY_REQUIRED'), { status: 400 });
-        let prepared = { calldata: input.calldata ?? null, payload: input };
+        let prepared = { calldata: input.calldata ?? null, payload: input }; let workflowPayload = input;
         if (url.pathname === '/v1/listings/prepare') {
           if (String(input.seller).toLowerCase() !== session.walletAddress.toLowerCase()) throw Object.assign(new Error('SELLER_SESSION_MISMATCH'), { status: 403 });
           // Deployment policy wins over untrusted request fields.
@@ -229,16 +256,33 @@ export function createApiServer({
           if (input.to !== undefined && (!isAddress(input.to) || getAddress(input.to) !== getAddress(target))) throw Object.assign(new Error('TRANSACTION_TARGET_REJECTED'), { status: 400 });
           let calldata = input.calldata; let protocolInput = input;
           if (intentType === 'EDITION_CREATE') {
+            if (!input.projectId) throw Object.assign(new Error('PROJECT_ID_REQUIRED'), { status: 400 });
             if (!isAddress(orderPolicy.protocolAdminSafe ?? '')) throw Object.assign(new Error('PROTOCOL_ADMIN_SAFE_CONFIGURATION_REQUIRED'), { status: 503 });
             if (input.initialOwner !== undefined && getAddress(input.initialOwner) !== getAddress(orderPolicy.protocolAdminSafe)) throw Object.assign(new Error('PROTOCOL_ADMIN_SAFE_REQUIRED'), { status: 400 });
             protocolInput = { ...input, initialOwner: orderPolicy.protocolAdminSafe };
+            workflowPayload = protocolInput;
+            calldata = undefined;
+          }
+          if (intentType === 'TERMS_PUBLISH') {
+            if (!isAddress(input.edition ?? '') || !/^0x[0-9a-fA-F]{64}$/.test(input.terms?.advantagesHash ?? '')) throw Object.assign(new Error('TERMS_COMMITMENT_REQUIRED'), { status: 400 });
+            const computedAdvantagesHash = canonicalAdvantagesHash(input.advantageConfigs ?? []);
+            if (!computedAdvantagesHash || computedAdvantagesHash.toLowerCase() !== input.terms.advantagesHash.toLowerCase()) throw Object.assign(new Error('ADVANTAGES_COMMITMENT_MISMATCH'), { status: 400 });
+            await store.saveTermsCommitment?.({ builderAccountId: session.accountId, editionAddress: input.edition, advantagesHash: input.terms.advantagesHash, termsPayload: input.terms, configs: input.advantageConfigs ?? [] });
+            // The persisted commitment and calldata must describe the same
+            // Terms snapshot; callers cannot substitute opaque calldata here.
+            calldata = undefined;
           }
           if (calldata === undefined) calldata = buildProtocolCalldata(intentType, protocolInput, { walletAddress: session.walletAddress, idempotencyKey });
           if (!/^0x[0-9a-fA-F]+$/.test(calldata ?? '') || !INTENT_SELECTORS[intentType]?.includes(calldata.slice(0, 10).toLowerCase())) throw Object.assign(new Error('CALLDATA_SELECTOR_REJECTED'), { status: 400 });
           prepared = { to: getAddress(target), data: calldata, value: '0x0' };
         }
-        const transaction = await store.prepareTransaction({ accountId: session.accountId, walletAddress: session.walletAddress, chainId: session.chainId, intentType: INTENT_TYPE[url.pathname], intentId: input.intentId ?? idempotencyKey, idempotencyKey, correlationId, requestId });
+        const transaction = await store.prepareTransaction({ accountId: session.accountId, walletAddress: session.walletAddress, chainId: session.chainId, intentType: INTENT_TYPE[url.pathname], intentId: input.intentId ?? idempotencyKey, idempotencyKey, correlationId, requestId, toAddress: prepared.to ?? prepared.registryTransaction?.to ?? null, calldata: prepared.data ?? prepared.registryTransaction?.data ?? null });
         await store.recordAudit?.({ accountId: session.accountId, walletAddress: session.walletAddress, action: 'TRANSACTION_PREPARED', objectType: 'CHAIN_TRANSACTION', objectId: transaction.id, requestId, correlationId, metadata: { intentType: INTENT_TYPE[url.pathname] } });
+        if (INTENT_TYPE[url.pathname] === 'EDITION_CREATE') {
+          const request = await store.createEditionRequest({ projectId: input.projectId, builderAccountId: session.accountId, chainId: session.chainId, payload: workflowPayload, transactionId: transaction.id });
+          const safePending = await store.markEditionRequestSafePending?.(request.id, session.accountId) ?? request;
+          return json(res, 201, { transaction, request: safePending, safeProposal: prepared, safeRequired: true, walletMustSign: false, serverCustodiesKey: false });
+        }
         return json(res, 201, { transaction, prepared, walletMustSign: true, serverCustodiesKey: false });
       }
       return json(res, 404, { error: { code: 'NOT_FOUND', requestId } });
@@ -256,8 +300,8 @@ export function createApiServer({
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
-  const store = new PostgresStore(); const port = Number(process.env.PORT || 4010);
-  const server = createApiServer({ store, chainId: Number(process.env.ROBINHOOD_CHAIN_ID ?? 4663), orderPolicy: productionOrderPolicy(), requireIndexedReadiness: process.env.NODE_ENV === 'production' });
+  const store = new PostgresStore(); const port = Number(process.env.PORT || 4010); const rpc = new JsonRpcClient(process.env.RH_MAINNET_RPC_URL ?? 'https://rpc.mainnet.chain.robinhood.com');
+  const server = createApiServer({ store, chainId: Number(process.env.ROBINHOOD_CHAIN_ID ?? 4663), chain: rpc, maxIndexerLagBlocks: Number(process.env.INDEXER_MAX_LAG_BLOCKS ?? 120), maxFinalityLagBlocks: Number(process.env.INDEXER_MAX_FINALITY_LAG_BLOCKS ?? 120), orderPolicy: productionOrderPolicy(), requireIndexedReadiness: process.env.NODE_ENV === 'production' });
   server.listen(port, () => console.log(JSON.stringify({ event: 'api_started', port })));
   const shutdown = async () => { server.close(); await store.close(); };
   process.on('SIGTERM', shutdown); process.on('SIGINT', shutdown);

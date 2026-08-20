@@ -73,3 +73,19 @@ test('wallet reports transaction lifecycle idempotently without treating a hash 
   const status = await fetch(`${base}/v1/transactions/${prepared.transaction.id}`, { headers: { cookie: auth.cookie, origin: 'https://nexmarkets.fun' } });
   const tracked = await status.json(); assert.equal(tracked.data.state, 'SUBMITTED'); assert.notEqual(tracked.data.state, 'CONFIRMED');
 });
+
+test('Builder Edition creation is a Safe workflow and Terms commitments are exact', async (t) => {
+  const safe = Wallet.createRandom(); const builder = Wallet.createRandom(); const factory = '0x7777777777777777777777777777777777777777';
+  const { server, base } = await running({ orderPolicy: { protocolAdminSafe: safe.address, transactionTargets: { EDITION_CREATE: factory, TERMS_PUBLISH: '0x8888888888888888888888888888888888888888' } } }); t.after(() => server.close());
+  const auth = await authenticate(base, builder); const headers = { cookie: auth.cookie, 'x-csrf-token': auth.verified.csrfToken, 'content-type': 'application/json', origin: 'https://nexmarkets.fun' };
+  const project = await fetch(`${base}/v1/builder/projects`, { method: 'POST', headers: { ...headers, 'idempotency-key': 'project-safe' }, body: JSON.stringify({ slug: `safe-${Date.now()}`, name: 'Safe Edition' }) }); const projectRow = await project.json();
+  const requestResponse = await fetch(`${base}/v1/editions/prepare`, { method: 'POST', headers: { ...headers, 'idempotency-key': 'edition-safe' }, body: JSON.stringify({ projectId: projectRow.data.id, name: 'Safe Edition', symbol: 'SAFE', editionId: `0x${'11'.repeat(32)}`, initialOwner: safe.address, absoluteSupplyCap: 10, artworkCommitment: `0x${'12'.repeat(32)}`, baseTokenURI: 'https://example.test/metadata/', publisher: builder.address, salt: `0x${'13'.repeat(32)}` }) });
+  assert.equal(requestResponse.status, 201); const request = await requestResponse.json(); assert.equal(request.walletMustSign, false); assert.equal(request.safeRequired, true); assert.equal(request.request.safeStatus, 'SAFE_PENDING');
+  const safeAuth = await authenticate(base, safe); const safeHeaders = { cookie: safeAuth.cookie, 'x-csrf-token': safeAuth.verified.csrfToken, 'content-type': 'application/json', origin: 'https://nexmarkets.fun' };
+  const submitted = await fetch(`${base}/v1/edition-requests/${request.request.id}/safe-submit`, { method: 'POST', headers: safeHeaders, body: JSON.stringify({ txHash: `0x${'22'.repeat(32)}` }) }); assert.equal(submitted.status, 200); assert.equal((await submitted.json()).data.safeStatus, 'SUBMITTED');
+});
+
+test('/readyz compares projection freshness with the Robinhood chain head', async (t) => {
+  const { server, base } = await running({ requireIndexedReadiness: true, chain: { async getBlockNumber() { return 200; } }, maxIndexerLagBlocks: 20, maxFinalityLagBlocks: 20 }); t.after(() => server.close());
+  const stale = await fetch(`${base}/readyz`, { headers: { origin: 'https://nexmarkets.fun' } }); assert.equal(stale.status, 503);
+});

@@ -1,1 +1,1 @@
-{"name":"@nexmarkets/worker","private":true,"type":"module","exports":"./src/outbox-worker.mjs"}
+{"name":"@nexmarkets/worker","private":true,"type":"module","exports":"./src/outbox-worker.mjs","scripts":{"start":"node src/run-chain-worker.mjs","once":"node -e \"import('./src/chain-lifecycle.mjs').then(({runChainLifecycleOnce})=>runChainLifecycleOnce())\"","outbox":"node src/run-outbox-worker.mjs"}}

@@ -56,6 +56,29 @@ CREATE TABLE IF NOT EXISTS project (
   updated_at timestamptz NOT NULL DEFAULT now()
 );
 
+-- Builder requests are durable workflow records. Factory ownership remains
+-- with the Protocol Admin Safe; a Builder never submits createEdition directly.
+CREATE TABLE IF NOT EXISTS edition_request (
+  id text PRIMARY KEY,
+  project_id text NOT NULL REFERENCES project(id),
+  builder_account_id text NOT NULL REFERENCES account(id),
+  chain_id bigint NOT NULL CHECK (chain_id IN (4663,46630)),
+  edition_id_hash text NOT NULL,
+  request_payload jsonb NOT NULL,
+  predicted_edition_address text,
+  safe_status text NOT NULL DEFAULT 'REQUESTED' CHECK (safe_status IN ('REQUESTED','SAFE_PENDING','SUBMITTED','CONFIRMED','FINALIZED','REJECTED')),
+  safe_transaction_hash text,
+  tx_hash text,
+  source_block_number bigint,
+  source_block_hash text,
+  source_log_index integer,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE(chain_id,edition_id_hash)
+);
+ALTER TABLE edition_request ADD COLUMN IF NOT EXISTS transaction_id text REFERENCES chain_transaction(id);
+CREATE INDEX IF NOT EXISTS idx_edition_request_safe_status ON edition_request(chain_id,safe_status,updated_at);
+
 CREATE TABLE IF NOT EXISTS edition (
   id text PRIMARY KEY,
   project_id text NOT NULL REFERENCES project(id),
@@ -167,6 +190,10 @@ CREATE TABLE IF NOT EXISTS advantage_state_projection (
   PRIMARY KEY(edition_id,token_id,advantage_id_hash),
   UNIQUE(source_tx_hash,source_log_index)
 );
+-- One PassAdvantagesInitialized event creates one row per committed Advantage;
+-- the source identity is therefore unique only together with advantage_id_hash.
+ALTER TABLE advantage_state_projection DROP CONSTRAINT IF EXISTS advantage_state_projection_source_tx_hash_source_log_index_key;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_advantage_state_source ON advantage_state_projection(source_tx_hash,source_log_index,advantage_id_hash);
 
 CREATE TABLE IF NOT EXISTS mint_intent (
   id text PRIMARY KEY,
@@ -187,6 +214,9 @@ ALTER TABLE chain_transaction ADD COLUMN IF NOT EXISTS request_id text;
 ALTER TABLE chain_transaction ADD COLUMN IF NOT EXISTS confirmations integer NOT NULL DEFAULT 0;
 ALTER TABLE chain_transaction ADD COLUMN IF NOT EXISTS finalized_at timestamptz;
 ALTER TABLE chain_transaction ADD COLUMN IF NOT EXISTS failure_code text;
+ALTER TABLE chain_transaction ADD COLUMN IF NOT EXISTS to_address text;
+ALTER TABLE chain_transaction ADD COLUMN IF NOT EXISTS calldata text;
+ALTER TABLE chain_transaction ADD COLUMN IF NOT EXISTS submitted_at timestamptz;
 ALTER TABLE chain_transaction DROP CONSTRAINT IF EXISTS chain_transaction_chain_id_intent_type_intent_id_key;
 CREATE UNIQUE INDEX IF NOT EXISTS uq_chain_transaction_wallet_intent
   ON chain_transaction(chain_id,wallet_address,intent_type,intent_id);
@@ -413,8 +443,25 @@ CREATE TABLE IF NOT EXISTS indexer_checkpoint (
   latest_block_number bigint NOT NULL,
   latest_block_hash text NOT NULL,
   finalized_block_number bigint NOT NULL,
+  chain_head_block_number bigint,
+  chain_head_block_hash text,
   updated_at timestamptz NOT NULL DEFAULT now(),
   PRIMARY KEY(pipeline,chain_id)
+);
+
+-- Builder-supplied canonical Advantage definitions are linked by the exact
+-- onchain advantagesHash emitted in TermsPublished. They are never authority
+-- for ownership or redemption state.
+CREATE TABLE IF NOT EXISTS terms_advantage_commitment (
+  advantages_hash text PRIMARY KEY,
+  builder_account_id text NOT NULL REFERENCES account(id),
+  edition_address text NOT NULL,
+  terms_payload jsonb NOT NULL,
+  configs jsonb NOT NULL,
+  status text NOT NULL DEFAULT 'PREPARED' CHECK (status IN ('PREPARED','PUBLISHED','ORPHANED')),
+  terms_hash text,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
 );
 
 CREATE TABLE IF NOT EXISTS reconciliation_run (

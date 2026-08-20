@@ -1,1 +1,1 @@
-{"name":"@nexmarkets/indexer","private":true,"type":"module","exports":"./src/projector.mjs"}
+{"name":"@nexmarkets/indexer","private":true,"type":"module","exports":"./src/projector.mjs","scripts":{"start":"node src/run.mjs","once":"node -e \"import('./src/runtime.mjs').then(({runIndexerOnce})=>runIndexerOnce().then(console.log))\""}}

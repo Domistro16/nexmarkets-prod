@@ -32,3 +32,9 @@ test('web implementation contains certified routes and no production mock state'
   assert.doesNotMatch(app, /mockProducts|fakeListings|samplePasses/);
   const html = await readFile(new URL('../apps/web/public/index.html', import.meta.url), 'utf8'); assert.match(html, /viewport-fit=cover/); assert.match(html, /mobile-nav/);
 });
+
+test('Advantage entitlement UI never submits a view-only TimeBased/Connected useAmount transaction', async () => {
+  const app = await readFile(new URL('../apps/web/public/app.mjs', import.meta.url), 'utf8');
+  assert.match(app, /Entitlement\/access state; no onchain use transaction/);
+  assert.doesNotMatch(app, /kind === 'REDEMPTION' \? 'REDEEM' : kind === 'QUANTITY_BASED' \? 'CONSUME_QUANTITY' : 'USE_AMOUNT'/);
+});

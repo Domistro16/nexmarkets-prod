@@ -19,18 +19,19 @@ transforms:
     primary_key: chain_id,transaction_hash,log_index
     sql: |
       SELECT
-        chain_id,
-        block_number,
-        block_hash,
-        transaction_hash,
-        log_index,
-        address AS contract_address,
-        topic0,
-        topics,
-        data,
-        block_timestamp,
-        removed
-      FROM robinhood_logs
+        l.chain_id,
+        l.block_number,
+        COALESCE(b.block_hash,l.block_hash) AS block_hash,
+        l.transaction_hash,
+        l.log_index,
+        l.address AS contract_address,
+        l.topic0,
+        l.topics,
+        l.data,
+        COALESCE(b.block_timestamp,l.block_timestamp) AS block_timestamp,
+        l.removed
+      FROM robinhood_logs l
+      LEFT JOIN robinhood_blocks b ON b.chain_id=l.chain_id AND b.block_number=l.block_number
       -- Topic filtering transports core events plus candidate dynamic-Edition
       -- events. The idempotent projector accepts Edition-scoped events only
       -- after NexPassFactory.EditionCreated registered that address.

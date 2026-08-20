@@ -2,11 +2,11 @@
   "schemaVersion": 1,
   "dynamicEditionDiscovery": "NexPassFactory.EditionCreated",
   "events": [
-    { "role": "NexPassFactory", "signature": "EditionCreated(address,bytes32,address,bytes32,address,address)" },
+    { "role": "NexPassFactory", "signature": "EditionCreated(address,bytes32,address,bytes32,address,address,uint32,bytes32)" },
     { "role": "NexLaunchRegistry", "signature": "EditionRegistered(address,bytes32,address,uint32)" },
     { "role": "NexLaunchRegistry", "signature": "EditionPublisherSet(address,address)" },
     { "role": "NexLaunchRegistry", "signature": "EditionDisabledSet(address,bool)" },
-    { "role": "NexLaunchRegistry", "signature": "TermsPublished(address,bytes32,uint64)" },
+    { "role": "NexLaunchRegistry", "signature": "TermsPublished(address,bytes32,uint64,uint256,uint256,uint64,uint64,uint64,address,address,uint96,bytes32,bytes32)" },
     { "role": "NexMintController", "signature": "PrimaryMintSettled(address,address,address,bytes32,bytes32,uint256,uint256,uint256,uint256)" },
     { "role": "NexMintController", "signature": "ReferralHintSubmitted(bytes32,address,address,address)", "canonical": false },
     { "role": "NexPassEdition", "signature": "Transfer(address,address,uint256)", "dynamic": true },

@@ -1,1 +1,1 @@
-{"name":"@nexmarkets/reconciler","private":true,"type":"module","exports":"./src/reconciler.mjs"}
+{"name":"@nexmarkets/reconciler","private":true,"type":"module","exports":"./src/reconciler.mjs","scripts":{"once":"node src/run.mjs","start":"node src/run.mjs"}}

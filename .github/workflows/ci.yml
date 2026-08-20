@@ -44,3 +44,10 @@ jobs:
       - run: node --check scripts/verify-v1-deployment.mjs
       - run: node --check scripts/render-goldsky-config.mjs
       - run: node --check scripts/regenerate-checksums.mjs
+      - run: node --check services/indexer/src/runtime.mjs
+      - run: node --check services/indexer/src/run.mjs
+      - run: node --check services/worker/src/chain-lifecycle.mjs
+      - run: node --check services/worker/src/run-chain-worker.mjs
+      - run: node --check services/reconciler/src/rpc-adapter.mjs
+      - run: node --check services/reconciler/src/postgres-adapter.mjs
+      - run: node --check services/reconciler/src/run.mjs

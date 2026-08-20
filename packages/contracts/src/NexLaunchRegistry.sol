@@ -85,7 +85,23 @@ contract NexLaunchRegistry is Ownable, Pausable {
     );
     event EditionPublisherSet(address indexed edition, address indexed publisher);
     event EditionDisabledSet(address indexed edition, bool disabled);
-    event TermsPublished(address indexed edition, bytes32 indexed termsVersionHash, uint64 indexed version);
+    /// @notice Carries the complete immutable Terms snapshot so an indexer can
+    ///         reconstruct history from event data alone.
+    event TermsPublished(
+        address indexed edition,
+        bytes32 indexed termsVersionHash,
+        uint64 indexed version,
+        uint256 activeSupply,
+        uint256 pricePerPass,
+        uint64 previewStartsAt,
+        uint64 mintStartsAt,
+        uint64 mintEndsAt,
+        address primaryRecipient,
+        address royaltyReceiver,
+        uint96 royaltyBps,
+        bytes32 advantagesHash,
+        bytes32 referralTermsHash
+    );
 
     modifier onlyFactory() {
         if (msg.sender != factory) revert NotFactory();
@@ -169,7 +185,29 @@ contract NexLaunchRegistry is Ownable, Pausable {
         record.nextTermsVersion = version;
         record.activeTermsVersionHash = termsVersionHash;
 
-        emit TermsPublished(edition, termsVersionHash, version);
+        _emitTermsPublished(edition, termsVersionHash, version, terms);
+    }
+
+    /// @dev Keep the complete Terms event in a separate frame so the
+    ///      non-viaIR production compiler does not run out of stack slots.
+    function _emitTermsPublished(address edition, bytes32 termsVersionHash, uint64 version, Terms calldata terms)
+        internal
+    {
+        emit TermsPublished(
+            edition,
+            termsVersionHash,
+            version,
+            terms.activeSupply,
+            terms.pricePerPass,
+            terms.previewStartsAt,
+            terms.mintStartsAt,
+            terms.mintEndsAt,
+            terms.primaryRecipient,
+            terms.royaltyReceiver,
+            terms.royaltyBps,
+            terms.advantagesHash,
+            terms.referralTermsHash
+        );
     }
 
     function hashTerms(address edition, bytes32 editionId, uint64 version, Terms calldata terms)
