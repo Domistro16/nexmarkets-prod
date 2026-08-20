@@ -30,6 +30,7 @@
     "safe:plan:testnet": "node scripts/deploy-safe.mjs --network=robinhood-testnet",
     "mock-usdg:plan:testnet": "node scripts/deploy-testnet-mock-usdg.mjs",
     "safe:deploy": "node scripts/deploy-safe.mjs --broadcast",
+    "safe:deploy:testnet": "node scripts/deploy-safe.mjs --network=robinhood-testnet --broadcast",
     "safe:verify": "node scripts/verify-safe-approval.mjs",
     "verify:authority": "node scripts/verify-product-authority.mjs",
     "verify:config": "node scripts/verify-config.mjs",
