@@ -2,9 +2,9 @@
 
 Goldsky is the only production indexer for NexMarkets V1. The preferred flow is Goldsky Turbo → PostgreSQL → API → UI. There is no bespoke RPC polling loop and The Graph is not the primary provider.
 
-After Goldsky assigns the dedicated Robinhood dataset prefix, set `GOLDSKY_ROBINHOOD_MAINNET_DATASET_PREFIX` or `GOLDSKY_ROBINHOOD_TESTNET_DATASET_PREFIX` and run `npm run goldsky:render -- --mainnet` (omit the flag for testnet). The renderer materializes the pinned event-topic allowlist without embedding database credentials. Candidate ERC-721/Advantage events are transported by topic, but the projector accepts them only after `NexPassFactory.EditionCreated` dynamically registers the Edition address.
+Goldsky officially exposes the `robinhood-mainnet` and `robinhood-testnet` Turbo datasets. Run `npm run goldsky:render -- --mainnet` (omit the flag for testnet) to materialize the pinned event-topic allowlist without embedding database credentials. Candidate ERC-721/Advantage events are transported by topic, but the projector accepts them only after `NexPassFactory.EditionCreated` dynamically registers the Edition address.
 
-Robinhood is EVM-compatible but is not currently published in Goldsky's shared-chain list. Goldsky must enable dedicated datasets for chain IDs 4663 and 46630 and provide dataset slugs. Replace `__ROBINHOOD_DATASET_PREFIX__` in `goldsky/nexmarkets-robinhood.turbo.yaml` only with the assigned slug. Do not commit the Goldsky API key or PostgreSQL sink secret.
+Robinhood is EVM-compatible and the supported dataset slugs are fixed to `robinhood-mainnet` (4663) and `robinhood-testnet` (46630). The renderer replaces `__ROBINHOOD_DATASET_PREFIX__` with the selected official slug. Do not commit the Goldsky API key or PostgreSQL sink secret.
 
 The pipeline ingests raw logs/blocks and upserts by `(chain_id, transaction_hash, log_index)`. The event catalog covers Factory discovery, Registry Terms/edition changes, primary settlement and noncanonical referral hints, dynamic Edition mint/Transfer events, Advantage state, listing state, Vault claims, ERC-6551 account creation and Seaport fulfillment. Factory `EditionCreated` drives dynamic Edition discovery.
 
@@ -25,6 +25,6 @@ finalized-watermark and RPC-head values separate. Readiness therefore does not
 mistake a quiet protocol (few events) for an unhealthy indexer. It is resumable
 and idempotent by `(chain_id,tx_hash,log_index)`.
 
-Goldsky must first enable the dedicated Robinhood dataset and provide the
+Goldsky execution still requires a project/API credential and a configured
 Postgres sink secret; those are external release gates. Never commit either
 secret.

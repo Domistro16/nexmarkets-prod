@@ -251,6 +251,11 @@ export class PostgresProjectionWorker {
     const decoded = decodeGoldskyLog(row); const identity = rawIdentity(row); const client = await this.pool.connect();
     try {
       await client.query('BEGIN');
+      // Goldsky may run more than one projector replica during a restart or
+      // backfill. Serialize canonical projection mutations per chain so two
+      // replicas cannot both pass the read-before-write check, deadlock on
+      // rebuild ordering, or emit duplicate notifications.
+      await client.query('SELECT pg_advisory_xact_lock($1::bigint)', [String(row.chain_id)]);
       const existing = await client.query('SELECT block_hash,orphaned_at FROM indexer_event WHERE chain_id=$1 AND tx_hash=$2 AND log_index=$3 FOR UPDATE', [row.chain_id, row.transaction_hash.toLowerCase(), row.log_index]);
       if (existing.rows[0] && existing.rows[0].block_hash !== row.block_hash && !existing.rows[0].orphaned_at) throw new Error(`EVENT_IDENTITY_COLLISION:${identity}`);
       if (row.removed) {
@@ -258,11 +263,14 @@ export class PostgresProjectionWorker {
         await this.orphanProjection(client, row);
         await this.rebuildAffected(client, row, decoded);
       } else if (!existing.rows[0]) {
-        await client.query(
+        const inserted = await client.query(
           `INSERT INTO indexer_event(chain_id,block_number,block_hash,tx_hash,log_index,contract_address,event_signature,event_name,payload,block_timestamp,finalized)
-           VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10,$11)`,
+           VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10,$11)
+           ON CONFLICT(chain_id,tx_hash,log_index) DO NOTHING
+           RETURNING tx_hash`,
           [row.chain_id, row.block_number, row.block_hash, row.transaction_hash.toLowerCase(), row.log_index, row.contract_address.toLowerCase(), decoded.eventSignature, decoded.eventName, JSON.stringify(decoded.args), asDate(row.block_timestamp), Number(row.block_number) <= finalityBlock]
         );
+        if (inserted.rowCount === 0) { await client.query('COMMIT'); return; }
         await this.applyProjection(client, row, decoded);
         await this.enqueueProjectionNotification(client, row, decoded);
       } else if (existing.rows[0].orphaned_at) {

@@ -2,7 +2,8 @@
 
 `scripts/deploy-safe.mjs` plans and, only with an explicit confirmation flag,
 deploys a Safe v1.4.1 proxy through the canonical Safe Proxy Factory on
-Robinhood Chain (chain ID `4663`). The deployer is only the transaction sender;
+Robinhood mainnet (`4663`) or testnet (`46630`, selected with
+`--network=robinhood-testnet`). The deployer is only the transaction sender;
 the Safe owners and threshold come from configuration and are never inferred
 from the deployer key.
 
@@ -14,12 +15,14 @@ when both flags are present:
 ```powershell
 $env:SAFE_DEPLOY_CONFIRM = 'I_UNDERSTAND_THIS_SUBMITS_A_TRANSACTION'
 cmd /c npm run safe:deploy
+# Testnet uses: cmd /c npm run safe:plan:testnet
 ```
 
 Required `.env` values:
 
 ```dotenv
 RH_MAINNET_RPC_URL=https://rpc.mainnet.chain.robinhood.com
+# For testnet, use RH_TESTNET_RPC_URL and --network=robinhood-testnet.
 DEPLOYER_PRIVATE_KEY=<runtime-only-secret>
 SAFE_OWNER_ADDRESSES=0xOwnerOne,0xOwnerTwo,0xOwnerThree
 SAFE_THRESHOLD=2

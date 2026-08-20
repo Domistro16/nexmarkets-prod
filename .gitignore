@@ -13,4 +13,10 @@ broadcast/
 .tmp-*/
 .npm-cache/
 packages/contracts/lib/
-artifacts/deployment-plan/
+artifacts/deployment-plan/*
+artifacts/goldsky/
+!artifacts/
+!artifacts/deployment-plan/
+!artifacts/deployment-plan/robinhood-mainnet.json
+!artifacts/deployment-plan/robinhood-mainnet.deploy.safe.json
+!artifacts/deployment-plan/robinhood-mainnet.wire.safe.json

@@ -1,0 +1,145 @@
+{
+  "schemaVersion": 1,
+  "releaseGitSha": "8790b635ba55512e5d0e295fb1217a3993ecdafb",
+  "deploymentSourceCommit": "8790b635ba55512e5d0e295fb1217a3993ecdafb",
+  "mergedPr6": {
+    "number": 6,
+    "mergeCommit": "d564e4c49037549c123e7182c37ab03576856c91",
+    "approvedHead": "940a761d5d3883d38d53966953eb77451660d615"
+  },
+  "status": "BLOCKED_BEFORE_MAINNET_BROADCAST",
+  "testnetCertification": "BLOCKED_TESTNET_DEPLOYMENT_PREREQUISITES",
+  "testnet": {
+    "network": "robinhood-testnet",
+    "chainId": 46630,
+    "mockUsdgAddress": null,
+    "protocolAdminSafe": null,
+    "nexmarketsContracts": {},
+    "deploymentTxHashes": [],
+    "wiringTxHashes": [],
+    "lifecycleStatus": "NOT_STARTED",
+    "reconciliationDiscrepancies": null,
+    "blockingReasons": [
+      "TESTNET_SAFE_NOT_DEPLOYED",
+      "MOCK_USDG_NOT_DEPLOYED",
+      "DEPLOYER_PRIVATE_KEY_ABSENT",
+      "GOLDSKY_CREDENTIALS_ABSENT",
+      "DATABASE_URL_ABSENT"
+    ]
+  },
+  "mainnet": {
+    "network": "robinhood-mainnet",
+    "chainId": 4663,
+    "protocolAdminSafe": "0x722ADAadD314dafE97979AF27Ec7F09F36766d08",
+    "safeOwners": [
+      "0x7ec76611Da0AeE7C1B11273E9767FDA1Faa31790",
+      "0xD83deFbA240568040b39bb2C8B4DB7dB02d40593"
+    ],
+    "safeOwnerCount": 2,
+    "safeThreshold": 1,
+    "governanceTransition": "RAISE_THRESHOLD_TO_2_PLUS",
+    "primaryFeeRecipient": "0x722ADAadD314dafE97979AF27Ec7F09F36766d08",
+    "secondaryFeeRecipient": "0x722ADAadD314dafE97979AF27Ec7F09F36766d08",
+    "canonicalUsdg": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+    "seaport16": "0x0000000000000068F116a894984e2DB1123eB395",
+    "conduitController": "0x00000000F9490004C11Cef243f5400493c00Ad63",
+    "erc6551Registry": "0x000000006551c19487814612e58FE06813775758",
+    "immutableCreate2Factory": "0x0000000000ffe8b47b3e2130213b802212439497",
+    "predictedContracts": [
+      { "name": "NexLaunchRegistry", "address": "0xD3eB84F0B832747C257bDA424160b3DA12256719", "codeEmptyAtPreflight": true },
+      { "name": "NexMintController", "address": "0x528fdeE55A903E3297838f3Fb96854b7e9684A13", "codeEmptyAtPreflight": true },
+      { "name": "NexPassFactory", "address": "0x49fa1708e07edbE3b31244c3904C7aBC2e0892f1", "codeEmptyAtPreflight": true },
+      { "name": "NexAdvantageRegistry", "address": "0xd015717C8c5bd24C5Ef73815f6fa5dddebD76F57", "codeEmptyAtPreflight": true },
+      { "name": "NexAdvantageInitializer", "address": "0x6d82Fc757Ad54A3f7Ab071276A7A2F8Bb77Ee22e", "codeEmptyAtPreflight": true },
+      { "name": "NexRoyaltyVault", "address": "0xdFe5327223C865E7107F8D21F73c19da3f1300A4", "codeEmptyAtPreflight": true },
+      { "name": "NexListingRegistry", "address": "0x2962B12B8Ca459C19dBf0DDE7b5D066CA83A026B", "codeEmptyAtPreflight": true },
+      { "name": "NexMarketsZone", "address": "0x477EC9790C6fd6CC06De79fb185b7F0A7dEbe096", "codeEmptyAtPreflight": true },
+      { "name": "NexPassAccount", "address": "0x748203173788e3B55a9B81fb32cBa112d0Ac815e", "codeEmptyAtPreflight": true },
+      { "name": "NexTBAResolver", "address": "0x08d70E44047bE7ED4ce5F0B578dAeD913fCf5fAA", "codeEmptyAtPreflight": true }
+    ],
+    "dryRun": {
+      "status": "DRY_RUN_ONLY",
+      "deploymentBundleTransactions": 10,
+      "wiringBundleTransactions": 6,
+      "mainnetCustomDeploymentAlreadyPerformed": false
+    },
+    "sourceVerification": {
+      "mode": "FROZEN_SOURCE_COMMIT",
+      "sourceCommit": "8790b635ba55512e5d0e295fb1217a3993ecdafb",
+      "comparedAgainst": "978e2147afde0f96e41d1b8511d6ff7cdb4c26e3",
+      "deploymentInputsHash": "48c5f2c5cbd13d9688e679ea7c38e45655de1c088dd7545b82924cfb5b5e808e",
+      "differences": [],
+      "mainnetReproduction": "EXACT_ADDRESS_SET_REPRODUCED"
+    },
+    "contractHashes": {
+      "NexLaunchRegistry": { "salt": "0x722adaadd314dafe97979af27ec7f09f36766d0823bfd3764d6062f203cab5e2", "initCodeHash": "0x2263882c49822cc5966575da2e877d58124060de13ceed9209d9215f79853b40", "normalizedRuntimeTemplateHash": "0xa19507d40e9d010c674d381630354caaaacc1f9907c540e657080400cd9cb667" },
+      "NexMintController": { "salt": "0x722adaadd314dafe97979af27ec7f09f36766d0885497d7792ac460c4158761b", "initCodeHash": "0x22974ccc16593f30baebb1395a6912118c9a094fe5dceffc4f8abd5c991d87ff", "normalizedRuntimeTemplateHash": "0xeacc4890ec5aaf5a2c3231afdaea0271c24a777ae7485b80e4dfbfa8bd57e0d6" },
+      "NexPassFactory": { "salt": "0x722adaadd314dafe97979af27ec7f09f36766d086350f4e9abfb3434ffc5922b", "initCodeHash": "0xbcd20fd7fdb224e0cbaba94eddb48decbf5c075a850c3d5f3c85e68a584ea9ff", "normalizedRuntimeTemplateHash": "0x9b2d8b600c6db7283643b2b3fc1d8f29fe6eb2e54b74038aff990cb399656366" },
+      "NexAdvantageRegistry": { "salt": "0x722adaadd314dafe97979af27ec7f09f36766d082b3528adbdac23b2662ce628", "initCodeHash": "0x900f99cf2e693e304513cb4da88af3bd48967be835cad06f3e76f1f9560d8ba1", "normalizedRuntimeTemplateHash": "0xbfe5ffe4402cb4934b391559bf873bf041c6accb363e7fe799e228b99d1e1827" },
+      "NexAdvantageInitializer": { "salt": "0x722adaadd314dafe97979af27ec7f09f36766d08095e2f1b4da05b3b85f4911f", "initCodeHash": "0x69bc4a82487dbec3861e408a3da8ee14e7699a0fad38724c23d6000aae69f6fd", "normalizedRuntimeTemplateHash": "0xd6b7b3ebb81cdfedf3f3d4269c9906f0fbdd274d44998a84b37709daf91b15e4" },
+      "NexRoyaltyVault": { "salt": "0x722adaadd314dafe97979af27ec7f09f36766d08af9a006a588d7a1d424712da", "initCodeHash": "0xf08a91c8526088b10f81b4d5b9203127e5cdcc8c5ed011cf648f4e6860c56231", "normalizedRuntimeTemplateHash": "0xfa1021f6994824e090d26a61c50f8edf85ab1df15102251cbe55d9ac34451d2c" },
+      "NexListingRegistry": { "salt": "0x722adaadd314dafe97979af27ec7f09f36766d082f8d9c4fdd8fa8264d23873c", "initCodeHash": "0xcd4898e73d876e0a446b07a0904ad0fa9feb963929c1d9547ad856f68e548113", "normalizedRuntimeTemplateHash": "0x956f9301b534fe3842e6aa3a4a91c030ffa2921a3e1d7e717151445201af8aba" },
+      "NexMarketsZone": { "salt": "0x722adaadd314dafe97979af27ec7f09f36766d0833ebc9f05c960969357892a8", "initCodeHash": "0x51c352454bf1eae6940a0cd936367bc71dc96b8e81af5e2fcdbcdfc06d88fdf8", "normalizedRuntimeTemplateHash": "0x4b4c8c758099370fe0307048c59891d067d9525e3863a6de57a0e4ff7b9c5ea6" },
+      "NexPassAccount": { "salt": "0x722adaadd314dafe97979af27ec7f09f36766d08c6255ba1697c149f31edabd8", "initCodeHash": "0x6c2b92672320f13d489e0ada61a3074f8e151ce08c914d3ac2593b643038c77c", "expectedRuntimeCodeHash": "0xc849f1d83cf1d83f7f1de0a071c117b32e94d59aacf3e8c3599ee7cc69e52963", "normalizedRuntimeTemplateHash": "0xc849f1d83cf1d83f7f1de0a071c117b32e94d59aacf3e8c3599ee7cc69e52963" },
+      "NexTBAResolver": { "salt": "0x722adaadd314dafe97979af27ec7f09f36766d08535e778ec502383cf7bc92a1", "initCodeHash": "0x3cc8a1dd3b34c9eded185393c9600bacc16c2ccbc0bda0cf2aa8b7dbf0b9158d", "normalizedRuntimeTemplateHash": "0x11531698f02c0e67448a825806d5b91d62b7be2851a40755b5dc9f4faced50da" }
+    },
+    "releaseArtifacts": {
+      "deploymentPlan": { "path": "artifacts/deployment-plan/robinhood-mainnet.json", "sha256": "9b20b1a1697cfa3443982c4026b611871f2f42552a924f851b3fc36a3a49ccb8" },
+      "safeDeploymentBundle": { "path": "artifacts/deployment-plan/robinhood-mainnet.deploy.safe.json", "sha256": "b21597207da73b4a82995b2d7843a783dc6a7653dfa775effb23d909d34d5f80", "transactions": 10 },
+      "safeWiringBundle": { "path": "artifacts/deployment-plan/robinhood-mainnet.wire.safe.json", "sha256": "269b9931a2ea117459241375f85c1299a04a47d7350080cfb4baf80f667842ce", "transactions": 6 }
+    }
+  },
+  "primitiveRuntimePreflight": {
+    "mainnet": "PASS_READ_ONLY_RPC",
+    "testnet": "BLOCKED_ONLY_MOCK_USDG_MISSING",
+    "observedHashesPinned": true
+  },
+  "tests": {
+    "foundry": "71/71",
+    "serialFuzzRuns": 5000,
+    "nodePostgres": "77/77",
+    "webTests": "6/6",
+    "webBuildRoutes": 10,
+    "migrations": "2 migrations / 34 required tables",
+    "goldskyCatalogEvents": 22,
+    "checksums": 183,
+    "npmAudit": "0 vulnerabilities",
+    "secretScan": "184 files / 0 findings"
+  },
+  "ci": {
+    "contracts": "PASS",
+    "static": "PASS",
+    "sourceCommit": "8790b635ba55512e5d0e295fb1217a3993ecdafb"
+  },
+  "goldsky": {
+    "provider": "GOLDSKY_TURBO",
+    "networks": ["robinhood-mainnet", "robinhood-testnet"],
+    "configValidation": "PASS",
+    "pipelineDeployment": "BLOCKED_BY_GOLDSKY_CREDENTIALS",
+    "pipelineId": null,
+    "landedBlock": null,
+    "projectorCheckpoint": null
+  },
+  "infrastructure": {
+    "postgres": "BLOCKED_BY_DATABASE_URL",
+    "api": "LOCAL_TESTS_ONLY",
+    "workers": "NOT_STARTED_WITHOUT_DATABASE",
+    "web": "LOCAL_BUILD_ONLY",
+    "objectStorage": "OBJECT_STORAGE_PROVIDER_SELECTION_REQUIRED"
+  },
+  "authorization": {
+    "mainnetReleaseApproved": false,
+    "firstEditionReleaseApproved": false,
+    "mainnetCustomDeploymentPerformed": false,
+    "approvedFeaturePrMerged": true,
+    "releasePrMerged": false,
+    "readyForMainnetApproval": false
+  },
+  "externalDependencies": [
+    "Testnet Safe deployment and public owner metadata",
+    "Testnet MockUSDG deployment and faucet funding",
+    "Goldsky API/project and PostgreSQL sink credentials",
+    "Production-equivalent DATABASE_URL",
+    "Approved hosting and object-storage credentials"
+  ]
+}

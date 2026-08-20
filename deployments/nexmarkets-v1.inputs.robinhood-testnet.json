@@ -1,6 +1,7 @@
 {
   "network": "robinhood-testnet",
   "deploymentSourceCommit": "8790b635ba55512e5d0e295fb1217a3993ecdafb",
+  "deploymentStatus": "BLOCKED_TESTNET_DEPLOYMENT_PREREQUISITES",
   "protocolAdminSafe": null,
   "safeOwners": [],
   "safeThreshold": 1,
@@ -8,5 +9,10 @@
   "secondaryFeeRecipient": null,
   "mockUsdgAddress": null,
   "mockUsdgSource": "packages/contracts/src/MockUSDG.sol (testnet only)",
-  "governanceTransition": "RAISE_THRESHOLD_TO_2_PLUS"
+  "governanceTransition": "RAISE_THRESHOLD_TO_2_PLUS",
+  "blockingReasons": [
+    "TESTNET_SAFE_NOT_DEPLOYED",
+    "MOCK_USDG_NOT_DEPLOYED",
+    "DEPLOYER_PRIVATE_KEY_ABSENT"
+  ]
 }

@@ -18,6 +18,11 @@ Pinned baseline:
 - ERC-6551 registry: canonical `0x000000006551c19487814612e58FE06813775758`, pinned reference commit `43a84573bb47b0df3ab543a20365f4974f56a809`
 - NexPassAccount build runtime hash: `0xc849f1d83cf1d83f7f1de0a071c117b32e94d59aacf3e8c3599ee7cc69e52963`
 
+Testnet certification uses the isolated `MockUSDG` contract in
+`src/MockUSDG.sol` (six decimals, owner-controlled issuance). It is never a
+valid mainnet settlement substitute; the mainnet planner is fail-closed to the
+canonical USDG manifest address.
+
 The first connected primary-launch boundary is now:
 
 `NexPassFactory` -> `NexLaunchRegistry` -> `NexMintController` -> `NexPassEdition`

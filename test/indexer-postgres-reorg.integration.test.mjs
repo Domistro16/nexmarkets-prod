@@ -5,6 +5,7 @@ import { Interface } from 'ethers';
 import { PostgresProjectionWorker } from '../services/indexer/src/runtime.mjs';
 
 const addr = (n) => `0x${String(n).padStart(40, '0')}`;
+const FIXTURE_LOCK_KEY = 466300001;
 const fixtureNonce = `${Date.now()}${Math.floor(Math.random() * 10000)}`;
 const hash = (n) => {
   const seed = [...`${n}:${fixtureNonce}`].map((char) => char.charCodeAt(0).toString(16).padStart(2, '0')).join('') || '00';
@@ -25,7 +26,7 @@ const EVENTS = new Interface([
 ]);
 
 test('Postgres projector routes context-free events and restores canonical state after reorgs', { skip: !process.env.DATABASE_URL }, async () => {
-  const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL }); const chainId = 46630; const suffix = `${Date.now()}${Math.floor(Math.random() * 10000)}`;
+  const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL }); const lockClient = await pool.connect(); const chainId = 46630; const suffix = `${Date.now()}${Math.floor(Math.random() * 10000)}`;
   const account = `acct_reorg_${suffix}`; const project = `prj_reorg_${suffix}`; const editionId = `ed_reorg_${suffix}`; const edition = addr(101); const factory = addr(102); const genesisTx = hash('0');
   const advantageId = hash('a'); const termsHash = hash('b'); const termsHash2 = hash('b2'); const advantagesHash = hash('c'); const advantagesHash2 = hash('c2'); const referralHash = hash('d'); const referralHash2 = hash('d2'); const orderHash = hash('e'); const orderHash2 = hash('q'); const orderHash3 = hash('r');
   const configs = [{ advantageId, kind: 1, startsAt: 1, endsAt: 9999999999, totalUnits: 5, definitionHash: hash('f') }];
@@ -52,6 +53,7 @@ test('Postgres projector routes context-free events and restores canonical state
   add('ERC6551AccountCreated', [addr(106), addr(107), hash('h'), chainId, edition, 1], addr(108), 12, hash('i'));
   add('OrderFulfilled', [orderHash, addr(13), addr(109), addr(14), [{ itemType: 2, token: edition, identifier: 1, amount: 1 }], [{ itemType: 1, token: addr(110), identifier: 0, amount: 101, recipient: addr(14) }]], addr(109), 13, hash('j'));
   try {
+    await lockClient.query('SELECT pg_advisory_lock($1::bigint)', [FIXTURE_LOCK_KEY]);
     await pool.query('INSERT INTO account(id) VALUES($1)', [account]);
     await pool.query('INSERT INTO project(id,builder_account_id,slug,name) VALUES($1,$2,$3,$4)', [project, account, `reorg-${suffix}`, 'Reorg']);
     await pool.query(`INSERT INTO edition(id,project_id,chain_id,edition_address,edition_id_hash,factory_address,publisher_address,absolute_supply_cap,artwork_commitment,source_block_number,source_block_hash,source_tx_hash,source_log_index) VALUES($1,$2,$3,$4,$5,$6,$7,10,$8,1,$9,$10,0)`, [editionId, project, chainId, edition, hash('k'), factory, addr(2), hash('l'), hash('m'), genesisTx]);
@@ -95,6 +97,6 @@ test('Postgres projector routes context-free events and restores canonical state
     await pool.query('DELETE FROM seaport_fulfillment_projection WHERE order_hash=ANY($1::text[])', [orderHashes]);
     await pool.query('DELETE FROM listing_event WHERE order_hash=ANY($1::text[])', [orderHashes]);
     await pool.query('DELETE FROM royalty_claim_projection WHERE edition_id=$1', [editionId]); await pool.query('DELETE FROM listing_projection WHERE edition_id=$1', [editionId]); await pool.query('DELETE FROM advantage_state_projection WHERE edition_id=$1', [editionId]); await pool.query('DELETE FROM advantage_definition WHERE edition_id=$1', [editionId]); await pool.query('DELETE FROM pass_token_projection WHERE edition_id=$1', [editionId]); await pool.query('DELETE FROM terms_version WHERE edition_id=$1', [editionId]);
-    await pool.query('DELETE FROM notification WHERE business_key=ANY($1::text[])', [eventKeys]); await pool.query('DELETE FROM outbox_event WHERE business_key=ANY($1::text[])', [eventKeys]); await pool.query('DELETE FROM edition WHERE id=$1', [editionId]); await pool.query('DELETE FROM indexer_event WHERE chain_id=$1 AND tx_hash=ANY($2::text[])', [chainId, txHashes]); await pool.query('DELETE FROM goldsky_raw_log WHERE chain_id=$1 AND transaction_hash=ANY($2::text[])', [chainId, txHashes]); await pool.query('DELETE FROM indexer_checkpoint WHERE chain_id=$1 AND pipeline=$2', [chainId, pipeline]); await pool.query('DELETE FROM terms_advantage_commitment WHERE advantages_hash=ANY($1::text[])', [[advantagesHash, advantagesHash2]]); await pool.query('DELETE FROM project WHERE id=$1', [project]); await pool.query('DELETE FROM account WHERE id=$1', [account]); await pool.end();
+    await pool.query('DELETE FROM notification WHERE business_key=ANY($1::text[])', [eventKeys]); await pool.query('DELETE FROM outbox_event WHERE business_key=ANY($1::text[])', [eventKeys]); await pool.query('DELETE FROM edition WHERE id=$1', [editionId]); await pool.query('DELETE FROM indexer_event WHERE chain_id=$1 AND tx_hash=ANY($2::text[])', [chainId, txHashes]); await pool.query('DELETE FROM goldsky_raw_log WHERE chain_id=$1 AND transaction_hash=ANY($2::text[])', [chainId, txHashes]); await pool.query('DELETE FROM indexer_checkpoint WHERE chain_id=$1 AND pipeline=$2', [chainId, pipeline]); await pool.query('DELETE FROM terms_advantage_commitment WHERE advantages_hash=ANY($1::text[])', [[advantagesHash, advantagesHash2]]); await pool.query('DELETE FROM project WHERE id=$1', [project]); await pool.query('DELETE FROM account WHERE id=$1', [account]); await lockClient.query('SELECT pg_advisory_unlock($1::bigint)', [FIXTURE_LOCK_KEY]); lockClient.release(); await pool.end();
   }
 });

@@ -1,0 +1,15 @@
+{
+  "network": "robinhood-mainnet",
+  "protocolAdminSafe": "0x722ADAadD314dafE97979AF27Ec7F09F36766d08",
+  "safeOwners": [
+    "0x7ec76611Da0AeE7C1B11273E9767FDA1Faa31790",
+    "0xD83deFbA240568040b39bb2C8B4DB7dB02d40593"
+  ],
+  "safeThreshold": 1,
+  "primaryFeeRecipient": "0x722ADAadD314dafE97979AF27Ec7F09F36766d08",
+  "secondaryFeeRecipient": "0x722ADAadD314dafE97979AF27Ec7F09F36766d08",
+  "mockUsdgAddress": null,
+  "governanceTransition": "RAISE_THRESHOLD_TO_2_PLUS",
+  "source": "docs/release/robinhood-mainnet.safe-approval.json plus current read-only Safe verification",
+  "mainnetBroadcastAuthorized": false
+}

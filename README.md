@@ -21,7 +21,7 @@ NexMarkets V1 is an exact-serial Pass market for Robinhood Chain. USDG is the on
 
 - No Robinhood mainnet deployment has been performed.
 - Custom NexMarkets contract addresses remain unset until Safe-authorized deployment.
-- Goldsky must enable dedicated Robinhood mainnet/testnet datasets before the Turbo template can be deployed.
+- Goldsky Turbo supports the official `robinhood-mainnet` and `robinhood-testnet` datasets; deployment still requires project/API and PostgreSQL sink credentials.
 - Canonical ERC-6551 Registry runtime is verified on both Robinhood networks; custom NexPassAccount/resolver runtime checks require their eventual deployed addresses.
 - PostgreSQL integration tests require `DATABASE_URL`; when no database is available locally, those tests are explicitly skipped rather than reported as passing.
 - The referral tier percentages are fixed at 5/10/15/20; the sales-count thresholds remain an explicit business-policy input rather than invented economics.

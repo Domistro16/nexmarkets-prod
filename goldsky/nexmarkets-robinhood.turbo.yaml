@@ -1,7 +1,7 @@
 name: nexmarkets-robinhood-v1
-# Robinhood is not currently listed as a shared Goldsky dataset. Goldsky must
-# enable a dedicated EVM chain slug before deployment. The deployment command
-# replaces __ROBINHOOD_DATASET_PREFIX__ with the assigned mainnet/testnet slug.
+# The renderer substitutes the official Goldsky Robinhood network slug:
+# robinhood-mainnet or robinhood-testnet. Goldsky remains a mirror; the
+# PostgreSQL projector is responsible for canonical read-model projections.
 sources:
   robinhood_logs:
     type: dataset
