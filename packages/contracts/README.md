@@ -36,14 +36,16 @@ creation. No contract in this trio is upgradeable. Production deployment still
 requires the release evidence and Protocol Admin Safe policy recorded in the
 repository.
 
-The next reviewed boundary is `NexAdvantageRegistry`. It binds each exact
-Edition/token ID to its minted Terms version and committed Advantages hash,
-tracks time, quantity, connected, and redemption utility without changing
-ERC-721 ownership, preserves remaining utility across transfers, and blocks
-state-changing use while the Pass is listed. Redemption and quantity-use IDs
-are idempotent. Its initializer and listing authority are one-time deployed
-contract bindings; production wiring is intentionally deferred to the next
-integration review.
+The next reviewed boundary is `NexListingRegistry` plus the thin
+`NexMarketsZone`. The registry binds each Seaport order to one exact
+Edition/token ID, seller, historical Terms version, USDG price, ERC-2981
+Builder Royalty snapshot, and expiry. The zone only authenticates the verified
+Seaport 1.6 caller and forwards the canonical authorize/validate callbacks; it
+does not fork or redeploy Seaport. Listing state is the one-time authority that
+locks `NexAdvantageRegistry`, and cancellation, fill, expiry, or direct transfer
+cannot leave a stale order usable. The immediately following boundary is
+`NexRoyaltyVault`, which will hold secondary Builder Royalty for 30 days before
+withdrawal.
 
 Next contract set after this primary-launch boundary:
 

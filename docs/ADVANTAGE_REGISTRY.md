@@ -38,15 +38,15 @@ cross-Pass collisions while inconsistent retries fail.
 
 ## Listing lock
 
-The Protocol Admin binds a listing-authority contract once. That authority
-sets the exact Pass to `listed` before a listing is active and clears it only
-when the listing is cancelled or otherwise inactive. All state-changing
-utility calls fail while the Pass is listed. A direct ERC-721 transfer does
-not clear the lock; this is deliberately conservative until the listing
-authority clears stale market state. Each TimeBased Advantage tracks its own
-listing overlap: a listing before its start does not shift that start, a
-listing after expiry cannot revive it, and an active window resumes with its
-unused time when the listing is cleared.
+The Protocol Admin binds `NexListingRegistry` once as the listing-authority
+contract. That authority sets the exact Pass to `listed` before a listing is
+active and clears it only when the listing is cancelled or otherwise inactive.
+All state-changing utility calls fail while the Pass is listed. A direct
+ERC-721 transfer does not clear the lock; this is deliberately conservative
+until `NexListingRegistry.syncListing` clears stale market state. Each
+TimeBased Advantage tracks its own listing overlap: a listing before its start
+does not shift that start, a listing after expiry cannot revive it, and an
+active window resumes with its unused time when the listing is cleared.
 
 ## Authority and integration boundary
 
@@ -54,6 +54,6 @@ The Protocol Admin binds the initializer once. The initializer is expected to
 be the future mint/Advantage integration contract and must be deployed code,
 not an EOA. Before either one-time authority slot is consumed, the registry
 verifies the expected immutable registry, LaunchRegistry, and owner wiring
-exposed by that contract. This PR does not alter `NexMintController`; wiring
-the initializer after each successful mint is the next integration step.
-Production deployment is not performed by this contract gate.
+exposed by that contract. This boundary adds the listing authority, but does
+not alter `NexMintController` or wire the initializer after each successful
+mint. Production deployment is not performed by this contract gate.
