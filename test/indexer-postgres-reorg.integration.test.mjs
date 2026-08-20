@@ -60,14 +60,14 @@ test('Postgres projector routes context-free events and restores canonical state
     assert.equal((await pool.query('SELECT withdrawn FROM royalty_claim_projection WHERE order_hash=$1', [orderHash])).rows[0].withdrawn, true);
     assert.equal((await pool.query('SELECT token_bound_account FROM pass_token_projection WHERE edition_id=$1 AND token_id=1', [editionId])).rows[0].token_bound_account, addr(106));
     assert.ok((await pool.query('SELECT 1 FROM seaport_fulfillment_projection WHERE order_hash=$1 AND orphaned_at IS NULL', [orderHash])).rows[0]);
-    assert.equal((await pool.query('SELECT remaining_units FROM advantage_state_projection WHERE edition_id=$1 AND token_id=1 AND advantage_id_hash=$2', [editionId, advantageId])).rows[0].remaining_units, 3);
+    assert.equal(String((await pool.query('SELECT remaining_units FROM advantage_state_projection WHERE edition_id=$1 AND token_id=1 AND advantage_id_hash=$2', [editionId, advantageId])).rows[0].remaining_units), '3');
     await pool.query('UPDATE goldsky_raw_log SET removed=true WHERE chain_id=$1 AND transaction_hash IN ($2,$3,$4,$5,$6,$7)', [chainId, hash('4'), hash('6'), hash('8'), hash('g'), hash('i'), hash('j')]);
     await worker.runOnce();
     assert.equal((await pool.query('SELECT owner_address FROM pass_token_projection WHERE edition_id=$1 AND token_id=1', [editionId])).rows[0].owner_address, addr(12));
     assert.equal((await pool.query('SELECT status FROM listing_projection WHERE order_hash=$1', [orderHash])).rows[0].status, 'ACTIVE');
     assert.equal((await pool.query('SELECT withdrawn FROM royalty_claim_projection WHERE order_hash=$1', [orderHash])).rows[0].withdrawn, false);
     assert.equal((await pool.query('SELECT token_bound_account FROM pass_token_projection WHERE edition_id=$1 AND token_id=1', [editionId])).rows[0].token_bound_account, null);
-    assert.equal((await pool.query('SELECT remaining_units FROM advantage_state_projection WHERE edition_id=$1 AND token_id=1 AND advantage_id_hash=$2', [editionId, advantageId])).rows[0].remaining_units, 5);
+    assert.equal(String((await pool.query('SELECT remaining_units FROM advantage_state_projection WHERE edition_id=$1 AND token_id=1 AND advantage_id_hash=$2', [editionId, advantageId])).rows[0].remaining_units), '5');
     assert.equal((await pool.query('SELECT status FROM project WHERE id=$1', [project])).rows[0].status, 'PUBLISHED');
     assert.equal((await pool.query('SELECT 1 FROM seaport_fulfillment_projection WHERE order_hash=$1 AND orphaned_at IS NULL', [orderHash])).rowCount, 0);
     await pool.query('UPDATE goldsky_raw_log SET removed=false,block_hash=$3 WHERE chain_id=$1 AND transaction_hash=$2', [chainId, hash('4'), hash('z')]);
