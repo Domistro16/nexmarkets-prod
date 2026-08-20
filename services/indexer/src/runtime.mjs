@@ -272,6 +272,25 @@ export class PostgresProjectionWorker {
         projectId: context.projectId,
         tokenId: context.tokenId
       });
+      // A token's owner is the last canonical Transfer in the retained
+      // journal. Re-assert that reducer result after replay so a transient
+      // context-free event cannot leave the token projection missing.
+      const transfers = events.filter((event) => event.event_name === 'Transfer');
+      const lastTransfer = transfers.at(-1);
+      if (lastTransfer) {
+        const tokenId = BigInt(context.tokenId);
+        const mint = events.filter((event) => event.event_name === 'EditionMinted').reverse().find((event) => {
+          const args = eventArgs(event); const first = BigInt(args.firstTokenId); return tokenId >= first && tokenId < first + BigInt(args.quantity);
+        });
+        const termsHash = mint ? lower(eventArgs(mint).termsVersionHash) : ZERO;
+        const transferArgs = eventArgs(lastTransfer);
+        await client.query(
+          `INSERT INTO pass_token_projection(edition_id,token_id,owner_address,terms_hash,minted_block_number,latest_block_number,latest_block_hash,latest_tx_hash,latest_log_index,finalized)
+           VALUES($1,$2,$3,$4,$5,$5,$6,$7,$8,false)
+           ON CONFLICT(edition_id,token_id) DO UPDATE SET owner_address=excluded.owner_address,terms_hash=CASE WHEN pass_token_projection.terms_hash=$4 THEN excluded.terms_hash ELSE pass_token_projection.terms_hash END,orphaned_at=NULL`,
+          [context.editionId, context.tokenId, lower(transferArgs.to), termsHash, lastTransfer.block_number, lastTransfer.block_hash, lastTransfer.transaction_hash.toLowerCase(), lastTransfer.log_index]
+        );
+      }
     } else if (context.editionId) {
       await client.query('UPDATE terms_version SET orphaned_at=COALESCE(orphaned_at,now()),finalized=false WHERE edition_id=$1', [context.editionId]);
       await client.query('UPDATE edition SET orphaned_at=COALESCE(orphaned_at,now()),finalized=false WHERE id=$1', [context.editionId]);
