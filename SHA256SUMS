@@ -160,7 +160,7 @@ c37e87075ed4ddac4ca8ba6e56e362e861bde554ce61ba3b353f36845496e0b9  ./test/chain-w
 7a7d70da696cf8153ce3c78db2125dcb6e19aa51256b31ca7978f7c33674f524  ./test/config.test.mjs
 e9c861cb835d92811807d13f95b5d2c2687b782d16088d209a38e225146cc945  ./test/domain.test.mjs
 4021fde2bab3e0c7f2ee5099e2d0d39790f36bd2b53e67efb86af97d893d9e86  ./test/fixtures/deployment-inputs.testnet.json
-5ee49854cd4a780471efeaa18d011178d6513e1da70ed0c1c87542d59f8f638b  ./test/indexer-postgres-reorg.integration.test.mjs
+cc2157b7b5d1137503fa433a6ec3193350db83a8eace03cf7f878294b096c4bb  ./test/indexer-postgres-reorg.integration.test.mjs
 a01ad31066c31079fdddec1ef902b788698706f85e3ebd634444329faa1ded20  ./test/indexer.test.mjs
 e0e07ae56ae225d592072843d999fe0d7f48a34fe5776c45e9b41d96a0a8578c  ./test/keccak.test.mjs
 5f6d25d791cb29ccd058e3056de148808d706b118b0dfa59af07860c40a3cee4  ./test/notification.test.mjs
@@ -168,7 +168,7 @@ e0e07ae56ae225d592072843d999fe0d7f48a34fe5776c45e9b41d96a0a8578c  ./test/keccak.
 fae9984973c877d295f6e1db31ce099bbf356710c3b09d8c31445be764285c2a  ./test/outbox.test.mjs
 26d95fca9f03ce419b4f6707a55082ff4d9519a5e42e46fc72d4280490219368  ./test/reconciliation.test.mjs
 27e616a7254c1ec1c36d41d11abf0759042d59563281e066bcac67a1faa88d27  ./test/referral-media.test.mjs
-a8fb5e53a6074d06d5695dbfc2729c230a3a2e584190862f050c769f17b406ad  ./test/runtime-integration.test.mjs
+4cfbddf69f89876971d8074b3990bdf9472f46411baf062f6b99bcad1c6fa98f  ./test/runtime-integration.test.mjs
 f41e2b34bdc2b9ad94908ee418a1b32a56e54fd9c5084e6bfa801f03d4198aff  ./test/schema.test.mjs
 470ddc51826bcb351d9290f16f9634ed11ce31d9b2d7cbf24c33259f62bb2175  ./test/seaport-order.test.mjs
 f3ab49089c06036bca30b050ae794797b311cee8587bc1cf66bbfba30eca6f4c  ./test/transaction-calldata.test.mjs
