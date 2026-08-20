@@ -250,7 +250,12 @@ export class PostgresProjectionWorker {
       await client.query('DELETE FROM listing_projection WHERE order_hash=$1', [context.orderHash]);
       await client.query('DELETE FROM royalty_claim_projection WHERE order_hash=$1', [context.orderHash]);
       await client.query('DELETE FROM seaport_fulfillment_projection WHERE order_hash=$1', [context.orderHash]);
-      const events = await this.canonicalEvents(client, row, (event, args) => orderHashOf(args) === context.orderHash);
+      const { rows: events } = await client.query(
+        `SELECT chain_id,block_number,block_hash,tx_hash AS transaction_hash,log_index,contract_address,event_signature,event_name,payload,block_timestamp
+         FROM indexer_event
+         WHERE chain_id=$1 AND orphaned_at IS NULL AND payload->>'orderHash'=$2
+         ORDER BY block_number,log_index`, [row.chain_id, context.orderHash]
+      );
       const orderContext = {
         editionAddress: context.editionAddress,
         editionId: context.editionId,
