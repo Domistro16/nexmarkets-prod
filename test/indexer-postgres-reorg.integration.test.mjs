@@ -5,7 +5,10 @@ import { Interface } from 'ethers';
 import { PostgresProjectionWorker } from '../services/indexer/src/runtime.mjs';
 
 const addr = (n) => `0x${String(n).padStart(40, '0')}`;
-const hash = (n) => `0x${String(n).repeat(64).slice(0, 64)}`;
+const hash = (n) => {
+  const seed = [...String(n)].map((char) => char.charCodeAt(0).toString(16).padStart(2, '0')).join('') || '00';
+  return `0x${seed.repeat(Math.ceil(64 / seed.length)).slice(0, 64)}`;
+};
 const EVENTS = new Interface([
   'event TermsPublished(address indexed edition,bytes32 indexed termsVersionHash,uint64 indexed version,uint256 activeSupply,uint256 pricePerPass,uint64 previewStartsAt,uint64 mintStartsAt,uint64 mintEndsAt,address primaryRecipient,address royaltyReceiver,uint96 royaltyBps,bytes32 advantagesHash,bytes32 referralTermsHash)',
   'event Transfer(address indexed from,address indexed to,uint256 indexed tokenId)',

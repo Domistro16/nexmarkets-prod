@@ -120,12 +120,11 @@ export class ChainLifecycleWorker {
 
   async recordRetry(row, error) {
     const attempt = Number(row.attempt ?? 0) + 1;
-    const dead = attempt >= this.maxAttempts;
     await this.pool.query(
       `INSERT INTO transaction_job(id,transaction_id,job_type,attempt,next_attempt_at,last_error)
        VALUES($1,$2,'CHAIN_LIFECYCLE',$3,now()+($4::text||' seconds')::interval,$5)
        ON CONFLICT(transaction_id,job_type) DO UPDATE SET attempt=$3,next_attempt_at=now()+($4::text||' seconds')::interval,last_error=$5,completed_at=NULL`,
-      [`job_${sha(row.id)}`, row.id, attempt, Math.min(900, 2 ** Math.min(attempt, 9)), String(error.message).slice(0, 1000), dead]
+      [`job_${sha(row.id)}`, row.id, attempt, Math.min(900, 2 ** Math.min(attempt, 9)), String(error.message).slice(0, 1000)]
     );
   }
 

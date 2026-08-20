@@ -17,11 +17,13 @@ export class PostgresReconciliationStore {
     const { rows } = await this.pool.query(
       `SELECT pt.edition_id,pt.token_id,pt.owner_address,pt.terms_hash,pt.token_bound_account,e.edition_address,e.chain_id,
               a.advantage_id_hash,a.remaining_units,a.listed advantage_listed,
-              l.order_hash,l.status listing_status,l.edition_id listing_edition_id,l.token_id listing_token_id,l.seller_address,l.terms_hash listing_terms_hash,l.price_usdg listing_price,l.royalty_usdg,l.royalty_bps listing_royalty_bps,l.royalty_receiver,l.starts_at,l.expires_at,l.zone_hash,
+              l.order_hash,l.status listing_status,l.edition_id listing_edition_id,l.token_id listing_token_id,l.seller_address,l.terms_hash listing_terms_hash,l.price_usdg listing_price,l.royalty_usdg,l.starts_at,l.expires_at,l.zone_hash,
+              lt.royalty_receiver listing_royalty_receiver,lt.royalty_bps listing_royalty_bps,
               r.builder_address,r.amount_usdg,r.release_at,r.withdrawn
        FROM pass_token_projection pt JOIN edition e ON e.id=pt.edition_id
        LEFT JOIN advantage_state_projection a ON a.edition_id=pt.edition_id AND a.token_id=pt.token_id AND a.orphaned_at IS NULL
        LEFT JOIN LATERAL (SELECT * FROM listing_projection x WHERE x.edition_id=pt.edition_id AND x.token_id=pt.token_id AND x.orphaned_at IS NULL ORDER BY x.updated_at DESC LIMIT 1) l ON true
+       LEFT JOIN terms_version lt ON lt.edition_id=l.edition_id AND lt.terms_hash=l.terms_hash AND lt.orphaned_at IS NULL
        LEFT JOIN royalty_claim_projection r ON r.edition_id=pt.edition_id AND r.token_id=pt.token_id AND r.orphaned_at IS NULL
        WHERE e.chain_id=$1 AND pt.orphaned_at IS NULL LIMIT 5000`, [this.chainId]
     );
@@ -42,7 +44,7 @@ export class PostgresReconciliationStore {
       expected: {
         owner: row.owner_address, tokenTerms: row.terms_hash, tba: row.token_bound_account,
         ...(row.advantage_id_hash ? { advantage: { remaining: String(row.remaining_units), listed: Boolean(row.advantage_listed) } } : {}),
-        ...(row.order_hash ? { listing: { edition: row.edition_address, tokenId: String(row.listing_token_id), seller: row.seller_address, termsVersionHash: row.listing_terms_hash, usdGPrice: String(row.listing_price), royaltyReceiver: row.royalty_receiver, royaltyBps: String(row.listing_royalty_bps), startTime: termsSeconds(row.starts_at), expiry: termsSeconds(row.expires_at), zoneHash: row.zone_hash, status: row.listing_status } } : {}),
+        ...(row.order_hash ? { listing: { edition: row.edition_address, tokenId: String(row.listing_token_id), seller: row.seller_address, termsVersionHash: row.listing_terms_hash, usdGPrice: String(row.listing_price), royaltyReceiver: row.listing_royalty_receiver, royaltyBps: String(row.listing_royalty_bps), startTime: termsSeconds(row.starts_at), expiry: termsSeconds(row.expires_at), zoneHash: row.zone_hash, status: row.listing_status } } : {}),
         ...(row.amount_usdg != null ? { royalty: { edition: row.edition_address, tokenId: String(row.token_id), builder: row.builder_address, amount: String(row.amount_usdg), releaseAt: Math.floor(new Date(row.release_at).getTime() / 1000), withdrawn: Boolean(row.withdrawn) }, withdrawal: Boolean(row.withdrawn) } : {})
       },
       authority: { owner: 'ERC721', tokenTerms: 'NEX_PASS_EDITION', tba: 'NEX_TBA_RESOLVER', advantage: 'NEX_ADVANTAGE_REGISTRY', listing: 'NEX_LISTING_REGISTRY', royalty: 'NEX_ROYALTY_VAULT', withdrawal: 'NEX_ROYALTY_VAULT' },
