@@ -37,7 +37,13 @@ test('Safe Edition evidence binds predicted address, Protocol Admin and MintCont
 
 test('Postgres Goldsky raw log projects Edition and advances checkpoint', { skip: !process.env.DATABASE_URL }, async (t) => {
   const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
-  const chainId = 46630; const suffix = `${Date.now()}${Math.floor(Math.random() * 10000)}`; const accountId = `acct_it_${suffix}`; const projectId = `prj_it_${suffix}`; const requestId = `edreq_it_${suffix}`;
+  // Keep this fixture on an isolated synthetic chain identity. The production
+  // projector intentionally consumes every landed log for a chain; using the
+  // real testnet chain ID here would make this assertion race with the larger
+  // reorg fixture when Node runs DB tests concurrently.
+  const suffix = `${Date.now()}${Math.floor(Math.random() * 10000)}`;
+  const chainId = 900000000 + Number(suffix.slice(-6));
+  const accountId = `acct_it_${suffix}`; const projectId = `prj_it_${suffix}`; const requestId = `edreq_it_${suffix}`;
   const edition = addr(11); const editionId = hash('d'); const tx = hash('e'); const blockHash = hash('f');
   try {
     await pool.query('INSERT INTO account(id) VALUES($1)', [accountId]);
