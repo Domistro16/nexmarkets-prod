@@ -239,8 +239,8 @@ export class PostgresProjectionWorker {
     return rows.filter((event) => matcher(event, eventArgs(event)));
   }
 
-  async replayEvents(client, events) {
-    for (const event of events) await this.applyProjection(client, event, { eventName: event.event_name, eventSignature: event.event_signature, args: eventArgs(event) });
+  async replayEvents(client, events, contextOverride = null) {
+    for (const event of events) await this.applyProjection(client, event, { eventName: event.event_name, eventSignature: event.event_signature, args: eventArgs(event) }, contextOverride);
   }
 
   async rebuildAffected(client, row, decoded) {
@@ -251,7 +251,13 @@ export class PostgresProjectionWorker {
       await client.query('DELETE FROM royalty_claim_projection WHERE order_hash=$1', [context.orderHash]);
       await client.query('DELETE FROM seaport_fulfillment_projection WHERE order_hash=$1', [context.orderHash]);
       const events = await this.canonicalEvents(client, row, (event, args) => orderHashOf(args) === context.orderHash);
-      await this.replayEvents(client, events);
+      await this.replayEvents(client, events, {
+        editionAddress: context.editionAddress,
+        editionId: context.editionId,
+        projectId: context.projectId,
+        orderHash: context.orderHash,
+        tokenId: context.tokenId
+      });
     }
     if (context.editionId && context.tokenId != null) {
       await client.query('DELETE FROM pass_token_projection WHERE edition_id=$1 AND token_id=$2', [context.editionId, context.tokenId]);
@@ -260,7 +266,12 @@ export class PostgresProjectionWorker {
         const address = lower(args.edition ?? (event.event_name === 'ERC6551AccountCreated' ? args.tokenContract : event.contract_address));
         return address === context.editionAddress && args.tokenId != null && String(args.tokenId) === context.tokenId;
       });
-      await this.replayEvents(client, events);
+      await this.replayEvents(client, events, {
+        editionAddress: context.editionAddress,
+        editionId: context.editionId,
+        projectId: context.projectId,
+        tokenId: context.tokenId
+      });
     } else if (context.editionId) {
       await client.query('UPDATE terms_version SET orphaned_at=COALESCE(orphaned_at,now()),finalized=false WHERE edition_id=$1', [context.editionId]);
       await client.query('UPDATE edition SET orphaned_at=COALESCE(orphaned_at,now()),finalized=false WHERE id=$1', [context.editionId]);
@@ -280,7 +291,7 @@ export class PostgresProjectionWorker {
     }
   }
 
-  async applyProjection(client, row, decoded) {
+  async applyProjection(client, row, decoded, contextOverride = null) {
     const a = decoded.args; const source = [row.block_number, row.block_hash, row.transaction_hash.toLowerCase(), row.log_index];
     if (decoded.eventName === 'EditionCreated') {
       const request = await client.query('SELECT * FROM edition_request WHERE chain_id=$1 AND edition_id_hash=$2', [row.chain_id, lower(a.editionId)]);
@@ -305,7 +316,7 @@ export class PostgresProjectionWorker {
       );
       return;
     }
-    const context = await resolveEventContext(client, row, decoded);
+    const context = contextOverride ?? await resolveEventContext(client, row, decoded);
     const editionAddress = context.editionAddress ?? eventAddress(a, row);
     const edition = await client.query('SELECT id,project_id FROM edition WHERE chain_id=$1 AND edition_address=$2 AND orphaned_at IS NULL', [row.chain_id, editionAddress]);
     if (!edition.rows[0] && decoded.eventName !== 'EditionRegistered') return;
