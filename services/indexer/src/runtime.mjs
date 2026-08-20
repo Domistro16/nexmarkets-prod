@@ -310,6 +310,24 @@ export class PostgresProjectionWorker {
           [context.editionId, context.tokenId, lower(transferArgs.to), termsHash, lastTransfer.block_number, lastTransfer.block_hash, lastTransfer.transaction_hash.toLowerCase(), lastTransfer.log_index]
         );
       }
+      const initialized = events.find((event) => event.event_name === 'PassAdvantagesInitialized');
+      if (initialized) {
+        const initializedArgs = eventArgs(initialized);
+        const commitment = await client.query('SELECT configs FROM terms_advantage_commitment WHERE advantages_hash=$1', [lower(initializedArgs.advantagesHash)]);
+        for (const config of commitment.rows[0]?.configs ?? []) {
+          const advantageId = lower(config.advantageId);
+          const consumed = events.filter((event) => event.event_name === 'AdvantageConsumed' && lower(eventArgs(event).advantageId) === advantageId).at(-1);
+          const listedEvent = events.filter((event) => event.event_name === 'PassListingStateSet').at(-1);
+          const sourceEvent = consumed ?? listedEvent ?? initialized;
+          const sourceArgs = eventArgs(sourceEvent);
+          await client.query(
+            `INSERT INTO advantage_state_projection(edition_id,token_id,advantage_id_hash,remaining_units,frozen_seconds,listed,source_block_number,source_block_hash,source_tx_hash,source_log_index,finalized)
+             VALUES($1,$2,$3,$4,0,$5,$6,$7,$8,$9,false)
+             ON CONFLICT(edition_id,token_id,advantage_id_hash) DO UPDATE SET remaining_units=excluded.remaining_units,listed=excluded.listed,source_block_number=excluded.source_block_number,source_block_hash=excluded.source_block_hash,source_tx_hash=excluded.source_tx_hash,source_log_index=excluded.source_log_index,orphaned_at=NULL`,
+            [context.editionId, context.tokenId, advantageId, consumed ? sourceArgs.remainingUnits : (config.totalUnits ?? 0), listedEvent ? Boolean(eventArgs(listedEvent).listed) : false, sourceEvent.block_number, sourceEvent.block_hash, sourceEvent.transaction_hash.toLowerCase(), sourceEvent.log_index]
+          );
+        }
+      }
     } else if (context.editionId) {
       await client.query('UPDATE terms_version SET orphaned_at=COALESCE(orphaned_at,now()),finalized=false WHERE edition_id=$1', [context.editionId]);
       await client.query('UPDATE edition SET orphaned_at=COALESCE(orphaned_at,now()),finalized=false WHERE id=$1', [context.editionId]);
