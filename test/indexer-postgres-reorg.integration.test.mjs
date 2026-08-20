@@ -28,6 +28,7 @@ test('Postgres projector routes context-free events and restores canonical state
   const account = `acct_reorg_${suffix}`; const project = `prj_reorg_${suffix}`; const editionId = `ed_reorg_${suffix}`; const edition = addr(101); const factory = addr(102); const genesisTx = hash('0');
   const advantageId = hash('a'); const termsHash = hash('b'); const advantagesHash = hash('c'); const referralHash = hash('d'); const orderHash = hash('e'); const orderHash2 = hash('q'); const orderHash3 = hash('r');
   const configs = [{ advantageId, kind: 1, startsAt: 1, endsAt: 9999999999, totalUnits: 5, definitionHash: hash('f') }];
+  const pipeline = `goldsky-reorg-${suffix}`;
   const raw = [];
   const add = (name, args, contract, block, tx, logIndex = 0, removed = false, blockHash = hash(String(block))) => {
     const encoded = EVENTS.encodeEventLog(EVENTS.getEvent(name), args); raw.push({ chainId, block, blockHash, tx, logIndex, contract, topic0: encoded.topics[0], topics: encoded.topics, data: encoded.data, removed });
@@ -52,7 +53,6 @@ test('Postgres projector routes context-free events and restores canonical state
     await pool.query(`INSERT INTO edition(id,project_id,chain_id,edition_address,edition_id_hash,factory_address,publisher_address,absolute_supply_cap,artwork_commitment,source_block_number,source_block_hash,source_tx_hash,source_log_index) VALUES($1,$2,$3,$4,$5,$6,$7,10,$8,1,$9,$10,0)`, [editionId, project, chainId, edition, hash('k'), factory, addr(2), hash('l'), hash('m'), genesisTx]);
     await pool.query('INSERT INTO terms_advantage_commitment(advantages_hash,builder_account_id,edition_address,terms_payload,configs) VALUES($1,$2,$3,$4::jsonb,$5::jsonb)', [advantagesHash, account, edition, '{}', JSON.stringify(configs)]);
     for (const item of raw) await pool.query(`INSERT INTO goldsky_raw_log(chain_id,block_number,block_hash,transaction_hash,log_index,contract_address,topic0,topics,data,block_timestamp,removed) VALUES($1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9,now(),$10)`, [item.chainId, item.block, item.blockHash, item.tx, item.logIndex, item.contract, item.topic0, JSON.stringify(item.topics), item.data, item.removed]);
-    const pipeline = `goldsky-reorg-${suffix}`;
     const worker = new PostgresProjectionWorker({ pool, chainId, pipeline, rpc: { async getBlockNumber() { return 100; }, async getBlockByNumber(number) { return { hash: hash(String(number)) }; } }, finalityDepth: 2, batchSize: 100 });
     await worker.runOnce();
     assert.equal((await pool.query('SELECT owner_address FROM pass_token_projection WHERE edition_id=$1 AND token_id=1', [editionId])).rows[0].owner_address, addr(13));
