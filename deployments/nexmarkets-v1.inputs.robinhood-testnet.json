@@ -1,5 +1,6 @@
 {
   "network": "robinhood-testnet",
+  "deploymentSourceCommit": "8790b635ba55512e5d0e295fb1217a3993ecdafb",
   "deploymentStatus": "BLOCKED_TESTNET_DEPLOYMENT_PREREQUISITES",
   "protocolAdminSafe": null,
   "safeOwners": [],

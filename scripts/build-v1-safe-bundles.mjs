@@ -5,6 +5,9 @@ const root = new URL('../', import.meta.url);
 const network = process.argv.includes('--mainnet') ? 'robinhood-mainnet' : 'robinhood-testnet';
 const plan = JSON.parse(await readFile(new URL(`artifacts/deployment-plan/${network}.json`, root), 'utf8'));
 if (plan.status !== 'DRY_RUN_ONLY' || plan.mainnetDeploymentPerformed !== false) throw new Error('unsafe or malformed deployment plan');
+if (plan.sourceVerification?.mode !== 'FROZEN_SOURCE_COMMIT' || !/^[0-9a-f]{40}$/i.test(plan.sourceCommit ?? '')) {
+  throw new Error('SAFE_BUNDLE_SOURCE_COMMIT_REQUIRED');
+}
 
 const factory = new Interface(['function safeCreate2(bytes32 salt,bytes initializationCode) payable returns (address)']);
 const setters = {

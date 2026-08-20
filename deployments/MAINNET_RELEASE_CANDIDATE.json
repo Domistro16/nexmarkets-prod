@@ -63,6 +63,14 @@
       "wiringBundleTransactions": 6,
       "mainnetCustomDeploymentAlreadyPerformed": false
     },
+    "sourceVerification": {
+      "mode": "FROZEN_SOURCE_COMMIT",
+      "sourceCommit": "8790b635ba55512e5d0e295fb1217a3993ecdafb",
+      "comparedAgainst": "e5da0d18bf1f09ab358bc82d9c14c9db7a461825",
+      "deploymentInputsHash": "48c5f2c5cbd13d9688e679ea7c38e45655de1c088dd7545b82924cfb5b5e808e",
+      "differences": [],
+      "mainnetReproduction": "EXACT_ADDRESS_SET_REPRODUCED"
+    },
     "contractHashes": {
       "NexLaunchRegistry": { "salt": "0x722adaadd314dafe97979af27ec7f09f36766d0823bfd3764d6062f203cab5e2", "initCodeHash": "0x2263882c49822cc5966575da2e877d58124060de13ceed9209d9215f79853b40", "normalizedRuntimeTemplateHash": "0xa19507d40e9d010c674d381630354caaaacc1f9907c540e657080400cd9cb667" },
       "NexMintController": { "salt": "0x722adaadd314dafe97979af27ec7f09f36766d0885497d7792ac460c4158761b", "initCodeHash": "0x22974ccc16593f30baebb1395a6912118c9a094fe5dceffc4f8abd5c991d87ff", "normalizedRuntimeTemplateHash": "0xeacc4890ec5aaf5a2c3231afdaea0271c24a777ae7485b80e4dfbfa8bd57e0d6" },
@@ -76,7 +84,7 @@
       "NexTBAResolver": { "salt": "0x722adaadd314dafe97979af27ec7f09f36766d08535e778ec502383cf7bc92a1", "initCodeHash": "0x3cc8a1dd3b34c9eded185393c9600bacc16c2ccbc0bda0cf2aa8b7dbf0b9158d", "normalizedRuntimeTemplateHash": "0x11531698f02c0e67448a825806d5b91d62b7be2851a40755b5dc9f4faced50da" }
     },
     "releaseArtifacts": {
-      "deploymentPlan": { "path": "artifacts/deployment-plan/robinhood-mainnet.json", "sha256": "38c8046fba9be8749ae874dd269a9f534df8eac7f0a7640b34374196674e29ac" },
+      "deploymentPlan": { "path": "artifacts/deployment-plan/robinhood-mainnet.json", "sha256": "302d97a465d7ebe08c074b18966393dc9e55ce7650c9af4d7ee3686c776827d4" },
       "safeDeploymentBundle": { "path": "artifacts/deployment-plan/robinhood-mainnet.deploy.safe.json", "sha256": "b21597207da73b4a82995b2d7843a783dc6a7653dfa775effb23d909d34d5f80", "transactions": 10 },
       "safeWiringBundle": { "path": "artifacts/deployment-plan/robinhood-mainnet.wire.safe.json", "sha256": "269b9931a2ea117459241375f85c1299a04a47d7350080cfb4baf80f667842ce", "transactions": 6 }
     }
@@ -89,14 +97,14 @@
   "tests": {
     "foundry": "71/71",
     "serialFuzzRuns": 5000,
-    "nodePostgres": "73/73",
+    "nodePostgres": "77/77",
     "webTests": "6/6",
     "webBuildRoutes": 10,
     "migrations": "2 migrations / 34 required tables",
     "goldskyCatalogEvents": 22,
-    "checksums": 181,
+    "checksums": 183,
     "npmAudit": "0 vulnerabilities",
-    "secretScan": "182 files / 0 findings"
+    "secretScan": "184 files / 0 findings"
   },
   "ci": {
     "contracts": "PASS",

@@ -40,6 +40,7 @@ jobs:
       - run: node --check scripts/deploy-safe.mjs
       - run: node --check scripts/verify-safe-approval.mjs
       - run: node --check scripts/plan-v1-deployment.mjs
+      - run: node --check scripts/deployment-source.mjs
       - run: node --check scripts/build-v1-safe-bundles.mjs
       - run: node --check scripts/verify-v1-deployment.mjs
       - run: node --check scripts/render-goldsky-config.mjs

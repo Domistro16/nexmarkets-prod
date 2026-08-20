@@ -49,7 +49,7 @@ jobs:
         run: test "$(cast keccak "$(forge inspect NexPassAccount deployedBytecode)")" = "0xc849f1d83cf1d83f7f1de0a071c117b32e94d59aacf3e8c3599ee7cc69e52963"
       - name: Verify deterministic Safe deployment planner and bundles
         run: |
-          node ../../scripts/plan-v1-deployment.mjs --inputs=test/fixtures/deployment-inputs.testnet.json
+          node ../../scripts/plan-v1-deployment.mjs --source-commit=8790b635ba55512e5d0e295fb1217a3993ecdafb --inputs=test/fixtures/deployment-inputs.testnet.json
           node ../../scripts/build-v1-safe-bundles.mjs
       - name: Run contract tests
         run: forge test -vvv
