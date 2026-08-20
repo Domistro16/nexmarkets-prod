@@ -19,10 +19,14 @@ contract AdvantageMockUSDG is ERC20 {
 }
 
 contract AdvantageInitializerMock {
-    NexAdvantageRegistry public immutable registry;
+    NexAdvantageRegistry public immutable advantageRegistry;
+    NexLaunchRegistry public immutable launchRegistry;
+    address public immutable owner;
 
-    constructor(NexAdvantageRegistry registry_) {
-        registry = registry_;
+    constructor(NexAdvantageRegistry registry_, NexLaunchRegistry launchRegistry_, address owner_) {
+        advantageRegistry = registry_;
+        launchRegistry = launchRegistry_;
+        owner = owner_;
     }
 
     function initializePass(
@@ -32,19 +36,21 @@ contract AdvantageInitializerMock {
         bytes32 advantagesHash,
         NexAdvantageRegistry.AdvantageConfig[] calldata configs
     ) external {
-        registry.initializePass(edition, tokenId, termsVersionHash, advantagesHash, configs);
+        advantageRegistry.initializePass(edition, tokenId, termsVersionHash, advantagesHash, configs);
     }
 }
 
 contract AdvantageListingAuthorityMock {
-    NexAdvantageRegistry public immutable registry;
+    NexAdvantageRegistry public immutable advantageRegistry;
+    address public immutable owner;
 
-    constructor(NexAdvantageRegistry registry_) {
-        registry = registry_;
+    constructor(NexAdvantageRegistry registry_, address owner_) {
+        advantageRegistry = registry_;
+        owner = owner_;
     }
 
     function setListed(address edition, uint256 tokenId, bool listed) external {
-        registry.setListed(edition, tokenId, listed);
+        advantageRegistry.setListed(edition, tokenId, listed);
     }
 }
 
@@ -67,9 +73,11 @@ contract NexAdvantageRegistryTest is Test {
     bytes32 internal constant EDITION_ID = keccak256("nexadvantage:edition");
     bytes32 internal constant ARTWORK_COMMITMENT = keccak256("nexadvantage:artwork");
     bytes32 internal constant SALT = keccak256("nexadvantage:salt");
-    bytes32 internal constant ADVANTAGES_HASH = keccak256("nexadvantage:definitions:v1");
+    bytes32 internal ADVANTAGES_HASH;
     bytes32 internal constant REFERRALS_HASH = keccak256("nexadvantage:referrals:v1");
     uint256 internal constant PRICE = 1_000_000;
+    uint64 internal advantageStartsAt;
+    uint64 internal advantageEndsAt;
 
     function setUp() public {
         usdg = new AdvantageMockUSDG();
@@ -94,6 +102,10 @@ contract NexAdvantageRegistryTest is Test {
 
         uint64 previewStartsAt = uint64(block.timestamp);
         uint64 mintStartsAt = previewStartsAt + 1 days;
+        advantageStartsAt = mintStartsAt;
+        advantageEndsAt = mintStartsAt + 30 days;
+        NexAdvantageRegistry.AdvantageConfig[] memory canonicalConfigs = _canonicalConfigs();
+        ADVANTAGES_HASH = keccak256(abi.encode(keccak256("NEXMARKETS_ADVANTAGES_V1"), canonicalConfigs));
         NexLaunchRegistry.Terms memory terms = NexLaunchRegistry.Terms({
             activeSupply: 3,
             pricePerPass: PRICE,
@@ -125,8 +137,8 @@ contract NexAdvantageRegistryTest is Test {
         mintController.mint(request);
 
         advantages = new NexAdvantageRegistry(OWNER, launchRegistry);
-        initializer = new AdvantageInitializerMock(advantages);
-        listingAuthority = new AdvantageListingAuthorityMock(advantages);
+        initializer = new AdvantageInitializerMock(advantages, launchRegistry, OWNER);
+        listingAuthority = new AdvantageListingAuthorityMock(advantages, OWNER);
         vm.prank(OWNER);
         advantages.setInitializer(address(initializer));
         vm.prank(OWNER);
@@ -150,25 +162,42 @@ contract NexAdvantageRegistryTest is Test {
         });
     }
 
+    function _canonicalConfigs() internal view returns (NexAdvantageRegistry.AdvantageConfig[] memory configs) {
+        configs = new NexAdvantageRegistry.AdvantageConfig[](4);
+        configs[0] = _config(
+            keccak256("time"), NexAdvantageRegistry.AdvantageKind.TimeBased, advantageStartsAt, advantageEndsAt, 0
+        );
+        configs[1] = _config(
+            keccak256("quantity"),
+            NexAdvantageRegistry.AdvantageKind.QuantityBased,
+            advantageStartsAt,
+            advantageEndsAt,
+            5
+        );
+        configs[2] = _config(
+            keccak256("connected"), NexAdvantageRegistry.AdvantageKind.Connected, advantageStartsAt, advantageEndsAt, 0
+        );
+        configs[3] = _config(
+            keccak256("redemption"),
+            NexAdvantageRegistry.AdvantageKind.Redemption,
+            advantageStartsAt,
+            advantageEndsAt,
+            3
+        );
+    }
+
     function _initialize(uint256 tokenId, NexAdvantageRegistry.AdvantageConfig[] memory configs) internal {
         bytes32 termsHash = edition.termsVersionHashOf(tokenId);
         initializer.initializePass(address(edition), tokenId, termsHash, ADVANTAGES_HASH, configs);
     }
 
     function testInitializesAllAdvantageKindsAndBindsTerms() public {
-        uint64 startsAt = uint64(block.timestamp);
-        uint64 endsAt = startsAt + 30 days;
-        NexAdvantageRegistry.AdvantageConfig[] memory configs = new NexAdvantageRegistry.AdvantageConfig[](4);
-        configs[0] = _config(keccak256("time"), NexAdvantageRegistry.AdvantageKind.TimeBased, startsAt, endsAt, 0);
-        configs[1] =
-            _config(keccak256("quantity"), NexAdvantageRegistry.AdvantageKind.QuantityBased, startsAt, endsAt, 5);
-        configs[2] = _config(keccak256("connected"), NexAdvantageRegistry.AdvantageKind.Connected, startsAt, endsAt, 0);
-        configs[3] =
-            _config(keccak256("redemption"), NexAdvantageRegistry.AdvantageKind.Redemption, startsAt, endsAt, 3);
+        NexAdvantageRegistry.AdvantageConfig[] memory configs = _canonicalConfigs();
 
         _initialize(1, configs);
 
         NexAdvantageRegistry.PassRecord memory record = advantages.passInfo(address(edition), 1);
+        assertEq(advantages.hashAdvantages(configs), ADVANTAGES_HASH);
         assertEq(record.termsVersionHash, edition.termsVersionHashOf(1));
         assertEq(record.advantagesHash, ADVANTAGES_HASH);
         assertEq(record.advantageCount, 4);
@@ -181,111 +210,89 @@ contract NexAdvantageRegistryTest is Test {
     }
 
     function testTransferPreservesRemainingAdvantage() public {
-        uint64 startsAt = uint64(block.timestamp);
-        NexAdvantageRegistry.AdvantageConfig[] memory configs = new NexAdvantageRegistry.AdvantageConfig[](1);
-        configs[0] = _config(
-            keccak256("redemption"), NexAdvantageRegistry.AdvantageKind.Redemption, startsAt, startsAt + 30 days, 3
-        );
+        NexAdvantageRegistry.AdvantageConfig[] memory configs = _canonicalConfigs();
         _initialize(1, configs);
 
         vm.prank(ALICE);
-        assertTrue(advantages.redeem(address(edition), 1, configs[0].advantageId, keccak256("claim:1")));
-        assertEq(advantages.remaining(address(edition), 1, configs[0].advantageId), 2);
+        assertTrue(advantages.redeem(address(edition), 1, configs[3].advantageId, keccak256("claim:1")));
+        assertEq(advantages.remaining(address(edition), 1, configs[3].advantageId), 2);
 
         vm.prank(ALICE);
         edition.transferFrom(ALICE, BOB, 1);
         assertEq(edition.ownerOf(1), BOB);
-        assertEq(advantages.remaining(address(edition), 1, configs[0].advantageId), 2);
+        assertEq(advantages.remaining(address(edition), 1, configs[3].advantageId), 2);
 
         vm.prank(BOB);
-        assertTrue(advantages.redeem(address(edition), 1, configs[0].advantageId, keccak256("claim:2")));
-        assertEq(advantages.remaining(address(edition), 1, configs[0].advantageId), 1);
+        assertTrue(advantages.redeem(address(edition), 1, configs[3].advantageId, keccak256("claim:2")));
+        assertEq(advantages.remaining(address(edition), 1, configs[3].advantageId), 1);
     }
 
     function testListedPassCannotConsumeAndLockSurvivesTransfer() public {
-        uint64 startsAt = uint64(block.timestamp);
-        NexAdvantageRegistry.AdvantageConfig[] memory configs = new NexAdvantageRegistry.AdvantageConfig[](1);
-        configs[0] = _config(
-            keccak256("listed-redemption"),
-            NexAdvantageRegistry.AdvantageKind.Redemption,
-            startsAt,
-            startsAt + 30 days,
-            2
-        );
+        NexAdvantageRegistry.AdvantageConfig[] memory configs = _canonicalConfigs();
         _initialize(1, configs);
 
         listingAuthority.setListed(address(edition), 1, true);
         vm.prank(ALICE);
         vm.expectRevert(NexAdvantageRegistry.ListedPass.selector);
-        advantages.redeem(address(edition), 1, configs[0].advantageId, keccak256("listed:1"));
+        advantages.redeem(address(edition), 1, configs[3].advantageId, keccak256("listed:1"));
 
         vm.prank(ALICE);
         edition.transferFrom(ALICE, BOB, 1);
         assertTrue(advantages.isListed(address(edition), 1));
         vm.prank(BOB);
         vm.expectRevert(NexAdvantageRegistry.ListedPass.selector);
-        advantages.redeem(address(edition), 1, configs[0].advantageId, keccak256("listed:2"));
+        advantages.redeem(address(edition), 1, configs[3].advantageId, keccak256("listed:2"));
 
         listingAuthority.setListed(address(edition), 1, false);
         vm.prank(BOB);
-        assertTrue(advantages.redeem(address(edition), 1, configs[0].advantageId, keccak256("listed:3")));
+        assertTrue(advantages.redeem(address(edition), 1, configs[3].advantageId, keccak256("listed:3")));
     }
 
-    function testRedemptionIdsAreIdempotentAndCannotCrossPasses() public {
-        uint64 startsAt = uint64(block.timestamp);
-        NexAdvantageRegistry.AdvantageConfig[] memory configs = new NexAdvantageRegistry.AdvantageConfig[](1);
-        configs[0] = _config(
-            keccak256("idempotent-redemption"),
-            NexAdvantageRegistry.AdvantageKind.Redemption,
-            startsAt,
-            startsAt + 30 days,
-            2
-        );
+    function testRedemptionIdsAreScopedToExactUtility() public {
+        NexAdvantageRegistry.AdvantageConfig[] memory configs = _canonicalConfigs();
         _initialize(1, configs);
         _initialize(2, configs);
         bytes32 redemptionId = keccak256("global:redemption:1");
 
         vm.prank(ALICE);
-        assertTrue(advantages.redeem(address(edition), 1, configs[0].advantageId, redemptionId));
+        assertTrue(advantages.redeem(address(edition), 1, configs[3].advantageId, redemptionId));
         vm.prank(ALICE);
-        assertFalse(advantages.redeem(address(edition), 1, configs[0].advantageId, redemptionId));
-        assertEq(advantages.remaining(address(edition), 1, configs[0].advantageId), 1);
+        assertFalse(advantages.redeem(address(edition), 1, configs[3].advantageId, redemptionId));
+        assertEq(advantages.remaining(address(edition), 1, configs[3].advantageId), 2);
 
         vm.prank(ALICE);
-        vm.expectRevert(NexAdvantageRegistry.UseIdCollision.selector);
-        advantages.redeem(address(edition), 2, configs[0].advantageId, redemptionId);
+        assertTrue(advantages.redeem(address(edition), 2, configs[3].advantageId, redemptionId));
+        assertEq(advantages.useAmount(address(edition), 1, configs[3].advantageId, redemptionId), 1);
+        assertEq(advantages.useAmount(address(edition), 2, configs[3].advantageId, redemptionId), 1);
     }
 
     function testQuantityConsumptionIsIdempotentAndExpires() public {
-        uint64 startsAt = uint64(block.timestamp);
-        uint64 endsAt = startsAt + 2 days;
-        NexAdvantageRegistry.AdvantageConfig[] memory configs = new NexAdvantageRegistry.AdvantageConfig[](1);
-        configs[0] =
-            _config(keccak256("quantity"), NexAdvantageRegistry.AdvantageKind.QuantityBased, startsAt, endsAt, 5);
+        NexAdvantageRegistry.AdvantageConfig[] memory configs = _canonicalConfigs();
         _initialize(1, configs);
 
         bytes32 useId = keccak256("quantity:1");
         vm.prank(ALICE);
-        assertTrue(advantages.consumeQuantity(address(edition), 1, configs[0].advantageId, 2, useId));
+        assertTrue(advantages.consumeQuantity(address(edition), 1, configs[1].advantageId, 2, useId));
         vm.prank(ALICE);
-        assertFalse(advantages.consumeQuantity(address(edition), 1, configs[0].advantageId, 2, useId));
-        assertEq(advantages.remaining(address(edition), 1, configs[0].advantageId), 3);
+        assertFalse(advantages.consumeQuantity(address(edition), 1, configs[1].advantageId, 2, useId));
+        assertEq(advantages.useAmount(address(edition), 1, configs[1].advantageId, useId), 2);
+        assertEq(advantages.remaining(address(edition), 1, configs[1].advantageId), 3);
 
-        vm.warp(endsAt);
-        assertFalse(advantages.isUsable(address(edition), 1, configs[0].advantageId));
-        assertEq(advantages.remaining(address(edition), 1, configs[0].advantageId), 0);
+        vm.prank(ALICE);
+        vm.expectRevert(NexAdvantageRegistry.UseIdAmountMismatch.selector);
+        advantages.consumeQuantity(address(edition), 1, configs[1].advantageId, 1, useId);
+
+        vm.warp(advantageEndsAt);
+        assertFalse(advantages.isUsable(address(edition), 1, configs[1].advantageId));
+        assertEq(advantages.remaining(address(edition), 1, configs[1].advantageId), 0);
         vm.prank(ALICE);
         vm.expectRevert(NexAdvantageRegistry.AdvantageUnavailable.selector);
-        advantages.consumeQuantity(address(edition), 1, configs[0].advantageId, 1, keccak256("quantity:2"));
+        advantages.consumeQuantity(address(edition), 1, configs[1].advantageId, 1, keccak256("quantity:2"));
     }
 
     function testAuthorityAndTermsValidationAreFailClosed() public {
-        NexAdvantageRegistry.AdvantageConfig[] memory configs = new NexAdvantageRegistry.AdvantageConfig[](1);
-        uint64 startsAt = uint64(block.timestamp);
+        NexAdvantageRegistry.AdvantageConfig[] memory configs = _canonicalConfigs();
         bytes32 termsHash = edition.termsVersionHashOf(1);
-        configs[0] = _config(
-            keccak256("bad-terms"), NexAdvantageRegistry.AdvantageKind.Redemption, startsAt, startsAt + 1 days, 1
-        );
 
         vm.prank(ALICE);
         vm.expectRevert(NexAdvantageRegistry.NotInitializer.selector);
@@ -297,5 +304,71 @@ contract NexAdvantageRegistryTest is Test {
         vm.prank(ALICE);
         vm.expectRevert(NexAdvantageRegistry.NotListingAuthority.selector);
         advantages.setListed(address(edition), 1, true);
+    }
+
+    function testAdvantagesCommitmentRejectsAlteredQuantityDatesKindsAndDefinitions() public {
+        NexAdvantageRegistry.AdvantageConfig[] memory configs = _canonicalConfigs();
+        bytes32 termsHash = edition.termsVersionHashOf(1);
+
+        configs[0].endsAt += 1;
+        vm.expectRevert(NexAdvantageRegistry.AdvantagesHashMismatch.selector);
+        initializer.initializePass(address(edition), 1, termsHash, ADVANTAGES_HASH, configs);
+
+        configs = _canonicalConfigs();
+        configs[1].totalUnits += 1;
+        vm.expectRevert(NexAdvantageRegistry.AdvantagesHashMismatch.selector);
+        initializer.initializePass(address(edition), 1, termsHash, ADVANTAGES_HASH, configs);
+
+        configs = _canonicalConfigs();
+        configs[2].kind = NexAdvantageRegistry.AdvantageKind.Redemption;
+        configs[2].totalUnits = 1;
+        vm.expectRevert(NexAdvantageRegistry.AdvantagesHashMismatch.selector);
+        initializer.initializePass(address(edition), 1, termsHash, ADVANTAGES_HASH, configs);
+
+        configs = _canonicalConfigs();
+        configs[3].definitionHash = keccak256("altered-definition");
+        vm.expectRevert(NexAdvantageRegistry.AdvantagesHashMismatch.selector);
+        initializer.initializePass(address(edition), 1, termsHash, ADVANTAGES_HASH, configs);
+    }
+
+    function testTimeBasedRemainingFreezesWhileListed() public {
+        NexAdvantageRegistry.AdvantageConfig[] memory configs = _canonicalConfigs();
+        _initialize(1, configs);
+
+        vm.warp(advantageStartsAt + 10 days);
+        assertEq(advantages.remaining(address(edition), 1, configs[0].advantageId), 20 days);
+
+        listingAuthority.setListed(address(edition), 1, true);
+        vm.warp(advantageStartsAt + 20 days);
+        assertEq(advantages.remaining(address(edition), 1, configs[0].advantageId), 20 days);
+
+        listingAuthority.setListed(address(edition), 1, false);
+        assertEq(advantages.remaining(address(edition), 1, configs[0].advantageId), 20 days);
+
+        vm.warp(advantageStartsAt + 40 days);
+        assertEq(advantages.remaining(address(edition), 1, configs[0].advantageId), 0);
+    }
+
+    function testAuthorityWiringCannotBeConsumedByMisconfiguredContracts() public {
+        NexAdvantageRegistry fresh = new NexAdvantageRegistry(OWNER, launchRegistry);
+        AdvantageInitializerMock wrongInitializer =
+            new AdvantageInitializerMock(NexAdvantageRegistry(address(0x1234)), launchRegistry, OWNER);
+        vm.prank(OWNER);
+        vm.expectRevert(NexAdvantageRegistry.InitializerWiringMismatch.selector);
+        fresh.setInitializer(address(wrongInitializer));
+
+        AdvantageInitializerMock validInitializer = new AdvantageInitializerMock(fresh, launchRegistry, OWNER);
+        vm.prank(OWNER);
+        fresh.setInitializer(address(validInitializer));
+
+        AdvantageListingAuthorityMock wrongListing =
+            new AdvantageListingAuthorityMock(NexAdvantageRegistry(address(0x5678)), OWNER);
+        vm.prank(OWNER);
+        vm.expectRevert(NexAdvantageRegistry.ListingAuthorityWiringMismatch.selector);
+        fresh.setListingAuthority(address(wrongListing));
+
+        AdvantageListingAuthorityMock validListing = new AdvantageListingAuthorityMock(fresh, OWNER);
+        vm.prank(OWNER);
+        fresh.setListingAuthority(address(validListing));
     }
 }

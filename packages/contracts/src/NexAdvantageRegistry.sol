@@ -11,6 +11,17 @@ interface INexPassEditionAdvantageView is IERC721 {
     function termsVersionHashOf(uint256 tokenId) external view returns (bytes32);
 }
 
+interface INexAdvantageInitializerWiring {
+    function advantageRegistry() external view returns (address);
+    function launchRegistry() external view returns (address);
+    function owner() external view returns (address);
+}
+
+interface INexAdvantageListingWiring {
+    function advantageRegistry() external view returns (address);
+    function owner() external view returns (address);
+}
+
 /// @title NexAdvantageRegistry
 /// @notice Canonical remaining utility state for each exact Edition/token ID.
 /// @dev Ownership remains authoritative in the Edition ERC-721. This registry
@@ -18,6 +29,7 @@ interface INexPassEditionAdvantageView is IERC721 {
 ///      rewrites it, and a listing authority can conservatively lock usage.
 contract NexAdvantageRegistry is Ownable, ReentrancyGuard {
     uint8 public constant MAX_ADVANTAGES_PER_PASS = 8;
+    bytes32 public constant ADVANTAGES_DOMAIN = keccak256("NEXMARKETS_ADVANTAGES_V1");
 
     enum AdvantageKind {
         TimeBased,
@@ -41,6 +53,8 @@ contract NexAdvantageRegistry is Ownable, ReentrancyGuard {
         uint8 advantageCount;
         bool listed;
         bool initialized;
+        uint64 listedAt;
+        uint64 frozenSeconds;
     }
 
     struct Advantage {
@@ -60,7 +74,7 @@ contract NexAdvantageRegistry is Ownable, ReentrancyGuard {
     mapping(address => mapping(uint256 => PassRecord)) private _passRecords;
     mapping(address => mapping(uint256 => mapping(bytes32 => Advantage))) private _advantages;
     mapping(address => mapping(uint256 => bytes32[])) private _advantageIds;
-    mapping(bytes32 => bytes32) private _useContexts;
+    mapping(address => mapping(uint256 => mapping(bytes32 => mapping(bytes32 => uint256)))) private _useAmounts;
 
     error AddressRequired();
     error AdvantagesHashMismatch();
@@ -69,10 +83,13 @@ contract NexAdvantageRegistry is Ownable, ReentrancyGuard {
     error AdvantageUnavailable();
     error AuthorityAlreadySet();
     error AuthorityMustBeContract();
+    error InitializerWiringMismatch();
     error InvalidAdvantageKind();
     error InvalidAdvantageWindow();
     error InvalidAdvantageUnits();
     error InvalidPass();
+    error ListingAuthorityWiringMismatch();
+    error ListingDurationOverflow();
     error ListedPass();
     error NotInitializer();
     error NotListingAuthority();
@@ -82,7 +99,7 @@ contract NexAdvantageRegistry is Ownable, ReentrancyGuard {
     error RedemptionOnly();
     error TermsVersionMismatch();
     error TooManyAdvantages();
-    error UseIdCollision();
+    error UseIdAmountMismatch();
     error UseIdRequired();
 
     event AdvantageAuthoritySet(address indexed initializer, address indexed listingAuthority);
@@ -129,6 +146,7 @@ contract NexAdvantageRegistry is Ownable, ReentrancyGuard {
         if (initializer != address(0)) revert AuthorityAlreadySet();
         if (initializer_ == address(0)) revert AddressRequired();
         if (initializer_.code.length == 0) revert AuthorityMustBeContract();
+        _validateInitializerWiring(initializer_);
         initializer = initializer_;
         emit AdvantageAuthoritySet(initializer, listingAuthority);
     }
@@ -138,8 +156,16 @@ contract NexAdvantageRegistry is Ownable, ReentrancyGuard {
         if (listingAuthority != address(0)) revert AuthorityAlreadySet();
         if (listingAuthority_ == address(0)) revert AddressRequired();
         if (listingAuthority_.code.length == 0) revert AuthorityMustBeContract();
+        _validateListingAuthorityWiring(listingAuthority_);
         listingAuthority = listingAuthority_;
         emit AdvantageAuthoritySet(initializer, listingAuthority);
+    }
+
+    /// @notice Return the canonical commitment for a complete Advantage definition set.
+    /// @dev The published Terms hash commits to every field, including each
+    ///      offchain definition hash and the array length/order.
+    function hashAdvantages(AdvantageConfig[] calldata configs) public pure returns (bytes32) {
+        return keccak256(abi.encode(ADVANTAGES_DOMAIN, configs));
     }
 
     /// @notice Attach immutable Advantage definitions to one exact minted Pass.
@@ -182,7 +208,9 @@ contract NexAdvantageRegistry is Ownable, ReentrancyGuard {
         } catch {
             revert TermsVersionMismatch();
         }
-        if (terms.advantagesHash != advantagesHash) revert AdvantagesHashMismatch();
+        if (terms.advantagesHash != advantagesHash || hashAdvantages(configs) != advantagesHash) {
+            revert AdvantagesHashMismatch();
+        }
 
         record.termsVersionHash = termsVersionHash;
         record.advantagesHash = advantagesHash;
@@ -218,11 +246,21 @@ contract NexAdvantageRegistry is Ownable, ReentrancyGuard {
         PassRecord storage record = _passRecords[edition][tokenId];
         if (!record.initialized) revert PassNotInitialized();
         if (record.listed == listed) return;
+
+        if (listed) {
+            if (block.timestamp > type(uint64).max) revert ListingDurationOverflow();
+            record.listedAt = uint64(block.timestamp);
+        } else {
+            uint256 elapsed = block.timestamp - record.listedAt;
+            if (elapsed > type(uint64).max - record.frozenSeconds) revert ListingDurationOverflow();
+            record.frozenSeconds += uint64(elapsed);
+            record.listedAt = 0;
+        }
         record.listed = listed;
         emit PassListingStateSet(edition, tokenId, listed);
     }
 
-    /// @notice Redeem one unit with a globally idempotent redemption ID.
+    /// @notice Redeem one unit with an idempotent ID scoped to this utility.
     /// @return applied False when this exact redemption ID was already applied.
     function redeem(address edition, uint256 tokenId, bytes32 advantageId, bytes32 redemptionId)
         external
@@ -274,9 +312,13 @@ contract NexAdvantageRegistry is Ownable, ReentrancyGuard {
 
     /// @notice Return remaining time, units, or one active connected entitlement.
     function remaining(address edition, uint256 tokenId, bytes32 advantageId) external view returns (uint256) {
+        PassRecord memory record = _passRecords[edition][tokenId];
+        if (!record.initialized) revert PassNotInitialized();
         Advantage memory advantage = _getAdvantageView(edition, tokenId, advantageId);
-        if (!_isActive(advantage)) return 0;
-        if (advantage.kind == AdvantageKind.TimeBased) return advantage.endsAt - block.timestamp;
+        if (!_isActive(advantage, _effectiveTimestamp(record, advantage.kind))) return 0;
+        if (advantage.kind == AdvantageKind.TimeBased) {
+            return advantage.endsAt - _effectiveTimestamp(record, advantage.kind);
+        }
         if (advantage.kind == AdvantageKind.Connected) return 1;
         return advantage.remainingUnits;
     }
@@ -285,33 +327,43 @@ contract NexAdvantageRegistry is Ownable, ReentrancyGuard {
         PassRecord memory record = _passRecords[edition][tokenId];
         if (!record.initialized || record.listed) return false;
         Advantage memory advantage = _advantages[edition][tokenId][advantageId];
-        if (advantage.advantageId == bytes32(0) || !_isActive(advantage)) return false;
+        if (advantage.advantageId == bytes32(0) || !_isActive(advantage, _effectiveTimestamp(record, advantage.kind))) {
+            return false;
+        }
         if (advantage.kind == AdvantageKind.QuantityBased || advantage.kind == AdvantageKind.Redemption) {
             return advantage.remainingUnits != 0;
         }
         return true;
     }
 
-    function redemptionContext(bytes32 useId) external view returns (bytes32) {
-        return _useContexts[useId];
+    /// @notice Return the amount previously applied for this exact utility/use ID.
+    /// @dev Zero means that the use ID has not been applied in this context.
+    function useAmount(address edition, uint256 tokenId, bytes32 advantageId, bytes32 useId)
+        external
+        view
+        returns (uint256)
+    {
+        return _useAmounts[edition][tokenId][advantageId][useId];
     }
 
     function _consume(address edition, uint256 tokenId, Advantage storage advantage, bytes32 useId, uint256 amount)
         internal
         returns (bool applied)
     {
-        bytes32 context = keccak256(abi.encode(edition, tokenId, advantage.advantageId));
-        bytes32 priorContext = _useContexts[useId];
-        if (priorContext == context) return false;
-        if (priorContext != bytes32(0)) revert UseIdCollision();
-
         PassRecord memory record = _passRecords[edition][tokenId];
         if (!record.initialized) revert PassNotInitialized();
+        uint256 priorAmount = _useAmounts[edition][tokenId][advantage.advantageId][useId];
+        if (priorAmount != 0) {
+            if (priorAmount == amount) return false;
+            revert UseIdAmountMismatch();
+        }
         if (record.listed) revert ListedPass();
-        if (!_isActive(advantage) || advantage.remainingUnits < amount) revert AdvantageUnavailable();
+        if (!_isActive(advantage, _effectiveTimestamp(record, advantage.kind)) || advantage.remainingUnits < amount) {
+            revert AdvantageUnavailable();
+        }
         _requirePassOwner(edition, tokenId);
 
-        _useContexts[useId] = context;
+        _useAmounts[edition][tokenId][advantage.advantageId][useId] = amount;
         advantage.remainingUnits -= amount;
         emit AdvantageConsumed(
             edition, tokenId, advantage.advantageId, msg.sender, useId, amount, advantage.remainingUnits
@@ -362,7 +414,47 @@ contract NexAdvantageRegistry is Ownable, ReentrancyGuard {
         if (currentOwner != msg.sender) revert NotPassOwner();
     }
 
-    function _isActive(Advantage memory advantage) internal view returns (bool) {
-        return block.timestamp >= advantage.startsAt && block.timestamp < advantage.endsAt;
+    function _effectiveTimestamp(PassRecord memory record, AdvantageKind kind) internal view returns (uint256) {
+        if (kind != AdvantageKind.TimeBased) return block.timestamp;
+        if (record.listed) return uint256(record.listedAt) - record.frozenSeconds;
+        return block.timestamp - record.frozenSeconds;
+    }
+
+    function _isActive(Advantage memory advantage, uint256 timestamp) internal pure returns (bool) {
+        return timestamp >= advantage.startsAt && timestamp < advantage.endsAt;
+    }
+
+    function _validateInitializerWiring(address initializer_) internal view {
+        try INexAdvantageInitializerWiring(initializer_).advantageRegistry() returns (address registry_) {
+            if (registry_ != address(this)) revert InitializerWiringMismatch();
+        } catch {
+            revert InitializerWiringMismatch();
+        }
+
+        try INexAdvantageInitializerWiring(initializer_).launchRegistry() returns (address registry_) {
+            if (registry_ != address(launchRegistry)) revert InitializerWiringMismatch();
+        } catch {
+            revert InitializerWiringMismatch();
+        }
+
+        try INexAdvantageInitializerWiring(initializer_).owner() returns (address initializerOwner) {
+            if (initializerOwner != owner()) revert InitializerWiringMismatch();
+        } catch {
+            revert InitializerWiringMismatch();
+        }
+    }
+
+    function _validateListingAuthorityWiring(address listingAuthority_) internal view {
+        try INexAdvantageListingWiring(listingAuthority_).advantageRegistry() returns (address registry_) {
+            if (registry_ != address(this)) revert ListingAuthorityWiringMismatch();
+        } catch {
+            revert ListingAuthorityWiringMismatch();
+        }
+
+        try INexAdvantageListingWiring(listingAuthority_).owner() returns (address authorityOwner) {
+            if (authorityOwner != owner()) revert ListingAuthorityWiringMismatch();
+        } catch {
+            revert ListingAuthorityWiringMismatch();
+        }
     }
 }
