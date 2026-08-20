@@ -7,6 +7,9 @@ const inputPath = process.argv.find((arg) => arg.startsWith('--inputs='))?.slice
 const inputs = JSON.parse(await readFile(new URL(inputPath, root), 'utf8'));
 const bootstrap = JSON.parse(await readFile(new URL(`deployments/${network}.bootstrap.json`, root), 'utf8'));
 if (inputs.network !== network) throw new Error('deployment input network mismatch');
+if (network === 'robinhood-mainnet' && inputs.mockUsdgAddress) throw new Error('BLOCKED: mainnet planner refuses MockUSDG substitution');
+if (network === 'robinhood-mainnet' && bootstrap.primitives.usdg.mock === true) throw new Error('BLOCKED: mainnet bootstrap marks settlement token as mock');
+if (network === 'robinhood-testnet' && !inputs.mockUsdgAddress) throw new Error('BLOCKED: testnet MockUSDG address required');
 if (!isAddress(inputs.protocolAdminSafe ?? '')) throw new Error('BLOCKED: protocolAdminSafe required');
 if (!Array.isArray(inputs.safeOwners) || inputs.safeOwners.length < 2 || new Set(inputs.safeOwners.map((owner) => getAddress(owner))).size < 2) throw new Error('BLOCKED: at least two distinct Safe owners required');
 if (!Number.isInteger(inputs.safeThreshold) || inputs.safeThreshold < 1 || inputs.safeThreshold > inputs.safeOwners.length) throw new Error('BLOCKED: Safe threshold must be between 1 and owner count');

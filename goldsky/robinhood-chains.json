@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "provider": "GOLDSKY_TURBO",
-  "customChainEnablementRequired": true,
+  "customChainEnablementRequired": false,
   "networks": {
     "robinhood-mainnet": {
       "chainId": 4663,
@@ -10,8 +10,8 @@
       "rpcEnv": "RH_MAINNET_RPC_URL",
       "publicRpc": "https://rpc.mainnet.chain.robinhood.com",
       "explorer": "https://robinhoodchain.blockscout.com",
-      "datasetPrefix": null,
-      "status": "BLOCKED_PENDING_GOLDSKY_DEDICATED_CHAIN_ENABLEMENT"
+      "datasetPrefix": "robinhood-mainnet",
+      "status": "SUPPORTED"
     },
     "robinhood-testnet": {
       "chainId": 46630,
@@ -20,8 +20,8 @@
       "rpcEnv": "RH_TESTNET_RPC_URL",
       "publicRpc": "https://rpc.testnet.chain.robinhood.com",
       "explorer": "https://explorer.testnet.chain.robinhood.com",
-      "datasetPrefix": null,
-      "status": "BLOCKED_PENDING_GOLDSKY_DEDICATED_CHAIN_ENABLEMENT"
+      "datasetPrefix": "robinhood-testnet",
+      "status": "SUPPORTED"
     }
   }
 }

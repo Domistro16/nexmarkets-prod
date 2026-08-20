@@ -6,5 +6,6 @@
   "primaryFeeRecipient": null,
   "secondaryFeeRecipient": null,
   "mockUsdgAddress": null,
+  "mockUsdgSource": "packages/contracts/src/MockUSDG.sol (testnet only)",
   "governanceTransition": "RAISE_THRESHOLD_TO_2_PLUS"
 }

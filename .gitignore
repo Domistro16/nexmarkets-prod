@@ -14,3 +14,4 @@ broadcast/
 .npm-cache/
 packages/contracts/lib/
 artifacts/deployment-plan/
+artifacts/goldsky/

@@ -86,7 +86,7 @@ OpenSea's current deployment documentation explicitly supports deploying Seaport
 
 ## Remaining external gates after the V1 implementation
 
-1. Goldsky dedicated Robinhood dataset enablement.
+1. Goldsky project/API credentials and PostgreSQL sink secret for the supported `robinhood-mainnet` / `robinhood-testnet` datasets.
 2. A testnet MockUSDG decision/address before economic testnet deployment.
 3. Safe-approved custom-contract deployment and runtime/immutable readback.
 4. The planned governance transition to threshold >= 2 for ongoing protocol
