@@ -5,8 +5,9 @@ import { Interface } from 'ethers';
 import { PostgresProjectionWorker } from '../services/indexer/src/runtime.mjs';
 
 const addr = (n) => `0x${String(n).padStart(40, '0')}`;
+const fixtureNonce = `${Date.now()}${Math.floor(Math.random() * 10000)}`;
 const hash = (n) => {
-  const seed = [...String(n)].map((char) => char.charCodeAt(0).toString(16).padStart(2, '0')).join('') || '00';
+  const seed = [...`${n}:${fixtureNonce}`].map((char) => char.charCodeAt(0).toString(16).padStart(2, '0')).join('') || '00';
   return `0x${seed.repeat(Math.ceil(64 / seed.length)).slice(0, 64)}`;
 };
 const EVENTS = new Interface([

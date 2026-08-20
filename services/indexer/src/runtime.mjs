@@ -117,6 +117,15 @@ async function resolveEventContext(client, row, decoded) {
     editionAddress = lower(listing.rows[0]?.edition_address ?? null);
     editionId = listing.rows[0]?.edition_id ?? null;
   }
+  // Ordinary Edition events (Transfer, AdvantageConsumed, TermsPublished,
+  // etc.) carry no explicit Edition argument; their emitting contract is the
+  // Edition. Keep the fallback out of context-free Seaport/Vault events,
+  // whose emitting contract is intentionally not an Edition.
+  const contextFree = LISTING_CONTEXT_EVENTS.has(decoded.eventName)
+    || decoded.eventName === 'RoyaltyWithdrawn'
+    || decoded.eventName === 'OrderFulfilled'
+    || decoded.eventName === 'ERC6551AccountCreated';
+  if (!editionAddress && !contextFree) editionAddress = lower(row.contract_address);
   if (editionAddress && !editionId) {
     const edition = await client.query('SELECT id,project_id FROM edition WHERE chain_id=$1 AND edition_address=$2 LIMIT 1', [row.chain_id, editionAddress]);
     editionId = edition.rows[0]?.id ?? null;
