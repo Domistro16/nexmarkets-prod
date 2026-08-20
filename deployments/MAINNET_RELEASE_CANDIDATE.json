@@ -70,7 +70,7 @@
     "observedHashesPinned": true
   },
   "tests": {
-    "foundry": "68/68",
+    "foundry": "71/71",
     "serialFuzzRuns": 5000,
     "nodePostgres": "73/73",
     "webTests": "6/6",
