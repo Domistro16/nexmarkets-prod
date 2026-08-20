@@ -1,0 +1,45 @@
+name: nexmarkets-robinhood-v1
+# Robinhood is not currently listed as a shared Goldsky dataset. Goldsky must
+# enable a dedicated EVM chain slug before deployment. The deployment command
+# replaces __ROBINHOOD_DATASET_PREFIX__ with the assigned mainnet/testnet slug.
+sources:
+  robinhood_logs:
+    type: dataset
+    dataset_name: __ROBINHOOD_DATASET_PREFIX__.raw_logs
+    version: 1.0.0
+    start_at: earliest
+  robinhood_blocks:
+    type: dataset
+    dataset_name: __ROBINHOOD_DATASET_PREFIX__.raw_blocks
+    version: 1.0.0
+    start_at: earliest
+transforms:
+  nexmarkets_logs:
+    type: sql
+    primary_key: chain_id,transaction_hash,log_index
+    sql: |
+      SELECT
+        chain_id,
+        block_number,
+        block_hash,
+        transaction_hash,
+        log_index,
+        address AS contract_address,
+        topic0,
+        topics,
+        data,
+        block_timestamp,
+        removed
+      FROM robinhood_logs
+      -- Topic filtering transports core events plus candidate dynamic-Edition
+      -- events. The idempotent projector accepts Edition-scoped events only
+      -- after NexPassFactory.EditionCreated registered that address.
+      WHERE topic0 IN (__NEXMARKETS_EVENT_TOPIC0_LIST__)
+sinks:
+  postgres_events:
+    type: postgres
+    source: nexmarkets_logs
+    table: goldsky_raw_log
+    secret_name: NEXMARKETS_POSTGRES
+    mode: upsert
+    primary_key: chain_id,transaction_hash,log_index

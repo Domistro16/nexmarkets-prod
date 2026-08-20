@@ -17,5 +17,12 @@
 | Secondary ownership transfer | ERC-721 via Seaport |
 | Builder Royalty lock | `NexRoyaltyVault` |
 | Referral attribution | PostgreSQL referral ledger |
+| Token-bound account address/control | Canonical ERC-6551 Registry + ERC-721 `ownerOf` |
+| Indexed/read-model rows | Goldsky Turbo -> PostgreSQL mirror |
+| Transaction status | Chain receipt/finality lifecycle, projected to PostgreSQL |
 
-The indexer is a mirror. The UI is a view. Neither may override canonical truth.
+The TBA is an attachment capability, not ownership, Terms, serial, Advantage,
+listing or royalty authority. Goldsky is the indexer and PostgreSQL is the
+read-model/referral/product authority described above. Goldsky, PostgreSQL
+chain projections, reconciliation caches and the UI may never override chain
+truth.

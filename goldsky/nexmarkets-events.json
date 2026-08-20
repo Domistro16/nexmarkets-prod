@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "dynamicEditionDiscovery": "NexPassFactory.EditionCreated",
+  "events": [
+    { "role": "NexPassFactory", "signature": "EditionCreated(address,bytes32,address,bytes32,address,address)" },
+    { "role": "NexLaunchRegistry", "signature": "EditionRegistered(address,bytes32,address,uint32)" },
+    { "role": "NexLaunchRegistry", "signature": "EditionPublisherSet(address,address)" },
+    { "role": "NexLaunchRegistry", "signature": "EditionDisabledSet(address,bool)" },
+    { "role": "NexLaunchRegistry", "signature": "TermsPublished(address,bytes32,uint64)" },
+    { "role": "NexMintController", "signature": "PrimaryMintSettled(address,address,address,bytes32,bytes32,uint256,uint256,uint256,uint256)" },
+    { "role": "NexMintController", "signature": "ReferralHintSubmitted(bytes32,address,address,address)", "canonical": false },
+    { "role": "NexPassEdition", "signature": "Transfer(address,address,uint256)", "dynamic": true },
+    { "role": "NexPassEdition", "signature": "EditionMinted(address,uint256,uint256,bytes32,uint256,address,uint96)", "dynamic": true },
+    { "role": "NexAdvantageRegistry", "signature": "PassAdvantagesInitialized(address,uint256,bytes32,bytes32,uint256)" },
+    { "role": "NexAdvantageRegistry", "signature": "PassListingStateSet(address,uint256,bool)" },
+    { "role": "NexAdvantageRegistry", "signature": "AdvantageConsumed(address,uint256,bytes32,address,bytes32,uint256,uint256)" },
+    { "role": "NexListingRegistry", "signature": "ListingCreated(bytes32,address,uint256,address,bytes32,uint256,address,uint96,uint64,uint64,bytes32)" },
+    { "role": "NexListingRegistry", "signature": "ListingCancelled(bytes32,address)" },
+    { "role": "NexListingRegistry", "signature": "ListingFilled(bytes32,address)" },
+    { "role": "NexListingRegistry", "signature": "SecondarySaleSettled(bytes32,address,uint256,uint256,uint256,uint256)" },
+    { "role": "NexListingRegistry", "signature": "ListingExpired(bytes32)" },
+    { "role": "NexListingRegistry", "signature": "ListingStale(bytes32,address)" },
+    { "role": "NexRoyaltyVault", "signature": "RoyaltyRecorded(bytes32,address,uint256,address,uint256,uint64)" },
+    { "role": "NexRoyaltyVault", "signature": "RoyaltyWithdrawn(bytes32,address,uint256)" },
+    { "role": "ERC6551Registry", "signature": "ERC6551AccountCreated(address,address,bytes32,uint256,address,uint256)" },
+    { "role": "Seaport16", "signature": "OrderFulfilled(bytes32,address,address,address,(uint8,address,uint256,uint256)[],(uint8,address,uint256,uint256,address)[])" }
+  ]
+}

@@ -1,6 +1,6 @@
 {
   "name": "nexmarkets-production",
-  "version": "0.1.0-phase01",
+  "version": "1.0.0-rc.1",
   "private": true,
   "type": "module",
   "engines": {
@@ -12,7 +12,20 @@
     "packages/*"
   ],
   "scripts": {
-    "test": "node --test",
+    "test": "node --test test/*.test.mjs",
+    "test:api": "node --test test/api*.test.mjs",
+    "test:web": "node --test test/web*.test.mjs",
+    "web:build": "node scripts/build-web.mjs",
+    "db:migrate": "node infra/schema/migrate.mjs",
+    "verify:schema": "node scripts/verify-schema.mjs",
+    "verify:goldsky": "node scripts/verify-goldsky-config.mjs",
+    "goldsky:render": "node scripts/render-goldsky-config.mjs",
+    "verify:production": "node scripts/verify-production-config.mjs",
+    "deploy:v1:bundles": "node scripts/build-v1-safe-bundles.mjs",
+    "verify:checksums": "node scripts/verify-checksums.mjs",
+    "checksums:regenerate": "node scripts/regenerate-checksums.mjs",
+    "security:audit": "npm audit --audit-level=high",
+    "security:secrets": "node scripts/verify-no-secrets.mjs",
     "safe:plan": "node scripts/deploy-safe.mjs",
     "safe:deploy": "node scripts/deploy-safe.mjs --broadcast",
     "safe:verify": "node scripts/verify-safe-approval.mjs",
@@ -25,6 +38,8 @@
     "preflight:seaport": "node scripts/preflight-canonical-seaport.mjs robinhood-mainnet"
   },
   "dependencies": {
-    "ethers": "6.15.0"
+    "ethers": "6.17.0",
+    "pg": "8.16.3",
+    "yaml": "2.9.0"
   }
 }

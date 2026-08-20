@@ -1,1 +1,1 @@
-{"name":"@nexmarkets/worker","private":true,"type":"module"}
+{"name":"@nexmarkets/worker","private":true,"type":"module","exports":"./src/outbox-worker.mjs"}
