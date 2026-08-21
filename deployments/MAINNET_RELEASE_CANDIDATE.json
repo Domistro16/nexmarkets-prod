@@ -165,9 +165,9 @@
       "deploymentHash": "QmNQqtVppaZ7UsuwBnyGgamzBnP87s2NbEgUK7pxtdpt9R",
       "graphqlEndpoint": "https://api.goldsky.com/api/public/project_cmt3es3z03t5101vr8ggx1j7e/subgraphs/nexmarkets-v1-robinhood-testnet/1.0.0/gn",
       "startBlock": 104607055,
-      "indexedBlock": 105151737,
-      "chainHead": 105151807,
-      "indexingLag": 70,
+      "indexedBlock": 105155985,
+      "chainHead": 105156007,
+      "indexingLag": 22,
       "status": "HEALTHY_ACTIVE_SYNCED"
     },
     "mainnetSubgraph": {

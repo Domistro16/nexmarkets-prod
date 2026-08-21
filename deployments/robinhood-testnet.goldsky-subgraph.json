@@ -10,10 +10,10 @@
   "cliVersion": "13.3.4",
   "deployCommand": "goldsky subgraph deploy nexmarkets-v1-robinhood-testnet/1.0.0 --path .",
   "startBlock": 104607055,
-  "indexedBlock": 105151737,
-  "indexedBlockHash": "0x332be32207e582bbe947402bf6cc65d08b4524e36f7dae26eff1190fd906065f",
-  "chainHead": 105151807,
-  "indexingLag": 70,
+  "indexedBlock": 105155985,
+  "indexedBlockHash": "0x541b88219155e8e0eb23a52d7d6db814d7c30686c1729589af8850986d8a191c",
+  "chainHead": 105156007,
+  "indexingLag": 22,
   "health": "healthy",
   "status": "ACTIVE_SYNCED",
   "certificationEdition": {
@@ -34,5 +34,5 @@
   "graphDeployUsed": false,
   "blockchainTransactionsPerformed": false,
   "mainnetDeployed": false,
-  "recordedAt": "2026-08-21T20:52:00Z"
+  "recordedAt": "2026-08-21T21:02:35Z"
 }
