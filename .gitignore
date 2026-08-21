@@ -1,4 +1,7 @@
 node_modules/
+subgraph/node_modules/
+subgraph/build/
+subgraph/generated/
 .env
 .env.*
 !.env.example

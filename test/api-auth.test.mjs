@@ -112,3 +112,15 @@ test('/readyz reports a stale Goldsky watermark even when the event stream is qu
   store.indexerHealth = async () => ({ landed_block_number: 700, latest_event_block_number: 400, finalized_watermark_block_number: 700 });
   const stale = await fetch(`${base}/readyz`, { headers: { origin: 'https://nexmarkets.fun' } }); assert.equal(stale.status, 503);
 });
+
+test('/readyz uses Goldsky Subgraph indexed progress against the RPC head', async (t) => {
+  const subgraph = { enabled: true, async indexingStatus() { return { indexedBlock: 1000, blockHash: `0x${'11'.repeat(32)}`, deployment: 'Qmtest' }; } };
+  const { server, base, store } = await running({ requireIndexedReadiness: true, subgraph, chain: { async getBlockNumber() { return 1005; } }, maxIndexerLagBlocks: 10, maxFinalityLagBlocks: 10 }); t.after(() => server.close());
+  store.indexerHealth = async () => { throw new Error('Turbo fallback must not be queried when Subgraph is configured'); };
+  const response = await fetch(`${base}/readyz`, { headers: { origin: 'https://nexmarkets.fun' } });
+  assert.equal(response.status, 200);
+  const body = await response.json();
+  assert.equal(body.indexerProvider, 'GOLDSKY_SUBGRAPH');
+  assert.equal(body.landedBlock, 1000);
+  assert.equal(body.indexedLag, 5);
+});

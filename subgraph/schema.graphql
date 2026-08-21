@@ -1,0 +1,228 @@
+type ProtocolDeployment @entity(immutable: false) {
+  id: ID!
+  chainId: BigInt!
+  factory: Bytes!
+  launchRegistry: Bytes!
+  mintController: Bytes!
+  advantageRegistry: Bytes!
+  advantageInitializer: Bytes!
+  royaltyVault: Bytes!
+  listingRegistry: Bytes!
+  marketsZone: Bytes!
+  tbaResolver: Bytes!
+  erc6551Registry: Bytes!
+  seaport: Bytes!
+  startBlock: BigInt!
+}
+
+type Edition @entity(immutable: false) {
+  id: ID!
+  address: Bytes!
+  editionId: Bytes!
+  publisher: Bytes!
+  protocolAdmin: Bytes!
+  mintController: Bytes!
+  absoluteSupplyCap: BigInt!
+  artworkCommitment: Bytes!
+  totalMinted: BigInt!
+  disabled: Boolean!
+  currentTerms: TermsVersion
+  createdBlock: BigInt!
+  createdTimestamp: BigInt!
+  createdTx: Bytes!
+  terms: [TermsVersion!]! @derivedFrom(field: "edition")
+  passes: [Pass!]! @derivedFrom(field: "edition")
+  listings: [Listing!]! @derivedFrom(field: "edition")
+}
+
+type TermsVersion @entity(immutable: false) {
+  id: ID!
+  edition: Edition!
+  hash: Bytes!
+  version: BigInt!
+  activeSupply: BigInt!
+  pricePerPass: BigInt!
+  previewStartsAt: BigInt!
+  mintStartsAt: BigInt!
+  mintEndsAt: BigInt!
+  primaryRecipient: Bytes!
+  royaltyReceiver: Bytes!
+  royaltyBps: BigInt!
+  advantagesHash: Bytes!
+  referralTermsHash: Bytes!
+  blockNumber: BigInt!
+  timestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type Pass @entity(immutable: false) {
+  id: ID!
+  edition: Edition!
+  tokenId: BigInt!
+  owner: Bytes!
+  termsHash: Bytes
+  terms: TermsVersion
+  mintBlock: BigInt
+  mintTimestamp: BigInt
+  mintTransactionHash: Bytes
+  royaltyReceiver: Bytes
+  royaltyBps: BigInt
+  listed: Boolean!
+  tba: TokenBoundAccount
+  advantages: [AdvantageState!]! @derivedFrom(field: "pass")
+  transfers: [PassTransfer!]! @derivedFrom(field: "pass")
+}
+
+type PassTransfer @entity(immutable: true) {
+  id: ID!
+  pass: Pass!
+  from: Bytes!
+  to: Bytes!
+  blockNumber: BigInt!
+  timestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type PrimaryMint @entity(immutable: true) {
+  id: ID!
+  edition: Edition!
+  payer: Bytes!
+  recipient: Bytes!
+  termsHash: Bytes!
+  intentId: Bytes!
+  firstTokenId: BigInt!
+  quantity: BigInt!
+  totalPaid: BigInt!
+  protocolFee: BigInt!
+  blockNumber: BigInt!
+  timestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type AdvantageDefinition @entity(immutable: false) {
+  id: ID!
+  edition: Edition!
+  termsHash: Bytes!
+  advantageId: Bytes!
+  kind: String!
+  startsAt: BigInt!
+  endsAt: BigInt!
+  totalUnits: BigInt!
+  definitionHash: Bytes!
+}
+
+type AdvantageState @entity(immutable: false) {
+  id: ID!
+  pass: Pass!
+  edition: Edition!
+  tokenId: BigInt!
+  advantageId: Bytes!
+  termsHash: Bytes!
+  kind: String!
+  startsAt: BigInt!
+  endsAt: BigInt!
+  totalUnits: BigInt!
+  remainingUnits: BigInt!
+  frozenSeconds: BigInt!
+  listed: Boolean!
+  listedAt: BigInt
+  definitionHash: Bytes!
+  initializedBlock: BigInt!
+  lastUpdatedBlock: BigInt!
+  lastUseId: Bytes
+}
+
+type AdvantageConsumption @entity(immutable: true) {
+  id: ID!
+  pass: Pass!
+  advantage: AdvantageState!
+  owner: Bytes!
+  useId: Bytes!
+  amount: BigInt!
+  remainingUnits: BigInt!
+  blockNumber: BigInt!
+  timestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type Listing @entity(immutable: false) {
+  id: ID!
+  orderHash: Bytes!
+  edition: Edition!
+  tokenId: BigInt!
+  seller: Bytes!
+  termsHash: Bytes!
+  price: BigInt!
+  royaltyReceiver: Bytes!
+  royaltyBps: BigInt!
+  startTime: BigInt!
+  expiry: BigInt!
+  zoneHash: Bytes!
+  status: String!
+  buyer: Bytes
+  salePrice: BigInt
+  protocolFee: BigInt
+  builderRoyalty: BigInt
+  sellerProceeds: BigInt
+  createdBlock: BigInt!
+  createdTimestamp: BigInt!
+  createdTransactionHash: Bytes!
+  updatedBlock: BigInt!
+  updatedTimestamp: BigInt!
+  updatedTransactionHash: Bytes!
+}
+
+type SecondarySale @entity(immutable: true) {
+  id: ID!
+  listing: Listing!
+  orderHash: Bytes!
+  buyer: Bytes!
+  salePrice: BigInt!
+  protocolFee: BigInt!
+  builderRoyalty: BigInt!
+  sellerProceeds: BigInt!
+  blockNumber: BigInt!
+  timestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type RoyaltyClaim @entity(immutable: false) {
+  id: ID!
+  orderHash: Bytes!
+  edition: Edition!
+  tokenId: BigInt!
+  builder: Bytes!
+  amount: BigInt!
+  releaseAt: BigInt!
+  withdrawn: Boolean!
+  recordedBlock: BigInt!
+  recordedTimestamp: BigInt!
+  recordedTransactionHash: Bytes!
+  withdrawnBlock: BigInt
+  withdrawnTimestamp: BigInt
+  withdrawnTransactionHash: Bytes
+}
+
+type TokenBoundAccount @entity(immutable: false) {
+  id: ID!
+  account: Bytes!
+  edition: Edition!
+  tokenId: BigInt!
+  implementation: Bytes
+  registry: Bytes!
+  createdBlock: BigInt!
+  createdTimestamp: BigInt!
+  createdTransactionHash: Bytes!
+}
+
+type SettlementEvidence @entity(immutable: true) {
+  id: ID!
+  orderHash: Bytes!
+  offerer: Bytes!
+  zone: Bytes!
+  recipient: Bytes!
+  edition: Edition
+  blockNumber: BigInt!
+  timestamp: BigInt!
+  transactionHash: Bytes!
+}

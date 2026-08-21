@@ -3,16 +3,17 @@ name: nexmarkets-robinhood-v1
 # robinhood_mainnet or robinhood_testnet. Goldsky remains a mirror; the
 # PostgreSQL projector is responsible for canonical read-model projections.
 sources:
-  robinhood_logs:
+  robinhood_logs_nexmarkets:
     type: dataset
     dataset_name: __ROBINHOOD_DATASET_PREFIX__.raw_logs
     version: __ROBINHOOD_RAW_LOGS_VERSION__
     start_at: earliest
-  robinhood_blocks:
+    filter: __NEXMARKETS_LOG_FILTER__
+  robinhood_blocks_live:
     type: dataset
     dataset_name: __ROBINHOOD_DATASET_PREFIX__.raw_blocks
     version: __ROBINHOOD_RAW_BLOCKS_VERSION__
-    start_at: earliest
+    start_at: latest
 transforms:
   nexmarkets_logs:
     type: sql
@@ -30,7 +31,7 @@ transforms:
         l.data,
         to_timestamp(l.block_timestamp) AS block_timestamp,
         false AS removed
-      FROM robinhood_logs l
+      FROM robinhood_logs_nexmarkets l
       -- Topic filtering transports core events plus candidate dynamic-Edition
       -- events. The idempotent projector accepts Edition-scoped events only
       -- after NexPassFactory.EditionCreated registered that address.
@@ -45,7 +46,7 @@ transforms:
         hash AS block_hash,
         to_timestamp(timestamp) AS block_timestamp,
         false AS removed
-      FROM robinhood_blocks
+      FROM robinhood_blocks_live
       WHERE timestamp IS NOT NULL
 sinks:
   postgres_events:

@@ -1,33 +1,69 @@
 # Goldsky indexing
 
-Goldsky is the only production indexer for NexMarkets V1. The preferred flow is Goldsky Turbo → PostgreSQL → API → UI. There is no bespoke RPC polling loop and The Graph is not the primary provider.
+Goldsky Subgraph is the primary NexMarkets V1 blockchain read model. The
+architecture is:
 
-Goldsky officially exposes the `robinhood-mainnet` and `robinhood-testnet` Turbo datasets. Run `npm run goldsky:render -- --mainnet` (omit the flag for testnet) to materialize the pinned event-topic allowlist without embedding database credentials. Candidate ERC-721/Advantage events are transported by topic, but the projector accepts them only after `NexPassFactory.EditionCreated` dynamically registers the Edition address.
+`Robinhood Chain → Goldsky Subgraph → NexMarkets API → UI`
 
-Robinhood is EVM-compatible and the supported dataset slugs are fixed to `robinhood-mainnet` (4663) and `robinhood-testnet` (46630). The renderer replaces `__ROBINHOOD_DATASET_PREFIX__` with the selected official slug. Do not commit the Goldsky API key or PostgreSQL sink secret.
+Robinhood Chain and the deployed contracts remain canonical. The Subgraph is
+an indexed read model only; the API uses Robinhood RPC for owner, Terms,
+Advantage, listing, TBA, receipt, finality and reconciliation checks. Supabase
+stores application data and transaction lifecycle state, not raw chain blocks
+or logs.
 
-The pipeline ingests raw logs/blocks and upserts by `(chain_id, transaction_hash, log_index)`. The event catalog covers Factory discovery, Registry Terms/edition changes, primary settlement and noncanonical referral hints, dynamic Edition mint/Transfer events, Advantage state, listing state, Vault claims, ERC-6551 account creation and Seaport fulfillment. Factory `EditionCreated` drives dynamic Edition discovery.
+## Testnet deployment
 
-Every event retains chain ID, block number/hash, transaction hash, log index, address, signature, timestamp, finality and orphan status. Context-free Listing status events resolve `orderHash` through `listing_projection`; royalty withdrawals resolve through `royalty_claim_projection`; ERC-6551 events use `tokenContract`; Seaport `OrderFulfilled` is retained as settlement evidence. Backfills start at `earliest`; resumability comes from Goldsky plus `indexer_checkpoint`. Reorged blocks are orphaned and affected entities replay from the retained non-orphaned event journal, including same tx/log re-inclusion under a replacement block hash. Referral hints are stored only as qualification inputs.
+Goldsky's authenticated CLI project is the active account project selected for
+this testnet deployment (`Default Project`; its public project ID is recorded
+in `deployments/robinhood-testnet.goldsky-subgraph.json`). The local package is
+`subgraph/` and uses the supported Robinhood testnet network identifier
+`robinhood-testnet`, chain ID `46630`, and start block `104607055` (the first
+recorded NexMarkets deployment block). Deploy only through Goldsky:
 
-Run `npm run verify:goldsky`. A PASS validates the committed template/catalog; it does not claim the external Goldsky pipeline is deployed or healthy. Operations must monitor Goldsky pipeline lag, latest indexed/finalized block and sink failures.
-# Runtime projection boundary
+```text
+cd subgraph
+npm run codegen
+npm run build
+goldsky subgraph deploy nexmarkets-v1-robinhood-testnet/1.0.0 --path .
+goldsky subgraph list nexmarkets-v1-robinhood-testnet/1.0.0
+goldsky subgraph log nexmarkets-v1-robinhood-testnet/1.0.0
+```
 
-Goldsky Turbo is the sole production indexer. Its Robinhood dataset lands
-`goldsky_raw_log`; `services/indexer/src/run.mjs` is the required Postgres
-projection consumer, not a replacement RPC polling indexer. It ABI-decodes the
-pinned event catalog, admits Editions only through durable Factory requests,
-persists complete Terms/Advantage definitions, writes provenance-bearing
-projections, handles `removed`/reorg records, and updates indexed/finalized
-checkpoints. `goldsky_chain_watermark` records landed raw-block progress while
-`indexer_checkpoint` keeps landed, latest-event, finalized-event,
-finalized-watermark and RPC-head values separate. Readiness therefore does not
-mistake a quiet protocol (few events) for an unhealthy indexer. It is resumable
-and idempotent by `(chain_id,tx_hash,log_index)`.
+`graph codegen` and `graph build` are local validation tools only. Do not use
+`graph deploy`, Graph Studio, a graph-node endpoint or a Graph Network deploy
+key. The returned Goldsky GraphQL endpoint is configured as
+`NEXMARKETS_SUBGRAPH_URL` for the API and reconciler.
 
-Goldsky execution still requires an authorized project/API credential and a
-configured Postgres sink secret; those are external release gates. In the
-current testnet evidence, the template and 22-event catalog validate locally
-and PostgreSQL is reachable, but the configured CLI credential was rejected by
-Goldsky with `EACCES`, so no pipeline or landed watermark is claimed. Never
-commit either secret.
+The manifest statically indexes the V1 registries and primitives and creates a
+dynamic `NexPassEdition` data source from every Factory `EditionCreated` event.
+The certification Edition is therefore discovered from chain history rather
+than hardcoded as the production indexing mechanism.
+
+## Turbo transition
+
+The former Goldsky Turbo → raw PostgreSQL pipeline is retained as rollback and
+archive infrastructure but is deprecated for the NexMarkets V1 primary read
+model. Do not add product dependencies on `goldsky_raw_log` or
+`goldsky_chain_watermark`. Turbo may later serve analytics, exports or raw
+archival workloads. It is not authoritative and must not replace the
+Subgraph/RPC path.
+
+The old tables are not deleted automatically. Before cleanup, generate a
+report of row counts, sizes, runtime references and safe-removal gates. Delete
+only after `SUBGRAPH_READ_PATH_PASS`, `RPC_RECONCILIATION_PASS` and
+`TESTNET_SUBGRAPH_CERTIFICATION_PASS` are all evidenced.
+
+## Readiness and reconciliation
+
+`/readyz` reads the Subgraph `_meta.block.number` and compares it with the
+current Robinhood RPC head. The latest NexMarkets event is not used as a
+progress watermark. Reconciliation compares independent Subgraph entities
+(Edition, Pass, Advantage, Listing, Royalty claim and TBA) against RPC and
+records discrepancies without overwriting chain truth.
+
+## Secrets and mainnet
+
+Never commit `GOLDSKY_API_KEY`, `DATABASE_URL` or the Subgraph endpoint if it
+contains credentials. Mainnet remains separately configured; its start block
+is unresolved until custom NexMarkets mainnet deployment occurs. No mainnet
+deployment is implied by the testnet Subgraph.

@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "network": "robinhood-testnet",
+  "chainId": 46630,
+  "project": "Default Project",
+  "projectId": "project_cmt3es3z03t5101vr8ggx1j7e",
+  "deployment": "nexmarkets-v1-robinhood-testnet/1.0.0",
+  "deploymentHash": "QmNQqtVppaZ7UsuwBnyGgamzBnP87s2NbEgUK7pxtdpt9R",
+  "graphqlEndpoint": "https://api.goldsky.com/api/public/project_cmt3es3z03t5101vr8ggx1j7e/subgraphs/nexmarkets-v1-robinhood-testnet/1.0.0/gn",
+  "cliVersion": "13.3.4",
+  "deployCommand": "goldsky subgraph deploy nexmarkets-v1-robinhood-testnet/1.0.0 --path .",
+  "startBlock": 104607055,
+  "indexedBlock": 105151737,
+  "indexedBlockHash": "0x332be32207e582bbe947402bf6cc65d08b4524e36f7dae26eff1190fd906065f",
+  "chainHead": 105151807,
+  "indexingLag": 70,
+  "health": "healthy",
+  "status": "ACTIVE_SYNCED",
+  "certificationEdition": {
+    "address": "0x4171D62F43B4168b07a01C04594455DBc3298437",
+    "indexed": true,
+    "termsHash": "0xe357b55e43ce7d7724a3c4fab02814fd0dd590d731247c6e54237f47f2635745",
+    "termsIndexed": true,
+    "advantagesIndexed": false,
+    "advantagesReason": "No Pass has been minted/initialized yet; the committed Advantages hash is indexed in Terms."
+  },
+  "dynamicEditionTemplate": "VERIFIED_BY_CERTIFICATION_EDITION_QUERY",
+  "reconciliation": {
+    "scope": "EDITION",
+    "checkedCount": 3,
+    "unexplainedDiscrepancies": 0,
+    "fullLifecycleReconciliation": "NOT_RUN_BEFORE_MINT"
+  },
+  "graphDeployUsed": false,
+  "blockchainTransactionsPerformed": false,
+  "mainnetDeployed": false,
+  "recordedAt": "2026-08-21T20:52:00Z"
+}

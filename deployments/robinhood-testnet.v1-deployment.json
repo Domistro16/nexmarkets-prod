@@ -92,14 +92,20 @@
   },
   "goldsky": {
     "network": "robinhood-testnet",
-    "status": "CONFIG_VALIDATED_PIPELINE_BLOCKED_BY_CLI_AUTHORIZATION",
-    "apiKeyConfigured": true,
-    "configValidation": "PASS_22_EVENTS",
-    "pipelineName": "nexmarkets-robinhood-v1",
-    "pipelineId": null,
-    "authEvidence": "goldsky_cli_login_rejected_and_pipeline_apply_returned_EACCES",
-    "landedBlock": null,
-    "projectorCheckpoint": { "head": 104628987, "latestEventBlock": 0, "landedBlock": 0, "processed": 0 }
+    "status": "SUBGRAPH_HEALTHY_ACTIVE_SYNCED",
+    "project": "Default Project",
+    "projectId": "project_cmt3es3z03t5101vr8ggx1j7e",
+    "subgraphName": "nexmarkets-v1-robinhood-testnet/1.0.0",
+    "deploymentHash": "QmNQqtVppaZ7UsuwBnyGgamzBnP87s2NbEgUK7pxtdpt9R",
+    "graphqlEndpoint": "https://api.goldsky.com/api/public/project_cmt3es3z03t5101vr8ggx1j7e/subgraphs/nexmarkets-v1-robinhood-testnet/1.0.0/gn",
+    "startBlock": 104607055,
+    "indexedBlock": 105151737,
+    "chainHead": 105151807,
+    "indexingLag": 70,
+    "certificationEditionIndexed": true,
+    "certificationTermsIndexed": true,
+    "dynamicEditionTemplate": "VERIFIED_BY_CERTIFICATION_EDITION_QUERY",
+    "turboStatus": "DEPRECATED_ARCHIVE_ONLY"
   },
   "postgres": {
     "status": "MIGRATED_REACHABLE",

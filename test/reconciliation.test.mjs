@@ -5,6 +5,7 @@ import { RobinhoodReconciliationChain } from '../services/reconciler/src/rpc-ada
 import pg from 'pg';
 import { PostgresReconciliationStore } from '../services/reconciler/src/postgres-adapter.mjs';
 import { advantageRemaining } from '../services/indexer/src/runtime.mjs';
+import { Interface } from 'ethers';
 
 function evidence() {
   const state = { runs: [], incidents: [] };
@@ -55,6 +56,32 @@ test('RPC reconciliation adapter reads canonical owner and token Terms', async (
   const chain = new RobinhoodReconciliationChain({ rpc: { async ethCall(to, data) { calls.push({ to, data }); return `0x${'00'.repeat(12)}${'11'.repeat(20)}`; } } });
   const owner = await chain.owner({ edition: '0x2222222222222222222222222222222222222222', tokenId: 1 });
   assert.equal(owner, '0x1111111111111111111111111111111111111111'); assert.equal(calls.length, 1);
+});
+
+test('RPC reconciliation adapter normalizes live uint and tuple return shapes', async () => {
+  const editionInterface = new Interface(['function totalMinted() view returns (uint256)']);
+  const registryInterface = new Interface(['function activeTerms(address) view returns (bytes32,tuple(uint256 activeSupply,uint256 pricePerPass,uint64 previewStartsAt,uint64 mintStartsAt,uint64 mintEndsAt,address primaryRecipient,address royaltyReceiver,uint96 royaltyBps,bytes32 advantagesHash,bytes32 referralTermsHash))']);
+  const activeHash = `0x${'11'.repeat(32)}`;
+  const recipient = `0x${'22'.repeat(20)}`;
+  const activeTerms = [3n, 1000000n, 10n, 20n, 30n, recipient, recipient, 300n, `0x${'33'.repeat(32)}`, `0x${'44'.repeat(32)}`];
+  const chain = new RobinhoodReconciliationChain({
+    rpc: {
+      async ethCall(to, data) {
+        if (data.startsWith(editionInterface.getFunction('totalMinted').selector)) return editionInterface.encodeFunctionResult('totalMinted', [0n]);
+        if (data.startsWith(registryInterface.getFunction('activeTerms').selector)) return registryInterface.encodeFunctionResult('activeTerms', [activeHash, activeTerms]);
+        throw new Error(`unexpected call ${to}`);
+      }
+    },
+    addresses: { launchRegistry: `0x${'55'.repeat(20)}` }
+  });
+  assert.equal(await chain.totalMinted({ edition: `0x${'66'.repeat(20)}` }), '0');
+  assert.deepEqual(await chain.activeTerms({ edition: `0x${'66'.repeat(20)}` }), {
+    hash: activeHash,
+    terms: {
+      activeSupply: '3', pricePerPass: '1000000', previewStartsAt: 10, mintStartsAt: 20, mintEndsAt: 30,
+      primaryRecipient: recipient, royaltyReceiver: recipient, royaltyBps: '300', advantagesHash: `0x${'33'.repeat(32)}`, referralTermsHash: `0x${'44'.repeat(32)}`
+    }
+  });
 });
 
 test('Advantage projection semantics are kind-aware and freeze only the listed TimeBased utility', () => {

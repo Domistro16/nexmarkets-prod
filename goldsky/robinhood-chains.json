@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "provider": "GOLDSKY_TURBO",
+  "provider": "GOLDSKY_SUBGRAPH_PRIMARY_TURBO_DEPRECATED",
   "customChainEnablementRequired": false,
   "networks": {
     "robinhood-mainnet": {
@@ -13,6 +13,7 @@
       "datasetPrefix": "robinhood_mainnet",
       "rawLogsVersion": "1.1.0",
       "rawBlocksVersion": "1.1.0",
+      "nexmarketsStartBlock": null,
       "status": "SUPPORTED"
     },
     "robinhood-testnet": {
@@ -25,6 +26,7 @@
       "datasetPrefix": "robinhood_testnet",
       "rawLogsVersion": "1.1.0",
       "rawBlocksVersion": "1.0.0",
+      "nexmarketsStartBlock": 104607055,
       "status": "SUPPORTED"
     }
   }

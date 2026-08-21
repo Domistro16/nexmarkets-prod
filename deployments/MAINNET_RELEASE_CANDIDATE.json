@@ -139,15 +139,15 @@
   "tests": {
     "foundry": "71/71",
     "serialFuzzRuns": 5000,
-    "nodePostgres": "77/77",
-    "livePostgresIntegration": "12/14 pass; 2 hosted-provider statement-timeout failures during projector fixtures",
+    "nodePostgres": "82/88 (6 skipped without DATABASE_URL)",
+    "livePostgresIntegration": "BLOCKED_HOSTED_PROVIDER_STATEMENT_TIMEOUT (2 projector fixtures; bounded 15s run)",
     "webTests": "6/6",
     "webBuildRoutes": 10,
     "migrations": "2 migrations / 34 required tables",
     "goldskyCatalogEvents": 22,
-    "checksums": 189,
+    "checksums": 216,
     "npmAudit": "0 vulnerabilities",
-    "secretScan": "190 files / 0 findings"
+    "secretScan": "217 files / 0 findings"
   },
   "ci": {
     "contracts": "LOCAL_PASS_71/71 (no new contracts-ci workflow triggered)",
@@ -155,20 +155,30 @@
     "sourceCommit": "8790b635ba55512e5d0e295fb1217a3993ecdafb"
   },
   "goldsky": {
-    "provider": "GOLDSKY_TURBO",
+    "provider": "GOLDSKY_SUBGRAPH_PRIMARY",
     "networks": ["robinhood-mainnet", "robinhood-testnet"],
     "configValidation": "PASS",
-    "pipelineDeployment": "BLOCKED_BY_GOLDSKY_CLI_AUTHORIZATION_EACCES",
-    "apiKeyConfigured": true,
-    "authEvidence": "goldsky_cli_login_rejected_and_pipeline_apply_returned_EACCES",
-    "pipelineName": "nexmarkets-robinhood-v1",
-    "pipelineId": null,
-    "landedBlock": null,
-    "projectorCheckpoint": null
+    "testnetSubgraph": {
+      "project": "Default Project",
+      "projectId": "project_cmt3es3z03t5101vr8ggx1j7e",
+      "name": "nexmarkets-v1-robinhood-testnet/1.0.0",
+      "deploymentHash": "QmNQqtVppaZ7UsuwBnyGgamzBnP87s2NbEgUK7pxtdpt9R",
+      "graphqlEndpoint": "https://api.goldsky.com/api/public/project_cmt3es3z03t5101vr8ggx1j7e/subgraphs/nexmarkets-v1-robinhood-testnet/1.0.0/gn",
+      "startBlock": 104607055,
+      "indexedBlock": 105151737,
+      "chainHead": 105151807,
+      "indexingLag": 70,
+      "status": "HEALTHY_ACTIVE_SYNCED"
+    },
+    "mainnetSubgraph": {
+      "status": "NOT_DEPLOYED",
+      "startBlock": null
+    },
+    "turboFallback": "DEPRECATED_ARCHIVE_ONLY"
   },
   "infrastructure": {
     "postgres": "MIGRATED_REACHABLE_34_TABLES",
-    "api": "LOCAL_HEALTHZ_VERIFIED_READYZ_BLOCKED_BY_MISSING_INDEXER_WATERMARK",
+    "api": "LOCAL_HEALTHZ_VERIFIED_SUBGRAPH_READ_PATH_CONFIGURED",
     "workers": "PROJECTOR_CHAIN_WORKER_RECONCILIATION_ONESHOTS_VERIFIED",
     "web": "LOCAL_BUILD_ONLY",
     "objectStorage": "OBJECT_STORAGE_PROVIDER_SELECTION_REQUIRED"
@@ -182,8 +192,8 @@
     "readyForMainnetApproval": false
   },
   "externalDependencies": [
-    "Goldsky CLI token with project permission (configured key currently rejected with EACCES)",
-    "Goldsky pipeline landing and projector watermark",
+    "Subgraph-backed reconciliation runtime execution with configured DATABASE_URL",
+    "Hosted PostgreSQL projector fixture statement-timeout remediation",
     "Testnet Preview/mint window and live lifecycle execution",
     "Approved hosting and object-storage credentials"
   ]

@@ -18,11 +18,11 @@
 | Builder Royalty lock | `NexRoyaltyVault` |
 | Referral attribution | PostgreSQL referral ledger |
 | Token-bound account address/control | Canonical ERC-6551 Registry + ERC-721 `ownerOf` |
-| Indexed/read-model rows | Goldsky Turbo -> PostgreSQL mirror |
+| Indexed/read-model rows | Goldsky Subgraph -> API read model (Turbo retained only as deprecated rollback/archive) |
 | Transaction status | Chain receipt/finality lifecycle, projected to PostgreSQL |
 
 The TBA is an attachment capability, not ownership, Terms, serial, Advantage,
-listing or royalty authority. Goldsky is the indexer and PostgreSQL is the
-read-model/referral/product authority described above. Goldsky, PostgreSQL
-chain projections, reconciliation caches and the UI may never override chain
-truth.
+listing or royalty authority. Goldsky Subgraph is the blockchain read model;
+PostgreSQL stores application/referral/transaction state. The deprecated Turbo
+raw pipeline is rollback/archive infrastructure only. Goldsky, PostgreSQL,
+reconciliation caches and the UI may never override chain truth.

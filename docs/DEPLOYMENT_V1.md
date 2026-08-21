@@ -75,22 +75,26 @@ remain process-environment/secret-manager inputs and were never committed.
 7. Deploy and independently verify the ten contracts in dependency order,
    then execute the six one-time wiring calls only after every verification
    passes.
-8. Run the complete post-deployment verifier, render/deploy the official
-   `robinhood-testnet` Goldsky Turbo pipeline when an authorized CLI token is
-   available, apply the PostgreSQL migrations, start projector/lifecycle/
-   reconciliation/outbox workers and require a healthy landed-block watermark.
+8. Run the complete post-deployment verifier, build and deploy the official
+   `robinhood-testnet` Goldsky Subgraph with the Goldsky CLI when an authorized
+   token and project credits are available, apply the PostgreSQL migrations,
+   start lifecycle/reconciliation/outbox workers and require the Subgraph
+   `_meta` indexed block to remain within the configured RPC-head freshness
+   threshold. The former Turbo raw pipeline is rollback/archive only.
 9. A clearly identified test-only certification Edition was created at
    `0x4171D62F43B4168b07a01C04594455DBc3298437`. Terms were published with a
    real 24-hour Preview; `mintStartsAt` is `2026-08-21T21:42:30Z`. No production
    Genesis/Crier Edition was created.
-10. The configured PostgreSQL endpoint is reachable and both migrations verify
-    all 34 required tables. A projector pass, chain-lifecycle pass and
-    reconciliation pass were run against testnet; no Goldsky rows were landed,
-    so reconciliation had zero projections to check. Goldsky config rendering
-    validates 22 events, but the supplied CLI credential was rejected with
-    `EACCES` during login/pipeline apply. The Goldsky pipeline and watermark
-    therefore remain an external gate and the testnet lifecycle is not
-    certified.
+10. The configured PostgreSQL application schema remains separate from chain
+    indexing. Goldsky Subgraph
+    `nexmarkets-v1-robinhood-testnet/1.0.0` is deployed in the active Goldsky
+    project, healthy, and synced to the live Robinhood testnet head. Its public
+    GraphQL endpoint reconstructs the certification Edition and exact Terms
+    hash; the machine-readable evidence is
+    `deployments/robinhood-testnet.goldsky-subgraph.json`. The old Turbo raw
+    pipeline remains deprecated rollback/archive infrastructure. The live mint
+    lifecycle and reconciliation certification still wait for the configured
+    mint window and runtime credentials.
 
 The Safe execution tool is testnet-only and validates the frozen plan SHA,
 Safe ownership, CREATE2 init-code hashes, empty predicted addresses and exact

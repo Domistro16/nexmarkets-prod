@@ -14,16 +14,29 @@ const ABI = new Interface([
 ]);
 
 const LISTING_STATUS = ['NONE', 'ACTIVE', 'CANCELLED', 'FILLED', 'EXPIRED', 'STALE'];
-const tupleObject = (value) => Object.fromEntries(Object.entries(value).filter(([key]) => Number.isNaN(Number(key))).map(([key, item]) => [key, typeof item === 'bigint' ? item.toString() : typeof item === 'string' && item.startsWith('0x') ? item.toLowerCase() : item]));
+const normalize = (value) => typeof value === 'bigint'
+  ? value.toString()
+  : typeof value === 'string' && value.startsWith('0x')
+    ? value.toLowerCase()
+    : value;
+const tupleObject = (value, fields) => Object.fromEntries(fields.map((field, index) => [field, normalize(value[field] ?? value[index])]));
 
 export class RobinhoodReconciliationChain {
   constructor({ rpc, rpcUrl = process.env.RH_MAINNET_RPC_URL, addresses = {} } = {}) { this.rpc = rpc ?? new JsonRpcClient(rpcUrl); this.addresses = addresses; }
   async call(address, fragment, args, block = 'latest') { const data = ABI.encodeFunctionData(fragment, args); const result = await this.rpc.ethCall(address, data, block); return ABI.decodeFunctionResult(fragment, result); }
   async edition({ edition }) { const code = await this.rpc.getCode(edition); return Boolean(code && code !== '0x'); }
-  async totalMinted({ edition }) { return String(await this.call(edition, 'totalMinted', [])[0]); }
+  async totalMinted({ edition }) { const result = await this.call(edition, 'totalMinted', []); return String(result[0]); }
   async owner({ edition, tokenId }) { return (await this.call(edition, 'ownerOf', [tokenId]))[0].toLowerCase(); }
   async tokenTerms({ edition, tokenId }) { return (await this.call(edition, 'termsVersionHashOf', [tokenId]))[0].toLowerCase(); }
-  async activeTerms({ edition }) { const [hash, terms] = await this.call(this.addresses.launchRegistry, 'activeTerms', [edition]); return { hash: hash.toLowerCase(), terms: tupleObject(terms) }; }
+  async activeTerms({ edition }) {
+    const [hash, terms] = await this.call(this.addresses.launchRegistry, 'activeTerms', [edition]);
+    const normalized = tupleObject(terms, ['activeSupply', 'pricePerPass', 'previewStartsAt', 'mintStartsAt', 'mintEndsAt', 'primaryRecipient', 'royaltyReceiver', 'royaltyBps', 'advantagesHash', 'referralTermsHash']);
+    for (const field of ['previewStartsAt', 'mintStartsAt', 'mintEndsAt']) normalized[field] = Number(normalized[field]);
+    return {
+      hash: hash.toLowerCase(),
+      terms: normalized
+    };
+  }
   async advantage({ registry = this.addresses.advantageRegistry, edition, tokenId, advantageId }) {
     const [remaining] = await this.call(registry, 'remaining', [edition, tokenId, advantageId]);
     const [listed] = await this.call(registry, 'isListed', [edition, tokenId]);
@@ -31,12 +44,12 @@ export class RobinhoodReconciliationChain {
   }
   async listing({ registry = this.addresses.listingRegistry, orderHash }) {
     const [listing] = await this.call(registry, 'listingInfo', [orderHash]);
-    const value = tupleObject(listing);
+    const value = tupleObject(listing, ['edition', 'tokenId', 'seller', 'termsVersionHash', 'usdGPrice', 'royaltyReceiver', 'royaltyBps', 'startTime', 'expiry', 'zoneHash', 'status']);
     return {
       edition: value.edition.toLowerCase(), tokenId: String(value.tokenId), seller: value.seller.toLowerCase(),
       termsVersionHash: value.termsVersionHash.toLowerCase(), usdGPrice: String(value.usdGPrice),
       royaltyReceiver: value.royaltyReceiver.toLowerCase(), royaltyBps: String(value.royaltyBps),
-      startTime: String(value.startTime), expiry: String(value.expiry), zoneHash: value.zoneHash.toLowerCase(),
+      startTime: Number(value.startTime), expiry: Number(value.expiry), zoneHash: value.zoneHash.toLowerCase(),
       status: LISTING_STATUS[Number(value.status)] ?? 'UNKNOWN'
     };
   }

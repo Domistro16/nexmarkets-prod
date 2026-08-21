@@ -8,6 +8,7 @@ import { buildNexMarketsOrder, buildProtocolCalldata, buildSeaportFulfillment, s
 import { PostgresStore } from '../../../packages/data/src/postgres-store.mjs';
 import { MetricsRegistry } from '../../../packages/observability/src/metrics.mjs';
 import { JsonRpcClient } from '../../../packages/chain/src/rpc.mjs';
+import { SubgraphClient } from '../../../packages/subgraph-client/src/index.mjs';
 
 const JSON_HEADERS = { 'content-type': 'application/json; charset=utf-8' };
 const INTENT_TYPE = Object.freeze({
@@ -171,6 +172,7 @@ export function createApiServer({
   metrics = new MetricsRegistry(),
   requireIndexedReadiness = false,
   chain = null,
+  subgraph = null,
   maxIndexerLagBlocks = 120,
   maxFinalityLagBlocks = 120,
   storage = { async prepareUpload({ key }) { return { method: 'PUT', key, expiresInSeconds: 900 }; } }
@@ -191,26 +193,27 @@ export function createApiServer({
       if (req.method === 'GET' && url.pathname === '/healthz') return json(res, 200, { status: 'ok', service: 'api', version: 'v1', requestId });
       if (req.method === 'GET' && url.pathname === '/readyz') {
         await store.ready(); metrics.set('nexmarkets_db_ready', 1);
-        const indexer = requireIndexedReadiness ? await store.indexerHealth(chainId) : null;
-        if (requireIndexedReadiness && !indexer) throw Object.assign(new Error('INDEXER_NOT_READY'), { status: 503 });
+        const subgraphStatus = requireIndexedReadiness && subgraph?.enabled ? await subgraph.indexingStatus() : null;
+        const indexer = requireIndexedReadiness && !subgraphStatus ? await store.indexerHealth(chainId) : null;
+        if (requireIndexedReadiness && !indexer && !subgraphStatus) throw Object.assign(new Error('INDEXER_NOT_READY'), { status: 503 });
         if (requireIndexedReadiness && !chain?.getBlockNumber) throw Object.assign(new Error('CHAIN_HEAD_UNAVAILABLE'), { status: 503 });
         let chainHead = null; let indexedLag = null; let finalityLag = null;
-        if (indexer && chain?.getBlockNumber) {
+        if ((indexer || subgraphStatus) && chain?.getBlockNumber) {
           chainHead = await chain.getBlockNumber();
-          const landed = Number(indexer.landed_block_number ?? indexer.latest_block_number ?? 0);
-          const finalized = Number(indexer.finalized_watermark_block_number ?? indexer.finalized_block_number ?? 0);
+          const landed = subgraphStatus ? Number(subgraphStatus.indexedBlock ?? 0) : Number(indexer.landed_block_number ?? indexer.latest_block_number ?? 0);
+          const finalized = subgraphStatus ? landed : Number(indexer.finalized_watermark_block_number ?? indexer.finalized_block_number ?? 0);
           indexedLag = chainHead - landed; finalityLag = chainHead - finalized;
           if (indexedLag > maxIndexerLagBlocks || finalityLag > maxFinalityLagBlocks) throw Object.assign(new Error('INDEXER_STALE'), { status: 503 });
         }
-        if (indexer) { const landed = Number(indexer.landed_block_number ?? indexer.latest_block_number ?? 0); metrics.set('nexmarkets_indexer_latest_block', landed); metrics.set('nexmarkets_indexer_lag_blocks', indexedLag ?? landed - Number(indexer.finalized_watermark_block_number ?? indexer.finalized_block_number ?? 0)); }
-        return json(res, 200, { status: 'ready', database: 'ok', indexer: indexer ? 'fresh' : 'not-required', chainHead, landedBlock: indexer ? Number(indexer.landed_block_number ?? indexer.latest_block_number ?? 0) : null, latestEventBlock: indexer ? Number(indexer.latest_event_block_number ?? indexer.latest_block_number ?? 0) : null, indexedLag, finalityLag, requestId });
+        if (indexer || subgraphStatus) { const landed = subgraphStatus ? Number(subgraphStatus.indexedBlock ?? 0) : Number(indexer.landed_block_number ?? indexer.latest_block_number ?? 0); metrics.set('nexmarkets_indexer_latest_block', landed); metrics.set('nexmarkets_indexer_lag_blocks', indexedLag ?? 0); }
+        return json(res, 200, { status: 'ready', database: 'ok', indexer: (indexer || subgraphStatus) ? 'fresh' : 'not-required', indexerProvider: subgraphStatus ? 'GOLDSKY_SUBGRAPH' : indexer ? 'GOLDSKY_TURBO_DEPRECATED' : null, chainHead, landedBlock: subgraphStatus ? Number(subgraphStatus.indexedBlock ?? 0) : indexer ? Number(indexer.landed_block_number ?? indexer.latest_block_number ?? 0) : null, latestEventBlock: indexer ? Number(indexer.latest_event_block_number ?? indexer.latest_block_number ?? 0) : null, indexedLag, finalityLag, requestId });
       }
       if (req.method === 'GET' && url.pathname === '/metrics') { res.writeHead(200, { 'content-type': 'text/plain; version=0.0.4' }); return res.end(metrics.render()); }
-      if (req.method === 'GET' && url.pathname === '/v1/discover') return json(res, 200, { data: await store.discover(), authority: 'POSTGRES_READ_MODEL' });
-      if (req.method === 'GET' && url.pathname === '/v1/market/listings') return json(res, 200, { data: await store.listings(), authority: 'NEX_LISTING_REGISTRY_PROJECTION' });
+      if (req.method === 'GET' && url.pathname === '/v1/discover') return json(res, 200, { data: subgraph?.enabled ? await subgraph.discover() : await store.discover(), authority: subgraph?.enabled ? 'GOLDSKY_SUBGRAPH_READ_MODEL' : 'POSTGRES_READ_MODEL' });
+      if (req.method === 'GET' && url.pathname === '/v1/market/listings') return json(res, 200, { data: subgraph?.enabled ? await subgraph.listings() : await store.listings(), authority: subgraph?.enabled ? 'GOLDSKY_SUBGRAPH_READ_MODEL' : 'NEX_LISTING_REGISTRY_PROJECTION' });
       if (req.method === 'GET' && url.pathname.startsWith('/v1/projects/')) return json(res, 200, { data: await store.projectBySlug(decodeURIComponent(url.pathname.slice(13))) });
-      if (req.method === 'GET' && url.pathname.startsWith('/v1/editions/')) return json(res, 200, { data: await store.editionByAddress(url.pathname.slice(13)) });
-      if (req.method === 'GET' && url.pathname.startsWith('/v1/passes/')) { const [, , , edition, tokenId] = url.pathname.split('/'); return json(res, 200, { data: await store.pass(edition, tokenId), authority: 'CHAIN_PROJECTION' }); }
+      if (req.method === 'GET' && url.pathname.startsWith('/v1/editions/')) return json(res, 200, { data: subgraph?.enabled ? await subgraph.editionByAddress(url.pathname.slice(13)) : await store.editionByAddress(url.pathname.slice(13)), authority: subgraph?.enabled ? 'GOLDSKY_SUBGRAPH_READ_MODEL' : 'CHAIN_PROJECTION' });
+      if (req.method === 'GET' && url.pathname.startsWith('/v1/passes/')) { const [, , , edition, tokenId] = url.pathname.split('/'); return json(res, 200, { data: subgraph?.enabled ? await subgraph.pass(edition, tokenId) : await store.pass(edition, tokenId), authority: subgraph?.enabled ? 'GOLDSKY_SUBGRAPH_READ_MODEL_PLUS_RPC_VERIFICATION' : 'CHAIN_PROJECTION' }); }
 
       if (req.method === 'POST' && url.pathname === '/v1/auth/challenge') {
         const input = await readBody(req);
@@ -371,8 +374,8 @@ export function createApiServer({
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
-  const store = new PostgresStore(); const port = Number(process.env.PORT || 4010); const rpc = new JsonRpcClient(process.env.RH_MAINNET_RPC_URL ?? 'https://rpc.mainnet.chain.robinhood.com');
-  const server = createApiServer({ store, chainId: Number(process.env.ROBINHOOD_CHAIN_ID ?? 4663), chain: rpc, maxIndexerLagBlocks: Number(process.env.INDEXER_MAX_LAG_BLOCKS ?? 120), maxFinalityLagBlocks: Number(process.env.INDEXER_MAX_FINALITY_LAG_BLOCKS ?? 120), orderPolicy: productionOrderPolicy(), requireIndexedReadiness: process.env.NODE_ENV === 'production' });
+  const store = new PostgresStore(); const port = Number(process.env.PORT || 4010); const chainId = Number(process.env.ROBINHOOD_CHAIN_ID ?? 4663); const rpc = new JsonRpcClient(chainId === 46630 ? (process.env.RH_TESTNET_RPC_URL ?? 'https://rpc.testnet.chain.robinhood.com') : (process.env.RH_MAINNET_RPC_URL ?? 'https://rpc.mainnet.chain.robinhood.com')); const subgraph = new SubgraphClient({ endpoint: process.env.NEXMARKETS_SUBGRAPH_URL });
+  const server = createApiServer({ store, chainId, chain: rpc, subgraph, maxIndexerLagBlocks: Number(process.env.INDEXER_MAX_LAG_BLOCKS ?? 120), maxFinalityLagBlocks: Number(process.env.INDEXER_MAX_FINALITY_LAG_BLOCKS ?? 120), orderPolicy: productionOrderPolicy(), requireIndexedReadiness: process.env.NODE_ENV === 'production' });
   server.listen(port, () => console.log(JSON.stringify({ event: 'api_started', port })));
   const shutdown = async () => { server.close(); await store.close(); };
   process.on('SIGTERM', shutdown); process.on('SIGINT', shutdown);
