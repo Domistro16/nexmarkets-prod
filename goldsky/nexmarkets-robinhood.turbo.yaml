@@ -46,6 +46,7 @@ transforms:
         to_timestamp(timestamp) AS block_timestamp,
         false AS removed
       FROM robinhood_blocks
+      WHERE timestamp IS NOT NULL
 sinks:
   postgres_events:
     type: postgres
