@@ -1,17 +1,17 @@
 name: nexmarkets-robinhood-v1
-# The renderer substitutes the official Goldsky Robinhood network slug:
-# robinhood-mainnet or robinhood-testnet. Goldsky remains a mirror; the
+# The renderer substitutes the official Goldsky network dataset prefix:
+# robinhood_mainnet or robinhood_testnet. Goldsky remains a mirror; the
 # PostgreSQL projector is responsible for canonical read-model projections.
 sources:
   robinhood_logs:
     type: dataset
     dataset_name: __ROBINHOOD_DATASET_PREFIX__.raw_logs
-    version: 1.0.0
+    version: __ROBINHOOD_RAW_LOGS_VERSION__
     start_at: earliest
   robinhood_blocks:
     type: dataset
     dataset_name: __ROBINHOOD_DATASET_PREFIX__.raw_blocks
-    version: 1.0.0
+    version: __ROBINHOOD_RAW_BLOCKS_VERSION__
     start_at: earliest
 transforms:
   nexmarkets_logs:
@@ -19,46 +19,45 @@ transforms:
     primary_key: chain_id,transaction_hash,log_index
     sql: |
       SELECT
-        l.chain_id,
+        __ROBINHOOD_CHAIN_ID__ AS chain_id,
         l.block_number,
-        COALESCE(b.block_hash,l.block_hash) AS block_hash,
+        l.block_hash,
         l.transaction_hash,
         l.log_index,
         l.address AS contract_address,
-        l.topic0,
-        l.topics,
+        SPLIT_INDEX(l.topics, ',', 0) AS topic0,
+        string_to_array(l.topics, ',') AS topics,
         l.data,
-        COALESCE(b.block_timestamp,l.block_timestamp) AS block_timestamp,
-        l.removed
+        to_timestamp(l.block_timestamp) AS block_timestamp,
+        false AS removed
       FROM robinhood_logs l
-      LEFT JOIN robinhood_blocks b ON b.chain_id=l.chain_id AND b.block_number=l.block_number
       -- Topic filtering transports core events plus candidate dynamic-Edition
       -- events. The idempotent projector accepts Edition-scoped events only
       -- after NexPassFactory.EditionCreated registered that address.
-      WHERE topic0 IN (__NEXMARKETS_EVENT_TOPIC0_LIST__)
+      WHERE SPLIT_INDEX(l.topics, ',', 0) IN (__NEXMARKETS_EVENT_TOPIC0_LIST__)
   nexmarkets_watermarks:
     type: sql
     primary_key: chain_id,block_number
     sql: |
       SELECT
-        chain_id,
-        block_number,
-        block_hash,
-        block_timestamp,
+        __ROBINHOOD_CHAIN_ID__ AS chain_id,
+        number AS block_number,
+        hash AS block_hash,
+        to_timestamp(timestamp) AS block_timestamp,
         false AS removed
       FROM robinhood_blocks
 sinks:
   postgres_events:
     type: postgres
-    source: nexmarkets_logs
+    from: nexmarkets_logs
+    schema: public
     table: goldsky_raw_log
     secret_name: NEXMARKETS_POSTGRES
-    mode: upsert
     primary_key: chain_id,transaction_hash,log_index
   postgres_watermarks:
     type: postgres
-    source: nexmarkets_watermarks
+    from: nexmarkets_watermarks
+    schema: public
     table: goldsky_chain_watermark
     secret_name: NEXMARKETS_POSTGRES
-    mode: upsert
     primary_key: chain_id,block_number

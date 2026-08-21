@@ -1,4 +1,4 @@
-import { Interface, getAddress } from 'ethers';
+import { Interface, getAddress, id } from 'ethers';
 import pg from 'pg';
 import { createHash } from 'node:crypto';
 import { JsonRpcClient } from '../../../packages/chain/src/rpc.mjs';
@@ -36,6 +36,7 @@ const TOPICS = new Map(EVENT_FRAGMENTS.map((fragment) => {
   const event = ABI.getEvent(parsed);
   return [event.topicHash.toLowerCase(), event];
 }));
+const TRANSFER_TOPIC = TOPICS.get(id('Transfer(address,address,uint256)'))?.topicHash?.toLowerCase();
 
 function sha256(value) { return createHash('sha256').update(value).digest('hex'); }
 function idFor(prefix, value) { return `${prefix}_${sha256(value).slice(0, 24)}`; }
@@ -197,9 +198,23 @@ export function decodeGoldskyLog(row) {
   const topic0 = String(row.topic0).toLowerCase();
   const event = TOPICS.get(topic0);
   if (!event) return { eventName: 'Unknown', eventSignature: topic0, args: {} };
-  const parsed = ABI.parseLog({ topics: rowTopics(row), data: row.data });
-  if (!parsed) return { eventName: 'Unknown', eventSignature: topic0, args: {} };
-  return { eventName: parsed.name, eventSignature: topic0, args: argsFrom(parsed) };
+  const topics = rowTopics(row);
+  // ERC-721 Transfer has three indexed arguments (topic0 + 3 topics). The
+  // same signature is also emitted by ERC-20 contracts with only two indexed
+  // arguments and a value word in data. Goldsky intentionally carries the
+  // canonical Transfer topic so dynamic Editions can be discovered, so the
+  // projector must discard the non-ERC-721 shape instead of attempting to
+  // decode it as a token transfer.
+  if (topic0 === TRANSFER_TOPIC && topics.length !== 4) return { eventName: 'Ignored', eventSignature: topic0, args: {} };
+  try {
+    const parsed = ABI.parseLog({ topics, data: row.data });
+    if (!parsed) return { eventName: 'Unknown', eventSignature: topic0, args: {} };
+    return { eventName: parsed.name, eventSignature: topic0, args: argsFrom(parsed) };
+  } catch {
+    // A topic collision or malformed candidate must be journaled as ignored
+    // so the raw-log watermark can advance without mutating canonical state.
+    return { eventName: 'Ignored', eventSignature: topic0, args: {} };
+  }
 }
 
 export class PostgresProjectionWorker {
@@ -216,6 +231,7 @@ export class PostgresProjectionWorker {
     const head = await this.rpc.getBlockNumber();
     const finalityBlock = Math.max(0, head - this.finalityDepth);
     const headBlock = await this.rpc.getBlockByNumber(head);
+    const ignored = await this.journalTransferCollisions(finalityBlock);
     const { rows } = await this.pool.query(
       `SELECT r.* FROM goldsky_raw_log r
        LEFT JOIN indexer_event i ON i.chain_id=r.chain_id AND i.tx_hash=r.transaction_hash AND i.log_index=r.log_index
@@ -225,7 +241,7 @@ export class PostgresProjectionWorker {
     let processed = 0; let removed = 0;
     for (const row of rows) { await this.processRaw(row, finalityBlock); processed += 1; if (row.removed) removed += 1; }
     await this.finalize(finalityBlock);
-    const latest = await this.pool.query('SELECT block_number,block_hash FROM indexer_event WHERE chain_id=$1 AND orphaned_at IS NULL ORDER BY block_number DESC,log_index DESC LIMIT 1', [this.chainId]);
+    const latest = await this.pool.query("SELECT block_number,block_hash FROM indexer_event WHERE chain_id=$1 AND orphaned_at IS NULL AND event_name NOT IN ('Ignored','Unknown') ORDER BY block_number DESC,log_index DESC LIMIT 1", [this.chainId]);
     const latestBlock = Number(latest.rows[0]?.block_number ?? 0);
     const latestEventHash = latest.rows[0]?.block_hash ?? ZERO;
     const landed = await this.pool.query('SELECT block_number,block_hash,block_timestamp FROM goldsky_chain_watermark WHERE chain_id=$1 AND removed=false ORDER BY block_number DESC LIMIT 1', [this.chainId]);
@@ -233,7 +249,7 @@ export class PostgresProjectionWorker {
     const landedRow = landed.rows[0] ?? fallbackLanded.rows[0] ?? (latest.rows[0] ? { block_number: latestBlock, block_hash: latestEventHash } : { block_number: 0, block_hash: ZERO });
     const landedBlock = Number(landedRow.block_number ?? 0);
     const landedHash = landedRow.block_hash ?? ZERO;
-    const finalizedEvent = await this.pool.query('SELECT block_number,block_hash FROM indexer_event WHERE chain_id=$1 AND orphaned_at IS NULL AND block_number<=$2 ORDER BY block_number DESC,log_index DESC LIMIT 1', [this.chainId, finalityBlock]);
+    const finalizedEvent = await this.pool.query("SELECT block_number,block_hash FROM indexer_event WHERE chain_id=$1 AND orphaned_at IS NULL AND event_name NOT IN ('Ignored','Unknown') AND block_number<=$2 ORDER BY block_number DESC,log_index DESC LIMIT 1", [this.chainId, finalityBlock]);
     const finalizedEventBlock = Number(finalizedEvent.rows[0]?.block_number ?? 0);
     const finalizedEventHash = finalizedEvent.rows[0]?.block_hash ?? ZERO;
     const finalizedWatermark = Math.min(landedBlock, finalityBlock);
@@ -244,7 +260,19 @@ export class PostgresProjectionWorker {
        ON CONFLICT(pipeline,chain_id) DO UPDATE SET latest_block_number=excluded.latest_block_number,latest_block_hash=excluded.latest_block_hash,finalized_block_number=excluded.finalized_block_number,chain_head_block_number=excluded.chain_head_block_number,chain_head_block_hash=excluded.chain_head_block_hash,landed_block_number=excluded.landed_block_number,landed_block_hash=excluded.landed_block_hash,landed_block_timestamp=excluded.landed_block_timestamp,latest_event_block_number=excluded.latest_event_block_number,latest_event_block_hash=excluded.latest_event_block_hash,finalized_event_block_number=excluded.finalized_event_block_number,finalized_event_block_hash=excluded.finalized_event_block_hash,finalized_watermark_block_number=excluded.finalized_watermark_block_number,finalized_watermark_block_hash=excluded.finalized_watermark_block_hash,updated_at=now()`,
       [this.pipeline, this.chainId, latestBlock, latestEventHash, finalizedEventBlock, head, headBlock?.hash ?? ZERO, landedBlock, landedHash, landedRow.block_timestamp ? asDate(landedRow.block_timestamp) : null, finalizedEventBlock, finalizedEventHash, finalizedWatermark, finalizedWatermarkHash]
     );
-    return { head, finalityBlock, latestBlock, landedBlock, processed, removed };
+    return { head, finalityBlock, latestBlock, landedBlock, processed, removed, ignored };
+  }
+
+  async journalTransferCollisions(finalityBlock) {
+    const result = await this.pool.query(
+      `INSERT INTO indexer_event(chain_id,block_number,block_hash,tx_hash,log_index,contract_address,event_signature,event_name,payload,block_timestamp,finalized)
+       SELECT r.chain_id,r.block_number,r.block_hash,r.transaction_hash,r.log_index,r.contract_address,r.topic0,'Ignored','{}'::jsonb,r.block_timestamp,(r.block_number <= $3)
+       FROM goldsky_raw_log r
+       LEFT JOIN indexer_event i ON i.chain_id=r.chain_id AND i.tx_hash=r.transaction_hash AND i.log_index=r.log_index
+       WHERE r.chain_id=$1 AND r.topic0=$2 AND jsonb_array_length(r.topics) <> 4 AND i.tx_hash IS NULL
+       ON CONFLICT(chain_id,tx_hash,log_index) DO NOTHING`, [this.chainId, TRANSFER_TOPIC, finalityBlock]
+    );
+    return result.rowCount ?? 0;
   }
 
   async processRaw(row, finalityBlock) {
@@ -271,8 +299,10 @@ export class PostgresProjectionWorker {
           [row.chain_id, row.block_number, row.block_hash, row.transaction_hash.toLowerCase(), row.log_index, row.contract_address.toLowerCase(), decoded.eventSignature, decoded.eventName, JSON.stringify(decoded.args), asDate(row.block_timestamp), Number(row.block_number) <= finalityBlock]
         );
         if (inserted.rowCount === 0) { await client.query('COMMIT'); return; }
-        await this.applyProjection(client, row, decoded);
-        await this.enqueueProjectionNotification(client, row, decoded);
+        if (!['Ignored', 'Unknown'].includes(decoded.eventName)) {
+          await this.applyProjection(client, row, decoded);
+          await this.enqueueProjectionNotification(client, row, decoded);
+        }
       } else if (existing.rows[0].orphaned_at) {
         // A removed log can be re-included at the same tx/log identity with a
         // new block hash. Replace the orphaned incarnation and replay it.
@@ -282,8 +312,10 @@ export class PostgresProjectionWorker {
            WHERE chain_id=$1 AND tx_hash=$2 AND log_index=$3`,
           [row.chain_id, row.transaction_hash.toLowerCase(), row.log_index, row.block_number, row.block_hash, row.contract_address.toLowerCase(), decoded.eventSignature, decoded.eventName, JSON.stringify(decoded.args), asDate(row.block_timestamp), Number(row.block_number) <= finalityBlock]
         );
-        await this.applyProjection(client, row, decoded);
-        await this.enqueueProjectionNotification(client, row, decoded);
+        if (!['Ignored', 'Unknown'].includes(decoded.eventName)) {
+          await this.applyProjection(client, row, decoded);
+          await this.enqueueProjectionNotification(client, row, decoded);
+        }
       }
       await client.query('COMMIT');
     } catch (error) { await client.query('ROLLBACK'); throw error; } finally { client.release(); }

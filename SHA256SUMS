@@ -58,8 +58,8 @@ d33e394b5391e3bef502566535a4f8f1f688ab6e87cfec498112d5b58bd6254c  ./docs/authori
 c5636c0b809a2697dd294bf3ac125bb03f316e100a3e244da4c71217597953dc  ./docs/authority/product-authority.json
 43ab48d66987c21af69656a6c1b057e39e7dff1e80048d0094d8c5e44eba79e3  ./docs/release/robinhood-mainnet.safe-approval.json
 552b4b01093a97ae2169f5a62ff10207236f862298c602a5706a262eed2ffe30  ./goldsky/nexmarkets-events.json
-053d101633195bb9aa0803cc09dc23ff347cad627e76531ee577b556768e69e3  ./goldsky/nexmarkets-robinhood.turbo.yaml
-3adce3ad42dba231946e147e60cea464585f28ea75011d8eaf8194847cf568a2  ./goldsky/robinhood-chains.json
+972343c690e74e287a2fef0b5312fbea5a9e77c01cb2547de5fd9643d6f83140  ./goldsky/nexmarkets-robinhood.turbo.yaml
+7f8b828ea7e1f4e0e61da9ea7fe4aab59f1bc33e400725bfab1f53fb2e917edb  ./goldsky/robinhood-chains.json
 0b50c8d897e03bab12b9e1c233eff8bb802a1d72403b677941d355364a335a4a  ./infra/deploy/SEAPORT_CANONICAL_DEPLOYMENT_GATE.md
 6c269b1b730b553344824cdf7b65632fe8427ad0c8ed74528e246a18abe09606  ./infra/schema/0001_phase0_authority.sql
 1271ee6e69ae035d81ee9e81528f0a5986fda60cf3b7fa9acba6e8f159987aca  ./infra/schema/0002_nexmarkets_v1.sql
@@ -132,11 +132,11 @@ f67db0ff4cbbddda71bf83e50403bd7a00acc98ccb6957c1886bc374ca45e31d  ./scripts/exec
 b4122f3025d98d1184b2291ed83e6624f0b8cf45e0aca033c2cbb9e4b061f796  ./scripts/plan-v1-deployment.mjs
 f697c75ce44038716ee72bced741873032633414a4203a9ac45250a3eaa7216b  ./scripts/preflight-canonical-seaport.mjs
 2f072f71659c4fef934eb9e489cd273733732204eac641c4c6ca5e2e7e19b27c  ./scripts/regenerate-checksums.mjs
-5d23aad6c54542bb2bb927fa903b9b8dda6d80785ec1a8413a484295d702e547  ./scripts/render-goldsky-config.mjs
+ce4ccea0f30a4264938598bf578ffe7e81c93d0fc1c197725099a029098bbb0c  ./scripts/render-goldsky-config.mjs
 a0aee069c7168d872a67c06171e8ba8a828494c719ec3e009159a936e0d2d5ef  ./scripts/testnet-certification-edition.mjs
 8a5f848e2c1288c0e4e428bb110cd025293b2a5bb803d8e05a3a2dd3aa184b0e  ./scripts/verify-checksums.mjs
 42e59f308a943dceabdfbcdb8d2ecfd638e17dd2aba3845b9bc835ba7a6bd6b3  ./scripts/verify-config.mjs
-2369578850e8c5320f7af9d4981b18745cd17043c1772a67f7c92b8deae9be52  ./scripts/verify-goldsky-config.mjs
+adb18624c114b7a8543986581899051d1b57cf57591cae354e2c5e9c68554fcd  ./scripts/verify-goldsky-config.mjs
 9902ae8503a50a8d8f86a5f4346c171b42998e4f22550057d5f2d1f4cf8b640a  ./scripts/verify-no-secrets.mjs
 62390fbbdab3bd6b8c673b37980ed254f3cb8343e301fb0e408724c944070f49  ./scripts/verify-primitives.mjs
 685d5a7dede4f9f0613aa63afd7069e5456b52482ec17554a749d3894ef026f6  ./scripts/verify-product-authority.mjs
@@ -149,7 +149,7 @@ c909f6917ae9babec757ed78415e60a3808b179586a4f7830a188ac491517bc5  ./services/ind
 6be293d4be2e98e13ad28a8edfa98625b2b4f46543c9064e7ac3761b254ee905  ./services/indexer/src/fixtures.mjs
 818a34d70f19b6d7118289fbde4c90f260192fc2a1a7a7aebf9bfb56c1ec57c9  ./services/indexer/src/projector.mjs
 6d0f364c3db2c61424ff5251aaccaaed409056d647164c58fa3949e72d4be8d6  ./services/indexer/src/run.mjs
-6da2c005dd277b59a095ce87d06d2685212057c7bf0bdae858e44257a8a66b0a  ./services/indexer/src/runtime.mjs
+58ae7ada49ee3d15aa7ec1a2f64e634a63945841c8d7c2373a2beaec7136005b  ./services/indexer/src/runtime.mjs
 75c1f311303ce6c9b91404af4f31903622c07c78ac56e6db5cbd0ec245c8342e  ./services/reconciler/README.md
 b5182ba4359702f518b8ff09308ae4552e46c610af1f4eae64b479001c09ab7e  ./services/reconciler/package.json
 048f58799ba233ef40f757058d1d2b511a5a60eca6d3523a8f4e2544ba587db8  ./services/reconciler/src/postgres-adapter.mjs
@@ -180,7 +180,7 @@ e0e07ae56ae225d592072843d999fe0d7f48a34fe5776c45e9b41d96a0a8578c  ./test/keccak.
 fae9984973c877d295f6e1db31ce099bbf356710c3b09d8c31445be764285c2a  ./test/outbox.test.mjs
 26d95fca9f03ce419b4f6707a55082ff4d9519a5e42e46fc72d4280490219368  ./test/reconciliation.test.mjs
 27e616a7254c1ec1c36d41d11abf0759042d59563281e066bcac67a1faa88d27  ./test/referral-media.test.mjs
-4cfbddf69f89876971d8074b3990bdf9472f46411baf062f6b99bcad1c6fa98f  ./test/runtime-integration.test.mjs
+a2919bcf61d515bda1eec655d852e44d1e7d40581caa3af182d8a8ee5f8ae897  ./test/runtime-integration.test.mjs
 f41e2b34bdc2b9ad94908ee418a1b32a56e54fd9c5084e6bfa801f03d4198aff  ./test/schema.test.mjs
 470ddc51826bcb351d9290f16f9634ed11ce31d9b2d7cbf24c33259f62bb2175  ./test/seaport-order.test.mjs
 f3ab49089c06036bca30b050ae794797b311cee8587bc1cf66bbfba30eca6f4c  ./test/transaction-calldata.test.mjs

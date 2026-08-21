@@ -10,7 +10,9 @@
       "rpcEnv": "RH_MAINNET_RPC_URL",
       "publicRpc": "https://rpc.mainnet.chain.robinhood.com",
       "explorer": "https://robinhoodchain.blockscout.com",
-      "datasetPrefix": "robinhood-mainnet",
+      "datasetPrefix": "robinhood_mainnet",
+      "rawLogsVersion": "1.1.0",
+      "rawBlocksVersion": "1.1.0",
       "status": "SUPPORTED"
     },
     "robinhood-testnet": {
@@ -20,7 +22,9 @@
       "rpcEnv": "RH_TESTNET_RPC_URL",
       "publicRpc": "https://rpc.testnet.chain.robinhood.com",
       "explorer": "https://explorer.testnet.chain.robinhood.com",
-      "datasetPrefix": "robinhood-testnet",
+      "datasetPrefix": "robinhood_testnet",
+      "rawLogsVersion": "1.1.0",
+      "rawBlocksVersion": "1.0.0",
       "status": "SUPPORTED"
     }
   }
