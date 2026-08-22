@@ -97,6 +97,16 @@
     "checkedCount": 14,
     "unexplainedDiscrepancies": 0
   },
+  "transactionLifecycle": {
+    "transactionId": "cert_secondary_fill_59e83d2850f0645e",
+    "txHash": "0x59e83d2850f0645eda890bb8938bf9ebd4d484221d54141674beab01a6b2ea5f",
+    "states": ["SUBMITTED", "CONFIRMED", "FINALIZED"],
+    "blockNumber": 105194936,
+    "confirmations": 101844,
+    "finalizedAt": "2026-08-22T04:09:16.576Z",
+    "reprocessInspected": 0,
+    "idempotent": true
+  },
   "legacyTurboCleanup": {
     "pipelineStatus": "NO_PIPELINE_IN_ACTIVE_GOLDSKY_PROJECT",
     "tables": {

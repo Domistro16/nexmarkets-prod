@@ -103,7 +103,15 @@
     "tba": "0x36B7a3A09ADc854b860dEb2f373B17db9A0cBC08",
     "finalOwner": "0x50fFa31ca4480c9f1aB1f055c54C3eb582b492EC",
     "reconciliationRunId": "rec_59a5233f-dbc9-46f6-999a-1e8588ac5eb2",
-    "unexplainedReconciliationDiscrepancies": 0
+    "unexplainedReconciliationDiscrepancies": 0,
+    "transactionLifecycle": {
+      "transactionId": "cert_secondary_fill_59e83d2850f0645e",
+      "states": ["SUBMITTED", "CONFIRMED", "FINALIZED"],
+      "blockNumber": 105194936,
+      "confirmations": 101844,
+      "reprocessInspected": 0,
+      "idempotent": true
+    }
   },
   "goldsky": {
     "network": "robinhood-testnet",

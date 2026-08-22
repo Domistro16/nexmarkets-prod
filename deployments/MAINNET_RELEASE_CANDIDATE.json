@@ -64,6 +64,8 @@
       "secondaryFillTxHash": "0x59e83d2850f0645eda890bb8938bf9ebd4d484221d54141674beab01a6b2ea5f",
       "royaltyAmount": "60000",
       "royaltyReleaseAt": "2026-09-20T22:54:13Z",
+      "transactionLifecycle": ["SUBMITTED", "CONFIRMED", "FINALIZED"],
+      "transactionLifecycleIdempotent": true,
       "unexplainedReconciliationDiscrepancies": 0
     },
     "runtimeEvidence": {
