@@ -87,14 +87,15 @@ remain process-environment/secret-manager inputs and were never committed.
    Genesis/Crier Edition was created.
 10. The configured PostgreSQL application schema remains separate from chain
     indexing. Goldsky Subgraph
-    `nexmarkets-v1-robinhood-testnet/1.0.0` is deployed in the active Goldsky
+    `nexmarkets-v1-robinhood-testnet/1.0.1` is deployed in the active Goldsky
     project, healthy, and synced to the live Robinhood testnet head. Its public
     GraphQL endpoint reconstructs the certification Edition and exact Terms
     hash; the machine-readable evidence is
     `deployments/robinhood-testnet.goldsky-subgraph.json`. The old Turbo raw
-    pipeline remains deprecated rollback/archive infrastructure. The live mint
-    lifecycle and reconciliation certification still wait for the configured
-    mint window and runtime credentials.
+    pipeline is no longer active in the Goldsky project; its raw Supabase tables
+    were cleared only after Subgraph/RPC reconciliation, while application data
+    and schema were preserved. Full lifecycle evidence is in
+    `artifacts/testnet-certification/secondary-lifecycle.json`.
 
 The Safe execution tool is testnet-only and validates the frozen plan SHA,
 Safe ownership, CREATE2 init-code hashes, empty predicted addresses and exact

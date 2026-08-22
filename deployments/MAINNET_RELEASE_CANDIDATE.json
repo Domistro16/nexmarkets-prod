@@ -7,8 +7,8 @@
     "mergeCommit": "d564e4c49037549c123e7182c37ab03576856c91",
     "approvedHead": "940a761d5d3883d38d53966953eb77451660d615"
   },
-  "status": "TESTNET_RUNTIME_GATES_INCOMPLETE",
-  "testnetCertification": "TESTNET_PREVIEW_ACTIVE_WAITING_FOR_MINT_START",
+  "status": "TESTNET_CERTIFICATION_PASS_READY_FOR_MAINNET_APPROVAL",
+  "testnetCertification": "TESTNET_CERTIFICATION_PASS",
   "mergedPr7": {
     "number": 7,
     "approvedHead": "263ffee8372b5ca432936b5e0f16be8af679ec44",
@@ -51,22 +51,26 @@
       "0xa39494e39f2a8b08c913fd833af7f51f6f2eca226c02bc0c11f32801559ad7cb",
       "0x221e86ef68cd82db624f1194d64a60ed11b40a1e7718da7348e07af934d50f4d"
     ],
-    "lifecycleStatus": "TESTNET_PREVIEW_ACTIVE",
+    "lifecycleStatus": "TESTNET_CERTIFICATION_PASS",
     "certificationEdition": "0x4171D62F43B4168b07a01C04594455DBc3298437",
     "termsHash": "0xe357b55e43ce7d7724a3c4fab02814fd0dd590d731247c6e54237f47f2635745",
     "mintStartsAt": "2026-08-21T21:42:30Z",
     "latestChainObservation": { "block": 104658268, "timestampUtc": "2026-08-20T23:37:22.000Z", "previewOpen": true, "mintOpen": false },
-    "reconciliationDiscrepancies": null,
-    "blockingReasons": [
-      "GOLDSKY_CLI_AUTHORIZATION_REJECTED_EACCES",
-      "TESTNET_MINT_WINDOW_NOT_OPEN",
-      "LIVE_RECONCILIATION_NOT_CERTIFIED_WITHOUT_GOLDSKY_PROJECTIONS"
-    ],
+    "reconciliationDiscrepancies": 0,
+    "blockingReasons": [],
+    "certificationLifecycle": {
+      "tokenId": "1",
+      "primaryMintTxHash": "0x969afbdc1e816dc739a526d4b796e7e5cd27a72ccddc2626a8a0ec28fe35b9b5",
+      "secondaryFillTxHash": "0x59e83d2850f0645eda890bb8938bf9ebd4d484221d54141674beab01a6b2ea5f",
+      "royaltyAmount": "60000",
+      "royaltyReleaseAt": "2026-09-20T22:54:13Z",
+      "unexplainedReconciliationDiscrepancies": 0
+    },
     "runtimeEvidence": {
       "postgres": { "status": "MIGRATED_REACHABLE", "migrations": 2, "requiredTables": 34 },
       "projector": { "status": "PASS_NO_LANDED_GOLDSKY_ROWS", "chainHead": 104628987, "processed": 0 },
       "chainWorker": { "status": "PASS_NO_SUBMITTED_JOBS", "chainHead": 104629341 },
-      "reconciliation": { "status": "NO_PROJECTIONS_TO_CHECK", "checkedCount": 0, "discrepancies": 0 }
+      "reconciliation": { "status": "PASS", "checkedCount": 14, "discrepancies": 0 }
     }
   },
   "mainnet": {
@@ -145,13 +149,13 @@
     "webBuildRoutes": 10,
     "migrations": "2 migrations / 34 required tables",
     "goldskyCatalogEvents": 22,
-    "checksums": 216,
+    "checksums": 221,
     "npmAudit": "0 vulnerabilities",
-    "secretScan": "217 files / 0 findings"
+    "secretScan": "222 files / 0 findings"
   },
   "ci": {
     "contracts": "LOCAL_PASS_71/71 (no new contracts-ci workflow triggered)",
-    "static": "PASS phase01-ci 32421090847",
+    "static": "PASS phase01-ci 32550373099",
     "sourceCommit": "8790b635ba55512e5d0e295fb1217a3993ecdafb"
   },
   "goldsky": {
@@ -161,13 +165,13 @@
     "testnetSubgraph": {
       "project": "Default Project",
       "projectId": "project_cmt3es3z03t5101vr8ggx1j7e",
-      "name": "nexmarkets-v1-robinhood-testnet/1.0.0",
-      "deploymentHash": "QmNQqtVppaZ7UsuwBnyGgamzBnP87s2NbEgUK7pxtdpt9R",
-      "graphqlEndpoint": "https://api.goldsky.com/api/public/project_cmt3es3z03t5101vr8ggx1j7e/subgraphs/nexmarkets-v1-robinhood-testnet/1.0.0/gn",
+      "name": "nexmarkets-v1-robinhood-testnet/1.0.1",
+      "deploymentHash": "QmS7AYuDhFMgWUwngbtDcWvNWbDj56tvLGn2gZ2ZjrUb47",
+      "graphqlEndpoint": "https://api.goldsky.com/api/public/project_cmt3es3z03t5101vr8ggx1j7e/subgraphs/nexmarkets-v1-robinhood-testnet/1.0.1/gn",
       "startBlock": 104607055,
-      "indexedBlock": 105155985,
-      "chainHead": 105156007,
-      "indexingLag": 22,
+      "indexedBlock": 105274827,
+      "chainHead": 105274859,
+      "indexingLag": 32,
       "status": "HEALTHY_ACTIVE_SYNCED"
     },
     "mainnetSubgraph": {

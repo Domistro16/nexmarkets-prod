@@ -18,8 +18,11 @@ The testnet Safe, test-only MockUSDG, ten frozen-source V1 contracts and six
 one-time bindings are deployed and independently verified. A certification
 Edition at `0x4171D62F43B4168b07a01C04594455DBc3298437` has Terms published with
 the mandatory 24-hour Preview; mint opens at `2026-08-21T21:42:30Z`. The
-Goldsky-hosted Subgraph `nexmarkets-v1-robinhood-testnet/1.0.0` is healthy and
-synced from block `104607054`; its public evidence is
+Goldsky-hosted Subgraph `nexmarkets-v1-robinhood-testnet/1.0.1` is healthy and
+synced from block `104607055`; its public evidence is
 `deployments/robinhood-testnet.goldsky-subgraph.json`. The Subgraph indexes the
-certification Edition and exact Terms hash. No mainnet custom deployment has
-occurred.
+certification Edition, exact Terms hash and the completed single-mint/secondary
+lifecycle. Full evidence is in
+`artifacts/testnet-certification/secondary-lifecycle.json`. RPC/Subgraph
+reconciliation recorded 14 checks with zero unexplained discrepancies. No
+mainnet custom deployment has occurred.
