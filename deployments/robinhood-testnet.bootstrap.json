@@ -13,10 +13,10 @@
   },
   "primitives": {
     "usdg": {
-      "address": null,
-      "expectedSymbol": "MockUSDG",
+      "address": "0x6A4F8832c23C51ba626Eba9d50c8F862647C1679",
+      "expectedSymbol": "USDG",
       "expectedDecimals": 6,
-      "expectedRuntimeCodeHash": null,
+      "expectedRuntimeCodeHash": "0x56fd890d80943131158d88c67f0e4c4fe0af415cf3378d11826eb72bed709bcf",
       "expectedImplementationCodeHash": null,
       "mock": true
     },

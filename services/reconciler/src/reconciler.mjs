@@ -2,6 +2,18 @@ const CHECKS = Object.freeze([
   'edition','totalMinted','owner','tokenTerms','activeTerms','advantage','listing','royalty','withdrawal','tba'
 ]);
 
+function equivalent(check, expected, observed) {
+  if (check !== 'advantage') return JSON.stringify(observed) === JSON.stringify(expected);
+  if (expected?.kind !== 'TIME_BASED') return Boolean(expected?.listed) === Boolean(observed?.listed) && String(expected?.remaining) === String(observed?.remaining);
+  // TimeBased remaining is a live countdown and the two reads may straddle
+  // one or two Robinhood blocks. Keep the listed bit exact and allow only a
+  // bounded wall-clock drift; all other Advantage kinds remain exact.
+  if (Boolean(expected.listed) !== Boolean(observed?.listed)) return false;
+  const expectedRemaining = Number(expected.remaining);
+  const observedRemaining = Number(observed?.remaining);
+  return Number.isFinite(expectedRemaining) && Number.isFinite(observedRemaining) && Math.abs(expectedRemaining - observedRemaining) <= 5;
+}
+
 async function retry(operation, { attempts = 3, onRetry = () => {} } = {}) {
   let last;
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
@@ -32,7 +44,7 @@ export class ReconciliationService {
         checkedCount += 1;
         try {
           const observed = await retry(() => this.chain[check](item.identity), { attempts: this.attempts });
-          if (JSON.stringify(observed) !== JSON.stringify(item.expected[check])) {
+          if (!equivalent(check, item.expected[check], observed)) {
             const incident = {
               runId: run.id,
               authority: item.authority[check],

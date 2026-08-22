@@ -69,7 +69,16 @@ The verifier is deliberately **fail closed**:
 
 ## Runtime status in this build environment
 
-The original local Phase 0/1 run could not resolve external RPC hosts. A later read-only Robinhood testnet preflight on 2026-08-20 verified chain ID 46630, Seaport 1.6 and its ConduitController link, the ConduitController, immutable CREATE2 factory, Safe singleton and canonical ERC-6551 Registry runtime. Testnet remains blocked for deployment because MockUSDG and custom NexMarkets addresses are intentionally unset.
+The original local Phase 0/1 run could not resolve external RPC hosts. On
+2026-08-20, the verified two-owner testnet Safe, test-only MockUSDG, all ten
+frozen-source NexMarkets contracts and their six one-time bindings were
+deployed on Robinhood testnet and independently read back. The public evidence
+is `deployments/robinhood-testnet.v1-deployment.json`. The certification Edition
+has Terms published with a mandatory 24-hour Preview. PostgreSQL migrations and
+the one-shot projector/lifecycle/reconciliation workers have now been run
+against the configured endpoint; no Goldsky rows have landed, and the supplied
+Goldsky CLI credential is rejected with `EACCES`, so Goldsky remains the active
+external runtime gate.
 
 ## Newly surfaced USDG consideration
 
@@ -86,8 +95,9 @@ OpenSea's current deployment documentation explicitly supports deploying Seaport
 
 ## Remaining external gates after the V1 implementation
 
-1. Goldsky project/API credentials and PostgreSQL sink secret for the supported `robinhood-mainnet` / `robinhood-testnet` datasets.
-2. A deployed testnet MockUSDG address before economic testnet deployment. The isolated source is `packages/contracts/src/MockUSDG.sol`; no testnet token has been broadcast yet.
-3. Safe-approved custom-contract deployment and runtime/immutable readback.
-4. The planned governance transition to threshold >= 2 for ongoing protocol
+1. An authorized Goldsky CLI project token (the configured token currently
+   returns `EACCES`) and the pipeline's PostgreSQL sink secret for the supported
+   `robinhood-mainnet` / `robinhood-testnet` datasets.
+2. Testnet certification mint window (`2026-08-21T21:42:30Z`) and live lifecycle execution.
+3. The planned governance transition to threshold >= 2 for ongoing protocol
    administration. The initial production Safe must retain at least two owners.

@@ -1,18 +1,24 @@
 {
   "network": "robinhood-testnet",
   "deploymentSourceCommit": "8790b635ba55512e5d0e295fb1217a3993ecdafb",
-  "deploymentStatus": "BLOCKED_TESTNET_DEPLOYMENT_PREREQUISITES",
-  "protocolAdminSafe": null,
-  "safeOwners": [],
+  "deploymentStatus": "V1_DEPLOYED_WIRED_VERIFIED_TEST_CERTIFICATION_PREVIEW_ACTIVE",
+  "protocolAdminSafe": "0xCE54c8453fF48670781a6b908c1A3e9209FC95A0",
+  "safeOwners": [
+    "0x7ec76611Da0AeE7C1B11273E9767FDA1Faa31790",
+    "0xD83deFbA240568040b39bb2C8B4DB7dB02d40593"
+  ],
   "safeThreshold": 1,
-  "primaryFeeRecipient": null,
-  "secondaryFeeRecipient": null,
-  "mockUsdgAddress": null,
+  "primaryFeeRecipient": "0xCE54c8453fF48670781a6b908c1A3e9209FC95A0",
+  "secondaryFeeRecipient": "0xCE54c8453fF48670781a6b908c1A3e9209FC95A0",
+  "mockUsdgAddress": "0x6A4F8832c23C51ba626Eba9d50c8F862647C1679",
   "mockUsdgSource": "packages/contracts/src/MockUSDG.sol (testnet only)",
   "governanceTransition": "RAISE_THRESHOLD_TO_2_PLUS",
-  "blockingReasons": [
-    "TESTNET_SAFE_NOT_DEPLOYED",
-    "MOCK_USDG_NOT_DEPLOYED",
-    "DEPLOYER_PRIVATE_KEY_ABSENT"
-  ]
+  "safeDeploymentTxHash": "0xc54cb8e350a93b7dbafd1b80dc031b5879bc024a948e55575c55b0cf3a592545",
+  "safeDeploymentBlock": 104607055,
+  "safeVersion": "1.4.1",
+  "safeRuntimeCodeHash": "0xd7d408ebcd99b2b70be43e20253d6d92a8ea8fab29bd3be7f55b10032331fb4c",
+  "mockUsdgDeploymentTxHash": "0x8e1e08b195bdd8f302631c4fd14bc81b42bae57b129ca707cca9aa19dce621aa",
+  "mockUsdgDeploymentBlock": 104608738,
+  "mockUsdgRuntimeCodeHash": "0x56fd890d80943131158d88c67f0e4c4fe0af415cf3378d11826eb72bed709bcf",
+  "blockingReasons": []
 }

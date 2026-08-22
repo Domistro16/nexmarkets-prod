@@ -1,0 +1,263 @@
+specVersion: 1.3.0
+description: NexMarkets V1 Robinhood testnet indexed read model. Chain/RPC remains canonical.
+repository: https://github.com/Domistro16/nexmarkets-prod
+schema:
+  file: ./schema.graphql
+dataSources:
+  - kind: ethereum
+    name: NexPassFactory
+    network: robinhood-testnet
+    source:
+      address: "0x957DE0de07D33c9a89c791B876074657a7fFeEb6"
+      abi: NexPassFactory
+      startBlock: 104607055
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.9
+      language: wasm/assemblyscript
+      file: ./src/mapping.ts
+      entities:
+        - ProtocolDeployment
+        - Edition
+      abis:
+        - name: NexPassFactory
+          file: ./abis/NexPassFactory.json
+      eventHandlers:
+        - event: EditionCreated(indexed address,indexed bytes32,indexed address,bytes32,address,address,uint32,bytes32)
+          handler: handleEditionCreated
+  - kind: ethereum
+    name: NexLaunchRegistry
+    network: robinhood-testnet
+    source:
+      address: "0xeE3C8F330C0B2738201fDb2F1720D06c0D27620d"
+      abi: NexLaunchRegistry
+      startBlock: 104607055
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.9
+      language: wasm/assemblyscript
+      file: ./src/mapping.ts
+      entities:
+        - Edition
+        - TermsVersion
+      abis:
+        - name: NexLaunchRegistry
+          file: ./abis/NexLaunchRegistry.json
+      eventHandlers:
+        - event: EditionRegistered(indexed address,indexed bytes32,indexed address,uint32)
+          handler: handleEditionRegistered
+        - event: EditionPublisherSet(indexed address,indexed address)
+          handler: handleEditionPublisherSet
+        - event: EditionDisabledSet(indexed address,bool)
+          handler: handleEditionDisabledSet
+        - event: TermsPublished(indexed address,indexed bytes32,indexed uint64,uint256,uint256,uint64,uint64,uint64,address,address,uint96,bytes32,bytes32)
+          handler: handleTermsPublished
+  - kind: ethereum
+    name: NexMintController
+    network: robinhood-testnet
+    source:
+      address: "0x0ea6F883808447f115C7b6C037902361C365555A"
+      abi: NexMintController
+      startBlock: 104607055
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.9
+      language: wasm/assemblyscript
+      file: ./src/mapping.ts
+      entities:
+        - PrimaryMint
+      abis:
+        - name: NexMintController
+          file: ./abis/NexMintController.json
+      eventHandlers:
+        - event: PrimaryMintSettled(indexed address,indexed address,indexed address,bytes32,bytes32,uint256,uint256,uint256,uint256)
+          handler: handlePrimaryMintSettled
+        - event: ReferralHintSubmitted(indexed bytes32,indexed address,indexed address,address)
+          handler: handleReferralHintSubmitted
+  - kind: ethereum
+    name: NexAdvantageRegistry
+    network: robinhood-testnet
+    source:
+      address: "0x1e265Fee39d75b5211895820926B4ff77B4f1cDd"
+      abi: NexAdvantageRegistry
+      startBlock: 104607055
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.9
+      language: wasm/assemblyscript
+      file: ./src/mapping.ts
+      entities:
+        - Pass
+        - AdvantageState
+        - AdvantageConsumption
+      abis:
+        - name: NexAdvantageRegistry
+          file: ./abis/NexAdvantageRegistry.json
+      eventHandlers:
+        - event: PassAdvantagesInitialized(indexed address,indexed uint256,indexed bytes32,bytes32,uint256)
+          handler: handlePassAdvantagesInitialized
+        - event: PassListingStateSet(indexed address,indexed uint256,bool)
+          handler: handlePassListingStateSet
+        - event: AdvantageConsumed(indexed address,indexed uint256,indexed bytes32,address,bytes32,uint256,uint256)
+          handler: handleAdvantageConsumed
+  - kind: ethereum
+    name: NexAdvantageInitializer
+    network: robinhood-testnet
+    source:
+      address: "0x4024bB2A5134c2066E2FDE6fC3a1311e2234499A"
+      abi: NexAdvantageInitializer
+      startBlock: 104607055
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.9
+      language: wasm/assemblyscript
+      file: ./src/mapping.ts
+      entities:
+        - Pass
+        - AdvantageState
+      abis:
+        - name: NexAdvantageInitializer
+          file: ./abis/NexAdvantageInitializer.json
+      eventHandlers:
+        - event: MintAdvantagesInitialized(indexed address,indexed uint256,uint256,indexed bytes32,bytes32)
+          handler: handleMintAdvantagesInitialized
+  - kind: ethereum
+    name: NexListingRegistry
+    network: robinhood-testnet
+    source:
+      address: "0xF8fD8D378F6a61Ecb207732F4f1d0c3E4Eb2c75c"
+      abi: NexListingRegistry
+      startBlock: 104607055
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.9
+      language: wasm/assemblyscript
+      file: ./src/mapping.ts
+      entities:
+        - Listing
+        - SecondarySale
+      abis:
+        - name: NexListingRegistry
+          file: ./abis/NexListingRegistry.json
+      eventHandlers:
+        - event: ListingCreated(indexed bytes32,indexed address,indexed uint256,address,bytes32,uint256,address,uint96,uint64,uint64,bytes32)
+          handler: handleListingCreated
+        - event: ListingCancelled(indexed bytes32,indexed address)
+          handler: handleListingCancelled
+        - event: ListingFilled(indexed bytes32,indexed address)
+          handler: handleListingFilled
+        - event: SecondarySaleSettled(indexed bytes32,indexed address,uint256,uint256,uint256,uint256)
+          handler: handleSecondarySaleSettled
+        - event: ListingExpired(indexed bytes32)
+          handler: handleListingExpired
+        - event: ListingStale(indexed bytes32,indexed address)
+          handler: handleListingStale
+  - kind: ethereum
+    name: NexRoyaltyVault
+    network: robinhood-testnet
+    source:
+      address: "0x9D69ab1897aFA9d6ffc97EEa6A936233a999DFa1"
+      abi: NexRoyaltyVault
+      startBlock: 104607055
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.9
+      language: wasm/assemblyscript
+      file: ./src/mapping.ts
+      entities:
+        - RoyaltyClaim
+      abis:
+        - name: NexRoyaltyVault
+          file: ./abis/NexRoyaltyVault.json
+      eventHandlers:
+        - event: RoyaltyRecorded(indexed bytes32,indexed address,indexed uint256,address,uint256,uint64)
+          handler: handleRoyaltyRecorded
+        - event: RoyaltyWithdrawn(indexed bytes32,indexed address,uint256)
+          handler: handleRoyaltyWithdrawn
+  - kind: ethereum
+    name: NexTBAResolver
+    network: robinhood-testnet
+    source:
+      address: "0x55b64D8c1f17ba08a39c939D3248E7A2731Fa8b8"
+      abi: NexTBAResolver
+      startBlock: 104607055
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.9
+      language: wasm/assemblyscript
+      file: ./src/mapping.ts
+      entities:
+        - TokenBoundAccount
+      abis:
+        - name: NexTBAResolver
+          file: ./abis/NexTBAResolver.json
+      eventHandlers:
+        - event: PassAccountCreated(indexed address,indexed uint256,indexed address)
+          handler: handlePassAccountCreated
+  - kind: ethereum
+    name: ERC6551Registry
+    network: robinhood-testnet
+    source:
+      address: "0x000000006551c19487814612e58FE06813775758"
+      abi: ERC6551Registry
+      startBlock: 104607055
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.9
+      language: wasm/assemblyscript
+      file: ./src/mapping.ts
+      entities:
+        - TokenBoundAccount
+      abis:
+        - name: ERC6551Registry
+          file: ./abis/ERC6551Registry.json
+      eventHandlers:
+        - event: ERC6551AccountCreated(address,indexed address,bytes32,uint256,indexed address,indexed uint256)
+          handler: handleERC6551AccountCreated
+  - kind: ethereum
+    name: Seaport16
+    network: robinhood-testnet
+    source:
+      address: "0x0000000000000068F116a894984e2DB1123eB395"
+      abi: Seaport16
+      startBlock: 104607055
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.9
+      language: wasm/assemblyscript
+      file: ./src/mapping.ts
+      entities:
+        - SettlementEvidence
+      abis:
+        - name: Seaport16
+          file: ./abis/Seaport16.json
+      eventHandlers:
+        - event: OrderFulfilled(indexed bytes32,indexed address,indexed address,address,(uint8,address,uint256,uint256)[],(uint8,address,uint256,uint256,address)[])
+          handler: handleOrderFulfilled
+templates:
+  - kind: ethereum
+    name: NexPassEdition
+    network: robinhood-testnet
+    source:
+      abi: NexPassEdition
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.9
+      language: wasm/assemblyscript
+      file: ./src/mapping.ts
+      entities:
+        - Edition
+        - Pass
+        - PassTransfer
+      abis:
+        - name: NexPassEdition
+          file: ./abis/NexPassEdition.json
+      eventHandlers:
+        - event: Transfer(indexed address,indexed address,indexed uint256)
+          handler: handleEditionTransfer
+        - event: EditionMinted(indexed address,indexed uint256,uint256,indexed bytes32,uint256,address,uint96)
+          handler: handleEditionMinted
+        - event: EditionConfigured(indexed bytes32,indexed bytes32,uint32)
+          handler: handleEditionConfigured
+        - event: MintControllerSet(indexed address)
+          handler: handleEditionMintControllerSet

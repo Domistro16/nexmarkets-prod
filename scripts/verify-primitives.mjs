@@ -63,16 +63,21 @@ if (offline) {
       check('usdg_symbol',symbol===p.expectedSymbol?'PASS':'FAIL',{expected:p.expectedSymbol,observed:symbol});
       if (Number.isInteger(p.expectedDecimals)) check('usdg_decimals',decimals===p.expectedDecimals?'PASS':'FAIL',{expected:p.expectedDecimals,observed:decimals});
       else check('usdg_decimals',strict?'FAIL':'OBSERVED_NEEDS_PIN',{observed:decimals});
-      const implSlot='0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc';
-      const adminSlot='0xb53127684a568b3173ae13b9f8a6016e243e63b6e8ee1178d6a717850b5d6103';
-      const impl=storageWordAddress(await rpc.getStorageAt(p.address,implSlot));
-      const admin=storageWordAddress(await rpc.getStorageAt(p.address,adminSlot));
-      report.observed.usdg.eip1967={implementation:impl,admin};
-      if(p.expectedImplementationAddress) check('usdg_implementation_address',impl?.toLowerCase()===p.expectedImplementationAddress.toLowerCase()?'PASS':'FAIL',{expected:p.expectedImplementationAddress,observed:impl});
-      if(impl){ const implCode=await rpc.getCode(impl); const implHash=keccak256Hex(implCode); report.observed.usdg.eip1967.implementationCodeHash=implHash;
-        if(p.expectedImplementationCodeHash) check('usdg_implementation',implHash.toLowerCase()===p.expectedImplementationCodeHash.toLowerCase()?'PASS':'FAIL',{expected:p.expectedImplementationCodeHash,observed:implHash});
-        else check('usdg_implementation',strict?'FAIL':'OBSERVED_NEEDS_PIN',{observed:implHash});
-      } else check('usdg_implementation','OBSERVED_NON_EIP1967_OR_CUSTOM_PROXY',{note:'Resolve proxy/facet/bridge authority before strict mainnet release.'});
+      if (p.mock === true) {
+        report.observed.usdg.eip1967={implementation:null,admin:null,mode:'direct-testnet-mock'};
+        check('usdg_implementation','PASS',{mode:'direct-testnet-mock'});
+      } else {
+        const implSlot='0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc';
+        const adminSlot='0xb53127684a568b3173ae13b9f8a6016e243e63b6e8ee1178d6a717850b5d6103';
+        const impl=storageWordAddress(await rpc.getStorageAt(p.address,implSlot));
+        const admin=storageWordAddress(await rpc.getStorageAt(p.address,adminSlot));
+        report.observed.usdg.eip1967={implementation:impl,admin};
+        if(p.expectedImplementationAddress) check('usdg_implementation_address',impl?.toLowerCase()===p.expectedImplementationAddress.toLowerCase()?'PASS':'FAIL',{expected:p.expectedImplementationAddress,observed:impl});
+        if(impl){ const implCode=await rpc.getCode(impl); const implHash=keccak256Hex(implCode); report.observed.usdg.eip1967.implementationCodeHash=implHash;
+          if(p.expectedImplementationCodeHash) check('usdg_implementation',implHash.toLowerCase()===p.expectedImplementationCodeHash.toLowerCase()?'PASS':'FAIL',{expected:p.expectedImplementationCodeHash,observed:implHash});
+          else check('usdg_implementation',strict?'FAIL':'OBSERVED_NEEDS_PIN',{observed:implHash});
+        } else check('usdg_implementation','OBSERVED_NON_EIP1967_OR_CUSTOM_PROXY',{note:'Resolve proxy/facet/bridge authority before strict mainnet release.'});
+      }
 
       if(network.chainId===4663){
         const supplyControl=callAddress(await rpc.ethCall(p.address,selector('supplyControl()')));

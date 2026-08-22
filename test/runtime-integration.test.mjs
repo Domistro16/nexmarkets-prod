@@ -20,6 +20,14 @@ test('Goldsky decoder reconstructs complete immutable Terms event fields', () =>
   assert.equal(decoded.args.advantagesHash, advantages);
 });
 
+test('Goldsky decoder ignores ERC-20 Transfer topic collisions', () => {
+  const erc20 = new Interface(['event Transfer(address indexed from,address indexed to,uint256 value)']);
+  const encoded = erc20.encodeEventLog(erc20.getEvent('Transfer'), [addr(1), addr(2), 123]);
+  const decoded = decodeGoldskyLog({ topic0: encoded.topics[0], topics: encoded.topics, data: encoded.data });
+  assert.equal(decoded.eventName, 'Ignored');
+  assert.deepEqual(decoded.args, {});
+});
+
 test('Safe Edition evidence binds predicted address, Protocol Admin and MintController', () => {
   const safe = addr(20); const factory = addr(21); const mintController = addr(22); const edition = addr(23);
   const editionId = hash('a'); const salt = hash('b'); const artwork = hash('c'); const safeTxHash = hash('d');

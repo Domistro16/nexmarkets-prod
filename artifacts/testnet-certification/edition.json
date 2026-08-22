@@ -1,0 +1,76 @@
+{
+  "schemaVersion": 1,
+  "network": "robinhood-testnet",
+  "chainId": 46630,
+  "testOnly": true,
+  "phase": "create",
+  "publisher": "0xD83deFbA240568040b39bb2C8B4DB7dB02d40593",
+  "safe": "0xCE54c8453fF48670781a6b908c1A3e9209FC95A0",
+  "factory": "0x957DE0de07D33c9a89c791B876074657a7fFeEb6",
+  "certification": {
+    "name": "NexMarkets V1 Test Certification Edition",
+    "symbol": "NEXTEST",
+    "initialOwner": "0xCE54c8453fF48670781a6b908c1A3e9209FC95A0",
+    "editionId": "0xfd4da6a571029780a92c369d1492e43dda0f9addf590a0b895e522e9799f1960",
+    "absoluteSupplyCap": 3,
+    "artworkCommitment": "0x452606acc1c66b726e38271c05a7ac066492de4318fb7f36fa52e051cc8aeea8",
+    "baseTokenURI": "https://test.invalid/nexmarkets-certification/metadata/",
+    "salt": "0xbabe672cea1d1ea37c0528085a675cdb819dc3f11911291443c0eb5254457a23",
+    "publisher": "0xD83deFbA240568040b39bb2C8B4DB7dB02d40593"
+  },
+  "predictedEditionAddress": "0x4171D62F43B4168b07a01C04594455DBc3298437",
+  "safeNonce": "16",
+  "safeTxHash": "0x352ead7d21b08f76241c983dbe71fc2f60ec618711f631e6a713dd277fda474d",
+  "status": "CREATED_VERIFIED",
+  "txHash": "0x9fd60dad38ceb837bcd4bb555259e379c8e7f32b942061b9cf42871933614eef",
+  "blockNumber": 104613585,
+  "terms": {
+    "termsHash": "0xe357b55e43ce7d7724a3c4fab02814fd0dd590d731247c6e54237f47f2635745",
+    "terms": {
+      "activeSupply": 3,
+      "pricePerPass": 1000000,
+      "previewStartsAt": 1787262150,
+      "mintStartsAt": 1787348550,
+      "mintEndsAt": 1787953350,
+      "primaryRecipient": "0xD83deFbA240568040b39bb2C8B4DB7dB02d40593",
+      "royaltyReceiver": "0xD83deFbA240568040b39bb2C8B4DB7dB02d40593",
+      "royaltyBps": 300,
+      "advantagesHash": "0x2e20ad7ca46a50c63f20509bc53ccda60f06b27e3bc29e9697b721d5c47107d4",
+      "referralTermsHash": "0xc197aa10882b06d6f6b4f4dd683059a252486360496879681d4a05dc6bea1820"
+    },
+    "configs": [
+      {
+        "advantageId": "0x486954742eaa12f46892b40db863e92e801942ac10059ee8c0973c9b0a45d51b",
+        "kind": 0,
+        "startsAt": 1787262150,
+        "endsAt": 1787953350,
+        "totalUnits": 0,
+        "definitionHash": "0x0aa84398c1a0f09af2b117be5149fd3cb4cd7cc7671aa7a66b8a6b24624b7c20"
+      },
+      {
+        "advantageId": "0xc43411f0ee25192c70e3b600262e3e769630445d1355888ab7543634d86677f1",
+        "kind": 1,
+        "startsAt": 1787262150,
+        "endsAt": 1787953350,
+        "totalUnits": 2,
+        "definitionHash": "0xf2d4a9938aa00234fd7d876d24ec94af42ff9587e954cd602834387c6d657e4e"
+      },
+      {
+        "advantageId": "0xfd7496e537361dbc193db9957c2a02a6ba6974da487f955d6e57f3c0d57e4b24",
+        "kind": 2,
+        "startsAt": 1787262150,
+        "endsAt": 1787953350,
+        "totalUnits": 0,
+        "definitionHash": "0x54aa32d970048e7ad581ebda0b5d4aa755ed194a329f2d9f45570094913f5ab6"
+      }
+    ],
+    "previewStartsAt": 1787262150,
+    "mintStartsAt": 1787348550,
+    "mintEndsAt": 1787953350,
+    "status": "PUBLISHED_VERIFIED",
+    "txHash": "0xaed51787c2b1c9eaebd41bfaa27de3491b21205accac501dd3e978b4f7d68ad6",
+    "blockNumber": 104614340,
+    "blockTimestamp": 1787261850
+  },
+  "lifecycleStatus": "TESTNET_PREVIEW_ACTIVE"
+}

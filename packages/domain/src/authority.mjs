@@ -16,6 +16,6 @@ export const CANONICAL_AUTHORITY = Object.freeze({
   royaltyLock: 'NEX_ROYALTY_VAULT',
   referralAttribution: 'POSTGRES_REFERRAL_LEDGER',
   tokenBoundAccount: 'CANONICAL_ERC6551_REGISTRY_PLUS_ERC721_OWNER',
-  indexer: 'GOLDSKY_TURBO_MIRROR_ONLY',
+  indexer: 'GOLDSKY_SUBGRAPH_READ_MODEL_MIRROR_ONLY',
   ui: 'VIEW_ONLY'
 });

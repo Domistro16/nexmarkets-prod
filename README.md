@@ -9,21 +9,21 @@ NexMarkets V1 is an exact-serial Pass market for Robinhood Chain. USDG is the on
 - Exact-Pass Advantage state, listing locks and approved per-Advantage TimeBased freezing.
 - Seaport 1.6 ListingRegistry/Zone policy with exact 1% secondary fee, no surcharge and a 30-day Builder Royalty Vault.
 - ERC-6551 canonical-registry integration with a deterministic, source-pinned Pass account and resolver. TBA state is never canonical NexMarkets state.
-- Goldsky Turbo-first indexing templates (raw logs plus landed-block watermark), dynamic Edition event catalog, idempotent/reorg-safe projection and independent chain reconciliation entities.
-- A runnable Postgres projector consumes Goldsky raw logs, decodes complete Terms, advances checkpoints/finality and resumes safely; a separate Robinhood receipt worker advances transaction jobs through CONFIRMED/FINALIZED or REVERTED/REORGED.
+- Goldsky Subgraph-first Robinhood indexing package with dynamic Factory Edition templates, historical Terms/Pass/Advantage/listing/royalty/TBA entities and `_meta`-based readiness; the previous Turbo raw-log pipeline remains a deprecated rollback/archive path.
+- A Subgraph client feeds API read paths while a separate Robinhood RPC receipt worker advances application transaction jobs through CONFIRMED/FINALIZED or REVERTED/REORGED. PostgreSQL remains application state, not the raw-chain store.
 - PostgreSQL V1 migrations for product, indexed, transaction, referral, outbox, audit, media and reconciliation data.
 - Wallet-signed authentication, opaque sessions, CSRF/origin/rate controls, transaction/order preparation and a no-custody API.
 - Builder Edition creation is a durable project-linked Protocol Admin Safe request; the Builder wallet never submits the Safe-owned Factory call. Exact Advantage configs are persisted by their canonical commitment before Terms calldata is prepared.
 - Responsive real-data web flows for Home, Discover, Pass, Market, Create, holder/builder dashboards and transaction finality.
 - Deterministic deployment planning, one-time wiring order, runtime verification and Safe policy checks.
 
-## External gates intentionally not fabricated
+## Current release gates and evidence
 
 - No Robinhood mainnet deployment has been performed.
-- Custom NexMarkets contract addresses remain unset until Safe-authorized deployment.
-- Goldsky Turbo supports the official `robinhood-mainnet` and `robinhood-testnet` datasets; deployment still requires project/API and PostgreSQL sink credentials.
-- Canonical ERC-6551 Registry runtime is verified on both Robinhood networks; custom NexPassAccount/resolver runtime checks require their eventual deployed addresses.
-- PostgreSQL integration tests require `DATABASE_URL`; when no database is available locally, those tests are explicitly skipped rather than reported as passing.
+- Robinhood testnet V1 is deployed, wired and verified; its complete live certification record is `artifacts/testnet-certification/secondary-lifecycle.json`.
+- Goldsky hosts the testnet Subgraph `nexmarkets-v1-robinhood-testnet/1.0.1`; the public endpoint, deployment hash and indexed-head evidence are recorded in `deployments/robinhood-testnet.goldsky-subgraph.json`. Turbo is no longer present in the active Goldsky project and its legacy Supabase data was removed only after Subgraph certification and zero-discrepancy reconciliation.
+- Canonical ERC-6551 Registry and the testnet NexPassAccount/NexTBAResolver runtime are verified; the mainnet custom runtime remains undeployed.
+- PostgreSQL retains application/business state and transaction lifecycle data. The five legacy raw-chain/projector tables retain their schema for rollback/tests but contain zero rows.
 - The referral tier percentages are fixed at 5/10/15/20; the sales-count thresholds remain an explicit business-policy input rather than invented economics.
 
 ## Local gates
@@ -40,6 +40,10 @@ npm run verify:goldsky
 npm run verify:production
 npm run verify:checksums
 ```
+
+Subgraph local validation uses `graph codegen` and `graph build`; deployment is
+Goldsky-only via `goldsky subgraph deploy`. The Graph deployment commands are
+not part of NexMarkets operations.
 
 With PostgreSQL available, run `npm run db:migrate`. Contract CI installs the exact pinned Foundry, OpenZeppelin and forge-std revisions before `forge fmt --check`, `forge build` and `forge test -vvv`.
 
