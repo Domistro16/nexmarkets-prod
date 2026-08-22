@@ -34,6 +34,9 @@ test('real certification data renders across public routes without mutation', as
   await expect(page.locator('body')).toContainText(TERMS);
   await expect(page.getByText('Mint is open')).toBeVisible();
 
+  await page.goto(`/projects/${EDITION}`);
+  await expect(page.getByRole('heading', { name: 'NexMarkets V1 Test Certification Edition' })).toBeVisible();
+
   await page.goto(`/passes/${EDITION}/1`);
   await expect(page.getByRole('heading', { name: /NexMarkets V1 Test Certification Edition #1/ })).toBeVisible();
   await expect(page.locator('body')).toContainText(TERMS);
@@ -82,6 +85,8 @@ test('wallet challenge, session and CSRF boundary work without a chain transacti
   await page.getByRole('button', { name: 'Connect wallet' }).first().click();
   await expect(page.getByRole('link', { name: 'Owned Passes' })).toBeVisible();
   await expect(page.getByText('No Passes owned')).toBeVisible();
+  await page.getByRole('link', { name: 'Builder' }).click();
+  await expect(page.getByText(/projects · .* Editions/)).toBeVisible();
   const csrf = await page.evaluate(() => sessionStorage.getItem('nex_csrf'));
   expect(csrf).toMatch(/^.+$/);
   const response = await page.evaluate(async () => { const r = await fetch('/v1/builder/projects', { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ slug: 'csrf-check', name: 'CSRF check' }) }); return { status: r.status, body: await r.json() }; });
