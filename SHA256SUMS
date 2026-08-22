@@ -35,7 +35,7 @@ da73b13c730791d2d785e1d767dda42f44ac11a2e6de54b6ccb09cbbf937e0c6  ./deployments/
 65dbb6c700712a121275b80f060be814673a1751b9c5cb4cef7ee77d3a8f2fca  ./deployments/robinhood-testnet.goldsky-subgraph.json
 4b860cfc89c3c3089864c76c46a58c0dbff97d8396621ed6f62f4beb3de25a15  ./deployments/robinhood-testnet.mock-usdg.json
 112d158cc3b426461428d442352b70273e96bfe41b24e363019e0d050fd3f8de  ./deployments/robinhood-testnet.protocol-admin-safe.json
-6d12d6783db68f9016249c4fe9fecac2b4e5021a5f3af9b631f57bc0c8e7e6de  ./deployments/robinhood-testnet.v1-deployment.json
+e5b467bd8a200729125ef568481d2abc736f9e3fc828a03397a9c48f871ab26a  ./deployments/robinhood-testnet.v1-deployment.json
 6ecddec6884a1b650f08581aa37230bad5d326542252970d0024bc3a1dc21782  ./docs/ADVANTAGE_REGISTRY.md
 0890f836018ea835dc4f074d853bd507c97501b20d60eda05fb7c86288728d5d  ./docs/API_V1.md
 2f127533c2dff633c83068000cf1e7217480400681ab7c868ef42819670a1fd2  ./docs/DATABASE_V1.md

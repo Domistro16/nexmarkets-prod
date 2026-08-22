@@ -63,8 +63,9 @@
     "mockUsdgOwner": "PASS"
   },
   "certificationEdition": {
-    "status": "TESTNET_PREVIEW_ACTIVE",
+    "status": "TESTNET_CERTIFICATION_PASS",
     "edition": "0x4171D62F43B4168b07a01C04594455DBc3298437",
+    "tokenId": "1",
     "creationTxHash": "0x9fd60dad38ceb837bcd4bb555259e379c8e7f32b942061b9cf42871933614eef",
     "creationBlock": 104613585,
     "termsHash": "0xe357b55e43ce7d7724a3c4fab02814fd0dd590d731247c6e54237f47f2635745",
@@ -90,32 +91,60 @@
     },
     "testOnly": true
   },
+  "certificationLifecycle": {
+    "status": "PASS",
+    "primaryMintTxHash": "0x969afbdc1e816dc739a526d4b796e7e5cd27a72ccddc2626a8a0ec28fe35b9b5",
+    "secondaryFillTxHash": "0x59e83d2850f0645eda890bb8938bf9ebd4d484221d54141674beab01a6b2ea5f",
+    "secondaryOrderHash": "0xf994e257c94c7a1d935bbe12dd2ca30431bbb56d64cd968006a2220ce6c576b1",
+    "staleListingSyncTxHash": "0x6633307c0ef61a3a70be4df31b83008d1b1481eebe6b4fe0df41faa3c6a7afbd",
+    "quantityRemaining": "0",
+    "connectedEntitlement": "1",
+    "timeBasedFreezeSeconds": 275,
+    "tba": "0x36B7a3A09ADc854b860dEb2f373B17db9A0cBC08",
+    "finalOwner": "0x50fFa31ca4480c9f1aB1f055c54C3eb582b492EC",
+    "reconciliationRunId": "rec_59a5233f-dbc9-46f6-999a-1e8588ac5eb2",
+    "unexplainedReconciliationDiscrepancies": 0
+  },
   "goldsky": {
     "network": "robinhood-testnet",
     "status": "SUBGRAPH_HEALTHY_ACTIVE_SYNCED",
     "project": "Default Project",
     "projectId": "project_cmt3es3z03t5101vr8ggx1j7e",
-    "subgraphName": "nexmarkets-v1-robinhood-testnet/1.0.0",
-    "deploymentHash": "QmNQqtVppaZ7UsuwBnyGgamzBnP87s2NbEgUK7pxtdpt9R",
-    "graphqlEndpoint": "https://api.goldsky.com/api/public/project_cmt3es3z03t5101vr8ggx1j7e/subgraphs/nexmarkets-v1-robinhood-testnet/1.0.0/gn",
+    "subgraphName": "nexmarkets-v1-robinhood-testnet/1.0.1",
+    "deploymentHash": "QmS7AYuDhFMgWUwngbtDcWvNWbDj56tvLGn2gZ2ZjrUb47",
+    "graphqlEndpoint": "https://api.goldsky.com/api/public/project_cmt3es3z03t5101vr8ggx1j7e/subgraphs/nexmarkets-v1-robinhood-testnet/1.0.1/gn",
     "startBlock": 104607055,
-    "indexedBlock": 105155985,
-    "chainHead": 105156007,
-    "indexingLag": 22,
+    "indexedBlock": 105274827,
+    "indexedBlockHash": "0xb9e95d7dfe768b5e6a372f8251b972e9423f8018083d2619419818f138be7b40",
+    "chainHead": 105274859,
+    "indexingLag": 32,
     "certificationEditionIndexed": true,
     "certificationTermsIndexed": true,
     "dynamicEditionTemplate": "VERIFIED_BY_CERTIFICATION_EDITION_QUERY",
-    "turboStatus": "DEPRECATED_ARCHIVE_ONLY"
+    "secondaryLifecycleIndexed": true,
+    "turboStatus": "NO_PIPELINE_IN_ACTIVE_GOLDSKY_PROJECT_LEGACY_DATA_CLEANED"
   },
   "postgres": {
-    "status": "MIGRATED_REACHABLE",
+    "status": "APPLICATION_DATA_PRESERVED_SUBGRAPH_PRIMARY",
     "migrations": ["0001_phase0_authority.sql", "0002_nexmarkets_v1.sql"],
     "requiredTables": 34,
     "projectorRun": { "status": "PASS", "head": 104628987, "latestEventBlock": 0, "landedBlock": 0, "processed": 0 },
-    "reconciliationRun": { "status": "NO_PROJECTIONS_TO_CHECK", "checkedCount": 0, "discrepancies": 0 },
+    "reconciliationRun": { "status": "PASS", "checkedCount": 14, "discrepancies": 0, "runId": "rec_59a5233f-dbc9-46f6-999a-1e8588ac5eb2" },
+    "legacyTurboCleanup": {
+      "status": "REMOVED_DATA_PRESERVED_SCHEMA",
+      "rawChainTablesRows": {
+        "goldsky_raw_log": 0,
+        "goldsky_chain_watermark": 0,
+        "indexer_event": 0,
+        "indexer_checkpoint": 0,
+        "seaport_fulfillment_projection": 0
+      },
+      "applicationDataUntouched": true,
+      "schemaPreserved": true
+    },
     "chainWorkerRun": { "status": "PASS", "head": 104629341, "inspected": 0, "progressed": 0, "pending": 0, "failed": 0 }
   },
-  "lifecycle": { "status": "TESTNET_PREVIEW_ACTIVE", "mintLifecycle": "WAITING_FOR_MINT_START", "unexplainedReconciliationDiscrepancies": null },
+  "lifecycle": { "status": "TESTNET_CERTIFICATION_PASS", "mintLifecycle": "ONE_MINT_AND_SECONDARY_LIFECYCLE_COMPLETE", "unexplainedReconciliationDiscrepancies": 0 },
   "mainnetCustomDeploymentPerformed": false,
   "recordedAt": "2026-08-20T21:37:30.000Z"
 }
