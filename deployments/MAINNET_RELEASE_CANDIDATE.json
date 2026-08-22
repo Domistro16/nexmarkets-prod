@@ -55,7 +55,17 @@
     "certificationEdition": "0x4171D62F43B4168b07a01C04594455DBc3298437",
     "termsHash": "0xe357b55e43ce7d7724a3c4fab02814fd0dd590d731247c6e54237f47f2635745",
     "mintStartsAt": "2026-08-21T21:42:30Z",
-    "latestChainObservation": { "block": 104658268, "timestampUtc": "2026-08-20T23:37:22.000Z", "previewOpen": true, "mintOpen": false },
+    "indexingProvider": "GOLDSKY_SUBGRAPH",
+    "latestChainObservation": {
+      "block": 105293377,
+      "timestampUtc": "2026-08-22T03:58:49.000Z",
+      "indexedBlock": 105293377,
+      "rpcBlock": 105293377,
+      "observedLag": 0,
+      "readyz": "HEALTHY",
+      "previewOpen": true,
+      "mintOpen": true
+    },
     "reconciliationDiscrepancies": 0,
     "blockingReasons": [],
     "certificationLifecycle": {
@@ -69,10 +79,17 @@
       "unexplainedReconciliationDiscrepancies": 0
     },
     "runtimeEvidence": {
-      "postgres": { "status": "MIGRATED_REACHABLE", "migrations": 2, "requiredTables": 34 },
-      "projector": { "status": "PASS_NO_LANDED_GOLDSKY_ROWS", "chainHead": 104628987, "processed": 0 },
-      "chainWorker": { "status": "PASS_NO_SUBMITTED_JOBS", "chainHead": 104629341 },
-      "reconciliation": { "status": "PASS", "checkedCount": 14, "discrepancies": 0 }
+      "indexingProvider": "GOLDSKY_SUBGRAPH",
+      "postgres": { "status": "APPLICATION_DATA_PRESERVED_SUBGRAPH_PRIMARY", "migrations": 2, "requiredTables": 34 },
+      "chainWorker": { "status": "PASS_FINALIZED_CERTIFICATION_FILL", "states": ["SUBMITTED", "CONFIRMED", "FINALIZED"], "idempotentReprocess": true },
+      "reconciliation": { "status": "PASS", "checkedCount": 14, "discrepancies": 0 },
+      "legacyTurbo": {
+        "status": "LEGACY / DEPRECATED / CLEANED",
+        "tables": ["goldsky_raw_log", "goldsky_chain_watermark", "indexer_event", "indexer_checkpoint", "seaport_fulfillment_projection"],
+        "rowsRemaining": 0,
+        "applicationSchemaPreserved": true,
+        "applicationDataPreserved": true
+      }
     }
   },
   "mainnet": {
@@ -145,8 +162,8 @@
   "tests": {
     "foundry": "71/71",
     "serialFuzzRuns": 5000,
-    "nodePostgres": "82/88 (6 skipped without DATABASE_URL)",
-    "livePostgresIntegration": "BLOCKED_HOSTED_PROVIDER_STATEMENT_TIMEOUT (2 projector fixtures; bounded 15s run)",
+    "nodePostgres": "88/88",
+    "livePostgresIntegration": "SUBGRAPH_PRIMARY_READ_MODEL; legacy projector fixtures retained only for rollback coverage",
     "webTests": "6/6",
     "webBuildRoutes": 10,
     "migrations": "2 migrations / 34 required tables",
@@ -171,21 +188,22 @@
       "deploymentHash": "QmS7AYuDhFMgWUwngbtDcWvNWbDj56tvLGn2gZ2ZjrUb47",
       "graphqlEndpoint": "https://api.goldsky.com/api/public/project_cmt3es3z03t5101vr8ggx1j7e/subgraphs/nexmarkets-v1-robinhood-testnet/1.0.1/gn",
       "startBlock": 104607055,
-      "indexedBlock": 105274827,
-      "chainHead": 105274859,
-      "indexingLag": 32,
+      "indexedBlock": 105293377,
+      "chainHead": 105293377,
+      "indexingLag": 0,
+      "readyz": "HEALTHY",
       "status": "HEALTHY_ACTIVE_SYNCED"
     },
     "mainnetSubgraph": {
       "status": "NOT_DEPLOYED",
       "startBlock": null
     },
-    "turboFallback": "DEPRECATED_ARCHIVE_ONLY"
+    "turboFallback": "LEGACY / DEPRECATED / CLEANED / NO_ACTIVE_PIPELINE"
   },
   "infrastructure": {
     "postgres": "MIGRATED_REACHABLE_34_TABLES",
     "api": "LOCAL_HEALTHZ_VERIFIED_SUBGRAPH_READ_PATH_CONFIGURED",
-    "workers": "PROJECTOR_CHAIN_WORKER_RECONCILIATION_ONESHOTS_VERIFIED",
+    "workers": "CHAIN_LIFECYCLE_AND_SUBGRAPH_RECONCILIATION_ONESHOTS_VERIFIED",
     "web": "LOCAL_BUILD_ONLY",
     "objectStorage": "OBJECT_STORAGE_PROVIDER_SELECTION_REQUIRED"
   },
@@ -198,9 +216,6 @@
     "readyForMainnetApproval": false
   },
   "externalDependencies": [
-    "Subgraph-backed reconciliation runtime execution with configured DATABASE_URL",
-    "Hosted PostgreSQL projector fixture statement-timeout remediation",
-    "Testnet Preview/mint window and live lifecycle execution",
     "Approved hosting and object-storage credentials"
   ]
 }
