@@ -4,16 +4,16 @@
   "chainId": 46630,
   "project": "Default Project",
   "projectId": "project_cmt3es3z03t5101vr8ggx1j7e",
-  "deployment": "nexmarkets-v1-robinhood-testnet/1.0.0",
-  "deploymentHash": "QmNQqtVppaZ7UsuwBnyGgamzBnP87s2NbEgUK7pxtdpt9R",
-  "graphqlEndpoint": "https://api.goldsky.com/api/public/project_cmt3es3z03t5101vr8ggx1j7e/subgraphs/nexmarkets-v1-robinhood-testnet/1.0.0/gn",
+  "deployment": "nexmarkets-v1-robinhood-testnet/1.0.1",
+  "deploymentHash": "QmS7AYuDhFMgWUwngbtDcWvNWbDj56tvLGn2gZ2ZjrUb47",
+  "graphqlEndpoint": "https://api.goldsky.com/api/public/project_cmt3es3z03t5101vr8ggx1j7e/subgraphs/nexmarkets-v1-robinhood-testnet/1.0.1/gn",
   "cliVersion": "13.3.4",
-  "deployCommand": "goldsky subgraph deploy nexmarkets-v1-robinhood-testnet/1.0.0 --path .",
+  "deployCommand": "goldsky subgraph deploy nexmarkets-v1-robinhood-testnet/1.0.1 --path .",
   "startBlock": 104607055,
-  "indexedBlock": 105155985,
-  "indexedBlockHash": "0x541b88219155e8e0eb23a52d7d6db814d7c30686c1729589af8850986d8a191c",
-  "chainHead": 105156007,
-  "indexingLag": 22,
+  "indexedBlock": 105228405,
+  "indexedBlockHash": "0x05f50980008e64d35936083f5e55d0b5d82565fc6c2d5be4f766ecd4279e4967",
+  "chainHead": 105228483,
+  "indexingLag": 78,
   "health": "healthy",
   "status": "ACTIVE_SYNCED",
   "certificationEdition": {
@@ -21,18 +21,19 @@
     "indexed": true,
     "termsHash": "0xe357b55e43ce7d7724a3c4fab02814fd0dd590d731247c6e54237f47f2635745",
     "termsIndexed": true,
-    "advantagesIndexed": false,
-    "advantagesReason": "No Pass has been minted/initialized yet; the committed Advantages hash is indexed in Terms."
+    "advantagesIndexed": true,
+    "advantagesReason": "Token #1 was minted and its three committed Advantages were initialized and indexed."
   },
   "dynamicEditionTemplate": "VERIFIED_BY_CERTIFICATION_EDITION_QUERY",
   "reconciliation": {
-    "scope": "EDITION",
-    "checkedCount": 3,
+    "scope": "ALL",
+    "checkedCount": 14,
     "unexplainedDiscrepancies": 0,
-    "fullLifecycleReconciliation": "NOT_RUN_BEFORE_MINT"
+    "fullLifecycleReconciliation": "PASS_AFTER_SECONDARY_LIFECYCLE"
   },
   "graphDeployUsed": false,
   "blockchainTransactionsPerformed": false,
   "mainnetDeployed": false,
-  "recordedAt": "2026-08-21T21:02:35Z"
+  "readiness": "READY",
+  "recordedAt": "2026-08-22T00:33:00Z"
 }

@@ -101,7 +101,10 @@ function ensurePass(editionAddress: Address, tokenId: BigInt, owner: Address): P
     pass.tokenId = tokenId;
     pass.listed = false;
     pass.owner = owner;
-  } else {
+  } else if (owner.toHexString() != ZERO_ADDRESS.toHexString()) {
+    // Context-only events such as PassAdvantagesInitialized do not carry an
+    // owner. Preserve the latest canonical ERC-721 Transfer owner instead of
+    // replacing it with the zero-address placeholder.
     pass.owner = owner;
   }
   pass.save();

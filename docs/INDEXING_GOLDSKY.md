@@ -24,9 +24,9 @@ recorded NexMarkets deployment block). Deploy only through Goldsky:
 cd subgraph
 npm run codegen
 npm run build
-goldsky subgraph deploy nexmarkets-v1-robinhood-testnet/1.0.0 --path .
-goldsky subgraph list nexmarkets-v1-robinhood-testnet/1.0.0
-goldsky subgraph log nexmarkets-v1-robinhood-testnet/1.0.0
+goldsky subgraph deploy nexmarkets-v1-robinhood-testnet/1.0.1 --path .
+goldsky subgraph list nexmarkets-v1-robinhood-testnet/1.0.1
+goldsky subgraph log nexmarkets-v1-robinhood-testnet/1.0.1
 ```
 
 `graph codegen` and `graph build` are local validation tools only. Do not use
@@ -48,10 +48,10 @@ model. Do not add product dependencies on `goldsky_raw_log` or
 archival workloads. It is not authoritative and must not replace the
 Subgraph/RPC path.
 
-The old tables are not deleted automatically. Before cleanup, generate a
-report of row counts, sizes, runtime references and safe-removal gates. Delete
-only after `SUBGRAPH_READ_PATH_PASS`, `RPC_RECONCILIATION_PASS` and
-`TESTNET_SUBGRAPH_CERTIFICATION_PASS` are all evidenced.
+The old raw tables were retained until the testnet Subgraph indexed the
+secondary lifecycle and the RPC reconciliation job returned zero
+discrepancies. The cleanup report records the row counts and the three
+evidence gates before any removal; genuine application tables remain intact.
 
 ## Readiness and reconciliation
 

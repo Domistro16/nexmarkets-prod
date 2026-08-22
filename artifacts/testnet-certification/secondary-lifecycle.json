@@ -1,0 +1,114 @@
+{
+  "schemaVersion": 1,
+  "network": "robinhood-testnet",
+  "chainId": 46630,
+  "edition": "0x4171D62F43B4168b07a01C04594455DBc3298437",
+  "tokenId": "1",
+  "termsHash": "0xe357b55e43ce7d7724a3c4fab02814fd0dd590d731247c6e54237f47f2635745",
+  "primaryMint": {
+    "txHash": "0x969afbdc1e816dc739a526d4b796e7e5cd27a72ccddc2626a8a0ec28fe35b9b5",
+    "block": 105178318,
+    "price": "1000000",
+    "protocolFee": "50000",
+    "builderProceeds": "950000",
+    "receiptStatus": 1
+  },
+  "tba": {
+    "account": "0x36B7a3A09ADc854b860dEb2f373B17db9A0cBC08",
+    "createTxHash": "0xa1ec56cd828d8b61378b5b9d6502721aadda1b16903f8fe2b461e53236de2a20",
+    "token": [46630, "0x4171D62F43B4168b07a01C04594455DBc3298437", "1"],
+    "finalOwner": "0x50fFa31ca4480c9f1aB1f055c54C3eb582b492EC"
+  },
+  "advantages": {
+    "initialization": "ATOMIC_MINT_INITIALIZATION_VERIFIED",
+    "quantityAdvantageId": "0xc43411f0ee25192c70e3b600262e3e769630445d1355888ab7543634d86677f1",
+    "initialConsumeTxHash": "0x18db3c16b527a2406dd1411a1eeaa38432577cfb15292524ff778a3f819272f1",
+    "postSaleConsumeTxHash": "0x764592c91f64e051b7ef449bd45a3c869e978805fea2a9faa544d81d73a200c8",
+    "postSaleRemaining": "0",
+    "connectedEntitlement": "1",
+    "timeBasedFreezeSeconds": 275,
+    "listingIntervals": [
+      { "listedAtBlock": 105193461, "unlistedAtBlock": 105193511, "seconds": 8 },
+      { "listedAtBlock": 105193592, "unlistedAtBlock": 105194936, "seconds": 253 },
+      { "listedAtBlock": 105195027, "unlistedAtBlock": 105195113, "seconds": 14 }
+    ],
+    "duplicateQuantityRetry": "IDEMPOTENT_FALSE"
+  },
+  "cancellation": {
+    "orderHash": "0xfa221ed615930f045e6177462354505139d52e8680252e97c16a58cd2913ccdf",
+    "createTxHash": "0xb1d99497379783bb58a527672a20b4f48a6b01598504794890e7e24ce7c46cc6",
+    "cancelTxHash": "0x29841f618a4e4f97d6bdfe871d600be3a2e3e2abe643426839c26af8c2c22e99",
+    "finalStatus": "CANCELLED"
+  },
+  "secondarySale": {
+    "orderHash": "0xf994e257c94c7a1d935bbe12dd2ca30431bbb56d64cd968006a2220ce6c576b1",
+    "listingCreateTxHash": "0x4f8ef729441e78c9a500d96d5ac337be81f279520c7b633d4c1b38c430286ac9",
+    "fillTxHash": "0x59e83d2850f0645eda890bb8938bf9ebd4d484221d54141674beab01a6b2ea5f",
+    "buyer": "0x679BE0465c097BABEafC116e4dcaA968Ff356eEa",
+    "price": "2000000",
+    "protocolFee": "20000",
+    "builderRoyalty": "60000",
+    "sellerProceeds": "1920000",
+    "buyerSurcharge": "0",
+    "listingStatus": "FILLED",
+    "royaltyVault": {
+      "builder": "0xD83deFbA240568040b39bb2C8B4DB7dB02d40593",
+      "amount": "60000",
+      "releaseAt": 1789944853,
+      "releaseAtUtc": "2026-09-20T22:54:13Z",
+      "settlementTimestamp": 1787352853,
+      "earlyWithdrawal": "REVERTED_ROYALTY_STILL_LOCKED"
+    }
+  },
+  "staleListing": {
+    "orderHash": "0xb47edba3fde134c63ddfce756952de00765ffeab322f55b1da08100d48f4b75d",
+    "listingCreateTxHash": "0xf9de22a65769bd23f7ebe2ed15a754ff8bc856862fe11f964dfb6185077dd8a6",
+    "directTransferTxHash": "0x44d3e7b8f0d0dfe326d8561d29c24728306c08fbd72578a29dfebfbbb74497d5",
+    "syncTxHash": "0x6633307c0ef61a3a70be4df31b83008d1b1481eebe6b4fe0df41faa3c6a7afbd",
+    "newOwner": "0x50fFa31ca4480c9f1aB1f055c54C3eb582b492EC",
+    "finalStatus": "STALE"
+  },
+  "goldsky": {
+    "project": "Default Project",
+    "projectId": "project_cmt3es3z03t5101vr8ggx1j7e",
+    "deployment": "nexmarkets-v1-robinhood-testnet/1.0.1",
+    "endpoint": "https://api.goldsky.com/api/public/project_cmt3es3z03t5101vr8ggx1j7e/subgraphs/nexmarkets-v1-robinhood-testnet/1.0.1/gn",
+    "indexedBlockObserved": 105228405,
+    "indexedBlockHash": "0x05f50980008e64d35936083f5e55d0b5d82565fc6c2d5be4f766ecd4279e4967",
+    "chainHeadObserved": 105228483,
+    "indexingLag": 78,
+    "readiness": "READY",
+    "certificationEditionIndexed": true,
+    "secondarySaleIndexed": true,
+    "royaltyClaimIndexed": true,
+    "staleListingIndexed": true,
+    "turboStatus": "NO_PIPELINE_IN_ACTIVE_GOLDSKY_PROJECT"
+  },
+  "api": {
+    "endpoint": "http://127.0.0.1:4014",
+    "passOwner": "0x50ffa31ca4480c9f1ab1f055c54c3eb582b492ec",
+    "quantityRemaining": "0",
+    "connectedRemaining": "1",
+    "marketActiveListings": 0,
+    "authority": "GOLDSKY_SUBGRAPH_READ_MODEL_PLUS_RPC_VERIFICATION"
+  },
+  "reconciliation": {
+    "runId": "rec_59a5233f-dbc9-46f6-999a-1e8588ac5eb2",
+    "checkedCount": 14,
+    "unexplainedDiscrepancies": 0
+  },
+  "legacyTurboCleanup": {
+    "pipelineStatus": "NO_PIPELINE_IN_ACTIVE_GOLDSKY_PROJECT",
+    "tables": {
+      "goldsky_raw_log": { "rows": 0, "bytes": 24576 },
+      "goldsky_chain_watermark": { "rows": 0, "bytes": 24576 },
+      "indexer_event": { "rows": 0, "bytes": 24576 },
+      "indexer_checkpoint": { "rows": 0, "bytes": 16384 },
+      "seaport_fulfillment_projection": { "rows": 0, "bytes": 24576 }
+    },
+    "applicationDataUntouched": true,
+    "schemaPreserved": true
+  },
+  "mainnetCustomDeploymentPerformed": false,
+  "recordedAt": "2026-08-22T00:37:11Z"
+}

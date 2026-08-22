@@ -17,13 +17,13 @@ NexMarkets V1 is an exact-serial Pass market for Robinhood Chain. USDG is the on
 - Responsive real-data web flows for Home, Discover, Pass, Market, Create, holder/builder dashboards and transaction finality.
 - Deterministic deployment planning, one-time wiring order, runtime verification and Safe policy checks.
 
-## External gates intentionally not fabricated
+## Current release gates and evidence
 
 - No Robinhood mainnet deployment has been performed.
-- Custom NexMarkets contract addresses remain unset until Safe-authorized deployment.
-- Goldsky hosts the testnet Subgraph `nexmarkets-v1-robinhood-testnet/1.0.0` in the active Goldsky project; the public endpoint and indexed-head evidence are recorded in `deployments/robinhood-testnet.goldsky-subgraph.json`. Turbo raw ingestion is retained only as deprecated rollback/archive infrastructure.
-- Canonical ERC-6551 Registry runtime is verified on both Robinhood networks; custom NexPassAccount/resolver runtime checks require their eventual deployed addresses.
-- PostgreSQL integration tests require `DATABASE_URL`; when no database is available locally, those tests are explicitly skipped rather than reported as passing.
+- Robinhood testnet V1 is deployed, wired and verified; its complete live certification record is `artifacts/testnet-certification/secondary-lifecycle.json`.
+- Goldsky hosts the testnet Subgraph `nexmarkets-v1-robinhood-testnet/1.0.1`; the public endpoint, deployment hash and indexed-head evidence are recorded in `deployments/robinhood-testnet.goldsky-subgraph.json`. Turbo is no longer present in the active Goldsky project and its legacy Supabase data was removed only after Subgraph certification and zero-discrepancy reconciliation.
+- Canonical ERC-6551 Registry and the testnet NexPassAccount/NexTBAResolver runtime are verified; the mainnet custom runtime remains undeployed.
+- PostgreSQL retains application/business state and transaction lifecycle data. The five legacy raw-chain/projector tables retain their schema for rollback/tests but contain zero rows.
 - The referral tier percentages are fixed at 5/10/15/20; the sales-count thresholds remain an explicit business-policy input rather than invented economics.
 
 ## Local gates

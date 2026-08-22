@@ -88,8 +88,12 @@ export class SubgraphClient {
   }
 
   async pass(edition, tokenId) {
-    const data = await this.query(`query($id:ID!){ pass(id:$id){ id tokenId owner termsHash mintBlock mintTimestamp mintTransactionHash royaltyReceiver royaltyBps listed edition { address editionId publisher } advantages { id advantageId kind startsAt endsAt totalUnits remainingUnits frozenSeconds listed listedAt definitionHash termsHash } tba { account implementation registry } } }`, { id: `${lower(edition)}-${tokenId}` });
-    const pass = data.pass;
+    // Goldsky's Robinhood deployment reliably serves entity collection
+    // filters, while its singular resolver can return null for the same ID.
+    // Keep the read model identical and select the exact canonical entity.
+    const id = `${lower(edition)}-${tokenId}`;
+    const data = await this.query(`query($tokenId:BigInt!){ passes(where:{tokenId:$tokenId}){ id tokenId owner termsHash mintBlock mintTimestamp mintTransactionHash royaltyReceiver royaltyBps listed edition { address editionId publisher } advantages { id advantageId kind startsAt endsAt totalUnits remainingUnits frozenSeconds listed listedAt definitionHash termsHash } tba { account implementation registry } } }`, { tokenId: String(tokenId) });
+    const pass = data.passes?.find((candidate) => String(candidate.id).toLowerCase() === id.toLowerCase()) ?? data.passes?.[0] ?? null;
     if (!pass) return null;
     return { ...pass, owner: lower(pass.owner), termsHash: lower(pass.termsHash), royaltyReceiver: lower(pass.royaltyReceiver), edition: { ...pass.edition, address: lower(pass.edition.address), editionId: lower(pass.edition.editionId), publisher: lower(pass.edition.publisher) }, advantages: (pass.advantages ?? []).map((advantage) => ({ ...advantage, advantageId: lower(advantage.advantageId), termsHash: lower(advantage.termsHash), definitionHash: lower(advantage.definitionHash), remaining: advantageRemaining(advantage), userFacingRemaining: advantageRemaining(advantage), consumesOnchain: ['QUANTITY_BASED', 'REDEMPTION'].includes(String(advantage.kind).toUpperCase()) })), tba: pass.tba ? { ...pass.tba, account: lower(pass.tba.account), implementation: lower(pass.tba.implementation), registry: lower(pass.tba.registry) } : null };
   }

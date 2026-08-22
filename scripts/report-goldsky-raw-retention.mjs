@@ -22,20 +22,27 @@ async function walk(directory) {
 }
 await walk(rootPath);
 
-const report = { generatedAt: new Date().toISOString(), subgraphReadPathPass: false, rpcReconciliationPass: false, testnetSubgraphCertificationPass: false, tables: [] };
+const gates = {
+  subgraphReadPathPass: process.env.SUBGRAPH_READ_PATH_PASS === 'true',
+  rpcReconciliationPass: process.env.RPC_RECONCILIATION_PASS === 'true',
+  testnetSubgraphCertificationPass: process.env.TESTNET_SUBGRAPH_CERTIFICATION_PASS === 'true'
+};
+const cleanupGates = Object.values(gates).every(Boolean);
+const deleted = process.env.LEGACY_TURBO_DATA_REMOVED === 'true';
+const report = { generatedAt: new Date().toISOString(), ...gates, cleanupGates, deleted, tables: [] };
 const connectionString = process.env.DATABASE_URL;
 if (connectionString) {
   const pool = new pg.Pool({ connectionString, max: 2, application_name: 'nexmarkets-retention-report' });
   try {
     for (const table of tableNames) {
       const { rows } = await pool.query(`SELECT c.reltuples::bigint AS estimated_rows, pg_total_relation_size(c.oid)::bigint AS bytes FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relname=$1`, [table]);
-      report.tables.push({ table, estimatedRows: rows[0] ? String(rows[0].estimated_rows) : null, bytes: rows[0] ? String(rows[0].bytes) : null, runtimeReferences: refs.get(table), safeToRemove: false, recommendedAction: 'RETAIN_UNTIL_SUBGRAPH_AND_RECONCILIATION_GATES' });
+      report.tables.push({ table, estimatedRows: rows[0] ? String(rows[0].estimated_rows) : null, bytes: rows[0] ? String(rows[0].bytes) : null, runtimeReferences: refs.get(table), safeToRemove: cleanupGates, recommendedAction: deleted ? 'REMOVED_DATA_PRESERVED_SCHEMA' : cleanupGates ? 'SAFE_TO_REMOVE_AFTER_EVIDENCE_FREEZE' : 'RETAIN_UNTIL_SUBGRAPH_AND_RECONCILIATION_GATES' });
     }
   } finally { await pool.end(); }
 } else {
   report.status = 'BLOCKED_BY_DATABASE_URL';
-  report.tables = tableNames.map((table) => ({ table, estimatedRows: null, bytes: null, runtimeReferences: refs.get(table), safeToRemove: false, recommendedAction: 'RUN_WITH_DATABASE_URL_AFTER_SUBGRAPH_CERTIFICATION' }));
+  report.tables = tableNames.map((table) => ({ table, estimatedRows: null, bytes: null, runtimeReferences: refs.get(table), safeToRemove: cleanupGates, recommendedAction: deleted ? 'REMOVED_DATA_PRESERVED_SCHEMA' : cleanupGates ? 'SAFE_TO_REMOVE_AFTER_EVIDENCE_FREEZE' : 'RUN_WITH_DATABASE_URL_AFTER_SUBGRAPH_CERTIFICATION' }));
 }
 await mkdir(new URL('../artifacts/goldsky/', import.meta.url), { recursive: true });
 await writeFile(new URL('../artifacts/goldsky/raw-chain-cleanup-report.json', import.meta.url), `${JSON.stringify(report, null, 2)}\n`);
-console.log(JSON.stringify({ status: report.status ?? 'REPORT_ONLY', tables: report.tables.length, deleted: false }));
+console.log(JSON.stringify({ status: report.status ?? 'REPORT_ONLY', tables: report.tables.length, deleted: report.deleted }));

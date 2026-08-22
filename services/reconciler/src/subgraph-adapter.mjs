@@ -46,7 +46,7 @@ export class SubgraphReconciliationStore {
     if (include('ADVANTAGE')) for (const advantage of data.advantageStates ?? []) items.push({
       key: `advantage:${lower(advantage.edition.address)}:${advantage.tokenId}:${lower(advantage.advantageId)}`,
       identity: { edition: lower(advantage.edition.address), tokenId: String(advantage.tokenId), advantageId: lower(advantage.advantageId) },
-      expected: { advantage: { remaining: advantageRemaining(advantage), listed: Boolean(advantage.listed) } },
+      expected: { advantage: { kind: String(advantage.kind ?? '').toUpperCase(), remaining: advantageRemaining(advantage), listed: Boolean(advantage.listed) } },
       authority: { advantage: 'NEX_ADVANTAGE_REGISTRY' },
       repair: { advantage: 'REPORT_ONLY' }
     });
