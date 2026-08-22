@@ -16,6 +16,9 @@
     "test:api": "node --test test/api*.test.mjs",
     "test:web": "node --test test/web*.test.mjs",
     "web:build": "node scripts/build-web.mjs",
+    "web:config:testnet": "node scripts/render-web-testnet-config.mjs",
+    "web:serve:testnet": "node --env-file=.env scripts/serve-web-testnet.mjs",
+    "test:browser": "playwright test",
     "db:migrate": "node infra/schema/migrate.mjs",
     "verify:schema": "node scripts/verify-schema.mjs",
     "verify:goldsky": "node scripts/verify-goldsky-config.mjs",
@@ -54,5 +57,8 @@
     "ethers": "6.17.0",
     "pg": "8.16.3",
     "yaml": "2.9.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.55.1"
   }
 }

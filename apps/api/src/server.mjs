@@ -203,7 +203,10 @@ export function createApiServer({
           const landed = subgraphStatus ? Number(subgraphStatus.indexedBlock ?? 0) : Number(indexer.landed_block_number ?? indexer.latest_block_number ?? 0);
           const finalized = subgraphStatus ? landed : Number(indexer.finalized_watermark_block_number ?? indexer.finalized_block_number ?? 0);
           indexedLag = chainHead - landed; finalityLag = chainHead - finalized;
-          if (indexedLag > maxIndexerLagBlocks || finalityLag > maxFinalityLagBlocks) throw Object.assign(new Error('INDEXER_STALE'), { status: 503 });
+          if (indexedLag > maxIndexerLagBlocks || finalityLag > maxFinalityLagBlocks) {
+            logger.info?.({ event: 'indexer_stale', chainHead, landedBlock: landed, finalizedBlock: finalized, indexedLag, finalityLag, maxIndexerLagBlocks, maxFinalityLagBlocks });
+            throw Object.assign(new Error('INDEXER_STALE'), { status: 503 });
+          }
         }
         if (indexer || subgraphStatus) { const landed = subgraphStatus ? Number(subgraphStatus.indexedBlock ?? 0) : Number(indexer.landed_block_number ?? indexer.latest_block_number ?? 0); metrics.set('nexmarkets_indexer_latest_block', landed); metrics.set('nexmarkets_indexer_lag_blocks', indexedLag ?? 0); }
         return json(res, 200, { status: 'ready', database: 'ok', indexer: (indexer || subgraphStatus) ? 'fresh' : 'not-required', indexerProvider: subgraphStatus ? 'GOLDSKY_SUBGRAPH' : indexer ? 'GOLDSKY_TURBO_DEPRECATED' : null, chainHead, landedBlock: subgraphStatus ? Number(subgraphStatus.indexedBlock ?? 0) : indexer ? Number(indexer.landed_block_number ?? indexer.latest_block_number ?? 0) : null, latestEventBlock: indexer ? Number(indexer.latest_event_block_number ?? indexer.latest_block_number ?? 0) : null, indexedLag, finalityLag, requestId });
@@ -365,7 +368,7 @@ export function createApiServer({
       const clientFailure = /(?:INVALID|MISMATCH|REJECTED|REQUIRED|CONFLICT|expired|consumed|challenge|signature|wrong|extra|surcharge|price|tokenId|listing|seller|zoneHash|royaltyBps|CALLDATA|TARGET|PROJECT_BUILDER)/i.test(error.message);
       const status = error.status ?? (/AUTH|SESSION/.test(error.message) ? 401 : /CSRF|ORIGIN/.test(error.message) ? 403 : clientFailure ? 400 : 500);
       const code = status >= 500 ? 'INTERNAL_ERROR' : error.message;
-      logger.error?.({ event: 'api_request_failed', requestId, correlationId, method: req.method, path: req.url?.split('?')[0], code, durationMs: Date.now() - startedAt });
+      logger.error?.({ event: 'api_request_failed', requestId, correlationId, method: req.method, path: req.url?.split('?')[0], code, error: error.message, durationMs: Date.now() - startedAt });
       return json(res, status, { error: { code, requestId } });
     } finally {
       logger.info?.({ event: 'api_request_complete', requestId, correlationId, method: req.method, path: req.url?.split('?')[0], durationMs: Date.now() - startedAt });
@@ -374,8 +377,11 @@ export function createApiServer({
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
-  const store = new PostgresStore(); const port = Number(process.env.PORT || 4010); const chainId = Number(process.env.ROBINHOOD_CHAIN_ID ?? 4663); const rpc = new JsonRpcClient(chainId === 46630 ? (process.env.RH_TESTNET_RPC_URL ?? 'https://rpc.testnet.chain.robinhood.com') : (process.env.RH_MAINNET_RPC_URL ?? 'https://rpc.mainnet.chain.robinhood.com')); const subgraph = new SubgraphClient({ endpoint: process.env.NEXMARKETS_SUBGRAPH_URL });
-  const server = createApiServer({ store, chainId, chain: rpc, subgraph, maxIndexerLagBlocks: Number(process.env.INDEXER_MAX_LAG_BLOCKS ?? 120), maxFinalityLagBlocks: Number(process.env.INDEXER_MAX_FINALITY_LAG_BLOCKS ?? 120), orderPolicy: productionOrderPolicy(), requireIndexedReadiness: process.env.NODE_ENV === 'production' });
+  const store = new PostgresStore(); const port = Number(process.env.PORT || 4010); const chainId = Number(process.env.ROBINHOOD_CHAIN_ID ?? 4663); const rpc = new JsonRpcClient(chainId === 46630 ? (process.env.RH_TESTNET_RPC_URL ?? 'https://rpc.testnet.chain.robinhood.com') : (process.env.RH_MAINNET_RPC_URL ?? 'https://rpc.mainnet.chain.robinhood.com')); const subgraph = new SubgraphClient({ endpoint: process.env.NEXMARKETS_SUBGRAPH_URL, certificationEditionAddress: process.env.CERTIFICATION_EDITION_ADDRESS, certificationEditionName: process.env.CERTIFICATION_EDITION_NAME });
+  const secureCookies = process.env.SECURE_COOKIES === 'true' ? true : process.env.SECURE_COOKIES === 'false' ? false : process.env.NODE_ENV !== 'test';
+  const requireIndexedReadiness = process.env.REQUIRE_INDEXED_READINESS === 'true' || process.env.NODE_ENV === 'production';
+  const logger = process.env.LOG_API_ERRORS === 'true' ? console : { info() {}, error() {} };
+  const server = createApiServer({ store, chainId, chain: rpc, subgraph, secureCookies, logger, maxIndexerLagBlocks: Number(process.env.INDEXER_MAX_LAG_BLOCKS ?? 120), maxFinalityLagBlocks: Number(process.env.INDEXER_MAX_FINALITY_LAG_BLOCKS ?? 120), orderPolicy: productionOrderPolicy(), requireIndexedReadiness });
   server.listen(port, () => console.log(JSON.stringify({ event: 'api_started', port })));
   const shutdown = async () => { server.close(); await store.close(); };
   process.on('SIGTERM', shutdown); process.on('SIGINT', shutdown);
