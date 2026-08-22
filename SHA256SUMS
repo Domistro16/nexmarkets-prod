@@ -67,8 +67,8 @@ e6b54b80ae5c078a6c531c3dddd191ca3e41960b158c7c4b15dfd927a31e279c  ./goldsky/nexm
 6c269b1b730b553344824cdf7b65632fe8427ad0c8ed74528e246a18abe09606  ./infra/schema/0001_phase0_authority.sql
 1271ee6e69ae035d81ee9e81528f0a5986fda60cf3b7fa9acba6e8f159987aca  ./infra/schema/0002_nexmarkets_v1.sql
 6b8cc0729cca4e90cdd8b80bc44d845ed590f9b6e8135c122add69aaa1a46990  ./infra/schema/migrate.mjs
-5efb500f2e3a04c4ec8755a8d15c9d1e08f2c0f8e8cdc315f0238a5d8bb99ade  ./package-lock.json
-8dd2cc93656341b6b239ab1377643087f391038fd318dd69b53a6fc17eb19b4a  ./package.json
+468c85b04e1ea68cd19f579bf436267e6b9cd7a25ad8878a35e1e499ad208be8  ./package-lock.json
+c31afb2aeab2298fe8df1780dc7f394d5bcea51efcecc069f3abe2a3569a9ddc  ./package.json
 f2da6adcce30b8c2b0bd3ed8bb5988edaf063d877504b900a1fa41803bc2df4d  ./packages/auth/package.json
 ba534c6ece1a726e4d011426343e8f6d89831c5cc2e92740ce1f97d09c22d166  ./packages/auth/src/index.mjs
 0b26ab038f3eb97ea9a44896144af138152a4487051cff2e7c2cc372cb5cec41  ./packages/auth/src/session.mjs
