@@ -200,7 +200,7 @@ e934fd32ca7a0ba49250bfddecca1f1f5d78e7247fc0339bc777b05647c72603  ./subgraph/pac
 15e8a24e92eba5876ed96b781e1a8a830259c4e7febda4d6221f906e784e31fc  ./test/auth-session.test.mjs
 11327f902156ec6e373f31f4b6d029ed25bdc864ec744178d548b8a60112c3b6  ./test/auth.test.mjs
 e65dcf63cc1c6e78f4b342562f0cc0bf2aa65c0dac070891ebd16e8f064f1b23  ./test/browser-local.integration.test.mjs
-d13ca465d2599027a85943552a0feed59e69f860865be53e94f74fb3676c5d71  ./test/browser/webapp.acceptance.spec.mjs
+0042052b4710f2d8ee9f974d85676e6c62af6881f8b9e4e28d429b57a2a229fe  ./test/browser/webapp.acceptance.spec.mjs
 c37e87075ed4ddac4ca8ba6e56e362e861bde554ce61ba3b353f36845496e0b9  ./test/chain-worker-integration.test.mjs
 7a7d70da696cf8153ce3c78db2125dcb6e19aa51256b31ca7978f7c33674f524  ./test/config.test.mjs
 7f202100220fd5bc6b9e10a858fd0c197da9741139f5140b781a5e2af54b8d1c  ./test/deployment-source.test.mjs

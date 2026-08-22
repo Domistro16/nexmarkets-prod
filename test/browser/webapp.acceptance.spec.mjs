@@ -98,3 +98,19 @@ test('wallet challenge, session and CSRF boundary work without a chain transacti
   const providerMethods = await page.evaluate(() => window.__nexmarketsProviderMethods);
   expect(providerMethods.filter((method) => ['eth_sendTransaction', 'eth_sendRawTransaction'].includes(method))).toEqual([]);
 });
+
+test('loading and API failure states remain explicit', async ({ page }) => {
+  await page.route('**/v1/discover', async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 250));
+    await route.continue();
+  });
+  const navigation = page.goto('/discover');
+  await expect(page.locator('#app .loading')).toBeVisible();
+  await navigation;
+  await expect(page.getByRole('heading', { name: 'Discover' })).toBeVisible();
+
+  await page.unroute('**/v1/discover');
+  await page.route('**/v1/discover', (route) => route.abort());
+  await page.goto('/discover');
+  await expect(page.getByText('Unable to load')).toBeVisible();
+});
