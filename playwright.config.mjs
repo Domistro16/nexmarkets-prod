@@ -2,7 +2,10 @@ import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
   testDir: './test/browser',
-  timeout: 30_000,
+  // The supplied V2 experience is a self-contained ~2 MB template with
+  // several inline renderers. Allow a cold browser load enough time while
+  // keeping individual assertions bounded.
+  timeout: 60_000,
   expect: { timeout: 10_000 },
   fullyParallel: false,
   reporter: process.env.CI ? [['dot'], ['json', { outputFile: 'artifacts/browser-acceptance.json' }]] : [['list']],

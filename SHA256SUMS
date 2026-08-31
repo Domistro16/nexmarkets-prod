@@ -9,15 +9,16 @@ aa00ec1159235cd75270b679c56333e2cea22d924224e34a3294497b1748cc36  ./.github/work
 52e589e857d5557d7ca2137492e11d2f3078ad44292ef5d7c4829c2cd56b666c  ./apps/api/package.json
 c573401ca7d72418a20d2705689c0da88203c37c6faba47a37c341e8331f2865  ./apps/api/src/memory-store.mjs
 742c2e000042f55050747de572371e4ca701e9c996cf2fa39075d5ef90ded307  ./apps/api/src/server.mjs
-fda673a6bce7d627c002b718e8e4707faa213d4d3f37c62c059ead0eb5b93635  ./apps/web/README.md
+b77742e52dcc222afe9f262575adc4b507aa12cc601901b8815255ae8e166e58  ./apps/web/README.md
 9f7ce8485983b949505cda6c66ce7d8396c240a9bddddf9d928156bf7c219a42  ./apps/web/package.json
 aeecf729492aca05b3c7833b3ac5e7913db92169202172127a73d46ea54b74c2  ./apps/web/public/app.mjs
 91765e0d4e7f31d8ebe72e8507de052d1439b958511b79df3ba6ae5315d8bae4  ./apps/web/public/config.example.json
 ea195bcba8f8a7fe15f60690a7e9db34eaa2420c6381de3ce675be9c8b0ef95e  ./apps/web/public/config.json
 4b8e201b167b49e7fcbf46a5fd4c647d6f84916e6fa4a5ba1fac19af658f3cc6  ./apps/web/public/controls.css
-aa2804995edb5cc1c13954f7705aee805e604efcf587f390ef2afce1c717e52d  ./apps/web/public/index.html
+b75835ae9153393b7d262e2639648257daa153a3e430367e3c11f0f7caa64352  ./apps/web/public/index.html
 cc0e87a6cfdd7679a1a2113d75288db8cffb9335c6e0b7d522de74fb5d3a12a7  ./apps/web/public/styles.css
 8a561c290fccd6d13b6c95e92db64aa7bf8567378afbcbc76b5735d640d6d97a  ./apps/web/public/transaction.mjs
+b35e96db6029a9d2d55f62f1a4c9a00ac31029634f7bdcbfc187cd48bb95bfa5  ./apps/web/public/v2-app.mjs
 9475eca46351ac83d629b3bed656a1322cea06b6feb37ee12932ca7b95033449  ./apps/web/public/wallet.mjs
 55032cb5e1da28cbef359d506e9af505def0ee6170732595b71affb4dd13c740  ./artifacts/deployment-plan/robinhood-mainnet.deploy.safe.json
 e77eee28af3b4556b6309574251f2063f5469c45bb8a9d946c94ab2c824c96ff  ./artifacts/deployment-plan/robinhood-mainnet.json
@@ -126,10 +127,10 @@ ed044bc4dfcf14981e7e668093d265b4507e13c9f6a86c123ac7eb3072ec8ac5  ./packages/dom
 2a4cbb2863810201e1ed99a462eeaa824ffec8c022fe8396a6fb9be83cc09c50  ./packages/observability/src/metrics.mjs
 cb4d3008c06cea129d973ae89b55df575e87adb67a873e0caf5bc2d6a0de4db9  ./packages/subgraph-client/package.json
 debb6c2410065a28bb762b1b07a23a1f5105490a8143063afa1d325f265cb5e4  ./packages/subgraph-client/src/index.mjs
-30b4af1e68b134e73efd710365efccf38460bbc9b782dd51283f58885bd2f708  ./playwright.config.mjs
+914c1e7bbd992cf29cf7c0f32660900f564e7fc6faba286936a589e3c528f811  ./playwright.config.mjs
 24daa3e2afc280690db3d213f953334b10cf92309f2698552c5db543b00b90a6  ./product-authority/NEXMARKETS_ELITE_RELEASE_CANDIDATE.html
 4f297129595444714c88570956fb7d2d701896fa079558e222d02b0dc80cd1f9  ./scripts/build-v1-safe-bundles.mjs
-9557ae6b99f293cf330bff15d60644b7e36e285ed1252ad8295640b12b8eb45a  ./scripts/build-web.mjs
+7e62c504a10fab0a6a52e29dfba7cc665edad08e75eb144d5e84da010facac6b  ./scripts/build-web.mjs
 e23f43694f55b1c36c939d505984011dc555641fae6e1cb1a42afc37d0c081fb  ./scripts/cleanup-legacy-turbo-data.mjs
 d999f2ab71d30ccbbf3372354a9a90ab4015f233808fba0b4b44b48b9a1c7a8c  ./scripts/deploy-safe.mjs
 dc1bf9cc416b4c70a60541995aafd40ffd5c858c840e30456e48a18c1f602a97  ./scripts/deploy-testnet-mock-usdg.mjs
@@ -200,7 +201,7 @@ e934fd32ca7a0ba49250bfddecca1f1f5d78e7247fc0339bc777b05647c72603  ./subgraph/pac
 15e8a24e92eba5876ed96b781e1a8a830259c4e7febda4d6221f906e784e31fc  ./test/auth-session.test.mjs
 11327f902156ec6e373f31f4b6d029ed25bdc864ec744178d548b8a60112c3b6  ./test/auth.test.mjs
 e65dcf63cc1c6e78f4b342562f0cc0bf2aa65c0dac070891ebd16e8f064f1b23  ./test/browser-local.integration.test.mjs
-0042052b4710f2d8ee9f974d85676e6c62af6881f8b9e4e28d429b57a2a229fe  ./test/browser/webapp.acceptance.spec.mjs
+4e24ed9231a045b3c23e54d6a1f2e44de1a0dda1d9bbd89c6ebe5f15c624e221  ./test/browser/webapp.acceptance.spec.mjs
 c37e87075ed4ddac4ca8ba6e56e362e861bde554ce61ba3b353f36845496e0b9  ./test/chain-worker-integration.test.mjs
 7a7d70da696cf8153ce3c78db2125dcb6e19aa51256b31ca7978f7c33674f524  ./test/config.test.mjs
 7f202100220fd5bc6b9e10a858fd0c197da9741139f5140b781a5e2af54b8d1c  ./test/deployment-source.test.mjs
@@ -222,5 +223,5 @@ e38b9f797578dc404f13a5f24151998103c76d895c8d56b059fc217cc5742c59  ./test/subgrap
 45b5877bbb27dc6bfecc638787b4ba48de1891667a3a2e4b8f6141fc01a8df21  ./test/subgraph-manifest.test.mjs
 f3ab49089c06036bca30b050ae794797b311cee8587bc1cf66bbfba30eca6f4c  ./test/transaction-calldata.test.mjs
 2b1ea408827bda81647c95b793a3c19da322ea414f106cfdad62c94fbcf7f0aa  ./test/transaction-lifecycle.test.mjs
-f372ba3bde5d1c1e03987521a741aa2330b75ca8da324d0d73bac81d5bf67c6e  ./test/web-e2e.test.mjs
+6b68b9e686cf7f26ab355acd2868ad89cc5fdcc172b629427bf39bfe4023d867  ./test/web-e2e.test.mjs
 71cc22942cd113fdb0b861c9aee4ff9fd0d88b30da6feae85a09ce902a2334f3  ./test/web.test.mjs
