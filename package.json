@@ -9,8 +9,7 @@
   "workspaces": [
     "apps/*",
     "services/*",
-    "packages/*",
-    "api"
+    "packages/*"
   ],
   "scripts": {
     "test": "node --test test/*.test.mjs",

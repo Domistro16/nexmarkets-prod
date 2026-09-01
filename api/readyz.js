@@ -10028,7 +10028,7 @@ if (!process.env.VERCEL && !process.env.AWS_LAMBDA_FUNCTION_NAME && import.meta.
   process.on("SIGINT", shutdown);
 }
 
-// api/src/_server.js
+// api-src/_server.js
 init_memory_store();
 var requestListener = null;
 async function getApiListener() {
@@ -10069,7 +10069,7 @@ async function getApiListener() {
   return requestListener;
 }
 
-// api/src/readyz.js
+// api-src/readyz.js
 async function handler(req, res) {
   try {
     req.url = "/readyz";

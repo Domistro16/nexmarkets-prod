@@ -17,13 +17,18 @@ for (const output of outputs) {
 }
 await cp(source, root, { recursive: true });
 
+// Clean api directory before building to ensure only compiled standalone bundles exist
+const apiDir = new URL('./api/', root);
+await rm(apiDir, { recursive: true, force: true });
+await mkdir(apiDir, { recursive: true });
+
 // Bundle serverless endpoints using esbuild into standalone ESM files
 await build({
   entryPoints: [
-    { in: './api/src/healthz.js', out: 'healthz' },
-    { in: './api/src/readyz.js', out: 'readyz' },
-    { in: './api/src/v1/[...slug].js', out: 'v1/[...slug]' },
-    { in: './api/src/v1/[...slug].js', out: 'v1/index' }
+    { in: './api-src/healthz.js', out: 'healthz' },
+    { in: './api-src/readyz.js', out: 'readyz' },
+    { in: './api-src/v1/[...slug].js', out: 'v1/[...slug]' },
+    { in: './api-src/v1/[...slug].js', out: 'v1/index' }
   ],
   bundle: true,
   platform: 'node',
@@ -33,13 +38,6 @@ await build({
   allowOverwrite: true,
   outdir: './api'
 });
-
-const apiSource = new URL('./api/', root);
-for (const target of [new URL('./apps/web/api/', root), new URL('./apps/api/api/', root)]) {
-  await rm(target, { recursive: true, force: true });
-  await mkdir(target, { recursive: true });
-  await cp(apiSource, target, { recursive: true });
-}
 
 const app = await readFile(new URL('./apps/web/public/app.mjs', root), 'utf8');
 const v2App = await readFile(new URL('./apps/web/public/v2-app.mjs', root), 'utf8');
