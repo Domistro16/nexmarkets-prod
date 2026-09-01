@@ -1,1 +1,1 @@
-{"name":"@nexmarkets/api","private":true,"type":"module","scripts":{"start":"node src/server.mjs","test":"node --test ../../test/api*.test.mjs"},"dependencies":{"@nexmarkets/auth":"*","@nexmarkets/data":"*","@nexmarkets/domain":"*"}}
+{"name":"@nexmarkets/api","private":true,"type":"module","scripts":{"build":"node -e \"process.exit(0)\"","web:build":"node -e \"process.exit(0)\"","start":"node src/server.mjs","test":"node --test ../../test/api*.test.mjs"},"dependencies":{"@nexmarkets/auth":"*","@nexmarkets/data":"*","@nexmarkets/domain":"*"}}

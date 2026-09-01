@@ -6,11 +6,11 @@ cb0f6ba7b05b5af5878242a58485bf461497a6994dcd61d26282bc776d46e555  ./.github/work
 aa00ec1159235cd75270b679c56333e2cea22d924224e34a3294497b1748cc36  ./.github/workflows/robinhood-release-attestation.yml
 5c58e3d5319d6430184f66bc272dc2bb9b9b32e1e4bc03aa59d39cc75009d93f  ./.gitignore
 954e917d741bd926d739b73f0e476b8164b30043e2042ad65916e447985fff8d  ./README.md
-52e589e857d5557d7ca2137492e11d2f3078ad44292ef5d7c4829c2cd56b666c  ./apps/api/package.json
+75e06ed5df6c44660b98ae87bb87ad5748ac8c672154a235dc3578c73f9c37c5  ./apps/api/package.json
 1c398fb49762bde466cd92c1e76aba923b7f04f313846e0691d38c90ef79d21d  ./apps/api/src/memory-store.mjs
 c8dc48353a08f86ada658b03598efdd57c3fc48f55245c7c1f073d1b36b9738a  ./apps/api/src/server.mjs
 b77742e52dcc222afe9f262575adc4b507aa12cc601901b8815255ae8e166e58  ./apps/web/README.md
-9f7ce8485983b949505cda6c66ce7d8396c240a9bddddf9d928156bf7c219a42  ./apps/web/package.json
+4f86d96fa73cdd06b245dbb466cb0eadd8400ae933e6c2281e67bf9af0ef9e20  ./apps/web/package.json
 aeecf729492aca05b3c7833b3ac5e7913db92169202172127a73d46ea54b74c2  ./apps/web/public/app.mjs
 91765e0d4e7f31d8ebe72e8507de052d1439b958511b79df3ba6ae5315d8bae4  ./apps/web/public/config.example.json
 ea195bcba8f8a7fe15f60690a7e9db34eaa2420c6381de3ce675be9c8b0ef95e  ./apps/web/public/config.json
@@ -227,4 +227,4 @@ f3ab49089c06036bca30b050ae794797b311cee8587bc1cf66bbfba30eca6f4c  ./test/transac
 2b1ea408827bda81647c95b793a3c19da322ea414f106cfdad62c94fbcf7f0aa  ./test/transaction-lifecycle.test.mjs
 6b68b9e686cf7f26ab355acd2868ad89cc5fdcc172b629427bf39bfe4023d867  ./test/web-e2e.test.mjs
 71cc22942cd113fdb0b861c9aee4ff9fd0d88b30da6feae85a09ce902a2334f3  ./test/web.test.mjs
-0869419502004d2e8add278eea4581a633c07a0121141f98bff0915c3732bc2b  ./vercel.json
+681e2cff60818c4d37b53b67825bf761ab56f8c4a6641185ccd0a8cedae0edcb  ./vercel.json
