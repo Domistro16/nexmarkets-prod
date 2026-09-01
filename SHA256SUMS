@@ -92,7 +92,7 @@ e6b54b80ae5c078a6c531c3dddd191ca3e41960b158c7c4b15dfd927a31e279c  ./goldsky/nexm
 1271ee6e69ae035d81ee9e81528f0a5986fda60cf3b7fa9acba6e8f159987aca  ./infra/schema/0002_nexmarkets_v1.sql
 6b8cc0729cca4e90cdd8b80bc44d845ed590f9b6e8135c122add69aaa1a46990  ./infra/schema/migrate.mjs
 d529253c2c1f65c7a8e82cce2d7405a124d237b32c7f69e1ac7f5f0f04e00430  ./package-lock.json
-a71997434fd517fb6a04b33799cbd3a209f54d71248f5a230cc46a515ea5f57d  ./package.json
+df9dacecd0903276a5fa5709e289f4a2a69df785a6545c500655333d680301e2  ./package.json
 717dd8cd233e81be540ad1c6886ae58600d740e221ce277455d76287dc0ff054  ./packages/auth/package.json
 ba534c6ece1a726e4d011426343e8f6d89831c5cc2e92740ce1f97d09c22d166  ./packages/auth/src/index.mjs
 0b26ab038f3eb97ea9a44896144af138152a4487051cff2e7c2cc372cb5cec41  ./packages/auth/src/session.mjs

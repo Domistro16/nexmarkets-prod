@@ -55,12 +55,12 @@
     "preflight:seaport": "node scripts/preflight-canonical-seaport.mjs robinhood-mainnet"
   },
   "dependencies": {
+    "esbuild": "0.25.0",
     "ethers": "6.17.0",
     "pg": "8.16.3",
     "yaml": "2.9.0"
   },
   "devDependencies": {
-    "@playwright/test": "1.54.1",
-    "esbuild": "0.25.0"
+    "@playwright/test": "1.54.1"
   }
 }
