@@ -15,6 +15,7 @@ for (const output of outputs) {
   await mkdir(output, { recursive: true });
   await cp(source, output, { recursive: true });
 }
+await cp(source, root, { recursive: true });
 
 // Bundle serverless endpoints using esbuild into standalone ESM files
 await build({
