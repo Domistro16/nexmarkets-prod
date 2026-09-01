@@ -2,7 +2,6 @@
   "name": "@nexmarkets/api",
   "private": true,
   "type": "module",
-  "main": "./src/server.mjs",
   "exports": {
     ".": "./src/server.mjs",
     "./memory-store": "./src/memory-store.mjs"

@@ -7,3 +7,5 @@ artifacts/
 goldsky/
 product-authority/
 playwright.config.mjs
+apps/api/src/
+api-src/
