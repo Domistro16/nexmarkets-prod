@@ -2,6 +2,11 @@
   "name": "@nexmarkets/api",
   "private": true,
   "type": "module",
+  "exports": {
+    ".": "./src/server.mjs",
+    "./server": "./src/server.mjs",
+    "./memory-store": "./src/memory-store.mjs"
+  },
   "scripts": {
     "build": "node scripts/build-web.mjs",
     "web:build": "node scripts/build-web.mjs",
