@@ -21,8 +21,8 @@ await build({
   entryPoints: [
     { in: './api/src/healthz.js', out: 'healthz' },
     { in: './api/src/readyz.js', out: 'readyz' },
-    { in: './api/src/index.js', out: 'index' },
-    { in: './api/src/v1/[...slug].js', out: 'v1/[...slug]' }
+    { in: './api/src/v1/[...slug].js', out: 'v1/[...slug]' },
+    { in: './api/src/v1/[...slug].js', out: 'v1/index' }
   ],
   bundle: true,
   platform: 'node',
