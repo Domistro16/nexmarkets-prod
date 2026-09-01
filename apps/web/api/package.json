@@ -3,6 +3,7 @@
   "private": true,
   "type": "module",
   "dependencies": {
+    "@nexmarkets/api": "*",
     "@nexmarkets/auth": "*",
     "@nexmarkets/chain": "*",
     "@nexmarkets/data": "*",
