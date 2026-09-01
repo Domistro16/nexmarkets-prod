@@ -38,6 +38,13 @@ await build({
   outdir: './api'
 });
 
+const apiSource = new URL('./api/', root);
+for (const target of [new URL('./apps/web/api/', root), new URL('./apps/api/api/', root)]) {
+  await rm(target, { recursive: true, force: true });
+  await mkdir(target, { recursive: true });
+  await cp(apiSource, target, { recursive: true });
+}
+
 const app = await readFile(new URL('./apps/web/public/app.mjs', root), 'utf8');
 const v2App = await readFile(new URL('./apps/web/public/v2-app.mjs', root), 'utf8');
 const template = await readFile(new URL('./apps/web/public/index.html', root), 'utf8');

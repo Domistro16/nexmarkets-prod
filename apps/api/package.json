@@ -2,16 +2,17 @@
   "name": "@nexmarkets/api",
   "private": true,
   "type": "module",
+  "main": "./src/server.mjs",
   "exports": {
     ".": "./src/server.mjs",
-    "./server": "./src/server.mjs",
     "./memory-store": "./src/memory-store.mjs"
   },
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "scripts": {
-    "build": "node scripts/build-web.mjs",
-    "web:build": "node scripts/build-web.mjs",
-    "start": "node src/server.mjs",
-    "test": "node --test ../../test/api*.test.mjs"
+    "build": "node ../../scripts/build-web.mjs",
+    "start": "node src/server.mjs"
   },
   "dependencies": {
     "@nexmarkets/auth": "*",
