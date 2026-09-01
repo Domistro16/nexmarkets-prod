@@ -188,7 +188,10 @@ export function createApiServer({
       rateLimiter.take(req.socket.remoteAddress ?? 'unknown');
       const url = new URL(req.url, allowedOrigin);
       const origin = req.headers.origin;
-      if (origin && new URL(origin).origin !== new URL(allowedOrigin).origin) throw Object.assign(new Error('ORIGIN_REJECTED'), { status: 403 });
+      if (origin && new URL(origin).origin !== new URL(allowedOrigin).origin) {
+        const reqHost = req.headers['x-forwarded-host'] || req.headers.host;
+        if (!reqHost || new URL(origin).host !== reqHost) throw Object.assign(new Error('ORIGIN_REJECTED'), { status: 403 });
+      }
 
       if (req.method === 'GET' && url.pathname === '/healthz') return json(res, 200, { status: 'ok', service: 'api', version: 'v1', requestId });
       if (req.method === 'GET' && url.pathname === '/readyz') {

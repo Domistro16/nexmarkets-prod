@@ -423,52 +423,17 @@ async function loadChainData() {
     read(`/v1/passes/${CERTIFICATION_EDITION}/${CERTIFICATION_TOKEN}`),
     read('/v1/market/listings')
   ]);
-  let discover = discoverResult.status === 'fulfilled' ? (Array.isArray(discoverResult.value) ? discoverResult.value : discoverResult.value?.editions || []) : [];
-  let summary = discover.find((item) => lower(item.edition_address || item.address) === CERTIFICATION_EDITION.toLowerCase()) || discover[0] || null;
-  let editionRaw = editionResult.status === 'fulfilled' ? editionResult.value : null;
-  let passRaw = passResult.status === 'fulfilled' ? passResult.value : null;
-  let listingRows = listingsResult.status === 'fulfilled' ? (Array.isArray(listingsResult.value) ? listingsResult.value : []) : [];
-
-  const isLocalhost = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
-  if (discoverResult.status === 'rejected' && editionResult.status === 'rejected' && !isLocalhost) {
-    const endpoint = state.config?.subgraph?.endpoint;
-    if (endpoint) {
-      try {
-        const query = `{ editions(first: 50, orderBy: createdBlock, orderDirection: desc) { id address editionId publisher absoluteSupplyCap totalMinted disabled currentTerms { hash pricePerPass previewStartsAt mintStartsAt mintEndsAt } } listings(first: 50, where: { status: "ACTIVE" }, orderBy: createdBlock, orderDirection: desc) { id orderHash edition { address } tokenId seller price status } }`;
-        const res = await fetch(endpoint, { method: 'POST', headers: { 'content-type': 'application/json', accept: 'application/json' }, body: JSON.stringify({ query }) });
-        if (res.ok) {
-          const body = await res.json();
-          if (body.data?.editions?.length) {
-            discover = body.data.editions.map((e) => ({
-              edition_address: e.address,
-              address: e.address,
-              name: lower(e.address) === CERTIFICATION_EDITION.toLowerCase() ? (state.config?.certificationEdition?.name || 'NexMarkets V1 Test Certification Edition') : `Edition ${e.address.slice(0, 6)}`,
-              symbol: 'NEXP',
-              supply_cap: Number(e.absoluteSupplyCap || 3),
-              total_minted: Number(e.totalMinted || 0),
-              price_usdg: e.currentTerms?.pricePerPass ? (Number(e.currentTerms.pricePerPass) / 1e6).toFixed(6) : '1.000000',
-              current_terms_hash: e.currentTerms?.hash || state.config?.certificationEdition?.termsHash || null
-            }));
-            summary = discover.find((item) => lower(item.edition_address || item.address) === CERTIFICATION_EDITION.toLowerCase()) || discover[0] || null;
-            if (summary) {
-              editionRaw = { ...summary, advantages: [{ advantageId: '0x01', kind: 'CONNECTED', totalUnits: 1, remainingUnits: 1, description: 'Active entitlement/access' }] };
-            }
-          }
-          if (body.data?.listings) {
-            listingRows = body.data.listings.map((l) => ({ order_hash: l.orderHash, edition_address: l.edition?.address, token_id: Number(l.tokenId), seller_address: l.seller, price_usdg: (Number(l.price) / 1e6).toFixed(6), status: l.status }));
-          }
-        }
-      } catch { /* proceed */ }
-    }
-  }
-
+  const discover = discoverResult.status === 'fulfilled' ? (Array.isArray(discoverResult.value) ? discoverResult.value : discoverResult.value?.editions || []) : [];
+  const summary = discover.find((item) => lower(item.edition_address || item.address) === CERTIFICATION_EDITION.toLowerCase()) || discover[0] || null;
+  const editionRaw = editionResult.status === 'fulfilled' ? editionResult.value : null;
   state.edition = normalizeEdition(editionRaw, summary);
-  state.pass = normalizePass(passRaw, state.edition);
+  state.pass = normalizePass(passResult.status === 'fulfilled' ? passResult.value : null, state.edition);
   state.discover = discover.map((item) => normalizeEdition(null, item)).filter(Boolean);
   if (state.edition && !state.discover.some((item) => item.address.toLowerCase() === state.edition.address.toLowerCase())) state.discover.unshift(state.edition);
   const map = new Map(state.discover.map((item) => [item.address.toLowerCase(), item]));
+  const listingRows = listingsResult.status === 'fulfilled' ? (Array.isArray(listingsResult.value) ? listingsResult.value : []) : [];
   state.listings = listingRows.map((item) => normalizeListing(item, map)).filter(Boolean);
-  if (discoverResult.status === 'rejected' && editionResult.status === 'rejected' && !state.discover.length && !state.edition) throw new Error('LIVE_API_UNAVAILABLE');
+  if (discoverResult.status === 'rejected' && editionResult.status === 'rejected') throw new Error('LIVE_API_UNAVAILABLE');
 }
 async function loadAuthenticatedData() {
   if (!state.authenticated) return { owned: [], advantages: [] };
@@ -520,18 +485,11 @@ async function authenticate() {
   try {
     const identity = await wallet.connect(Number(state.config?.chainId || CHAIN_ID));
     state.wallet = identity.address; setAccountLabel(short(identity.address));
-    let authenticatedWithApi = false;
-    try {
-      const challenge = await read('/v1/auth/challenge', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ address: identity.address }) });
-      const signature = await wallet.signMessage(challenge.message);
-      const verified = await read('/v1/auth/verify', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ nonce: challenge.nonce, signature }) });
-      state.csrfToken = verified.csrfToken; state.authenticated = true; sessionStorage.setItem('nex_csrf', verified.csrfToken);
-      authenticatedWithApi = true;
-    } catch (authError) {
-      console.warn('API challenge session not supported or unavailable on this host:', authError.message);
-      state.authenticated = true;
-    }
-    await hydrate(); showRuntimeBanner(authenticatedWithApi ? 'Wallet verified on Robinhood Chain' : 'Wallet connected to Robinhood Chain');
+    const challenge = await read('/v1/auth/challenge', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ address: identity.address }) });
+    const signature = await wallet.signMessage(challenge.message);
+    const verified = await read('/v1/auth/verify', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ nonce: challenge.nonce, signature }) });
+    state.csrfToken = verified.csrfToken; state.authenticated = true; sessionStorage.setItem('nex_csrf', verified.csrfToken);
+    await hydrate(); showRuntimeBanner('Wallet verified on Robinhood Chain');
   } catch (error) { showRuntimeBanner(error.message, true); }
 }
 function sanitizeCompiledForApi(compiled) {
