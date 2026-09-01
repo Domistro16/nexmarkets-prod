@@ -1,9 +1,0 @@
-{
-  "network": "robinhood-mainnet",
-  "chainId": 4663,
-  "settlementToken": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
-  "seaport16": "0x0000000000000068F116a894984e2DB1123eB395",
-  "protocolAdminSafe": null,
-  "contracts": { "launchRegistry": null, "mintController": null, "passFactory": null, "advantageRegistry": null, "listingRegistry": null, "zone": null, "royaltyVault": null, "tbaResolver": null },
-  "productionReady": false
-}

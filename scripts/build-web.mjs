@@ -8,7 +8,6 @@ const source = new URL('./apps/web/public/', root);
 const outputs = [
   new URL('./apps/web/dist/', root),
   new URL('./apps/api/dist/', root),
-  new URL('./apps/api/public/', root),
   new URL('./dist/', root),
   new URL('./public/', root)
 ];
@@ -56,13 +55,6 @@ async function fixExports(dir) {
   }
 }
 await fixExports(fileURLToPath(apiDir));
-
-const apiSource = new URL('./api/', root);
-for (const target of [new URL('./apps/web/api/', root), new URL('./apps/api/api/', root)]) {
-  await rm(target, { recursive: true, force: true });
-  await mkdir(target, { recursive: true });
-  await cp(apiSource, target, { recursive: true });
-}
 
 const app = await readFile(new URL('./apps/web/public/app.mjs', root), 'utf8');
 const v2App = await readFile(new URL('./apps/web/public/v2-app.mjs', root), 'utf8');
