@@ -7,3 +7,8 @@ packages/
 apps/
 api-src/
 docs/
+subgraph/
+artifacts/
+goldsky/
+product-authority/
+playwright.config.mjs

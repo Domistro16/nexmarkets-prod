@@ -5,7 +5,7 @@ cb0f6ba7b05b5af5878242a58485bf461497a6994dcd61d26282bc776d46e555  ./.github/work
 186305e645ef56b21070fc675ac390f6fde07485258194489118686adf35de97  ./.github/workflows/primitive-gate.yml
 aa00ec1159235cd75270b679c56333e2cea22d924224e34a3294497b1748cc36  ./.github/workflows/robinhood-release-attestation.yml
 5c58e3d5319d6430184f66bc272dc2bb9b9b32e1e4bc03aa59d39cc75009d93f  ./.gitignore
-f678355d38144321f6970d51c5ca6576f84a581b5906d55d605c53ed5886def3  ./.vercelignore
+405187456e71099c1136993fe1986b2df9af149bfbb86cebbd49341f8d8d8858  ./.vercelignore
 954e917d741bd926d739b73f0e476b8164b30043e2042ad65916e447985fff8d  ./README.md
 6ccadfa34b93b48e51fc5fc96eb76bbeabe21da31a9485dc9c3ede9e85fe323d  ./api-src/_server.js
 45f7a4e0935ea215bcdb40a88df9f83cd2561b6f898613430e796c1be45b8cbc  ./api-src/healthz.js
@@ -15,7 +15,6 @@ be00f05c872a57310ec2c71f4f14ac38aea9520c0adac2fdeb6373d1a922570f  ./api/healthz.
 fec7a04fafd0dc91a27877b8fb3e7bbe392f933dab8423727d3d05b2c130992c  ./api/readyz.js
 3e7e0f0bf9a08c4cd45d0023b21af1562071a2e2987d5c4b93c61b91277fae8a  ./api/v1/[...slug].js
 3e7e0f0bf9a08c4cd45d0023b21af1562071a2e2987d5c4b93c61b91277fae8a  ./api/v1/index.js
-aeecf729492aca05b3c7833b3ac5e7913db92169202172127a73d46ea54b74c2  ./app.mjs
 085d69b788348883a5a0eebf922194c8cb00c34488297668a36faf8cfc702bc5  ./apps/api/package.json
 83801d1546f4802277969c7403826858d2f70e61ce0077a0e9ac88050bc46eaf  ./apps/api/scripts/build-web.mjs
 bac26f66a2017b4194a2b0b66a0f2aba79851b0b3985d476c8336b9ea149b059  ./apps/api/src/memory-store.mjs
@@ -41,10 +40,6 @@ e77eee28af3b4556b6309574251f2063f5469c45bb8a9d946c94ab2c824c96ff  ./artifacts/de
 c851e50f2301f921858da6f1ef8b1c47fc9b921af209149c02eec97ab0e84185  ./artifacts/deployment-plan/robinhood-mainnet.wire.safe.json
 5a6a6555918973a7c89906bf9be85168ddff9d7928d190bb65569f67bc395598  ./artifacts/testnet-certification/edition.json
 f75b9c38f6fc68b9084649bfecdda8a202bf3d2874d2c0166077d1f7ce89fd6e  ./artifacts/testnet-certification/secondary-lifecycle.json
-abf8703a57c22bb73f9d5c70ef2c25a13c6cfa264ca754a1c95539388ae4535d  ./chains.mjs
-91765e0d4e7f31d8ebe72e8507de052d1439b958511b79df3ba6ae5315d8bae4  ./config.example.json
-ea195bcba8f8a7fe15f60690a7e9db34eaa2420c6381de3ce675be9c8b0ef95e  ./config.json
-4b8e201b167b49e7fcbf46a5fd4c647d6f84916e6fa4a5ba1fac19af658f3cc6  ./controls.css
 f03f3c422e6ddedac32e805a4c0eec416ecf1b748ff7af4aa371e236e3bd6b1d  ./deployments/MAINNET_RELEASE_CANDIDATE.json
 da73b13c730791d2d785e1d767dda42f44ac11a2e6de54b6ccb09cbbf937e0c6  ./deployments/erc6551.robinhood-mainnet.json
 554614c2e1fbe31580443d682e9c3c7206a897e0f7d2848e4403b2e6f6d3a0e4  ./deployments/erc6551.robinhood-testnet.json
@@ -84,7 +79,6 @@ c5636c0b809a2697dd294bf3ac125bb03f316e100a3e244da4c71217597953dc  ./docs/authori
 552b4b01093a97ae2169f5a62ff10207236f862298c602a5706a262eed2ffe30  ./goldsky/nexmarkets-events.json
 e6b54b80ae5c078a6c531c3dddd191ca3e41960b158c7c4b15dfd927a31e279c  ./goldsky/nexmarkets-robinhood.turbo.yaml
 9176a750aa4b805fa424fedeab83651c7c2906a4e84369867dedebdac6787592  ./goldsky/robinhood-chains.json
-6d0684326501dceef342c4b96512ea10aedfe934544d0c44f81f01c8b21bc937  ./index.html
 0b50c8d897e03bab12b9e1c233eff8bb802a1d72403b677941d355364a335a4a  ./infra/deploy/SEAPORT_CANONICAL_DEPLOYMENT_GATE.md
 6c269b1b730b553344824cdf7b65632fe8427ad0c8ed74528e246a18abe09606  ./infra/schema/0001_phase0_authority.sql
 1271ee6e69ae035d81ee9e81528f0a5986fda60cf3b7fa9acba6e8f159987aca  ./infra/schema/0002_nexmarkets_v1.sql
@@ -162,9 +156,8 @@ cc0e87a6cfdd7679a1a2113d75288db8cffb9335c6e0b7d522de74fb5d3a12a7  ./public/style
 8a561c290fccd6d13b6c95e92db64aa7bf8567378afbcbc76b5735d640d6d97a  ./public/transaction.mjs
 f4fa35d56d4bd59be1dfbac02d049fe488c61d957f06ac853cb1000284c2df47  ./public/v2-app.mjs
 9475eca46351ac83d629b3bed656a1322cea06b6feb37ee12932ca7b95033449  ./public/wallet.mjs
-cf5686fb2f2354b758eab70633f5602fdcd36a60494286eb681f98aa2cedf689  ./rainbow-wallet.mjs
 4f297129595444714c88570956fb7d2d701896fa079558e222d02b0dc80cd1f9  ./scripts/build-v1-safe-bundles.mjs
-c4d3bf256c0b4a96ee3dc83f1473dd62d6049ac6443daf41dc18bc92cccf1e0f  ./scripts/build-web.mjs
+08e1c6dc6fdea30e447499677387415b67d9b2a78d0b95b5cec52f2a99e10c95  ./scripts/build-web.mjs
 e23f43694f55b1c36c939d505984011dc555641fae6e1cb1a42afc37d0c081fb  ./scripts/cleanup-legacy-turbo-data.mjs
 d999f2ab71d30ccbbf3372354a9a90ab4015f233808fba0b4b44b48b9a1c7a8c  ./scripts/deploy-safe.mjs
 dc1bf9cc416b4c70a60541995aafd40ffd5c858c840e30456e48a18c1f602a97  ./scripts/deploy-testnet-mock-usdg.mjs
@@ -212,7 +205,6 @@ b5f31b3cde42cb8a53b1c06e15176df5392b061947d35dd39b8bb003feae2ea1  ./services/rec
 a78f70cb6af1a29ed36744665d1d1e2533b3ee6b13c7f77e1b24e956d6042b8d  ./services/worker/src/outbox-worker.mjs
 73c6d90e410f082a59e32a420cabe150f601213dd329d86ccd9ee88a2a8144b6  ./services/worker/src/run-chain-worker.mjs
 27ed21a7395ce85d7934242604061a7e0cbd4fe17bf0dbe90d75e3ac4e58ffc0  ./services/worker/src/run-outbox-worker.mjs
-cc0e87a6cfdd7679a1a2113d75288db8cffb9335c6e0b7d522de74fb5d3a12a7  ./styles.css
 ba83622ed6eeed0287d5d3303e1428678165f1428a659d59e03e7528aaffdc41  ./subgraph/abis/ERC6551Registry.json
 489ddc21fd02f910a8b8a093edbb2c33f976950e16ad53c9df40481b7ad28d72  ./subgraph/abis/NexAdvantageInitializer.json
 d9880758e0f0136cb4420f8071f18f14406813936e30607faf7bc4cf92f34888  ./subgraph/abis/NexAdvantageRegistry.json
@@ -261,7 +253,4 @@ f3ab49089c06036bca30b050ae794797b311cee8587bc1cf66bbfba30eca6f4c  ./test/transac
 2b1ea408827bda81647c95b793a3c19da322ea414f106cfdad62c94fbcf7f0aa  ./test/transaction-lifecycle.test.mjs
 6b68b9e686cf7f26ab355acd2868ad89cc5fdcc172b629427bf39bfe4023d867  ./test/web-e2e.test.mjs
 71cc22942cd113fdb0b861c9aee4ff9fd0d88b30da6feae85a09ce902a2334f3  ./test/web.test.mjs
-8a561c290fccd6d13b6c95e92db64aa7bf8567378afbcbc76b5735d640d6d97a  ./transaction.mjs
-f4fa35d56d4bd59be1dfbac02d049fe488c61d957f06ac853cb1000284c2df47  ./v2-app.mjs
 e21d5bbf01e6d12e2116f09bdc50700af58d3b35d4b922e9375be78fd43d1f14  ./vercel.json
-9475eca46351ac83d629b3bed656a1322cea06b6feb37ee12932ca7b95033449  ./wallet.mjs

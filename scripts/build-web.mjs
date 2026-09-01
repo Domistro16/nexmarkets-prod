@@ -15,7 +15,6 @@ for (const output of outputs) {
   await mkdir(output, { recursive: true });
   await cp(source, output, { recursive: true });
 }
-await cp(source, root, { recursive: true });
 
 // Clean api directory before building to ensure only compiled standalone bundles exist
 const apiDir = new URL('./api/', root);
