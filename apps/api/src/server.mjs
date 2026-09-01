@@ -196,7 +196,15 @@ export function createApiServer({
         if (!reqHost || new URL(origin).host !== reqHost) throw Object.assign(new Error('ORIGIN_REJECTED'), { status: 403 });
       }
 
-      if (req.method === 'GET' && (url.pathname === '/' || url.pathname === '')) return json(res, 200, { service: 'nexmarkets-api', version: 'v1', status: 'ok', requestId });
+      // The site root belongs to the static web shell. If a Vercel project
+      // route sends `/` through this listener, redirect it to the immutable
+      // entrypoint rather than exposing an API status payload as the page.
+      // API health remains available at `/healthz` and all `/v1/*` routes are
+      // handled below as before.
+      if (req.method === 'GET' && (url.pathname === '/' || url.pathname === '')) {
+        res.writeHead(307, { location: '/index.html', 'cache-control': 'no-store' });
+        return res.end();
+      }
       if (req.method === 'GET' && url.pathname === '/healthz') return json(res, 200, { status: 'ok', service: 'api', version: 'v1', requestId });
       if (req.method === 'GET' && url.pathname === '/readyz') {
         await store.ready(); metrics.set('nexmarkets_db_ready', 1);
