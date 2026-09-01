@@ -99,8 +99,8 @@ e6b54b80ae5c078a6c531c3dddd191ca3e41960b158c7c4b15dfd927a31e279c  ./goldsky/nexm
 6c269b1b730b553344824cdf7b65632fe8427ad0c8ed74528e246a18abe09606  ./infra/schema/0001_phase0_authority.sql
 1271ee6e69ae035d81ee9e81528f0a5986fda60cf3b7fa9acba6e8f159987aca  ./infra/schema/0002_nexmarkets_v1.sql
 6b8cc0729cca4e90cdd8b80bc44d845ed590f9b6e8135c122add69aaa1a46990  ./infra/schema/migrate.mjs
-f3045aef02c5a45f1527bcb5c86cf48bdd3c95139248d5156e942f0ca28bcf7a  ./package-lock.json
-0f690baf64be78e261881ac1986ce62ad7f00ad2c1197c9708de00f0279f7707  ./package.json
+d00484d5b33e674fdb39c6f89d818afce5bab97251445b703509dcea2af82fa2  ./package-lock.json
+5547708901e2d7dd78c7208b6fe3db04d66d01097e19bf95ab908a84f3cf3324  ./package.json
 717dd8cd233e81be540ad1c6886ae58600d740e221ce277455d76287dc0ff054  ./packages/auth/package.json
 ba534c6ece1a726e4d011426343e8f6d89831c5cc2e92740ce1f97d09c22d166  ./packages/auth/src/index.mjs
 0b26ab038f3eb97ea9a44896144af138152a4487051cff2e7c2cc372cb5cec41  ./packages/auth/src/session.mjs
@@ -239,7 +239,7 @@ e934fd32ca7a0ba49250bfddecca1f1f5d78e7247fc0339bc777b05647c72603  ./subgraph/pac
 4343ef94e91413ebda52e00c984f1e2ff8e56e6da277e228c7d38b76cd410c93  ./subgraph/test/subgraph-package.test.mjs
 0ea684053cea644657c9d936d3007967cccac97a700c5521aa7d8440ded234fa  ./subgraph/tsconfig.json
 85e3cea45edf48b45ae72c73031af8361711d570b2d69d64302456a21ef1443d  ./test/api-auth.test.mjs
-47da3edca835ae7578dd4e68cb66e27c903eadea1164cdfcad2732da8be50b0b  ./test/api-create-draft.test.mjs
+cb8673ec6e51d6aafc63b774ebf24b32da621340a4326d1683610c3e69be1580  ./test/api-create-draft.test.mjs
 05d499c7f131c8e8f0a7da093d5fd2e191a4a21d0c1aa32d051ca83c7a3fc26d  ./test/api-order.test.mjs
 15e8a24e92eba5876ed96b781e1a8a830259c4e7febda4d6221f906e784e31fc  ./test/auth-session.test.mjs
 11327f902156ec6e373f31f4b6d029ed25bdc864ec744178d548b8a60112c3b6  ./test/auth.test.mjs
@@ -257,7 +257,7 @@ e0e07ae56ae225d592072843d999fe0d7f48a34fe5776c45e9b41d96a0a8578c  ./test/keccak.
 5f6d25d791cb29ccd058e3056de148808d706b118b0dfa59af07860c40a3cee4  ./test/notification.test.mjs
 14ac772a84a67640c63814ccc3148bc3cadda67307af15e13f26e7908fc6d0aa  ./test/observability.test.mjs
 fae9984973c877d295f6e1db31ce099bbf356710c3b09d8c31445be764285c2a  ./test/outbox.test.mjs
-6d49e9aa35c8bb2e181e6147e49458c0234a38388db21753ae6d0a35b811f9d8  ./test/playwright.config.mjs
+a3fea75b48f0ce23585ec662a5f25f600a0623961850fb5fd510e3aafe556803  ./test/playwright.config.mjs
 d2226eff8ae20c52b8e6ffa600c280024ec362160b173d4763b1dcd3f941abf9  ./test/reconciliation.test.mjs
 27e616a7254c1ec1c36d41d11abf0759042d59563281e066bcac67a1faa88d27  ./test/referral-media.test.mjs
 a2919bcf61d515bda1eec655d852e44d1e7d40581caa3af182d8a8ee5f8ae897  ./test/runtime-integration.test.mjs
@@ -269,4 +269,4 @@ f3ab49089c06036bca30b050ae794797b311cee8587bc1cf66bbfba30eca6f4c  ./test/transac
 2b1ea408827bda81647c95b793a3c19da322ea414f106cfdad62c94fbcf7f0aa  ./test/transaction-lifecycle.test.mjs
 6b68b9e686cf7f26ab355acd2868ad89cc5fdcc172b629427bf39bfe4023d867  ./test/web-e2e.test.mjs
 71cc22942cd113fdb0b861c9aee4ff9fd0d88b30da6feae85a09ce902a2334f3  ./test/web.test.mjs
-aaf213c6cf2aac49995f23bb2cfd4ad1e22475d742209953c3738ccda6ea0384  ./vercel.json
+39951f9b5cb178ef0e308cd4a60fe54b3eab933cf000cfda4ddb3f998c0a928e  ./vercel.json
