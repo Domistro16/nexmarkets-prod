@@ -10084,9 +10084,7 @@ async function handler(req, res) {
     res.end(JSON.stringify({ error: "V1_ROUTING_ERROR", message: err.message, stack: err.stack }));
   }
 }
-export {
-  handler as default
-};
+export default handler;
 /*! Bundled license information:
 
 @noble/hashes/esm/utils.js:

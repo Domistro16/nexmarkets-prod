@@ -1,4 +1,6 @@
-import { cp, mkdir, readFile, rm } from 'node:fs/promises';
+import { cp, mkdir, readFile, writeFile, rm, readdir } from 'node:fs/promises';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { build } from 'esbuild';
 
 const root = new URL('../', import.meta.url);
@@ -38,6 +40,22 @@ await build({
   allowOverwrite: true,
   outdir: './api'
 });
+
+// Post-process all output js files in ./api to guarantee standard "export default" format
+async function fixExports(dir) {
+  const entries = await readdir(dir, { withFileTypes: true });
+  for (const entry of entries) {
+    const fullPath = join(dir, entry.name);
+    if (entry.isDirectory()) {
+      await fixExports(fullPath);
+    } else if (entry.name.endsWith('.js')) {
+      let content = await readFile(fullPath, 'utf8');
+      content = content.replace(/export\s*\{\s*(\w+)\s+as\s+default\s*\};?/g, 'export default $1;');
+      await writeFile(fullPath, content, 'utf8');
+    }
+  }
+}
+await fixExports(fileURLToPath(apiDir));
 
 const apiSource = new URL('./api/', root);
 for (const target of [new URL('./apps/web/api/', root), new URL('./apps/api/api/', root)]) {
