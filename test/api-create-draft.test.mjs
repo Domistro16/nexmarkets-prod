@@ -504,6 +504,9 @@ test('PostgreSQL JSONB persistence and idempotency when DATABASE_URL is availabl
   await store.ready();
   const accountId = `acct_pgtest_${Date.now()}`;
   const slug = `pg-draft-${Date.now()}`;
+  // Satisfy the production schema's builder_account foreign key just as the
+  // authenticated wallet flow does before creating a project.
+  await store.pool.query('INSERT INTO account(id) VALUES($1) ON CONFLICT(id) DO NOTHING', [accountId]);
   const fixture = fullDraftFixture();
   fixture.slug = slug;
   fixture.name = 'Postgres Draft Test';
