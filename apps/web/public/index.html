@@ -4114,9 +4114,9 @@ body[data-nm-foundation="elite-v1"]{
     </div>
     <label class="sticky-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="11" cy="11" r="6"/><path d="m16 16 4 4"/></svg><input class="global-search" placeholder="Search" /></label>
   </div>
-  <div class="account-chip"><span class="account-dot"></span><span class="account-label">0x21B…7A19</span></div>
+  <div class="account-chip" data-connected="false"><span class="account-dot"></span><span class="account-label">Connect wallet</span></div>
 </header>
-<header class="mobile-header mobile-only"><button class="brand" onclick="go('home')"><svg viewBox="0 0 24 24"><path d="M12 2.4 13.3 10.7 21.6 12 13.3 13.3 12 21.6 10.7 13.3 2.4 12 10.7 10.7Z" fill="#ffb000"/></svg><span>NEX<em>MARKETS</em></span></button><div class="mobile-actions"><button class="mobile-icon explore-only" aria-label="Filter" onclick="openSheet('filter')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 7h10M18 7h2M4 17h4M12 17h8M14 5v4M8 15v4"/></svg></button><button class="mobile-icon explore-only" aria-label="Search" onclick="openSheet('search')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="11" cy="11" r="6"/><path d="m16 16 4 4"/></svg></button><div class="account-chip"><span class="account-dot"></span><span class="account-label">0x21B…7A19</span></div></div></header>
+<header class="mobile-header mobile-only"><button class="brand" onclick="go('home')"><svg viewBox="0 0 24 24"><path d="M12 2.4 13.3 10.7 21.6 12 13.3 13.3 12 21.6 10.7 13.3 2.4 12 10.7 10.7Z" fill="#ffb000"/></svg><span>NEX<em>MARKETS</em></span></button><div class="mobile-actions"><button class="mobile-icon explore-only" aria-label="Filter" onclick="openSheet('filter')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 7h10M18 7h2M4 17h4M12 17h8M14 5v4M8 15v4"/></svg></button><button class="mobile-icon explore-only" aria-label="Search" onclick="openSheet('search')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="11" cy="11" r="6"/><path d="m16 16 4 4"/></svg></button><div class="account-chip" data-connected="false"><span class="account-dot"></span><span class="account-label">Connect wallet</span></div></div></header>
 
 <main>
 <section id="home" class="screen active nm-home-elite nm-home-stage3">
@@ -21634,7 +21634,7 @@ async function downloadCard() {
   </div>
 </section>
 
-<section id="dashboard" class="screen shell dashboard-page"><div class="dash-account"><div class="dash-person"><div class="avatar">CM</div><div><b>0x21B…7A19</b><span id="dashAccountMeta">5 Passes · 2 Debuts</span></div></div><div class="account-chip"><span class="account-dot"></span><span>Wallet connected</span></div></div><div class="dash-tabs" id="dashTabs"></div><div id="dashPanels"></div></section>
+<section id="dashboard" class="screen shell dashboard-page"><div class="dash-account"><div class="dash-person"><div class="avatar">--</div><div><b>Connect wallet</b><span id="dashAccountMeta">No wallet connected</span></div></div><div class="account-chip" data-connected="false"><span class="account-dot"></span><span>Connect wallet</span></div></div><div class="dash-tabs" id="dashTabs"></div><div id="dashPanels"></div></section>
 <div class="dash-modal-backdrop" id="dashModal" onclick="dashModalBackdrop(event)">
   <div class="dash-modal" role="dialog" aria-modal="true" aria-labelledby="dashModalTitle">
     <button class="dash-modal-x" onclick="closeDashModal()" aria-label="Close">×</button>
@@ -24013,8 +24013,7 @@ body[data-hero-design="metal"] .pass-metal::before{background:linear-gradient(92
 </style>
 <script id="nm-market-10-runtime">
 (function(){
-  'use strict';
-  const CURRENT_WALLET='0x21B…7A19';
+  const CURRENT_WALLET=window.nexmarketsV2?.state?.wallet||'';
   const familyFixtures={
     nexstudio:{passDesign:'classic',frame:'gilt',frameColor:'#c8a84e',texture:'grain',textureTint:'#9b9b94'},
     crier:{passDesign:'glass',frame:'ivory',frameColor:'#c8c5bc',texture:'none',textureTint:'#9b9b94'},
@@ -26112,7 +26111,7 @@ setTimeout(()=>{if(currentRoute==='project')render()},0);
 const e=v=>typeof esc==='function'?esc(String(v??'')):String(v??'');
 const cash=v=>typeof money==='function'?money(v):`$${Number(v||0).toFixed(2)}`;
 let qaSnapshot=null;
-const P8_WALLET=document.querySelector('#dashboard .dash-person b')?.textContent?.trim()||'0x21B…7A19';
+const P8_WALLET=window.nexmarketsV2?.state?.wallet||document.querySelector('#dashboard .dash-person b')?.textContent?.trim()||'';
 
 function projectFor(c){return projects.find(p=>String(p.name).toLowerCase()===String(c?.name||'').toLowerCase())||null}
 function p8Sync(){
@@ -26465,7 +26464,7 @@ setTimeout(()=>{if(currentRoute==='market')render()},0);
 'use strict';
 const E=v=>typeof esc==='function'?esc(String(v??'')):String(v??'');
 const Cash=v=>typeof money==='function'?money(Number(v||0)):`$${Number(v||0).toFixed(2)}`;
-const P9_WALLET=document.querySelector('#dashboard .dash-person b')?.textContent?.trim()||'0x21B…7A19';
+const P9_WALLET=window.nexmarketsV2?.state?.wallet||document.querySelector('#dashboard .dash-person b')?.textContent?.trim()||'';
 const p9BaseRenderListing=window.renderListingPage;
 let p9Range='1M';
 let p9ChartSource='edition';
@@ -28380,7 +28379,7 @@ window.nmGlobalCompletionAudit=function(){
 <script id="nm-phase10-dashboard-runtime">
 (function(){
  'use strict';
- const P10_WALLET='0x21B…7A19';
+ const P10_WALLET=window.nexmarketsV2?.state?.wallet||'';
  const p10BaseOwned=()=>ownedPasses;
  function p10ExactName(p){return `${p.name} ${String(p.serial||'').split('/')[0].trim()}`}
  function p10Semantic(v){return String(v??'').replace(/claims?/gi,m=>/^claim$/i.test(m)?'redemption':'redemptions').replace(/\b5mo\b/gi,'5 months').replace(/\b(\d+)mo\b/gi,'$1 months')}
@@ -28468,7 +28467,7 @@ window.nmGlobalCompletionAudit=function(){
  window.dashboardLaunches=function(){p10Sync();const draft=(!createData.published&&String(createData.name||'').trim())?`<div class="p10-launch-row"><div class="p10-launch-main"><div class="nm-dash-launch-visual" style="${nmProjectBannerStyle({name:createData.name,color:createData.color,desc:createData.desc},{src:createData.bannerSrc||'',palette:createData.bannerPalette||[],logo:createData.logoSrc||'',logoPosition:createData.bannerLogoPosition||'tl'})}"><span class="nm-dash-launch-logo">${createData.logoSrc?`<img src="${esc(createData.logoSrc)}" alt="">`:esc((createData.name||'NM').slice(0,2).toUpperCase())}</span></div><div class="p10-launch-copy"><b>${esc(createData.name)} · Draft</b><span>${esc(createData.edition)}</span></div></div><div class="p10-launch-state">Draft</div><div class="p10-launch-primary"><strong>${createData.supply} planned</strong><span>${money(createData.price)} / Pass</span></div><div class="p10-launch-market"><strong>Not public</strong><span>Draft</span></div><div class="p10-launch-actions"><button class="btn small" onclick="go('create')">Resume</button></div></div>`:'';return `<div class="dash-panel on" id="dash-launches"><div class="dash-head"><h2>Editions</h2><button class="btn small" onclick="resetCreateForNewLaunch()">Create another Debut</button></div>${draft||dashboardState.launches.length?`<div class="p10-launch-list">${draft}${dashboardState.launches.map(p10LaunchRow).join('')}</div>`:p10Empty(false,true)}</div>`};
  window.dashboardEarnings=function(){p10Sync();const e=dashboardState.earnings,totalRoyalty=Number(e.royaltyAvailable||0)+Number(e.royaltyLocked||0);return `<div class="dash-panel on" id="dash-earnings"><div class="dash-head"><h2>Earnings</h2><span>Where the money came from and what is available now</span></div><div class="p10-money-focus"><div class="p10-money-primary"><span>Debut proceeds</span><strong>${money(e.primaryProceeds)}</strong><small>From Passes sold during your Debut.</small></div><div class="p10-money-split"><div><span>Royalty earned</span><strong>${money(totalRoyalty)}</strong><small>From Passes resold on the Market</small></div><div><span>Available now</span><strong>${money(e.royaltyAvailable)}</strong><small>${e.royaltyLocked?`${money(e.royaltyLocked)} available in ${esc(e.royaltyUnlock)}`:'Nothing waiting'}</small></div></div></div><div class="p10-earn-list"><div class="p10-earn-row"><div><b>Royalty available</b><span>Ready to withdraw</span></div><strong>${money(e.royaltyAvailable)}</strong><div class="p10-row-state">${e.royaltyAvailable?'Available':'Withdrawn'}</div>${e.royaltyAvailable?`<button class="btn small" onclick="dashWithdrawRoyalty()">Withdraw</button>`:'<span></span>'}</div><div class="p10-earn-row"><div><b>Royalty on the way</b><span>Available in ${esc(e.royaltyUnlock)}</span></div><strong>${money(e.royaltyLocked)}</strong><div class="p10-row-state">Waiting</div><span></span></div><div class="p10-earn-row"><div><b>Debut proceeds</b><span>From Passes sold during the Debut</span></div><strong>${money(e.primaryProceeds)}</strong><div class="p10-row-state">Received</div><span></span></div></div></div>`};
  window.dashboardActivity=function(){p10Sync();const filters=[['all','All'],['market','Market'],['advantage','Advantages'],['launch','Editions'],['earnings','Earnings']];return `<div class="dash-panel on" id="dash-activity"><div class="dash-head"><h2>Activity</h2><span>What changed across your Passes and Editions</span></div><div class="dash-filter-row">${filters.map(([id,label])=>`<button class="${dashboardActivityFilter===id?'on':''}" onclick="dashFilterActivity('${id}')">${label}</button>`).join('')}</div>${p10ActivityRows()}</div>`};
- function p10Shell(){const d=document.getElementById('dashboard');if(!d)return;if(!d.querySelector('.p10-workspace-head'))d.innerHTML=`<div class="p10-workspace-head"><div class="p10-title"><small>NexMarkets account</small><h1>Dashboard</h1><p>Your Passes, your Editions, and anything that needs you.</p></div><div class="p10-account"><div class="p10-avatar">CM</div><div class="p10-wallet"><b>0x21B…7A19</b><span id="dashAccountMeta">Account</span></div><div class="p10-connected"><i></i><span>Wallet connected</span></div></div></div><div class="dash-tabs" id="dashTabs"></div><div id="dashPanels"></div>`}
+ function p10Shell(){const d=document.getElementById('dashboard');if(!d)return;const w=window.nexmarketsV2?.state?.wallet;const isConn=Boolean(w);const shortW=isConn?(w.slice(0,5)+'…'+w.slice(-4)):'Connect wallet';const av=isConn?w.slice(2,4).toUpperCase():'--';if(!d.querySelector('.p10-workspace-head'))d.innerHTML=`<div class="p10-workspace-head"><div class="p10-title"><small>NexMarkets account</small><h1>Dashboard</h1><p>Your Passes, your Editions, and anything that needs you.</p></div><div class="p10-account" style="cursor:pointer" onclick="if(!window.nexmarketsV2?.state?.wallet)window.nexmarketsV2?.connect?.()"><div class="p10-avatar">${av}</div><div class="p10-wallet"><b>${shortW}</b><span id="dashAccountMeta">${isConn?'Account':'No wallet connected'}</span></div><div class="p10-connected" data-connected="${isConn?'true':'false'}"><i></i><span>${isConn?'Wallet connected':'Connect wallet'}</span></div></div></div><div class="dash-tabs" id="dashTabs"></div><div id="dashPanels"></div>`}
  const p10OldRender=window.renderDashboard;
  function p10RenderShell(){p10Shell();const hasHolder=ownedPasses.length>0,hasBuilder=p10Creator();const tabs=[['overview','Overview'],...(hasHolder?[['passes','Passes'],['advantages','Advantages'],['listings','Listings']]:[]),...(hasBuilder?[['launches','Debuts'],['earnings','Earnings']]:[]),['activity','Activity']];if(!tabs.some(([id])=>id===dashboardTab))dashboardTab='overview';const meta=document.getElementById('dashAccountMeta');if(meta)meta.textContent=`${ownedPasses.length} Pass${ownedPasses.length===1?'':'es'}${hasBuilder?` · ${dashboardState.launches.length} Debut${dashboardState.launches.length===1?'':'s'}`:''}`;document.getElementById('dashTabs').innerHTML=tabs.map(([id,label])=>`<button class="${dashboardTab===id?'on':''}" data-dash="${id}" onclick="dashGo('${id}')">${label}</button>`).join('');const builders={overview:dashboardOverview,passes:dashboardPasses,advantages:dashboardAdvantages,listings:dashboardListings,launches:dashboardLaunches,earnings:dashboardEarnings,activity:dashboardActivity};document.getElementById('dashPanels').innerHTML=builders[dashboardTab]();requestAnimationFrame(()=>window.nmDashboardHydratePasses?.())}
  window.renderDashboard=function(){p10Sync();p10RenderShell()};
@@ -28560,7 +28559,7 @@ window.nmGlobalCompletionAudit=function(){
 (function(){
 'use strict';
 const OWNED_QUERY='owned';
-const OWN_WALLET=(window.CURRENT_WALLET||'0x21B…7A19');
+const OWN_WALLET=(window.CURRENT_WALLET||window.nexmarketsV2?.state?.wallet||'');
 const ownedEndedArchive=new Map();
 const ownedOriginalCounts=new Map();
 const E=v=>esc(String(v??''));

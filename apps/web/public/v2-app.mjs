@@ -251,19 +251,24 @@ function neutralCreateData() {
   return { name: '', builder: '', builderHandle: '', desc: '', about: '', supply: 1, price: 0, royalty: 0, advantages: [], published: false, productState: 'Preview', opensAt: '', timezone: 'Africa/Lagos' };
 }
 function setAccountLabel(value) {
+  const isConnected = Boolean(state.wallet);
+  const displayLabel = isConnected ? (value || short(state.wallet)) : 'Connect wallet';
   document.querySelectorAll('.account-chip').forEach((chip) => {
     const element = chip.querySelector('.account-label') || [...chip.querySelectorAll('span')].find((candidate) => !candidate.classList.contains('account-dot'));
-    if (element) element.textContent = value;
+    if (element) element.textContent = displayLabel;
+    chip.dataset.connected = isConnected ? 'true' : 'false';
+    chip.setAttribute('role', 'button'); chip.setAttribute('tabindex', '0');
+    chip.setAttribute('aria-label', isConnected ? `Connected wallet ${displayLabel}` : 'Connect wallet');
   });
-  document.querySelectorAll('.account-chip').forEach((element) => {
-    element.dataset.connected = state.wallet ? 'true' : 'false';
-    element.setAttribute('role', 'button'); element.setAttribute('tabindex', '0');
-    element.setAttribute('aria-label', state.wallet ? `Connected wallet ${value}` : 'Connect wallet');
+  document.querySelectorAll('#dashboard .dash-person b, #dashboard .p10-wallet b').forEach((element) => { element.textContent = displayLabel; });
+  document.querySelectorAll('#dashboard .dash-person .avatar, #dashboard .p10-avatar').forEach((element) => {
+    element.textContent = isConnected ? state.wallet.slice(2, 4).toUpperCase() : '--';
   });
-  document.querySelectorAll('#dashboard .dash-person b').forEach((element) => { element.textContent = value; });
-  document.querySelectorAll('#dashboard .p10-wallet b').forEach((element) => { element.textContent = state.wallet ? short(state.wallet) : 'Connect wallet'; });
-  document.querySelectorAll('#dashboard .p10-connected span').forEach((element) => { element.textContent = state.wallet ? 'Wallet connected' : 'Connect wallet'; });
-  document.querySelectorAll('#dashboard .p10-connected').forEach((element) => { element.dataset.connected = state.wallet ? 'true' : 'false'; });
+  document.querySelectorAll('#dashboard .p10-connected span').forEach((element) => { element.textContent = isConnected ? 'Wallet connected' : 'Connect wallet'; });
+  document.querySelectorAll('#dashboard .p10-connected').forEach((element) => { element.dataset.connected = isConnected ? 'true' : 'false'; });
+  document.querySelectorAll('#dashboard #dashAccountMeta').forEach((element) => {
+    if (!isConnected) element.textContent = `${state.templateData?.ownedPasses?.length || 0} Passes`;
+  });
 }
 function publishTemplateData(data) {
   state.templateData = data;
@@ -594,9 +599,16 @@ async function submitCreateDraft() {
 }
 
 function wireWallet() {
-  document.querySelectorAll('.account-chip').forEach((chip) => {
-    chip.addEventListener('click', authenticate);
-    chip.addEventListener('keydown', (event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); authenticate(); } });
+  document.querySelectorAll('.account-chip, #dashboard .p10-connected, #dashboard .p10-account, #dashboard .dash-person').forEach((chip) => {
+    chip.addEventListener('click', () => {
+      if (!state.wallet) authenticate();
+    });
+    chip.addEventListener('keydown', (event) => {
+      if ((event.key === 'Enter' || event.key === ' ') && !state.wallet) {
+        event.preventDefault();
+        authenticate();
+      }
+    });
   });
 }
 function guardMutations() {
