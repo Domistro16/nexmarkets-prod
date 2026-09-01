@@ -6,19 +6,19 @@
   "cleanUrls": true,
   "rewrites": [
     {
-      "source": "/v1/(.*)",
-      "destination": "/api/index.mjs"
-    },
-    {
       "source": "/healthz",
-      "destination": "/api/index.mjs"
+      "destination": "/api/healthz"
     },
     {
       "source": "/readyz",
-      "destination": "/api/index.mjs"
+      "destination": "/api/readyz"
     },
     {
-      "source": "/((?!api|v1|.*\\..*).*)",
+      "source": "/v1/(.*)",
+      "destination": "/api"
+    },
+    {
+      "source": "/((?!api|.*\\..*).*)",
       "destination": "/index.html"
     }
   ]
