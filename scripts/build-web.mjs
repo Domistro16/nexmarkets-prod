@@ -1,4 +1,5 @@
 import { cp, mkdir, readFile, rm } from 'node:fs/promises';
+import { build } from 'esbuild';
 
 const root = new URL('../', import.meta.url);
 const source = new URL('./apps/web/public/', root);
@@ -15,6 +16,23 @@ for (const output of outputs) {
   await cp(source, output, { recursive: true });
 }
 
+// Bundle serverless endpoints using esbuild into standalone ESM files
+await build({
+  entryPoints: [
+    { in: './api/src/healthz.js', out: 'healthz' },
+    { in: './api/src/readyz.js', out: 'readyz' },
+    { in: './api/src/index.js', out: 'index' },
+    { in: './api/src/v1/[...slug].js', out: 'v1/[...slug]' }
+  ],
+  bundle: true,
+  platform: 'node',
+  format: 'esm',
+  target: 'node20',
+  external: ['ethers', 'pg'],
+  allowOverwrite: true,
+  outdir: './api'
+});
+
 const apiSource = new URL('./api/', root);
 for (const target of [new URL('./apps/web/api/', root), new URL('./apps/api/api/', root)]) {
   await rm(target, { recursive: true, force: true });
@@ -30,4 +48,4 @@ for (const route of routes) if (!app.includes(route)) throw new Error(`Missing c
 for (const forbidden of ['mockProducts','guaranteed appreciation','APY','passive yield','revenue share']) if (app.toLowerCase().includes(forbidden.toLowerCase())) throw new Error(`Forbidden production copy: ${forbidden}`);
 if (!template.includes('nm-v2-data-bridge') || !template.includes('/v2-app.mjs')) throw new Error('Missing V2 template data bridge');
 if (!v2App.includes("/v1/discover") || !v2App.includes('46630') || !v2App.includes('CERTIFICATION_EDITION')) throw new Error('V2 runtime is not testnet data-backed');
-console.log(JSON.stringify({ status: 'PASS', app: '@nexmarkets/web', routes: routes.length, output: 'public' }));
+console.log(JSON.stringify({ status: 'PASS', app: '@nexmarkets/web', routes: routes.length, output: 'public', bundledApi: true }));
