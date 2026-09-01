@@ -14,7 +14,16 @@ __export(postgres_store_exports, {
   PostgresStore: () => PostgresStore
 });
 import { createHash as createHash2, randomUUID as randomUUID2 } from "node:crypto";
-import pg from "pg";
+async function getPg() {
+  if (!pgModule) {
+    try {
+      pgModule = await import("pg");
+    } catch {
+      throw new Error("Postgres client (pg) is not available in this environment");
+    }
+  }
+  return pgModule.default ?? pgModule;
+}
 function sha2563(value) {
   return createHash2("sha256").update(value).digest("hex");
 }
@@ -32,44 +41,56 @@ function projectedAdvantageRemaining(row, now = Math.floor(Date.now() / 1e3)) {
   if (kind === "CONNECTED") return "1";
   return String(row.remaining_units ?? 0);
 }
-var PostgresStore;
+var pgModule, PostgresStore;
 var init_postgres_store = __esm({
   "packages/data/src/postgres-store.mjs"() {
+    pgModule = null;
     PostgresStore = class {
       constructor({ connectionString = process.env.DATABASE_URL, pool } = {}) {
         if (!pool && !connectionString) throw new Error("DATABASE_URL is required");
-        this.pool = pool ?? new pg.Pool({ connectionString, max: 10, application_name: "nexmarkets-api" });
+        this.connectionString = connectionString;
+        this.pool = pool;
         this.ownsPool = !pool;
       }
+      async _getPool() {
+        if (!this.pool) {
+          const pg = await getPg();
+          const Pool = pg.Pool ?? pg;
+          this.pool = new Pool({ connectionString: this.connectionString, max: 10, application_name: "nexmarkets-api" });
+        }
+        return this.pool;
+      }
       async ready() {
-        await this.pool.query("SELECT 1");
+        await (await this._getPool()).query("SELECT 1");
         return true;
       }
       async indexerHealth(chainId) {
-        const { rows } = await this.pool.query("SELECT * FROM indexer_checkpoint WHERE chain_id=$1 ORDER BY updated_at DESC LIMIT 1", [chainId]);
+        const { rows } = await (await this._getPool()).query("SELECT * FROM indexer_checkpoint WHERE chain_id=$1 ORDER BY updated_at DESC LIMIT 1", [chainId]);
         return rows[0] ?? null;
       }
       async chainHead(chain) {
         return chain?.getBlockNumber ? chain.getBlockNumber() : null;
       }
       async close() {
-        if (this.ownsPool) await this.pool.end();
+        if (this.ownsPool) {
+          if (this.pool) await this.pool.end();
+        }
       }
       async saveChallenge(challenge) {
-        await this.pool.query(
+        await (await this._getPool()).query(
           `INSERT INTO wallet_challenge(nonce,account_id,wallet_address,origin,domain,chain_id,message,issued_at,expires_at)
        VALUES($1,$2,$3,$4,$5,$6,$7,to_timestamp($8/1000.0),to_timestamp($9/1000.0))`,
           [challenge.nonce, challenge.accountId, challenge.address, challenge.origin, challenge.domain, challenge.chainId, challenge.message, challenge.issuedAt, challenge.expiresAt]
         );
       }
       async challenge(nonce) {
-        const { rows } = await this.pool.query("SELECT * FROM wallet_challenge WHERE nonce=$1", [nonce]);
+        const { rows } = await (await this._getPool()).query("SELECT * FROM wallet_challenge WHERE nonce=$1", [nonce]);
         if (!rows[0]) return null;
         const row = rows[0];
         return { accountId: row.account_id, address: row.wallet_address, nonce: row.nonce, origin: row.origin, domain: row.domain, chainId: Number(row.chain_id), message: row.message, issuedAt: row.issued_at.getTime(), expiresAt: row.expires_at.getTime(), consumedAt: row.consumed_at?.getTime() ?? null };
       }
       async consumeChallengeAndCreateSession({ challenge, session, signature }) {
-        const client = await this.pool.connect();
+        const client = await (await this._getPool()).connect();
         try {
           await client.query("BEGIN");
           const consumed = await client.query(
@@ -100,7 +121,7 @@ var init_postgres_store = __esm({
         }
       }
       async sessionByToken(token) {
-        const { rows } = await this.pool.query(
+        const { rows } = await (await this._getPool()).query(
           `SELECT s.*,w.address wallet_address,w.chain_id FROM app_session s JOIN wallet w ON w.id=s.wallet_id
        WHERE s.token_hash=$1`,
           [sha2563(token)]
@@ -110,10 +131,10 @@ var init_postgres_store = __esm({
         return { id: row.id, accountId: row.account_id, walletId: row.wallet_id, walletAddress: row.wallet_address, chainId: Number(row.chain_id), tokenHash: row.token_hash, csrfHash: row.csrf_hash, expiresAt: row.expires_at.getTime(), revokedAt: row.revoked_at?.getTime() ?? null };
       }
       async revokeSession(id2) {
-        await this.pool.query("UPDATE app_session SET revoked_at=now() WHERE id=$1", [id2]);
+        await (await this._getPool()).query("UPDATE app_session SET revoked_at=now() WHERE id=$1", [id2]);
       }
       async recordAudit({ accountId = null, walletAddress = null, action, objectType, objectId, requestId, correlationId, metadata = {} }) {
-        await this.pool.query(
+        await (await this._getPool()).query(
           `INSERT INTO audit_log(id,actor_account_id,actor_wallet_address,action,object_type,object_id,request_id,correlation_id,metadata)
        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb)`,
           [`aud_${randomUUID2()}`, accountId, walletAddress?.toLowerCase() ?? null, action, objectType, objectId, requestId, correlationId, JSON.stringify(metadata)]
@@ -122,7 +143,7 @@ var init_postgres_store = __esm({
       async prepareTransaction({ accountId, walletAddress, chainId, intentType, intentId, idempotencyKey, correlationId, requestId, toAddress = null, calldata = null }) {
         if (![4663, 46630].includes(Number(chainId))) throw new Error("ROBINHOOD_CHAIN_REQUIRED");
         const id2 = `txj_${randomUUID2()}`;
-        const result = await this.pool.query(
+        const result = await (await this._getPool()).query(
           `INSERT INTO chain_transaction(id,chain_id,intent_type,intent_id,wallet_address,state,correlation_id,request_id,to_address,calldata)
        VALUES($1,$2,$3,$4,$5,'PREPARED',$6,$7,$8,$9)
        ON CONFLICT(chain_id,wallet_address,intent_type,intent_id) DO UPDATE SET updated_at=chain_transaction.updated_at
@@ -130,14 +151,14 @@ var init_postgres_store = __esm({
           [id2, chainId, intentType, idempotencyKey ?? intentId, walletAddress.toLowerCase(), correlationId, requestId, toAddress?.toLowerCase() ?? null, calldata]
         );
         const transaction = result.rows[0];
-        await this.pool.query(
+        await (await this._getPool()).query(
           `INSERT INTO transaction_job(id,transaction_id,job_type) VALUES($1,$2,'CHAIN_LIFECYCLE') ON CONFLICT(transaction_id,job_type) DO NOTHING`,
           [`job_${sha2563(transaction.id).slice(0, 24)}`, transaction.id]
         );
         return transaction;
       }
       async updateTransaction({ id: id2, accountId, eventId, fromState, toState, evidence = {} }) {
-        const client = await this.pool.connect();
+        const client = await (await this._getPool()).connect();
         try {
           await client.query("BEGIN");
           const existingEvent = await client.query("SELECT transaction_id FROM transaction_event WHERE event_id=$1", [eventId]);
@@ -187,7 +208,7 @@ var init_postgres_store = __esm({
         }
       }
       async transaction(id2, accountId) {
-        const { rows } = await this.pool.query(
+        const { rows } = await (await this._getPool()).query(
           `SELECT t.* FROM chain_transaction t JOIN wallet w ON w.address=t.wallet_address AND w.chain_id=t.chain_id
        WHERE t.id=$1 AND w.account_id=$2`,
           [id2, accountId]
@@ -195,7 +216,7 @@ var init_postgres_store = __esm({
         return rows[0] ?? null;
       }
       async discover() {
-        const { rows } = await this.pool.query(
+        const { rows } = await (await this._getPool()).query(
           `SELECT p.slug,p.name,p.summary,e.edition_address,e.absolute_supply_cap,t.price_usdg,t.mint_starts_at,t.mint_ends_at
        FROM project p JOIN edition e ON e.project_id=p.id
        LEFT JOIN LATERAL (SELECT * FROM terms_version tv WHERE tv.edition_id=e.id AND tv.orphaned_at IS NULL ORDER BY version DESC LIMIT 1) t ON true
@@ -204,7 +225,7 @@ var init_postgres_store = __esm({
         return rows;
       }
       async ownedPasses(address2) {
-        const { rows } = await this.pool.query(
+        const { rows } = await (await this._getPool()).query(
           `SELECT pt.*,e.edition_address,p.name project_name FROM pass_token_projection pt
        JOIN edition e ON e.id=pt.edition_id JOIN project p ON p.id=e.project_id
        WHERE pt.owner_address=$1 AND pt.orphaned_at IS NULL`,
@@ -213,9 +234,9 @@ var init_postgres_store = __esm({
         return rows;
       }
       async projectBySlug(slug) {
-        const { rows } = await this.pool.query("SELECT * FROM project WHERE slug=$1 AND status=$2", [slug, "PUBLISHED"]);
+        const { rows } = await (await this._getPool()).query("SELECT * FROM project WHERE slug=$1 AND status=$2", [slug, "PUBLISHED"]);
         if (!rows[0]) return null;
-        const editions = await this.pool.query(
+        const editions = await (await this._getPool()).query(
           `SELECT e.*,t.version active_terms_version,t.terms_hash active_terms_hash,t.price_usdg,t.preview_starts_at,t.mint_starts_at,t.mint_ends_at
        FROM edition e LEFT JOIN LATERAL (SELECT * FROM terms_version tv WHERE tv.edition_id=e.id AND tv.orphaned_at IS NULL ORDER BY version DESC LIMIT 1) t ON true
        WHERE e.project_id=$1 AND e.orphaned_at IS NULL ORDER BY e.created_at`,
@@ -224,21 +245,21 @@ var init_postgres_store = __esm({
         return { ...rows[0], editions: editions.rows };
       }
       async editionByAddress(address2) {
-        const { rows } = await this.pool.query(
+        const { rows } = await (await this._getPool()).query(
           `SELECT e.*,p.slug,p.name FROM edition e JOIN project p ON p.id=e.project_id
        WHERE e.edition_address=$1 AND e.orphaned_at IS NULL`,
           [address2.toLowerCase()]
         );
         if (!rows[0]) return null;
         const [terms, advantages] = await Promise.all([
-          this.pool.query("SELECT * FROM terms_version WHERE edition_id=$1 AND orphaned_at IS NULL ORDER BY version DESC", [rows[0].id]),
-          this.pool.query("SELECT * FROM advantage_definition WHERE edition_id=$1 ORDER BY starts_at,advantage_id_hash", [rows[0].id])
+          (await this._getPool()).query("SELECT * FROM terms_version WHERE edition_id=$1 AND orphaned_at IS NULL ORDER BY version DESC", [rows[0].id]),
+          (await this._getPool()).query("SELECT * FROM advantage_definition WHERE edition_id=$1 ORDER BY starts_at,advantage_id_hash", [rows[0].id])
         ]);
         const kind = { TIME_BASED: 0, QUANTITY_BASED: 1, CONNECTED: 2, REDEMPTION: 3 };
         return { ...rows[0], termsHistory: terms.rows.map((term) => ({ ...term, advantageConfigs: advantages.rows.filter((advantage) => advantage.terms_hash === term.terms_hash).map((advantage) => ({ advantageId: advantage.advantage_id_hash, kind: kind[advantage.kind], startsAt: Math.floor(advantage.starts_at.getTime() / 1e3), endsAt: Math.floor(advantage.ends_at.getTime() / 1e3), totalUnits: advantage.total_units, definitionHash: advantage.definition_hash })) })) };
       }
       async pass(editionAddress, tokenId) {
-        const { rows } = await this.pool.query(
+        const { rows } = await (await this._getPool()).query(
           `SELECT pt.*,e.edition_address,p.slug,p.name,t.royalty_receiver,t.royalty_bps FROM pass_token_projection pt
        JOIN edition e ON e.id=pt.edition_id JOIN project p ON p.id=e.project_id
        LEFT JOIN terms_version t ON t.edition_id=pt.edition_id AND t.terms_hash=pt.terms_hash AND t.orphaned_at IS NULL
@@ -247,10 +268,10 @@ var init_postgres_store = __esm({
         );
         if (!rows[0]) return null;
         const [advantages, listing] = await Promise.all([
-          this.pool.query(`SELECT a.*,d.kind,d.starts_at,d.ends_at,d.total_units,d.definition_hash,d.definition FROM advantage_state_projection a
+          (await this._getPool()).query(`SELECT a.*,d.kind,d.starts_at,d.ends_at,d.total_units,d.definition_hash,d.definition FROM advantage_state_projection a
        LEFT JOIN advantage_definition d ON d.edition_id=a.edition_id AND d.terms_hash=$3 AND d.advantage_id_hash=a.advantage_id_hash
        WHERE a.edition_id=$1 AND a.token_id=$2 AND a.orphaned_at IS NULL`, [rows[0].edition_id, tokenId, rows[0].terms_hash]),
-          this.pool.query(`SELECT * FROM listing_projection WHERE edition_id=$1 AND token_id=$2 AND orphaned_at IS NULL ORDER BY updated_at DESC LIMIT 1`, [rows[0].edition_id, tokenId])
+          (await this._getPool()).query(`SELECT * FROM listing_projection WHERE edition_id=$1 AND token_id=$2 AND orphaned_at IS NULL ORDER BY updated_at DESC LIMIT 1`, [rows[0].edition_id, tokenId])
         ]);
         return { ...rows[0], advantages: advantages.rows.map((row) => {
           const remaining = projectedAdvantageRemaining(row);
@@ -258,7 +279,7 @@ var init_postgres_store = __esm({
         }), listing: listing.rows[0] ?? null };
       }
       async listings() {
-        const { rows } = await this.pool.query(
+        const { rows } = await (await this._getPool()).query(
           `SELECT l.*,e.edition_address,p.name project_name,s.order_payload,s.counter,s.signature FROM listing_projection l
        JOIN edition e ON e.id=l.edition_id JOIN project p ON p.id=e.project_id
        LEFT JOIN signed_seaport_order s ON s.order_hash=l.order_hash AND s.chain_id=e.chain_id
@@ -267,7 +288,7 @@ var init_postgres_store = __esm({
         return rows;
       }
       async storeSignedOrder({ accountId, chainId, orderHash, seller, order, counter, signature }) {
-        const { rows } = await this.pool.query(
+        const { rows } = await (await this._getPool()).query(
           `INSERT INTO signed_seaport_order(order_hash,chain_id,seller_address,order_payload,counter,signature,submitted_by_account_id)
        VALUES($1,$2,$3,$4::jsonb,$5,$6,$7)
        ON CONFLICT(order_hash) DO UPDATE SET order_payload=excluded.order_payload,counter=excluded.counter,signature=excluded.signature
@@ -279,7 +300,7 @@ var init_postgres_store = __esm({
         return rows[0];
       }
       async signedOrder(orderHash) {
-        const { rows } = await this.pool.query(
+        const { rows } = await (await this._getPool()).query(
           `SELECT s.*,l.status,l.expires_at,e.edition_address FROM signed_seaport_order s
        JOIN listing_projection l ON l.order_hash=s.order_hash JOIN edition e ON e.id=l.edition_id
        WHERE s.order_hash=$1 AND l.orphaned_at IS NULL`,
@@ -288,7 +309,7 @@ var init_postgres_store = __esm({
         return rows[0] ?? null;
       }
       async listing(orderHash) {
-        const { rows } = await this.pool.query(
+        const { rows } = await (await this._getPool()).query(
           `SELECT l.*,e.edition_address FROM listing_projection l JOIN edition e ON e.id=l.edition_id
        WHERE l.order_hash=$1 AND l.orphaned_at IS NULL`,
           [orderHash.toLowerCase()]
@@ -298,22 +319,22 @@ var init_postgres_store = __esm({
       async createProject({ accountId, body }) {
         const draftId = body.launchDraft?.draftId ?? body.draftId ?? null;
         if (draftId) {
-          const existing = await this.pool.query(
+          const existing = await (await this._getPool()).query(
             `SELECT * FROM project WHERE builder_account_id=$1 AND (content->>'draftId'=$2 OR slug=$3) LIMIT 1`,
             [accountId, draftId, body.slug]
           );
           if (existing.rows[0]) {
-            const updated = await this.pool.query(
+            const updated = await (await this._getPool()).query(
               `UPDATE project SET name=$2, summary=$3, content=$4::jsonb, updated_at=now() WHERE id=$1 AND builder_account_id=$5 RETURNING *`,
               [existing.rows[0].id, body.name, body.summary ?? "", JSON.stringify(body.launchDraft ?? {}), accountId]
             );
             return updated.rows[0];
           }
         }
-        const slugCheck = await this.pool.query("SELECT id, builder_account_id FROM project WHERE slug=$1", [body.slug]);
+        const slugCheck = await (await this._getPool()).query("SELECT id, builder_account_id FROM project WHERE slug=$1", [body.slug]);
         if (slugCheck.rows[0]) {
           if (slugCheck.rows[0].builder_account_id === accountId) {
-            const updated = await this.pool.query(
+            const updated = await (await this._getPool()).query(
               `UPDATE project SET name=$2, summary=$3, content=$4::jsonb, updated_at=now() WHERE id=$1 AND builder_account_id=$5 RETURNING *`,
               [slugCheck.rows[0].id, body.name, body.summary ?? "", JSON.stringify(body.launchDraft ?? {}), accountId]
             );
@@ -322,7 +343,7 @@ var init_postgres_store = __esm({
           throw Object.assign(new Error("SLUG_ALREADY_TAKEN"), { status: 409 });
         }
         const id2 = `prj_${randomUUID2()}`;
-        const { rows } = await this.pool.query(
+        const { rows } = await (await this._getPool()).query(
           `INSERT INTO project(id,builder_account_id,slug,name,summary,content) VALUES($1,$2,$3,$4,$5,$6::jsonb) RETURNING *`,
           [id2, accountId, body.slug, body.name, body.summary ?? "", JSON.stringify(body.launchDraft ?? {})]
         );
@@ -330,7 +351,7 @@ var init_postgres_store = __esm({
       }
       async createEditionRequest({ projectId, builderAccountId, chainId, payload, transactionId = null }) {
         const id2 = `edreq_${randomUUID2()}`;
-        const { rows } = await this.pool.query(
+        const { rows } = await (await this._getPool()).query(
           `INSERT INTO edition_request(id,project_id,builder_account_id,chain_id,edition_id_hash,request_payload,predicted_edition_address,safe_status,transaction_id)
        SELECT $1,p.id,$3,$4,$5,$6::jsonb,$8,'REQUESTED',$7 FROM project p
        WHERE p.id=$2 AND p.builder_account_id=$3
@@ -343,14 +364,14 @@ var init_postgres_store = __esm({
         return rows[0];
       }
       async markEditionRequestSafePending(id2, builderAccountId) {
-        const { rows } = await this.pool.query(`UPDATE edition_request SET safe_status='SAFE_PENDING',updated_at=now() WHERE id=$1 AND builder_account_id=$2 AND safe_status='REQUESTED' RETURNING *`, [id2, builderAccountId]);
+        const { rows } = await (await this._getPool()).query(`UPDATE edition_request SET safe_status='SAFE_PENDING',updated_at=now() WHERE id=$1 AND builder_account_id=$2 AND safe_status='REQUESTED' RETURNING *`, [id2, builderAccountId]);
         if (rows[0]) return rows[0];
-        const existing = await this.pool.query("SELECT * FROM edition_request WHERE id=$1 AND builder_account_id=$2 AND safe_status NOT IN ('REJECTED')", [id2, builderAccountId]);
+        const existing = await (await this._getPool()).query("SELECT * FROM edition_request WHERE id=$1 AND builder_account_id=$2 AND safe_status NOT IN ('REJECTED')", [id2, builderAccountId]);
         if (!existing.rows[0]) throw new Error("EDITION_REQUEST_STATE_CONFLICT");
         return existing.rows[0];
       }
       async saveTermsCommitment({ builderAccountId, editionAddress, advantagesHash, termsPayload, configs }) {
-        const { rows } = await this.pool.query(
+        const { rows } = await (await this._getPool()).query(
           `INSERT INTO terms_advantage_commitment(advantages_hash,builder_account_id,edition_address,terms_payload,configs)
        VALUES($1,$2,$3,$4::jsonb,$5::jsonb)
        ON CONFLICT(advantages_hash) DO UPDATE SET terms_payload=excluded.terms_payload,configs=excluded.configs,status='PREPARED',updated_at=now()
@@ -360,17 +381,17 @@ var init_postgres_store = __esm({
         return rows[0];
       }
       async editionRequestById(id2, builderAccountId) {
-        const { rows } = await this.pool.query("SELECT * FROM edition_request WHERE id=$1 AND builder_account_id=$2", [id2, builderAccountId]);
+        const { rows } = await (await this._getPool()).query("SELECT * FROM edition_request WHERE id=$1 AND builder_account_id=$2", [id2, builderAccountId]);
         return rows[0] ?? null;
       }
       async submitEditionRequest({ id: id2, safeTransactionHash, txHash, evidence = null }) {
-        const { rows } = await this.pool.query(
+        const { rows } = await (await this._getPool()).query(
           `UPDATE edition_request SET safe_status='SUBMITTED',safe_transaction_hash=$2,tx_hash=$3,safe_execution_evidence=$4::jsonb,updated_at=now()
        WHERE id=$1 AND safe_status IN ('SAFE_PENDING','REQUESTED') RETURNING *`,
           [id2, safeTransactionHash, txHash, JSON.stringify(evidence ?? {})]
         );
         if (!rows[0]) {
-          const existing = await this.pool.query("SELECT * FROM edition_request WHERE id=$1", [id2]);
+          const existing = await (await this._getPool()).query("SELECT * FROM edition_request WHERE id=$1", [id2]);
           if (existing.rows[0]?.safe_status === "SUBMITTED" && existing.rows[0].tx_hash === txHash) return existing.rows[0];
           throw new Error("EDITION_REQUEST_STATE_CONFLICT");
         }
@@ -378,7 +399,7 @@ var init_postgres_store = __esm({
       }
       async createMedia({ accountId, metadata }) {
         const id2 = `med_${randomUUID2()}`;
-        const { rows } = await this.pool.query(
+        const { rows } = await (await this._getPool()).query(
           `INSERT INTO media_asset(id,owner_account_id,storage_key,original_filename,mime_type,byte_size,sha256,safety_status)
        VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
           [id2, accountId, metadata.storageKey, metadata.filename, metadata.mimeType, metadata.byteSize, metadata.sha256, "PENDING"]
@@ -386,7 +407,7 @@ var init_postgres_store = __esm({
         return rows[0];
       }
       async advantagesForOwner(address2) {
-        const { rows } = await this.pool.query(
+        const { rows } = await (await this._getPool()).query(
           `SELECT a.*,d.kind,d.starts_at,d.ends_at,d.total_units,p.token_id,e.edition_address,p.terms_hash FROM advantage_state_projection a
        JOIN pass_token_projection p ON p.edition_id=a.edition_id AND p.token_id=a.token_id
        JOIN edition e ON e.id=a.edition_id
@@ -401,15 +422,15 @@ var init_postgres_store = __esm({
       }
       async builderDashboard(accountId) {
         const [projects, editions, royalties, referrals] = await Promise.all([
-          this.pool.query("SELECT * FROM project WHERE builder_account_id=$1 ORDER BY updated_at DESC", [accountId]),
-          this.pool.query(`SELECT e.* FROM edition e JOIN project p ON p.id=e.project_id WHERE p.builder_account_id=$1 AND e.orphaned_at IS NULL`, [accountId]),
-          this.pool.query(`SELECT r.* FROM royalty_claim_projection r JOIN edition e ON e.id=r.edition_id JOIN project p ON p.id=e.project_id WHERE p.builder_account_id=$1 AND r.orphaned_at IS NULL`, [accountId]),
-          this.pool.query(`SELECT s.* FROM referral_settlement s WHERE s.builder_account_id=$1 ORDER BY s.created_at DESC`, [accountId])
+          (await this._getPool()).query("SELECT * FROM project WHERE builder_account_id=$1 ORDER BY updated_at DESC", [accountId]),
+          (await this._getPool()).query(`SELECT e.* FROM edition e JOIN project p ON p.id=e.project_id WHERE p.builder_account_id=$1 AND e.orphaned_at IS NULL`, [accountId]),
+          (await this._getPool()).query(`SELECT r.* FROM royalty_claim_projection r JOIN edition e ON e.id=r.edition_id JOIN project p ON p.id=e.project_id WHERE p.builder_account_id=$1 AND r.orphaned_at IS NULL`, [accountId]),
+          (await this._getPool()).query(`SELECT s.* FROM referral_settlement s WHERE s.builder_account_id=$1 ORDER BY s.created_at DESC`, [accountId])
         ]);
         return { projects: projects.rows, editions: editions.rows, royalties: royalties.rows, referrals: referrals.rows };
       }
       async claimOutbox(limit = 50) {
-        const { rows } = await this.pool.query(
+        const { rows } = await (await this._getPool()).query(
           `WITH claimed AS (
          SELECT id FROM outbox_event WHERE delivered_at IS NULL AND dead_at IS NULL
           AND available_at<=now() AND (locked_at IS NULL OR locked_at<now()-interval '5 minutes')
@@ -420,7 +441,7 @@ var init_postgres_store = __esm({
         return rows.map((row) => ({ ...row, eventType: row.event_type, businessKey: row.business_key, deliveredAt: row.delivered_at }));
       }
       async enqueueNotification(event) {
-        const client = await this.pool.connect();
+        const client = await (await this._getPool()).connect();
         try {
           await client.query("BEGIN");
           const notificationId = `not_${sha2563(`${event.type}:${event.businessKey}:${event.accountId ?? ""}`).slice(0, 24)}`;
@@ -444,10 +465,10 @@ var init_postgres_store = __esm({
         }
       }
       async markOutboxDelivered(id2) {
-        await this.pool.query("UPDATE outbox_event SET delivered_at=now(),locked_at=NULL,last_error=NULL WHERE id=$1 AND delivered_at IS NULL", [id2]);
+        await (await this._getPool()).query("UPDATE outbox_event SET delivered_at=now(),locked_at=NULL,last_error=NULL WHERE id=$1 AND delivered_at IS NULL", [id2]);
       }
       async markOutboxFailed(id2, { attempt, dead, delaySeconds, error }) {
-        await this.pool.query(
+        await (await this._getPool()).query(
           `UPDATE outbox_event SET attempt=$2,locked_at=NULL,last_error=$3,
        available_at=now()+($4::text||' seconds')::interval,dead_at=CASE WHEN $5 THEN now() ELSE dead_at END
        WHERE id=$1 AND delivered_at IS NULL`,
@@ -456,7 +477,7 @@ var init_postgres_store = __esm({
       }
       async startRun(scope) {
         const id2 = `rec_${randomUUID2()}`;
-        const { rows } = await this.pool.query(
+        const { rows } = await (await this._getPool()).query(
           `INSERT INTO reconciliation_run(id,chain_id,scope,status) VALUES($1,$2,$3,'RUNNING') RETURNING *`,
           [id2, scope.chainId ?? 4663, JSON.stringify(scope)]
         );
@@ -464,7 +485,7 @@ var init_postgres_store = __esm({
       }
       async recordIncident(incident) {
         const id2 = `inc_${randomUUID2()}`;
-        await this.pool.query(
+        await (await this._getPool()).query(
           `INSERT INTO reconciliation_incident(id,run_id,authority,object_key,severity,expected,observed,status,repair_action)
        VALUES($1,$2,$3,$4,'HIGH',$5::jsonb,$6::jsonb,'OPEN',$7)`,
           [
@@ -479,7 +500,7 @@ var init_postgres_store = __esm({
         );
       }
       async finishRun(id2, status, result) {
-        await this.pool.query(
+        await (await this._getPool()).query(
           `UPDATE reconciliation_run SET status=$2,checked_count=$3,discrepancy_count=$4,evidence=$5::jsonb,finished_at=now() WHERE id=$1`,
           [id2, status, result.checkedCount ?? 0, result.discrepancies.length, JSON.stringify(result)]
         );
