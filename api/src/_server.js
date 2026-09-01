@@ -1,4 +1,3 @@
-import { PostgresStore } from '@nexmarkets/data';
 import { JsonRpcClient } from '@nexmarkets/chain';
 import { SubgraphClient } from '@nexmarkets/subgraph-client';
 import { createApiServer, productionOrderPolicy, RateLimiter } from '@nexmarkets/api';
@@ -24,7 +23,8 @@ export async function getApiListener() {
   let store = null;
   if (process.env.DATABASE_URL) {
     try {
-      store = new PostgresStore(process.env.DATABASE_URL);
+      const { PostgresStore } = await import('@nexmarkets/data');
+      store = new PostgresStore({ connectionString: process.env.DATABASE_URL });
     } catch {
       store = new MemoryStore();
     }

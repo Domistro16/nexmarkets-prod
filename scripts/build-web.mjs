@@ -28,7 +28,7 @@ await build({
   platform: 'node',
   format: 'esm',
   target: 'node20',
-  external: ['ethers', 'pg'],
+  external: ['pg'],
   allowOverwrite: true,
   outdir: './api'
 });
