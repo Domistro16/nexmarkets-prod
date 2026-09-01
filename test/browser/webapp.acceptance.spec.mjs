@@ -169,3 +169,74 @@ test('loading and API failure states remain explicit', async ({ page }) => {
   await expect(page.getByText(/Live NexMarkets data is unavailable/)).toBeVisible();
   await expect(page.locator('html')).toHaveClass(/nm-v2-ready/);
 });
+
+test('Create wizard submits full draft to API with CSRF, retains DRAFT status, and submits no blockchain transaction', async ({ page }) => {
+  const signer = Wallet.createRandom();
+  let submittedPayload = null;
+  let submittedHeaders = {};
+
+  await installFixtureApi(page);
+
+  await page.route('**/v1/builder/projects', async (route) => {
+    const req = route.request();
+    if (req.method() === 'POST') {
+      submittedPayload = JSON.parse(req.postData() || '{}');
+      submittedHeaders = req.headers();
+      return route.fulfill({
+        status: 201,
+        json: {
+          data: {
+            id: 'prj_browser_test_01',
+            status: 'DRAFT',
+            slug: submittedPayload.slug,
+            name: submittedPayload.name,
+            content: submittedPayload.launchDraft
+          }
+        }
+      });
+    }
+    return route.continue();
+  });
+
+  await page.exposeFunction('__nexmarketsSignPersonalMessage', (message) => signer.signMessage(getBytes(message)));
+  await page.addInitScript(({ address }) => {
+    window.__nexmarketsProviderMethods = [];
+    window.ethereum = { request: async ({ method, params }) => {
+      window.__nexmarketsProviderMethods.push(method);
+      if (method === 'eth_requestAccounts') return [address];
+      if (method === 'eth_chainId') return '0xb626';
+      if (method === 'personal_sign') return window.__nexmarketsSignPersonalMessage(params[0]);
+      return '0x0';
+    } };
+  }, { address: signer.address });
+
+  await goto(page, '/create');
+  await page.getByRole('button', { name: 'Connect wallet' }).first().click();
+  await expect(page.locator('.account-label').first()).toContainText('0x');
+
+  const projectResult = await page.evaluate(async () => {
+    return window.nexmarketsV2.submitCreateDraft();
+  });
+
+  expect(projectResult.id).toBe('prj_browser_test_01');
+  expect(projectResult.status).toBe('DRAFT');
+  expect(submittedPayload).toBeTruthy();
+  expect(submittedPayload.slug).toBeTruthy();
+  expect(submittedPayload.name).toBeTruthy();
+  expect(submittedPayload.launchDraft).toBeTruthy();
+  expect(submittedPayload.launchDraft.edition).toBeTruthy();
+  expect(submittedPayload.launchDraft.advantages.length).toBeGreaterThan(0);
+  expect(submittedPayload.launchDraft.preview).toBeTruthy();
+  expect(submittedPayload.launchDraft.design).toBeTruthy();
+  expect(submittedPayload.launchDraft.status).toBe('DRAFT');
+  expect(submittedHeaders['x-csrf-token']).toBe('browser-csrf');
+
+  await expect(page.locator('#projectActionMount')).toContainText('Draft saved');
+  await expect(page.locator('#projectActionMount')).toContainText('Safe workflow is pending protocol admin execution');
+
+  const providerMethods = await page.evaluate(() => window.__nexmarketsProviderMethods);
+  expect(providerMethods.filter((m) => ['eth_sendTransaction', 'eth_sendRawTransaction'].includes(m))).toEqual([]);
+
+  await navigate(page, '/discover');
+  await expect(page.locator('#discover').getByText(submittedPayload.name, { exact: true })).toHaveCount(0);
+});

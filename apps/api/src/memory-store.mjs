@@ -51,7 +51,43 @@ export class MemoryStore {
   async ownedPasses(address) { return structuredClone(this.passes.filter((pass) => pass.ownerAddress === address.toLowerCase())); }
   async advantagesForOwner(address) { return structuredClone(this.passes.filter((pass) => pass.ownerAddress === address.toLowerCase()).flatMap((pass) => pass.advantages ?? [])); }
   async builderDashboard(accountId) { return { projects: structuredClone(this.projects.filter((project) => project.builderAccountId === accountId)), editions: [], royalties: [], referrals: [] }; }
-  async createProject({ accountId, body }) { const project = { id: `prj_${randomUUID()}`, builderAccountId: accountId, status: 'DRAFT', ...body }; this.projects.push(project); return structuredClone(project); }
+  async createProject({ accountId, body }) {
+    const draftId = body.launchDraft?.draftId ?? body.draftId ?? null;
+    const existing = this.projects.find((project) =>
+      project.builderAccountId === accountId && (
+        (draftId && (project.content?.draftId === draftId || project.launchDraft?.draftId === draftId)) ||
+        project.slug === body.slug
+      )
+    );
+    if (existing) {
+      existing.name = body.name;
+      existing.summary = body.summary ?? '';
+      existing.content = structuredClone(body.launchDraft ?? {});
+      existing.launchDraft = structuredClone(body.launchDraft ?? {});
+      existing.updatedAt = new Date().toISOString();
+      return structuredClone(existing);
+    }
+    const slugConflict = this.projects.find((project) => project.slug === body.slug && project.builderAccountId !== accountId);
+    if (slugConflict) {
+      throw Object.assign(new Error('SLUG_ALREADY_TAKEN'), { status: 409 });
+    }
+    const id = `prj_${randomUUID()}`;
+    const project = {
+      id,
+      builderAccountId: accountId,
+      builder_account_id: accountId,
+      slug: body.slug,
+      name: body.name,
+      summary: body.summary ?? '',
+      content: structuredClone(body.launchDraft ?? {}),
+      launchDraft: structuredClone(body.launchDraft ?? {}),
+      status: 'DRAFT',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    this.projects.push(project);
+    return structuredClone(project);
+  }
   async createEditionRequest({ projectId, builderAccountId, chainId, payload, transactionId = null }) { const project = this.projects.find((item) => item.id === projectId && item.builderAccountId === builderAccountId); if (!project) throw new Error('PROJECT_BUILDER_MISMATCH'); const request = { id: `edreq_${randomUUID()}`, projectId, builderAccountId, chainId, transactionId, editionIdHash: payload.editionId, requestPayload: payload, predictedEditionAddress: payload.predictedEditionAddress ?? null, safeStatus: 'REQUESTED' }; this.editionRequests.push(request); return structuredClone(request); }
   async markEditionRequestSafePending(id, builderAccountId) { const request = this.editionRequests.find((item) => item.id === id && item.builderAccountId === builderAccountId && item.safeStatus !== 'REJECTED'); if (!request) throw new Error('EDITION_REQUEST_STATE_CONFLICT'); if (request.safeStatus === 'REQUESTED') request.safeStatus = 'SAFE_PENDING'; return structuredClone(request); }
   async saveTermsCommitment(input) { this.termsCommitments.set(input.advantagesHash.toLowerCase(), structuredClone(input)); return structuredClone(input); }

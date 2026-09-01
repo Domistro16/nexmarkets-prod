@@ -15,6 +15,7 @@
     "test": "node --test test/*.test.mjs",
     "test:api": "node --test test/api*.test.mjs",
     "test:web": "node --test test/web*.test.mjs",
+    "build": "node scripts/build-web.mjs",
     "web:build": "node scripts/build-web.mjs",
     "web:config:testnet": "node scripts/render-web-testnet-config.mjs",
     "web:serve:testnet": "node --env-file=.env scripts/serve-web-testnet.mjs",
@@ -59,6 +60,6 @@
     "yaml": "2.9.0"
   },
   "devDependencies": {
-    "@playwright/test": "1.55.1"
+    "@playwright/test": "1.54.1"
   }
 }

@@ -265,6 +265,31 @@ export class PostgresStore {
   }
 
   async createProject({ accountId, body }) {
+    const draftId = body.launchDraft?.draftId ?? body.draftId ?? null;
+    if (draftId) {
+      const existing = await this.pool.query(
+        `SELECT * FROM project WHERE builder_account_id=$1 AND (content->>'draftId'=$2 OR slug=$3) LIMIT 1`,
+        [accountId, draftId, body.slug]
+      );
+      if (existing.rows[0]) {
+        const updated = await this.pool.query(
+          `UPDATE project SET name=$2, summary=$3, content=$4::jsonb, updated_at=now() WHERE id=$1 AND builder_account_id=$5 RETURNING *`,
+          [existing.rows[0].id, body.name, body.summary ?? '', JSON.stringify(body.launchDraft ?? {}), accountId]
+        );
+        return updated.rows[0];
+      }
+    }
+    const slugCheck = await this.pool.query('SELECT id, builder_account_id FROM project WHERE slug=$1', [body.slug]);
+    if (slugCheck.rows[0]) {
+      if (slugCheck.rows[0].builder_account_id === accountId) {
+        const updated = await this.pool.query(
+          `UPDATE project SET name=$2, summary=$3, content=$4::jsonb, updated_at=now() WHERE id=$1 AND builder_account_id=$5 RETURNING *`,
+          [slugCheck.rows[0].id, body.name, body.summary ?? '', JSON.stringify(body.launchDraft ?? {}), accountId]
+        );
+        return updated.rows[0];
+      }
+      throw Object.assign(new Error('SLUG_ALREADY_TAKEN'), { status: 409 });
+    }
     const id = `prj_${randomUUID()}`;
     const { rows } = await this.pool.query(
       `INSERT INTO project(id,builder_account_id,slug,name,summary,content) VALUES($1,$2,$3,$4,$5,$6::jsonb) RETURNING *`,

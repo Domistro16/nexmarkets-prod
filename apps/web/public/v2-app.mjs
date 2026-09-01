@@ -275,12 +275,9 @@ function publishTemplateData(data) {
     return true;
   };
   if (apply()) {
-    // The template has a few legacy zero-delay boot renderers.  Re-apply
-    // once after those timers so their initial fixture render cannot replace
-    // the live API-backed view model during hydration.
-    [0, 50].forEach((delay) => setTimeout(() => {
+    setTimeout(() => {
       if (typeof window.__nmV2SetData === 'function') window.__nmV2SetData(data);
-    }, delay));
+    }, 60);
     return;
   }
   // The supplied document is a large classic-script template.  Keep the
@@ -460,6 +457,142 @@ async function authenticate() {
     await hydrate(); showRuntimeBanner('Wallet verified on Robinhood Chain');
   } catch (error) { showRuntimeBanner(`Wallet connection failed: ${error.message}`, true); }
 }
+function sanitizeCompiledForApi(compiled) {
+  const clone = JSON.parse(JSON.stringify(compiled));
+  if (clone.design) {
+    if (clone.design.logoSrc?.startsWith('data:')) {
+      if (clone.design.logoSrc.length > 2048) clone.design.logoSrc = '';
+    }
+    if (clone.design.artSrc?.startsWith('data:')) {
+      if (clone.design.artSrc.length > 2048) clone.design.artSrc = '';
+    }
+    if (Array.isArray(clone.design.artEdition)) {
+      clone.design.artEdition = clone.design.artEdition.map((item, idx) => ({
+        assetKey: item.assetKey || item.storageKey || '',
+        filename: item.filename || `artwork_${idx + 1}`,
+        title: item.title || `Artwork ${idx + 1}`,
+        type: item.type || item.mimeType || 'image/png',
+        size: Number(item.size || item.byteSize || 0),
+        sha256: item.sha256 || null,
+        serial: item.serial != null ? Number(item.serial) : idx + 1,
+        traits: item.traits && typeof item.traits === 'object' ? item.traits : {}
+      }));
+    }
+  }
+  if (clone.project?.banner?.src?.startsWith('data:')) {
+    if (clone.project.banner.src.length > 2048) clone.project.banner.src = '';
+  }
+  return clone;
+}
+
+async function submitCreateDraft() {
+  const mount = document.getElementById('projectActionMount');
+  try {
+    const getter = typeof window.__nmV2CompileCreateLaunch === 'function' ? window.__nmV2CompileCreateLaunch : (typeof window.compileCreateLaunch === 'function' ? window.compileCreateLaunch : null);
+    if (!getter) throw new Error('CREATE_WIZARD_UNAVAILABLE');
+    const compiled = getter();
+    if (!compiled) throw new Error('COMPILED_LAUNCH_UNAVAILABLE');
+    const cleanDraft = sanitizeCompiledForApi(compiled);
+    cleanDraft.status = 'DRAFT';
+    const slug = (window.slugKey ? window.slugKey(compiled.project?.name || '') : compiled.id?.replace(/^launch-/, '')) || 'launch-draft';
+    const name = compiled.project?.name || compiled.edition?.name || 'Untitled';
+    const summary = compiled.project?.desc || compiled.project?.about?.slice(0, 500) || '';
+
+    if (!state.authenticated || !state.wallet) {
+      if (mount) mount.innerHTML = `<div class="project-action-state"><div class="market-tx-spinner"></div><h3>Connecting wallet</h3><p>Connecting your Builder wallet on Robinhood Chain.</p></div>`;
+      await authenticate();
+    }
+
+    if (mount) {
+      mount.innerHTML = `<div class="project-action-state"><div class="market-tx-spinner"></div><h3>Saving draft</h3><p>Saving launch draft to NexMarkets server.</p></div>`;
+    }
+
+    const payload = {
+      slug,
+      name,
+      summary,
+      launchDraft: cleanDraft
+    };
+
+    const project = await read('/v1/builder/projects', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-csrf-token': state.csrfToken || sessionStorage.getItem('nex_csrf') || ''
+      },
+      body: JSON.stringify(payload)
+    });
+
+    state.lastSavedProject = project;
+
+    const launchRow = {
+      id: project.id || `launch-${slug}`,
+      name: `${name} ${compiled.edition?.name || 'Edition'}`,
+      project: name,
+      state: 'Draft',
+      network: compiled.network || 'robinhood',
+      minted: 0,
+      supply: compiled.edition?.supply || 1,
+      price: compiled.edition?.price || 0,
+      primary: 0,
+      timing: 'Draft saved',
+      collection: slug,
+      evidence: compiled.project?.evidence?.url || ''
+    };
+
+    if (window.dashboardState) {
+      window.dashboardState.launches = window.dashboardState.launches || [];
+      const oldIdx = window.dashboardState.launches.findIndex((x) => x.id === launchRow.id || x.project === name);
+      if (oldIdx >= 0) window.dashboardState.launches[oldIdx] = launchRow;
+      else window.dashboardState.launches.unshift(launchRow);
+      if (typeof window.dashAddActivity === 'function') {
+        window.dashAddActivity('launch', `${name} draft saved`, 'Safe workflow pending', 'Draft');
+      }
+    }
+
+    if (window.createData) {
+      window.createData.published = false;
+    }
+    if (typeof window.clearCreateDraft === 'function') {
+      window.clearCreateDraft();
+    }
+    if (typeof window.renderDashboard === 'function') {
+      window.renderDashboard();
+    }
+
+    if (mount) {
+      mount.innerHTML = `
+        <div class="create-publish-success">
+          <div class="create-publish-mark">✓</div>
+          <h3>Draft saved</h3>
+          <p><strong>${escapeHtml(name)}</strong> draft has been securely saved to the server. Safe workflow is pending protocol admin execution on Robinhood Chain.</p>
+          <div class="project-action-buttons" style="justify-content:center">
+            <button class="btn" onclick="closeProjectAction();go('dashboard');setTimeout(()=>dashGo('launches'),30)">Dashboard</button>
+            <button class="btn primary" onclick="closeProjectAction();go('create')">Edit draft</button>
+          </div>
+        </div>
+      `;
+    }
+    showRuntimeBanner('Draft saved · Safe workflow pending');
+    return project;
+  } catch (error) {
+    if (mount) {
+      mount.innerHTML = `
+        <div class="create-publish-error" style="text-align:center;padding:24px">
+          <h3 style="color:#e05252;margin-bottom:8px">Draft save failed</h3>
+          <p style="color:#c5cec4;margin-bottom:16px">${escapeHtml(error.message)}</p>
+          <div class="project-action-buttons" style="justify-content:center">
+            <button class="btn" onclick="closeProjectAction()">Close</button>
+            <button class="btn primary" onclick="window.__nmV2SubmitCreateDraft?.()">Try again</button>
+          </div>
+        </div>
+      `;
+    }
+    showRuntimeBanner(`Failed to save draft: ${error.message}`, true);
+    throw error;
+  }
+}
+
 function wireWallet() {
   document.querySelectorAll('.account-chip').forEach((chip) => {
     chip.addEventListener('click', authenticate);
@@ -468,7 +601,9 @@ function wireWallet() {
 }
 function guardMutations() {
   document.addEventListener('click', (event) => {
-    const target = event.target.closest('button,form'); if (!target || target.closest('.account-chip')) return;
+    const target = event.target.closest('button,form');
+    if (!target || target.closest('.account-chip')) return;
+    if (target.closest('#create') || target.closest('#projectActionMount') || target.closest('#projectActionModal')) return;
     const text = String(target.textContent || '').trim();
     if (!/(^|\b)(get pass|get the pass|confirm purchase|buy|purchase|list pass|list for sale|redeem|use quantity|withdraw|publish|create edition|prepare safe|mint)(\b|$)/i.test(text)) return;
     if (target.closest('#nm-v2-runtime-banner')) return;
@@ -477,7 +612,17 @@ function guardMutations() {
   }, true);
 }
 function exposeRuntime() {
-  window.nexmarketsV2 = { state, refresh: hydrate, connect: authenticate, navigate, certificationEdition: CERTIFICATION_EDITION, certificationToken: CERTIFICATION_TOKEN };
+  window.__nmV2SubmitCreateDraft = submitCreateDraft;
+  window.completeCreatePublish = submitCreateDraft;
+  window.nexmarketsV2 = {
+    state,
+    refresh: hydrate,
+    connect: authenticate,
+    navigate,
+    submitCreateDraft,
+    certificationEdition: CERTIFICATION_EDITION,
+    certificationToken: CERTIFICATION_TOKEN
+  };
 }
 
 wireWallet(); guardMutations(); exposeRuntime();

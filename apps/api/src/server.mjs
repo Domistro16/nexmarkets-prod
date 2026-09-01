@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 import { AbiCoder, concat, getAddress, getCreate2Address, id, Interface, isAddress, keccak256, toUtf8Bytes } from 'ethers';
 import { issueSession, issueWalletChallenge, assertChallengeUsable, assertSession, sessionCookie, verifyWalletChallengeSignature } from '../../../packages/auth/src/index.mjs';
-import { buildNexMarketsOrder, buildProtocolCalldata, buildSeaportFulfillment, seaportOrderHash, seaportTypedData, transitionTransaction, validateProjectedNexMarketsOrder, verifySeaportOrderSignature } from '../../../packages/domain/src/index.mjs';
+import { buildNexMarketsOrder, buildProtocolCalldata, buildSeaportFulfillment, seaportOrderHash, seaportTypedData, transitionTransaction, validateAndNormalizeProjectPayload, validateProjectedNexMarketsOrder, verifySeaportOrderSignature } from '../../../packages/domain/src/index.mjs';
 import { PostgresStore } from '../../../packages/data/src/postgres-store.mjs';
 import { MetricsRegistry } from '../../../packages/observability/src/metrics.mjs';
 import { JsonRpcClient } from '../../../packages/chain/src/rpc.mjs';
@@ -267,13 +267,16 @@ export function createApiServer({
       }
       if (req.method === 'POST' && url.pathname === '/v1/builder/projects') {
         const input = await readBody(req);
-        if (!/^[a-z0-9-]{3,80}$/.test(input.slug ?? '') || typeof input.name !== 'string') throw Object.assign(new Error('INVALID_PROJECT'), { status: 400 });
-        if (input.supply !== undefined && (!Number.isInteger(Number(input.supply)) || Number(input.supply) < 1)) throw Object.assign(new Error('INVALID_SUPPLY'), { status: 400 });
-        if (input.price !== undefined && !/^\d+(\.\d{1,6})?$/.test(String(input.price))) throw Object.assign(new Error('INVALID_USDG_PRICE'), { status: 400 });
-        const project = await store.createProject({ accountId: session.accountId, body: {
-          slug: input.slug, name: input.name.slice(0, 120), summary: String(input.summary ?? '').slice(0, 500),
-          launchDraft: { supply: input.supply === undefined ? null : Number(input.supply), priceUsdg: input.price ?? null }
-        } });
+        const normalized = validateAndNormalizeProjectPayload(input);
+        const project = await store.createProject({
+          accountId: session.accountId,
+          body: {
+            slug: normalized.slug,
+            name: normalized.name,
+            summary: normalized.summary,
+            launchDraft: normalized.launchDraft
+          }
+        });
         await store.recordAudit?.({ accountId: session.accountId, walletAddress: session.walletAddress, action: 'PROJECT_DRAFT_CREATED', objectType: 'PROJECT', objectId: project.id, requestId, correlationId });
         return json(res, 201, { data: project });
       }

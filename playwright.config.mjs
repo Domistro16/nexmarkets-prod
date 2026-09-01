@@ -15,6 +15,12 @@ export default defineConfig({
     screenshot: 'only-on-failure',
     video: 'off'
   },
+  webServer: {
+    command: 'node --env-file=.env scripts/serve-web-testnet.mjs',
+    url: 'http://localhost:4173/healthz',
+    reuseExistingServer: true,
+    timeout: 30_000
+  },
   projects: [
     { name: 'desktop', use: { ...devices['Desktop Chrome'] } },
     { name: 'mobile', use: { ...devices['Desktop Chrome'], viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true } }
