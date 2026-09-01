@@ -50,3 +50,8 @@ export async function getApiListener() {
   requestListener = server.listeners('request')[0];
   return requestListener;
 }
+
+export default async function handler(req, res) {
+  const listener = await getApiListener();
+  return listener(req, res);
+}

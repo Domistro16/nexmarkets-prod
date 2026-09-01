@@ -95,3 +95,5 @@ export class MemoryStore {
   async submitEditionRequest({ id, safeTransactionHash, txHash, evidence = null }) { const existing = this.editionRequests.find((item) => item.id === id); if (existing?.safeStatus === 'SUBMITTED' && existing.txHash === txHash) return structuredClone(existing); const request = existing && ['SAFE_PENDING', 'REQUESTED'].includes(existing.safeStatus) ? existing : null; if (!request) throw new Error('EDITION_REQUEST_STATE_CONFLICT'); Object.assign(request, { safeStatus: 'SUBMITTED', safeTransactionHash, txHash, safeExecutionEvidence: evidence }); return structuredClone(request); }
   async createMedia({ accountId, metadata }) { const row = { id: `med_${randomUUID()}`, ownerAccountId: accountId, ...metadata }; this.media.push(row); return structuredClone(row); }
 }
+
+export default MemoryStore;

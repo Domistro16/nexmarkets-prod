@@ -1,0 +1,6 @@
+test/
+scripts/
+deployments/
+infra/
+services/
+packages/contracts/
