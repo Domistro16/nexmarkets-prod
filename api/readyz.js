@@ -9726,7 +9726,7 @@ async function readBody(req, maxBytes = 1048576) {
   }
 }
 function cookies(req) {
-  return Object.fromEntries((req.headers.cookie ?? "").split(";").filter(Boolean).map((part) => {
+  return Object.fromEntries(((req.headers ?? {}).cookie ?? "").split(";").filter(Boolean).map((part) => {
     const index = part.indexOf("=");
     return [decodeURIComponent(part.slice(0, index).trim()), decodeURIComponent(part.slice(index + 1))];
   }));
@@ -9777,17 +9777,18 @@ function createApiServer({
 } = {}) {
   if (!store) throw new Error("store required");
   return http.createServer(async (req, res) => {
-    const requestId = req.headers["x-request-id"]?.toString().slice(0, 128) || randomUUID3();
-    const correlationId = req.headers["x-correlation-id"]?.toString().slice(0, 128) || requestId;
+    const headers = req.headers ?? {};
+    const requestId = headers["x-request-id"]?.toString().slice(0, 128) || randomUUID3();
+    const correlationId = headers["x-correlation-id"]?.toString().slice(0, 128) || requestId;
     const startedAt = Date.now();
-    for (const [key, value] of Object.entries(securityHeaders(requestId))) res.setHeader(key, value);
+    for (const [key, value] of Object.entries(securityHeaders(requestId))) res.setHeader?.(key, value);
     try {
       metrics.increment("nexmarkets_api_requests_total");
-      rateLimiter.take(req.socket.remoteAddress ?? "unknown");
-      const url = new URL(req.url, allowedOrigin);
-      const origin = req.headers.origin;
+      rateLimiter.take(req.socket?.remoteAddress ?? headers["x-forwarded-for"] ?? "unknown");
+      const url = new URL(req.url ?? "/", allowedOrigin);
+      const origin = headers.origin;
       if (origin && new URL(origin).origin !== new URL(allowedOrigin).origin) {
-        const reqHost = req.headers["x-forwarded-host"] || req.headers.host;
+        const reqHost = headers["x-forwarded-host"] || headers.host;
         if (!reqHost || new URL(origin).host !== reqHost) throw Object.assign(new Error("ORIGIN_REJECTED"), { status: 403 });
       }
       if (req.method === "GET" && url.pathname === "/healthz") return json(res, 200, { status: "ok", service: "api", version: "v1", requestId });
