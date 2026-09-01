@@ -16,3 +16,11 @@ The V1 web client is a responsive, no-custody application backed by the real API
 Routes cover Home, Discover, Pass detail, Market, Create, Holder dashboard, Builder dashboard and transaction progress. Wallet authentication uses the API signed challenge; transaction preparation comes from the API and the connected wallet submits user-authorized calls. Live actions cover minting with USDG balance/allowance checks, Advantage use, Seaport listing signature and registration, exact-price Seaport purchase, listing cancellation and matured RoyaltyVault withdrawal. A transaction hash is displayed only as `SUBMITTED`, never as confirmation or finality.
 
 `public/config.example.json` remains deliberately non-production-ready until a Safe deployment manifest supplies verified custom-contract addresses. Run `npm run web:build` to generate `apps/web/dist`.
+
+## Vercel Deployment
+
+The repository includes a root `vercel.json` configured with:
+- **Build Command**: `node scripts/build-web.mjs`
+- **Output Directory**: `apps/web/dist`
+- **Clean URLs**: `true`
+- **SPA Rewrites**: `/(.*)` -> `/index.html`
