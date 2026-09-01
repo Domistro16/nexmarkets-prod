@@ -6,7 +6,7 @@ import { MemoryStore } from '../apps/api/src/memory-store.mjs';
 
 let requestListener = null;
 
-async function getListener() {
+export async function getApiListener() {
   if (requestListener) return requestListener;
 
   const chainId = Number(process.env.ROBINHOOD_CHAIN_ID ?? 46630);
@@ -49,9 +49,4 @@ async function getListener() {
 
   requestListener = server.listeners('request')[0];
   return requestListener;
-}
-
-export default async function handler(req, res) {
-  const listener = await getListener();
-  return listener(req, res);
 }

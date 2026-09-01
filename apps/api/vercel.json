@@ -1,8 +1,5 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "framework": null,
-  "buildCommand": "node scripts/build-web.mjs",
-  "outputDirectory": "dist",
   "cleanUrls": true,
   "rewrites": [
     {
@@ -14,8 +11,8 @@
       "destination": "/api/readyz"
     },
     {
-      "source": "/v1/(.*)",
-      "destination": "/api"
+      "source": "/v1/:match*",
+      "destination": "/api/v1/:match*"
     },
     {
       "source": "/((?!api|.*\\..*).*)",
