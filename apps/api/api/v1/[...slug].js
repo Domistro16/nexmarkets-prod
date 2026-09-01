@@ -10095,6 +10095,10 @@ async function getApiListener() {
 // api-src/v1/[...slug].js
 async function handler(req, res) {
   try {
+    if (req.url === "/" || req.url === "") {
+      res.writeHead(307, { location: "/index.html", "cache-control": "no-store" });
+      return res.end();
+    }
     const listener = await getApiListener();
     if (req.url.startsWith("/api/v1/")) {
       req.url = req.url.replace("/api/v1/", "/v1/");

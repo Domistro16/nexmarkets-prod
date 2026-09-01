@@ -10,13 +10,13 @@ aa00ec1159235cd75270b679c56333e2cea22d924224e34a3294497b1748cc36  ./.github/work
 6ccadfa34b93b48e51fc5fc96eb76bbeabe21da31a9485dc9c3ede9e85fe323d  ./api-src/_server.js
 45f7a4e0935ea215bcdb40a88df9f83cd2561b6f898613430e796c1be45b8cbc  ./api-src/healthz.js
 5694f3e3cb0c0c01b244795ee18ab4374bfbee2a8d30231c4992dfc7f885a298  ./api-src/readyz.js
-4fad7e8670356da9efc74417624ce0ba781bf89098c6b839588a62da2c589e60  ./api-src/v1/[...slug].js
+c3a1bf7873204f0492f25216eb95661a19abebefa26deed3ce4a5da6376fa31f  ./api-src/v1/[...slug].js
 4e93483cd5d6c29f77fdbc4760eb4da2ecbedb435f21f9275d4f5331ec2b3f04  ./api/healthz.js
 9ad62a5d475b540ddc9305bbb06394597b81137f02d4e678dbb7c363a0fc5448  ./api/readyz.js
-5c81191187254ee5c6f219580c278b3d1a4b4e21dbd997bc048f8bc0d95dcdd3  ./api/v1/[...slug].js
+8f139c4ccbfebd767ce8b8e2181ce2e4b376163ca9a1a049e6c1dcef8cc0e0b6  ./api/v1/[...slug].js
 4e93483cd5d6c29f77fdbc4760eb4da2ecbedb435f21f9275d4f5331ec2b3f04  ./apps/api/api/healthz.js
 9ad62a5d475b540ddc9305bbb06394597b81137f02d4e678dbb7c363a0fc5448  ./apps/api/api/readyz.js
-5c81191187254ee5c6f219580c278b3d1a4b4e21dbd997bc048f8bc0d95dcdd3  ./apps/api/api/v1/[...slug].js
+8f139c4ccbfebd767ce8b8e2181ce2e4b376163ca9a1a049e6c1dcef8cc0e0b6  ./apps/api/api/v1/[...slug].js
 3c85e66dce53a4420a294174f671745c4451657492e744772721c1262017bc00  ./apps/api/package.json
 aeecf729492aca05b3c7833b3ac5e7913db92169202172127a73d46ea54b74c2  ./apps/api/public/app.mjs
 abf8703a57c22bb73f9d5c70ef2c25a13c6cfa264ca754a1c95539388ae4535d  ./apps/api/public/chains.mjs
@@ -36,7 +36,7 @@ aaf213c6cf2aac49995f23bb2cfd4ad1e22475d742209953c3738ccda6ea0384  ./apps/api/ver
 fd539fe4c5f6acecaf1c0379d7ca8e43ff9e62e9174a2232ed87c5d4fd93f6f0  ./apps/web/README.md
 4e93483cd5d6c29f77fdbc4760eb4da2ecbedb435f21f9275d4f5331ec2b3f04  ./apps/web/api/healthz.js
 9ad62a5d475b540ddc9305bbb06394597b81137f02d4e678dbb7c363a0fc5448  ./apps/web/api/readyz.js
-5c81191187254ee5c6f219580c278b3d1a4b4e21dbd997bc048f8bc0d95dcdd3  ./apps/web/api/v1/[...slug].js
+8f139c4ccbfebd767ce8b8e2181ce2e4b376163ca9a1a049e6c1dcef8cc0e0b6  ./apps/web/api/v1/[...slug].js
 46e6056bc43d459d294c2bfff7cb9ea9474f11d377766ba43bc901b47ca47d34  ./apps/web/package.json
 aeecf729492aca05b3c7833b3ac5e7913db92169202172127a73d46ea54b74c2  ./apps/web/public/app.mjs
 abf8703a57c22bb73f9d5c70ef2c25a13c6cfa264ca754a1c95539388ae4535d  ./apps/web/public/chains.mjs
