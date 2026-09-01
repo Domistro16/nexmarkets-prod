@@ -7,6 +7,7 @@ const source = new URL('./apps/web/public/', root);
 const outputs = [
   new URL('./apps/web/dist/', root),
   new URL('./apps/api/dist/', root),
+  new URL('./apps/api/public/', root),
   new URL('./dist/', root),
   new URL('./public/', root)
 ];
@@ -53,6 +54,15 @@ try {
     }
   }
   await fixExports(fileURLToPath(apiDir));
+
+  // Mirror api directory to workspaces
+  for (const target of [new URL('./apps/web/api/', root), new URL('./apps/api/api/', root)]) {
+    try {
+      await rm(target, { recursive: true, force: true });
+      await mkdir(target, { recursive: true });
+      await cp(apiDir, target, { recursive: true });
+    } catch {}
+  }
 } catch {}
 
 const app = await readFile(new URL('./apps/web/public/app.mjs', root), 'utf8');

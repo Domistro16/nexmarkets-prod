@@ -1,0 +1,38 @@
+{
+  "network": "robinhood-testnet",
+  "chainId": 46630,
+  "rpcUrl": "https://rpc.testnet.chain.robinhood.com",
+  "explorer": "https://explorer.testnet.chain.robinhood.com",
+  "settlementToken": "0x6A4F8832c23C51ba626Eba9d50c8F862647C1679",
+  "settlementSymbol": "USDG",
+  "settlementDecimals": 6,
+  "seaport16": "0x0000000000000068F116a894984e2DB1123eB395",
+  "protocolAdminSafe": "0xCE54c8453fF48670781a6b908c1A3e9209FC95A0",
+  "contracts": {
+    "launchRegistry": "0xeE3C8F330C0B2738201fDb2F1720D06c0D27620d",
+    "mintController": "0x0ea6F883808447f115C7b6C037902361C365555A",
+    "passFactory": "0x957DE0de07D33c9a89c791B876074657a7fFeEb6",
+    "advantageRegistry": "0x1e265Fee39d75b5211895820926B4ff77B4f1cDd",
+    "advantageInitializer": "0x4024bB2A5134c2066E2FDE6fC3a1311e2234499A",
+    "royaltyVault": "0x9D69ab1897aFA9d6ffc97EEa6A936233a999DFa1",
+    "listingRegistry": "0xF8fD8D378F6a61Ecb207732F4f1d0c3E4Eb2c75c",
+    "zone": "0xF21dA23d8928b320124fBc17bd678c7C48c55af6",
+    "passAccount": "0x1d687CE71479cFa3e626ed604c48d65fd86D7923",
+    "tbaResolver": "0x55b64D8c1f17ba08a39c939D3248E7A2731Fa8b8"
+  },
+  "subgraph": {
+    "name": "nexmarkets-v1-robinhood-testnet/1.0.1",
+    "endpoint": "https://api.goldsky.com/api/public/project_cmt3es3z03t5101vr8ggx1j7e/subgraphs/nexmarkets-v1-robinhood-testnet/1.0.1/gn",
+    "startBlock": 104607055,
+    "deploymentHash": "QmS7AYuDhFMgWUwngbtDcWvNWbDj56tvLGn2gZ2ZjrUb47"
+  },
+  "certificationEdition": {
+    "address": "0x4171D62F43B4168b07a01C04594455DBc3298437",
+    "tokenId": "1",
+    "name": "NexMarkets V1 Test Certification Edition",
+    "termsHash": "0xe357b55e43ce7d7724a3c4fab02814fd0dd590d731247c6e54237f47f2635745"
+  },
+  "testnetOnly": true,
+  "runtimeReady": true,
+  "productionReady": false
+}
