@@ -33,10 +33,6 @@
     {
       "source": "/v1/:match*",
       "destination": "/api/v1/:match*"
-    },
-    {
-      "source": "/((?!api|.*\\..*).*)",
-      "destination": "/index.html"
     }
   ]
 }

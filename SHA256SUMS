@@ -32,7 +32,7 @@ f6a7d499f76bc2a67b13b194ee4130aa95965fd1c8abe10f33d3e01771694ecb  ./apps/api/api
 83801d1546f4802277969c7403826858d2f70e61ce0077a0e9ac88050bc46eaf  ./apps/api/scripts/build-web.mjs
 bac26f66a2017b4194a2b0b66a0f2aba79851b0b3985d476c8336b9ea149b059  ./apps/api/src/memory-store.mjs
 d2b536f000f0e0048aea482ac1c4c2f85955947798d3fef301e357dd8c0b7eeb  ./apps/api/src/server.mjs
-278380f04e3a9e1fef3c3c15ee87029c0ee913b7b543bb08a97879d290d6b619  ./apps/api/vercel.json
+0530d02e5e5ccf8b08e1568dea0d91c37503eaf406beaed6f0fd413bf7993c4a  ./apps/api/vercel.json
 fd539fe4c5f6acecaf1c0379d7ca8e43ff9e62e9174a2232ed87c5d4fd93f6f0  ./apps/web/README.md
 9e23c86e28b705d5e93dcb3ee49c101bb51cacc58bc3aa170549f5c6c1799ab5  ./apps/web/api/_server.js
 a59bbefa1c2b36fe423f9f63a59765ff5c2b235ae877229178d39f8c9fb0c323  ./apps/web/api/healthz.js
@@ -57,7 +57,7 @@ cc0e87a6cfdd7679a1a2113d75288db8cffb9335c6e0b7d522de74fb5d3a12a7  ./apps/web/pub
 f4fa35d56d4bd59be1dfbac02d049fe488c61d957f06ac853cb1000284c2df47  ./apps/web/public/v2-app.mjs
 9475eca46351ac83d629b3bed656a1322cea06b6feb37ee12932ca7b95033449  ./apps/web/public/wallet.mjs
 83801d1546f4802277969c7403826858d2f70e61ce0077a0e9ac88050bc46eaf  ./apps/web/scripts/build-web.mjs
-278380f04e3a9e1fef3c3c15ee87029c0ee913b7b543bb08a97879d290d6b619  ./apps/web/vercel.json
+0530d02e5e5ccf8b08e1568dea0d91c37503eaf406beaed6f0fd413bf7993c4a  ./apps/web/vercel.json
 55032cb5e1da28cbef359d506e9af505def0ee6170732595b71affb4dd13c740  ./artifacts/deployment-plan/robinhood-mainnet.deploy.safe.json
 e77eee28af3b4556b6309574251f2063f5469c45bb8a9d946c94ab2c824c96ff  ./artifacts/deployment-plan/robinhood-mainnet.json
 c851e50f2301f921858da6f1ef8b1c47fc9b921af209149c02eec97ab0e84185  ./artifacts/deployment-plan/robinhood-mainnet.wire.safe.json
@@ -285,5 +285,5 @@ f3ab49089c06036bca30b050ae794797b311cee8587bc1cf66bbfba30eca6f4c  ./test/transac
 71cc22942cd113fdb0b861c9aee4ff9fd0d88b30da6feae85a09ce902a2334f3  ./test/web.test.mjs
 8a561c290fccd6d13b6c95e92db64aa7bf8567378afbcbc76b5735d640d6d97a  ./transaction.mjs
 f4fa35d56d4bd59be1dfbac02d049fe488c61d957f06ac853cb1000284c2df47  ./v2-app.mjs
-278380f04e3a9e1fef3c3c15ee87029c0ee913b7b543bb08a97879d290d6b619  ./vercel.json
+0530d02e5e5ccf8b08e1568dea0d91c37503eaf406beaed6f0fd413bf7993c4a  ./vercel.json
 9475eca46351ac83d629b3bed656a1322cea06b6feb37ee12932ca7b95033449  ./wallet.mjs
