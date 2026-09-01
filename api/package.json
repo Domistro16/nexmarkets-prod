@@ -1,13 +1,7 @@
 {
-  "name": "@nexmarkets/api",
+  "name": "api",
   "private": true,
   "type": "module",
-  "scripts": {
-    "build": "node scripts/build-web.mjs",
-    "web:build": "node scripts/build-web.mjs",
-    "start": "node src/server.mjs",
-    "test": "node --test ../../test/api*.test.mjs"
-  },
   "dependencies": {
     "@nexmarkets/auth": "*",
     "@nexmarkets/chain": "*",
