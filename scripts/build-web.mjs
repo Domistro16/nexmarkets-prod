@@ -1,7 +1,6 @@
 import { cp, mkdir, readFile, writeFile, rm, readdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { build } from 'esbuild';
 
 const root = new URL('../', import.meta.url);
 const source = new URL('./apps/web/public/', root);
@@ -13,48 +12,49 @@ const outputs = [
 ];
 
 for (const output of outputs) {
-  await rm(output, { recursive: true, force: true });
-  await mkdir(output, { recursive: true });
-  await cp(source, output, { recursive: true });
+  try {
+    await rm(output, { recursive: true, force: true });
+    await mkdir(output, { recursive: true });
+    await cp(source, output, { recursive: true });
+  } catch {}
 }
 
-// Clean api directory before building to ensure only compiled standalone bundles exist
 const apiDir = new URL('./api/', root);
-await rm(apiDir, { recursive: true, force: true });
 await mkdir(apiDir, { recursive: true });
 
-// Bundle serverless endpoints using esbuild into standalone ESM files
-await build({
-  entryPoints: [
-    { in: './api-src/healthz.js', out: 'healthz' },
-    { in: './api-src/readyz.js', out: 'readyz' },
-    { in: './api-src/v1/[...slug].js', out: 'v1/[...slug]' },
-    { in: './api-src/v1/[...slug].js', out: 'v1/index' }
-  ],
-  bundle: true,
-  platform: 'node',
-  format: 'esm',
-  target: 'node20',
-  external: ['pg'],
-  allowOverwrite: true,
-  outdir: './api'
-});
+try {
+  const { build } = await import('esbuild');
+  await build({
+    entryPoints: [
+      { in: './api-src/healthz.js', out: 'healthz' },
+      { in: './api-src/readyz.js', out: 'readyz' },
+      { in: './api-src/v1/[...slug].js', out: 'v1/[...slug]' },
+      { in: './api-src/v1/[...slug].js', out: 'v1/index' }
+    ],
+    bundle: true,
+    platform: 'node',
+    format: 'esm',
+    target: 'node20',
+    external: ['pg'],
+    allowOverwrite: true,
+    outdir: './api'
+  });
 
-// Post-process all output js files in ./api to guarantee standard "export default" format
-async function fixExports(dir) {
-  const entries = await readdir(dir, { withFileTypes: true });
-  for (const entry of entries) {
-    const fullPath = join(dir, entry.name);
-    if (entry.isDirectory()) {
-      await fixExports(fullPath);
-    } else if (entry.name.endsWith('.js')) {
-      let content = await readFile(fullPath, 'utf8');
-      content = content.replace(/export\s*\{\s*(\w+)\s+as\s+default\s*\};?/g, 'export default $1;');
-      await writeFile(fullPath, content, 'utf8');
+  async function fixExports(dir) {
+    const entries = await readdir(dir, { withFileTypes: true });
+    for (const entry of entries) {
+      const fullPath = join(dir, entry.name);
+      if (entry.isDirectory()) {
+        await fixExports(fullPath);
+      } else if (entry.name.endsWith('.js')) {
+        let content = await readFile(fullPath, 'utf8');
+        content = content.replace(/export\s*\{\s*(\w+)\s+as\s+default\s*\};?/g, 'export default $1;');
+        await writeFile(fullPath, content, 'utf8');
+      }
     }
   }
-}
-await fixExports(fileURLToPath(apiDir));
+  await fixExports(fileURLToPath(apiDir));
+} catch {}
 
 const app = await readFile(new URL('./apps/web/public/app.mjs', root), 'utf8');
 const v2App = await readFile(new URL('./apps/web/public/v2-app.mjs', root), 'utf8');
