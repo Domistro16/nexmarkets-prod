@@ -3,12 +3,12 @@ import { randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 import { AbiCoder, concat, getAddress, getCreate2Address, id, Interface, isAddress, keccak256, toUtf8Bytes } from 'ethers';
-import { issueSession, issueWalletChallenge, assertChallengeUsable, assertSession, sessionCookie, verifyWalletChallengeSignature } from '../../../packages/auth/src/index.mjs';
-import { buildNexMarketsOrder, buildProtocolCalldata, buildSeaportFulfillment, seaportOrderHash, seaportTypedData, transitionTransaction, validateAndNormalizeProjectPayload, validateProjectedNexMarketsOrder, verifySeaportOrderSignature } from '../../../packages/domain/src/index.mjs';
-import { PostgresStore } from '../../../packages/data/src/postgres-store.mjs';
-import { MetricsRegistry } from '../../../packages/observability/src/metrics.mjs';
-import { JsonRpcClient } from '../../../packages/chain/src/rpc.mjs';
-import { SubgraphClient } from '../../../packages/subgraph-client/src/index.mjs';
+import { issueSession, issueWalletChallenge, assertChallengeUsable, assertSession, sessionCookie, verifyWalletChallengeSignature } from '@nexmarkets/auth';
+import { buildNexMarketsOrder, buildProtocolCalldata, buildSeaportFulfillment, seaportOrderHash, seaportTypedData, transitionTransaction, validateAndNormalizeProjectPayload, validateProjectedNexMarketsOrder, verifySeaportOrderSignature } from '@nexmarkets/domain';
+import { PostgresStore } from '@nexmarkets/data';
+import { MetricsRegistry } from '@nexmarkets/observability';
+import { JsonRpcClient } from '@nexmarkets/chain';
+import { SubgraphClient } from '@nexmarkets/subgraph-client';
 
 const JSON_HEADERS = { 'content-type': 'application/json; charset=utf-8' };
 const INTENT_TYPE = Object.freeze({
