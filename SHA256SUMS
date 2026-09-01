@@ -5,7 +5,7 @@ cb0f6ba7b05b5af5878242a58485bf461497a6994dcd61d26282bc776d46e555  ./.github/work
 186305e645ef56b21070fc675ac390f6fde07485258194489118686adf35de97  ./.github/workflows/primitive-gate.yml
 aa00ec1159235cd75270b679c56333e2cea22d924224e34a3294497b1748cc36  ./.github/workflows/robinhood-release-attestation.yml
 5c58e3d5319d6430184f66bc272dc2bb9b9b32e1e4bc03aa59d39cc75009d93f  ./.gitignore
-fc6bddc464f169cc73d0d57723185b8c678b3c3511af026f17c78828c5aef75b  ./.vercelignore
+47a23d3759e7e354769f2ea7b56cbeb5c5e6874a50917cb1831a44d95d936d4a  ./.vercelignore
 954e917d741bd926d739b73f0e476b8164b30043e2042ad65916e447985fff8d  ./README.md
 6ccadfa34b93b48e51fc5fc96eb76bbeabe21da31a9485dc9c3ede9e85fe323d  ./api-src/_server.js
 45f7a4e0935ea215bcdb40a88df9f83cd2561b6f898613430e796c1be45b8cbc  ./api-src/healthz.js
@@ -83,8 +83,8 @@ e6b54b80ae5c078a6c531c3dddd191ca3e41960b158c7c4b15dfd927a31e279c  ./goldsky/nexm
 6c269b1b730b553344824cdf7b65632fe8427ad0c8ed74528e246a18abe09606  ./infra/schema/0001_phase0_authority.sql
 1271ee6e69ae035d81ee9e81528f0a5986fda60cf3b7fa9acba6e8f159987aca  ./infra/schema/0002_nexmarkets_v1.sql
 6b8cc0729cca4e90cdd8b80bc44d845ed590f9b6e8135c122add69aaa1a46990  ./infra/schema/migrate.mjs
-d529253c2c1f65c7a8e82cce2d7405a124d237b32c7f69e1ac7f5f0f04e00430  ./package-lock.json
-df9dacecd0903276a5fa5709e289f4a2a69df785a6545c500655333d680301e2  ./package.json
+f3045aef02c5a45f1527bcb5c86cf48bdd3c95139248d5156e942f0ca28bcf7a  ./package-lock.json
+0f690baf64be78e261881ac1986ce62ad7f00ad2c1197c9708de00f0279f7707  ./package.json
 717dd8cd233e81be540ad1c6886ae58600d740e221ce277455d76287dc0ff054  ./packages/auth/package.json
 ba534c6ece1a726e4d011426343e8f6d89831c5cc2e92740ce1f97d09c22d166  ./packages/auth/src/index.mjs
 0b26ab038f3eb97ea9a44896144af138152a4487051cff2e7c2cc372cb5cec41  ./packages/auth/src/session.mjs

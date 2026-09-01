@@ -9,7 +9,13 @@
   "workspaces": [
     "apps/*",
     "services/*",
-    "packages/*"
+    "packages/auth",
+    "packages/chain",
+    "packages/config",
+    "packages/data",
+    "packages/domain",
+    "packages/observability",
+    "packages/subgraph-client"
   ],
   "scripts": {
     "test": "node --test test/*.test.mjs",

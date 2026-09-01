@@ -1,11 +1,5 @@
 test/
-deployments/
-infra/
-services/
-subgraph/
 artifacts/
 goldsky/
-product-authority/
-playwright.config.mjs
-apps/api/src/
-api-src/
+subgraph/
+docs/
