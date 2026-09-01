@@ -1,12 +1,7 @@
 test/
-scripts/
 deployments/
 infra/
 services/
-packages/
-apps/
-api-src/
-docs/
 subgraph/
 artifacts/
 goldsky/
