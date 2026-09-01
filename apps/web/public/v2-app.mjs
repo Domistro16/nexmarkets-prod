@@ -1,4 +1,5 @@
 import { NexWallet } from './wallet.mjs';
+import { openConnectModal, openAccountModal, openChainModal, onAccountChange, onChainChange } from './rainbow-wallet.mjs';
 
 /*
  * NexMarkets V2 is intentionally a data adapter around the supplied product
@@ -417,45 +418,13 @@ async function loadChainData() {
   let passRaw = passResult.status === 'fulfilled' ? passResult.value : null;
   let listingRows = listingsResult.status === 'fulfilled' ? (Array.isArray(listingsResult.value) ? listingsResult.value : []) : [];
 
-  if (discoverResult.status === 'rejected' && editionResult.status === 'rejected') {
-    const endpoint = state.config?.subgraph?.endpoint;
-    if (endpoint) {
-      try {
-        const query = `{ editions(first: 50, orderBy: createdBlock, orderDirection: desc) { id address editionId publisher absoluteSupplyCap totalMinted disabled currentTerms { hash pricePerPass previewStartsAt mintStartsAt mintEndsAt } } listings(first: 50, where: { status: "ACTIVE" }, orderBy: createdBlock, orderDirection: desc) { id orderHash edition { address } tokenId seller price status } }`;
-        const res = await fetch(endpoint, { method: 'POST', headers: { 'content-type': 'application/json', accept: 'application/json' }, body: JSON.stringify({ query }) });
-        if (res.ok) {
-          const body = await res.json();
-          if (body.data?.editions?.length) {
-            discover = body.data.editions.map((e) => ({
-              edition_address: e.address,
-              address: e.address,
-              name: lower(e.address) === CERTIFICATION_EDITION.toLowerCase() ? (state.config?.certificationEdition?.name || 'NexMarkets V1 Test Certification Edition') : `Edition ${e.address.slice(0, 6)}`,
-              symbol: 'NEXP',
-              supply_cap: Number(e.absoluteSupplyCap || 3),
-              total_minted: Number(e.totalMinted || 0),
-              price_usdg: e.currentTerms?.pricePerPass ? (Number(e.currentTerms.pricePerPass) / 1e6).toFixed(6) : '1.000000',
-              current_terms_hash: e.currentTerms?.hash || state.config?.certificationEdition?.termsHash || null
-            }));
-            summary = discover.find((item) => lower(item.edition_address || item.address) === CERTIFICATION_EDITION.toLowerCase()) || discover[0] || null;
-            if (summary) {
-              editionRaw = { ...summary, advantages: [{ advantageId: '0x01', kind: 'CONNECTED', totalUnits: 1, remainingUnits: 1, description: 'Active entitlement/access' }] };
-            }
-          }
-          if (body.data?.listings) {
-            listingRows = body.data.listings.map((l) => ({ order_hash: l.orderHash, edition_address: l.edition?.address, token_id: Number(l.tokenId), seller_address: l.seller, price_usdg: (Number(l.price) / 1e6).toFixed(6), status: l.status }));
-          }
-        }
-      } catch { /* proceed */ }
-    }
-  }
-
   state.edition = normalizeEdition(editionRaw, summary);
   state.pass = normalizePass(passRaw, state.edition);
   state.discover = discover.map((item) => normalizeEdition(null, item)).filter(Boolean);
   if (state.edition && !state.discover.some((item) => item.address.toLowerCase() === state.edition.address.toLowerCase())) state.discover.unshift(state.edition);
   const map = new Map(state.discover.map((item) => [item.address.toLowerCase(), item]));
   state.listings = listingRows.map((item) => normalizeListing(item, map)).filter(Boolean);
-  if (discoverResult.status === 'rejected' && editionResult.status === 'rejected' && !state.discover.length && !state.edition) throw new Error('LIVE_API_UNAVAILABLE');
+  if (discoverResult.status === 'rejected' && editionResult.status === 'rejected') throw new Error('LIVE_API_UNAVAILABLE');
 }
 async function loadAuthenticatedData() {
   if (!state.authenticated) return { owned: [], advantages: [] };
@@ -512,7 +481,7 @@ async function authenticate() {
     const verified = await read('/v1/auth/verify', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ nonce: challenge.nonce, signature }) });
     state.csrfToken = verified.csrfToken; state.authenticated = true; sessionStorage.setItem('nex_csrf', verified.csrfToken);
     await hydrate(); showRuntimeBanner('Wallet verified on Robinhood Chain');
-  } catch (error) { showRuntimeBanner(`Wallet connection failed: ${error.message}`, true); }
+  } catch (error) { showRuntimeBanner(error.message, true); }
 }
 function sanitizeCompiledForApi(compiled) {
   const clone = JSON.parse(JSON.stringify(compiled));
@@ -652,15 +621,61 @@ async function submitCreateDraft() {
 
 function wireWallet() {
   document.querySelectorAll('.account-chip, #dashboard .p10-connected, #dashboard .p10-account, #dashboard .dash-person').forEach((chip) => {
-    chip.addEventListener('click', () => {
-      if (!state.wallet) authenticate();
-    });
-    chip.addEventListener('keydown', (event) => {
-      if ((event.key === 'Enter' || event.key === ' ') && !state.wallet) {
-        event.preventDefault();
-        authenticate();
+    chip.addEventListener('click', async () => {
+      if (!state.wallet) {
+        if (typeof window !== 'undefined' && window.ethereum?.request && !window.ethereum?.isWalletConnect) {
+          authenticate();
+        } else {
+          try {
+            await openConnectModal();
+            await authenticate();
+          } catch {
+            authenticate();
+          }
+        }
+      } else {
+        openAccountModal();
       }
     });
+    chip.addEventListener('keydown', async (event) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        if (!state.wallet) {
+          if (typeof window !== 'undefined' && window.ethereum?.request && !window.ethereum?.isWalletConnect) {
+            authenticate();
+          } else {
+            try {
+              await openConnectModal();
+              await authenticate();
+            } catch {
+              authenticate();
+            }
+          }
+        } else {
+          openAccountModal();
+        }
+      }
+    });
+  });
+
+  onAccountChange(async (newAddress) => {
+    if (newAddress && newAddress.toLowerCase() !== (state.wallet || '').toLowerCase()) {
+      state.wallet = newAddress;
+      setAccountLabel(short(newAddress));
+      try { await authenticate(); } catch {}
+    } else if (!newAddress && state.wallet) {
+      state.wallet = null;
+      state.authenticated = false;
+      setAccountLabel('Connect wallet');
+      hydrate();
+    }
+  });
+
+  onChainChange(async (newChainId) => {
+    const required = Number(state.config?.chainId || CHAIN_ID);
+    if (newChainId && newChainId !== required) {
+      showRuntimeBanner(`Please switch network to Robinhood Chain (${required})`, true);
+    }
   });
 }
 function guardMutations() {
