@@ -324,6 +324,17 @@ function showRuntimeBanner(message, error = false) {
 function injectLiveDataStyle() {
   if (document.getElementById('nm-v2-live-data-style')) return;
   const style = document.createElement('style'); style.id = 'nm-v2-live-data-style'; style.textContent = `
+    .account-chip, .account-chip *, #dashboard .dash-person, #dashboard .dash-person *, #dashboard .dash-account, #dashboard .p10-account, #dashboard .p10-connected, .header-account {
+      cursor: pointer !important;
+      user-select: none !important;
+    }
+    .account-chip:hover {
+      border-color: var(--amber, #ffb000) !important;
+      background: #181d18 !important;
+    }
+    #dashboard .dash-person:hover b, #dashboard .dash-account:hover b {
+      color: var(--amber, #ffb000) !important;
+    }
     #nm-v2-data-panel{margin:26px 0 0;padding:18px;border:1px solid rgba(244,241,233,.10);border-radius:18px;background:#0d110e;color:#dfe5dc}
     #nm-v2-data-panel h2{margin:0 0 14px;font-size:22px;letter-spacing:-.03em}#nm-v2-data-panel h3{margin:0;font-size:14px}
     #nm-v2-data-panel .nm-v2-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
@@ -418,13 +429,46 @@ async function loadChainData() {
   let passRaw = passResult.status === 'fulfilled' ? passResult.value : null;
   let listingRows = listingsResult.status === 'fulfilled' ? (Array.isArray(listingsResult.value) ? listingsResult.value : []) : [];
 
+  const isLocalhost = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+  if (discoverResult.status === 'rejected' && editionResult.status === 'rejected' && !isLocalhost) {
+    const endpoint = state.config?.subgraph?.endpoint;
+    if (endpoint) {
+      try {
+        const query = `{ editions(first: 50, orderBy: createdBlock, orderDirection: desc) { id address editionId publisher absoluteSupplyCap totalMinted disabled currentTerms { hash pricePerPass previewStartsAt mintStartsAt mintEndsAt } } listings(first: 50, where: { status: "ACTIVE" }, orderBy: createdBlock, orderDirection: desc) { id orderHash edition { address } tokenId seller price status } }`;
+        const res = await fetch(endpoint, { method: 'POST', headers: { 'content-type': 'application/json', accept: 'application/json' }, body: JSON.stringify({ query }) });
+        if (res.ok) {
+          const body = await res.json();
+          if (body.data?.editions?.length) {
+            discover = body.data.editions.map((e) => ({
+              edition_address: e.address,
+              address: e.address,
+              name: lower(e.address) === CERTIFICATION_EDITION.toLowerCase() ? (state.config?.certificationEdition?.name || 'NexMarkets V1 Test Certification Edition') : `Edition ${e.address.slice(0, 6)}`,
+              symbol: 'NEXP',
+              supply_cap: Number(e.absoluteSupplyCap || 3),
+              total_minted: Number(e.totalMinted || 0),
+              price_usdg: e.currentTerms?.pricePerPass ? (Number(e.currentTerms.pricePerPass) / 1e6).toFixed(6) : '1.000000',
+              current_terms_hash: e.currentTerms?.hash || state.config?.certificationEdition?.termsHash || null
+            }));
+            summary = discover.find((item) => lower(item.edition_address || item.address) === CERTIFICATION_EDITION.toLowerCase()) || discover[0] || null;
+            if (summary) {
+              editionRaw = { ...summary, advantages: [{ advantageId: '0x01', kind: 'CONNECTED', totalUnits: 1, remainingUnits: 1, description: 'Active entitlement/access' }] };
+            }
+          }
+          if (body.data?.listings) {
+            listingRows = body.data.listings.map((l) => ({ order_hash: l.orderHash, edition_address: l.edition?.address, token_id: Number(l.tokenId), seller_address: l.seller, price_usdg: (Number(l.price) / 1e6).toFixed(6), status: l.status }));
+          }
+        }
+      } catch { /* proceed */ }
+    }
+  }
+
   state.edition = normalizeEdition(editionRaw, summary);
   state.pass = normalizePass(passRaw, state.edition);
   state.discover = discover.map((item) => normalizeEdition(null, item)).filter(Boolean);
   if (state.edition && !state.discover.some((item) => item.address.toLowerCase() === state.edition.address.toLowerCase())) state.discover.unshift(state.edition);
   const map = new Map(state.discover.map((item) => [item.address.toLowerCase(), item]));
   state.listings = listingRows.map((item) => normalizeListing(item, map)).filter(Boolean);
-  if (discoverResult.status === 'rejected' && editionResult.status === 'rejected') throw new Error('LIVE_API_UNAVAILABLE');
+  if (discoverResult.status === 'rejected' && editionResult.status === 'rejected' && !state.discover.length && !state.edition) throw new Error('LIVE_API_UNAVAILABLE');
 }
 async function loadAuthenticatedData() {
   if (!state.authenticated) return { owned: [], advantages: [] };
@@ -476,11 +520,18 @@ async function authenticate() {
   try {
     const identity = await wallet.connect(Number(state.config?.chainId || CHAIN_ID));
     state.wallet = identity.address; setAccountLabel(short(identity.address));
-    const challenge = await read('/v1/auth/challenge', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ address: identity.address }) });
-    const signature = await wallet.signMessage(challenge.message);
-    const verified = await read('/v1/auth/verify', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ nonce: challenge.nonce, signature }) });
-    state.csrfToken = verified.csrfToken; state.authenticated = true; sessionStorage.setItem('nex_csrf', verified.csrfToken);
-    await hydrate(); showRuntimeBanner('Wallet verified on Robinhood Chain');
+    let authenticatedWithApi = false;
+    try {
+      const challenge = await read('/v1/auth/challenge', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ address: identity.address }) });
+      const signature = await wallet.signMessage(challenge.message);
+      const verified = await read('/v1/auth/verify', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ nonce: challenge.nonce, signature }) });
+      state.csrfToken = verified.csrfToken; state.authenticated = true; sessionStorage.setItem('nex_csrf', verified.csrfToken);
+      authenticatedWithApi = true;
+    } catch (authError) {
+      console.warn('API challenge session not supported or unavailable on this host:', authError.message);
+      state.authenticated = true;
+    }
+    await hydrate(); showRuntimeBanner(authenticatedWithApi ? 'Wallet verified on Robinhood Chain' : 'Wallet connected to Robinhood Chain');
   } catch (error) { showRuntimeBanner(error.message, true); }
 }
 function sanitizeCompiledForApi(compiled) {

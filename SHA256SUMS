@@ -18,11 +18,11 @@ abf8703a57c22bb73f9d5c70ef2c25a13c6cfa264ca754a1c95539388ae4535d  ./apps/web/pub
 91765e0d4e7f31d8ebe72e8507de052d1439b958511b79df3ba6ae5315d8bae4  ./apps/web/public/config.example.json
 ea195bcba8f8a7fe15f60690a7e9db34eaa2420c6381de3ce675be9c8b0ef95e  ./apps/web/public/config.json
 4b8e201b167b49e7fcbf46a5fd4c647d6f84916e6fa4a5ba1fac19af658f3cc6  ./apps/web/public/controls.css
-c65c121ad5fb012c17f2510739db495d8355d8f34214c5efdaf56ddcf77b7aab  ./apps/web/public/index.html
+6d0684326501dceef342c4b96512ea10aedfe934544d0c44f81f01c8b21bc937  ./apps/web/public/index.html
 cf5686fb2f2354b758eab70633f5602fdcd36a60494286eb681f98aa2cedf689  ./apps/web/public/rainbow-wallet.mjs
 cc0e87a6cfdd7679a1a2113d75288db8cffb9335c6e0b7d522de74fb5d3a12a7  ./apps/web/public/styles.css
 8a561c290fccd6d13b6c95e92db64aa7bf8567378afbcbc76b5735d640d6d97a  ./apps/web/public/transaction.mjs
-5b062be51acdcb1bf052e2e156ab3ac445176b92c0f2575940b1fffdf29848c0  ./apps/web/public/v2-app.mjs
+73ba4d2e19343deab729a476a2fa22554524c052161cd22c65160639504844c6  ./apps/web/public/v2-app.mjs
 9475eca46351ac83d629b3bed656a1322cea06b6feb37ee12932ca7b95033449  ./apps/web/public/wallet.mjs
 83801d1546f4802277969c7403826858d2f70e61ce0077a0e9ac88050bc46eaf  ./apps/web/scripts/build-web.mjs
 a3ad2103febb4686e0b5cd6f3034c701cb9e62a7253a2dc80e5eb227fd7243d3  ./apps/web/vercel.json
