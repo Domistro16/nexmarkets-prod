@@ -33,7 +33,7 @@ fb8b2601e18163a173560d61edde4b42a7fbc2315f1037660795ed83745a2083  ./apps/api/api
 83801d1546f4802277969c7403826858d2f70e61ce0077a0e9ac88050bc46eaf  ./apps/api/scripts/build-web.mjs
 bac26f66a2017b4194a2b0b66a0f2aba79851b0b3985d476c8336b9ea149b059  ./apps/api/src/memory-store.mjs
 d2b536f000f0e0048aea482ac1c4c2f85955947798d3fef301e357dd8c0b7eeb  ./apps/api/src/server.mjs
-a66d2bf97300f99bac0ec414632fc0b9f0f0edcbcfcce91b19c6f5aa8b146d5c  ./apps/api/vercel.json
+278380f04e3a9e1fef3c3c15ee87029c0ee913b7b543bb08a97879d290d6b619  ./apps/api/vercel.json
 fd539fe4c5f6acecaf1c0379d7ca8e43ff9e62e9174a2232ed87c5d4fd93f6f0  ./apps/web/README.md
 9e23c86e28b705d5e93dcb3ee49c101bb51cacc58bc3aa170549f5c6c1799ab5  ./apps/web/api/_server.js
 a59bbefa1c2b36fe423f9f63a59765ff5c2b235ae877229178d39f8c9fb0c323  ./apps/web/api/healthz.js
@@ -46,7 +46,7 @@ d2857614c73e3bfa85cc8b1aaf397cb1047765a285631f41fcd91fe10dd9d66c  ./apps/web/api
 5694f3e3cb0c0c01b244795ee18ab4374bfbee2a8d30231c4992dfc7f885a298  ./apps/web/api/src/readyz.js
 4fad7e8670356da9efc74417624ce0ba781bf89098c6b839588a62da2c589e60  ./apps/web/api/src/v1/[...slug].js
 fb8b2601e18163a173560d61edde4b42a7fbc2315f1037660795ed83745a2083  ./apps/web/api/v1/[...slug].js
-7e19eef739f081d572a0fd64c032d9e3abab409b1cf07e4ed5a84196065dc014  ./apps/web/package.json
+943a0efae9619da6a4a0581d43b5c96a7eb8d8fd6b196d6a82ffc0631100dd2e  ./apps/web/package.json
 aeecf729492aca05b3c7833b3ac5e7913db92169202172127a73d46ea54b74c2  ./apps/web/public/app.mjs
 abf8703a57c22bb73f9d5c70ef2c25a13c6cfa264ca754a1c95539388ae4535d  ./apps/web/public/chains.mjs
 91765e0d4e7f31d8ebe72e8507de052d1439b958511b79df3ba6ae5315d8bae4  ./apps/web/public/config.example.json
@@ -59,7 +59,7 @@ cc0e87a6cfdd7679a1a2113d75288db8cffb9335c6e0b7d522de74fb5d3a12a7  ./apps/web/pub
 f4fa35d56d4bd59be1dfbac02d049fe488c61d957f06ac853cb1000284c2df47  ./apps/web/public/v2-app.mjs
 9475eca46351ac83d629b3bed656a1322cea06b6feb37ee12932ca7b95033449  ./apps/web/public/wallet.mjs
 83801d1546f4802277969c7403826858d2f70e61ce0077a0e9ac88050bc46eaf  ./apps/web/scripts/build-web.mjs
-a66d2bf97300f99bac0ec414632fc0b9f0f0edcbcfcce91b19c6f5aa8b146d5c  ./apps/web/vercel.json
+278380f04e3a9e1fef3c3c15ee87029c0ee913b7b543bb08a97879d290d6b619  ./apps/web/vercel.json
 55032cb5e1da28cbef359d506e9af505def0ee6170732595b71affb4dd13c740  ./artifacts/deployment-plan/robinhood-mainnet.deploy.safe.json
 e77eee28af3b4556b6309574251f2063f5469c45bb8a9d946c94ab2c824c96ff  ./artifacts/deployment-plan/robinhood-mainnet.json
 c851e50f2301f921858da6f1ef8b1c47fc9b921af209149c02eec97ab0e84185  ./artifacts/deployment-plan/robinhood-mainnet.wire.safe.json

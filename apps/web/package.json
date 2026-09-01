@@ -1,1 +1,17 @@
-{"name":"@nexmarkets/web","private":true,"type":"module","scripts":{"build":"node scripts/build-web.mjs","web:build":"node scripts/build-web.mjs","test":"node --test ../../test/web*.test.mjs"}}
+{
+  "name": "@nexmarkets/web",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "scripts": {
+    "build": "node scripts/build-web.mjs",
+    "web:build": "node scripts/build-web.mjs",
+    "test": "node --test ../../test/web*.test.mjs"
+  },
+  "dependencies": {
+    "ethers": "6.17.0",
+    "pg": "8.16.3"
+  }
+}
