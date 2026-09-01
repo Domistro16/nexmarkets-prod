@@ -6,6 +6,7 @@ const source = new URL('./apps/web/public/', root);
 const outputs = [
   new URL('./apps/web/dist/', root),
   new URL('./apps/api/dist/', root),
+  new URL('./apps/api/public/', root),
   new URL('./dist/', root),
   new URL('./public/', root)
 ];

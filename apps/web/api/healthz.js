@@ -1,8 +1,5 @@
-// api-src/healthz.js
-function handler(req, res) {
-  res.writeHead(200, { "content-type": "application/json" });
-  res.end(JSON.stringify({ status: "ok", service: "api", version: "v1" }));
+export default function handler(req, res) {
+  res.statusCode = 200;
+  res.setHeader('content-type', 'application/json');
+  res.end(JSON.stringify({ status: 'ok', service: 'api', version: 'v1' }));
 }
-export {
-  handler as default
-};
