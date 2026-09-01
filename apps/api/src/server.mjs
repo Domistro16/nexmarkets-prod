@@ -34,6 +34,8 @@ const FACTORY_EVIDENCE_ABI = new Interface([
   'event EditionCreated(address indexed edition,bytes32 indexed editionId,address indexed publisher,bytes32 salt,address protocolAdmin,address mintController,uint32 absoluteSupplyCap,bytes32 artworkCommitment)'
 ]);
 const FACTORY_CONFIG_TUPLE = 'tuple(string name,string symbol,address initialOwner,bytes32 editionId,uint32 absoluteSupplyCap,bytes32 artworkCommitment,string baseTokenURI)';
+const PINNED_CREATION_BYTECODE = "0x60e06040526001600c55348015610014575f5ffd5b50604051612c38380380612c3883398101604081905261003391610337565b6040810151815160208301515f61004a83826104af565b50600161005782826104af565b5050506001600160a01b03811661008757604051631e4fbdf760e01b81525f600482015260240160405180910390fd5b610090816101f3565b5060017f9b779b17422d0df92223018b32b4d1fa46e071723d6817e2486d003becc55f005560408101516001600160a01b03166100e057604051631c9670bb60e01b815260040160405180910390fd5b606081015161010257604051630609d2f760e01b815260040160405180910390fd5b60a08101516101245760405163fe8b4fc560e01b815260040160405180910390fd5b806080015163ffffffff165f0361014e576040516315ae672760e01b815260040160405180910390fd5b8060c00151515f036101735760405163180caec360e21b815260040160405180910390fd5b6060810151608090815260a080830151905281015163ffffffff1660c0908152810151600a906101a390826104af565b5060a08101516060820151608083015160405163ffffffff90911681527f3a34ed2682da72a47ed7c5d17d81cde3e653636dd09c3f4009a8f0294b3628e59060200160405180910390a350610569565b600880546001600160a01b038381166001600160a01b0319831681179093556040519116919082907f8be0079c531659141344cd1fd0a4f28419497f9722a3daafe3b4186f6b6457e0905f90a35050565b634e487b7160e01b5f52604160045260245ffd5b60405160e081016001600160401b038111828210171561027a5761027a610244565b60405290565b5f82601f83011261028f575f5ffd5b81516001600160401b038111156102a8576102a8610244565b604051601f8201601f19908116603f011681016001600160401b03811182821017156102d6576102d6610244565b6040528181528382016020018510156102ed575f5ffd5b8160208501602083015e5f918101602001919091529392505050565b80516001600160a01b038116811461031f575f5ffd5b919050565b805163ffffffff8116811461031f575f5ffd5b5f60208284031215610347575f5ffd5b81516001600160401b0381111561035c575f5ffd5b820160e0818503121561036d575f5ffd5b610375610258565b81516001600160401b0381111561038a575f5ffd5b61039686828501610280565b82525060208201516001600160401b038111156103b1575f5ffd5b6103bd86828501610280565b6020830152506103cf60408301610309565b6040820152606082810151908201526103ea60808301610324565b608082015260a0828101519082015260c08201516001600160401b03811115610411575f5ffd5b61041d86828501610280565b60c083015250949350505050565b600181811c9082168061043f57607f821691505b60208210810361045d57634e487b7160e01b5f52602260045260245ffd5b50919050565b601f8211156104aa57805f5260205f20601f840160051c810160208510156104885750805b601f840160051c820191505b818110156104a7575f8155600101610494565b50505b505050565b81516001600160401b038111156104c8576104c8610244565b6104dc816104d6845461042b565b84610463565b6020601f82116001811461050e575f83156104f75750848201515b5f19600385901b1c1916600184901b1784556104a7565b5f84815260208120601f198516915b8281101561053d578785015182556020948501946001909201910161051d565b508482101561055a57868401515f19600387901b60f8161c191681555b50505050600190811b01905550565b60805160a05160c0516126826105b65f395f818161029401528181610820015281816108ea0152818161091c01528181611379015261147d01525f61041801525f6104b901526126825ff3fe";
+
 function editionCreationCode() {
   try {
     const pinned = readFileSync(new URL('../../../packages/contracts/bytecode/NexPassEdition.creation.hex', import.meta.url), 'utf8').trim();
@@ -42,9 +44,9 @@ function editionCreationCode() {
   try {
     const artifact = JSON.parse(readFileSync(new URL('../../../packages/contracts/out/NexPassEdition.sol/NexPassEdition.json', import.meta.url), 'utf8'));
     const bytecode = typeof artifact.bytecode === 'string' ? artifact.bytecode : artifact.bytecode?.object;
-    if (!bytecode || bytecode === '0x') throw new Error('empty bytecode');
-    return bytecode;
-  } catch (error) { throw Object.assign(new Error(`FACTORY_BYTECODE_REQUIRED:${error.message}`), { status: 503 }); }
+    if (bytecode && bytecode !== '0x') return bytecode;
+  } catch { /* fallback to embedded pinned constant */ }
+  return PINNED_CREATION_BYTECODE;
 }
 export function predictEditionAddress({ factoryAddress, name, symbol, initialOwner, editionId, absoluteSupplyCap, artworkCommitment, baseTokenURI, salt }) {
   if (!isAddress(factoryAddress) || !isAddress(initialOwner)) throw Object.assign(new Error('FACTORY_CONFIGURATION_REQUIRED'), { status: 503 });
@@ -382,7 +384,7 @@ export function createApiServer({
   });
 }
 
-if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
+if (!process.env.VERCEL && !process.env.AWS_LAMBDA_FUNCTION_NAME && import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
   const store = new PostgresStore(); const port = Number(process.env.PORT || 4010); const chainId = Number(process.env.ROBINHOOD_CHAIN_ID ?? 4663); const rpc = new JsonRpcClient(chainId === 46630 ? (process.env.RH_TESTNET_RPC_URL ?? 'https://rpc.testnet.chain.robinhood.com') : (process.env.RH_MAINNET_RPC_URL ?? 'https://rpc.mainnet.chain.robinhood.com')); const subgraph = new SubgraphClient({ endpoint: process.env.NEXMARKETS_SUBGRAPH_URL, certificationEditionAddress: process.env.CERTIFICATION_EDITION_ADDRESS, certificationEditionName: process.env.CERTIFICATION_EDITION_NAME });
   const secureCookies = process.env.SECURE_COOKIES === 'true' ? true : process.env.SECURE_COOKIES === 'false' ? false : process.env.NODE_ENV !== 'test';
   const requireIndexedReadiness = process.env.REQUIRE_INDEXED_READINESS === 'true' || process.env.NODE_ENV === 'production';
@@ -426,5 +428,8 @@ export default async function handler(req, res) {
     });
     defaultServerlessListener = server.listeners('request')[0];
   }
+  if (req.url.startsWith('/api/v1/')) req.url = req.url.replace('/api/v1/', '/v1/');
+  else if (req.url === '/api/v1') req.url = '/v1/discover';
+  else if (req.url.startsWith('/api/')) req.url = req.url.replace('/api/', '/');
   return defaultServerlessListener(req, res);
 }
