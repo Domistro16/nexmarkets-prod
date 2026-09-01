@@ -19,7 +19,7 @@ bd77656cf1fa2e1e33b5e1afbb3c14a709fa353a00ac999804a9678cef65820f  ./api/readyz.j
 83801d1546f4802277969c7403826858d2f70e61ce0077a0e9ac88050bc46eaf  ./apps/api/scripts/build-web.mjs
 bac26f66a2017b4194a2b0b66a0f2aba79851b0b3985d476c8336b9ea149b059  ./apps/api/src/memory-store.mjs
 d2b536f000f0e0048aea482ac1c4c2f85955947798d3fef301e357dd8c0b7eeb  ./apps/api/src/server.mjs
-b5dc4fdf964338fcac6635d20bc86616cedc80171a3ed77d2854a76f9c0e0bcb  ./apps/api/vercel.json
+25f1825cb52490415ce142d0e11660b682bf31b9709edd20c26df359dc44ce26  ./apps/api/vercel.json
 fd539fe4c5f6acecaf1c0379d7ca8e43ff9e62e9174a2232ed87c5d4fd93f6f0  ./apps/web/README.md
 46e6056bc43d459d294c2bfff7cb9ea9474f11d377766ba43bc901b47ca47d34  ./apps/web/package.json
 aeecf729492aca05b3c7833b3ac5e7913db92169202172127a73d46ea54b74c2  ./apps/web/public/app.mjs
@@ -34,7 +34,7 @@ cc0e87a6cfdd7679a1a2113d75288db8cffb9335c6e0b7d522de74fb5d3a12a7  ./apps/web/pub
 f4fa35d56d4bd59be1dfbac02d049fe488c61d957f06ac853cb1000284c2df47  ./apps/web/public/v2-app.mjs
 9475eca46351ac83d629b3bed656a1322cea06b6feb37ee12932ca7b95033449  ./apps/web/public/wallet.mjs
 83801d1546f4802277969c7403826858d2f70e61ce0077a0e9ac88050bc46eaf  ./apps/web/scripts/build-web.mjs
-b5dc4fdf964338fcac6635d20bc86616cedc80171a3ed77d2854a76f9c0e0bcb  ./apps/web/vercel.json
+25f1825cb52490415ce142d0e11660b682bf31b9709edd20c26df359dc44ce26  ./apps/web/vercel.json
 55032cb5e1da28cbef359d506e9af505def0ee6170732595b71affb4dd13c740  ./artifacts/deployment-plan/robinhood-mainnet.deploy.safe.json
 e77eee28af3b4556b6309574251f2063f5469c45bb8a9d946c94ab2c824c96ff  ./artifacts/deployment-plan/robinhood-mainnet.json
 c851e50f2301f921858da6f1ef8b1c47fc9b921af209149c02eec97ab0e84185  ./artifacts/deployment-plan/robinhood-mainnet.wire.safe.json
@@ -143,7 +143,6 @@ ed044bc4dfcf14981e7e668093d265b4507e13c9f6a86c123ac7eb3072ec8ac5  ./packages/dom
 2a4cbb2863810201e1ed99a462eeaa824ffec8c022fe8396a6fb9be83cc09c50  ./packages/observability/src/metrics.mjs
 cb4d3008c06cea129d973ae89b55df575e87adb67a873e0caf5bc2d6a0de4db9  ./packages/subgraph-client/package.json
 debb6c2410065a28bb762b1b07a23a1f5105490a8143063afa1d325f265cb5e4  ./packages/subgraph-client/src/index.mjs
-6d49e9aa35c8bb2e181e6147e49458c0234a38388db21753ae6d0a35b811f9d8  ./playwright.config.mjs
 24daa3e2afc280690db3d213f953334b10cf92309f2698552c5db543b00b90a6  ./product-authority/NEXMARKETS_ELITE_RELEASE_CANDIDATE.html
 aeecf729492aca05b3c7833b3ac5e7913db92169202172127a73d46ea54b74c2  ./public/app.mjs
 abf8703a57c22bb73f9d5c70ef2c25a13c6cfa264ca754a1c95539388ae4535d  ./public/chains.mjs
@@ -242,6 +241,7 @@ e0e07ae56ae225d592072843d999fe0d7f48a34fe5776c45e9b41d96a0a8578c  ./test/keccak.
 5f6d25d791cb29ccd058e3056de148808d706b118b0dfa59af07860c40a3cee4  ./test/notification.test.mjs
 14ac772a84a67640c63814ccc3148bc3cadda67307af15e13f26e7908fc6d0aa  ./test/observability.test.mjs
 fae9984973c877d295f6e1db31ce099bbf356710c3b09d8c31445be764285c2a  ./test/outbox.test.mjs
+6d49e9aa35c8bb2e181e6147e49458c0234a38388db21753ae6d0a35b811f9d8  ./test/playwright.config.mjs
 d2226eff8ae20c52b8e6ffa600c280024ec362160b173d4763b1dcd3f941abf9  ./test/reconciliation.test.mjs
 27e616a7254c1ec1c36d41d11abf0759042d59563281e066bcac67a1faa88d27  ./test/referral-media.test.mjs
 a2919bcf61d515bda1eec655d852e44d1e7d40581caa3af182d8a8ee5f8ae897  ./test/runtime-integration.test.mjs
@@ -253,4 +253,4 @@ f3ab49089c06036bca30b050ae794797b311cee8587bc1cf66bbfba30eca6f4c  ./test/transac
 2b1ea408827bda81647c95b793a3c19da322ea414f106cfdad62c94fbcf7f0aa  ./test/transaction-lifecycle.test.mjs
 6b68b9e686cf7f26ab355acd2868ad89cc5fdcc172b629427bf39bfe4023d867  ./test/web-e2e.test.mjs
 71cc22942cd113fdb0b861c9aee4ff9fd0d88b30da6feae85a09ce902a2334f3  ./test/web.test.mjs
-b5dc4fdf964338fcac6635d20bc86616cedc80171a3ed77d2854a76f9c0e0bcb  ./vercel.json
+25f1825cb52490415ce142d0e11660b682bf31b9709edd20c26df359dc44ce26  ./vercel.json
