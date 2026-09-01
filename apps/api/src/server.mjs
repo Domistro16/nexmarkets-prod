@@ -196,6 +196,7 @@ export function createApiServer({
         if (!reqHost || new URL(origin).host !== reqHost) throw Object.assign(new Error('ORIGIN_REJECTED'), { status: 403 });
       }
 
+      if (req.method === 'GET' && (url.pathname === '/' || url.pathname === '')) return json(res, 200, { service: 'nexmarkets-api', version: 'v1', status: 'ok', requestId });
       if (req.method === 'GET' && url.pathname === '/healthz') return json(res, 200, { status: 'ok', service: 'api', version: 'v1', requestId });
       if (req.method === 'GET' && url.pathname === '/readyz') {
         await store.ready(); metrics.set('nexmarkets_db_ready', 1);

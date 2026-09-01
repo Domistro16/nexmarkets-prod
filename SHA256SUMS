@@ -12,11 +12,11 @@ aa00ec1159235cd75270b679c56333e2cea22d924224e34a3294497b1748cc36  ./.github/work
 5694f3e3cb0c0c01b244795ee18ab4374bfbee2a8d30231c4992dfc7f885a298  ./api-src/readyz.js
 4fad7e8670356da9efc74417624ce0ba781bf89098c6b839588a62da2c589e60  ./api-src/v1/[...slug].js
 4e93483cd5d6c29f77fdbc4760eb4da2ecbedb435f21f9275d4f5331ec2b3f04  ./api/healthz.js
-9f7c60f82394024ca68ebe6fc77512ef04d2871930588f5761668e7dab1eb676  ./api/readyz.js
-3a07c9a1a01352b6821164382dd732d53971bca43d943a4c1abb56e95b924841  ./api/v1/[...slug].js
+9ad62a5d475b540ddc9305bbb06394597b81137f02d4e678dbb7c363a0fc5448  ./api/readyz.js
+5c81191187254ee5c6f219580c278b3d1a4b4e21dbd997bc048f8bc0d95dcdd3  ./api/v1/[...slug].js
 4e93483cd5d6c29f77fdbc4760eb4da2ecbedb435f21f9275d4f5331ec2b3f04  ./apps/api/api/healthz.js
-9f7c60f82394024ca68ebe6fc77512ef04d2871930588f5761668e7dab1eb676  ./apps/api/api/readyz.js
-3a07c9a1a01352b6821164382dd732d53971bca43d943a4c1abb56e95b924841  ./apps/api/api/v1/[...slug].js
+9ad62a5d475b540ddc9305bbb06394597b81137f02d4e678dbb7c363a0fc5448  ./apps/api/api/readyz.js
+5c81191187254ee5c6f219580c278b3d1a4b4e21dbd997bc048f8bc0d95dcdd3  ./apps/api/api/v1/[...slug].js
 3c85e66dce53a4420a294174f671745c4451657492e744772721c1262017bc00  ./apps/api/package.json
 aeecf729492aca05b3c7833b3ac5e7913db92169202172127a73d46ea54b74c2  ./apps/api/public/app.mjs
 abf8703a57c22bb73f9d5c70ef2c25a13c6cfa264ca754a1c95539388ae4535d  ./apps/api/public/chains.mjs
@@ -31,12 +31,12 @@ f4fa35d56d4bd59be1dfbac02d049fe488c61d957f06ac853cb1000284c2df47  ./apps/api/pub
 9475eca46351ac83d629b3bed656a1322cea06b6feb37ee12932ca7b95033449  ./apps/api/public/wallet.mjs
 83801d1546f4802277969c7403826858d2f70e61ce0077a0e9ac88050bc46eaf  ./apps/api/scripts/build-web.mjs
 bac26f66a2017b4194a2b0b66a0f2aba79851b0b3985d476c8336b9ea149b059  ./apps/api/src/memory-store.mjs
-70881986c87143c5349dabdea448202e0ab5c259c619172e222ca654980bf5ac  ./apps/api/src/server.mjs
-cf13911443f0989098dc30799630d1b481058790addb8c11e2c5688e9094492d  ./apps/api/vercel.json
+e1b23c5b5041fa3f0da596e152b425597d1f0867099284a4feb394773548d98e  ./apps/api/src/server.mjs
+aaf213c6cf2aac49995f23bb2cfd4ad1e22475d742209953c3738ccda6ea0384  ./apps/api/vercel.json
 fd539fe4c5f6acecaf1c0379d7ca8e43ff9e62e9174a2232ed87c5d4fd93f6f0  ./apps/web/README.md
 4e93483cd5d6c29f77fdbc4760eb4da2ecbedb435f21f9275d4f5331ec2b3f04  ./apps/web/api/healthz.js
-9f7c60f82394024ca68ebe6fc77512ef04d2871930588f5761668e7dab1eb676  ./apps/web/api/readyz.js
-3a07c9a1a01352b6821164382dd732d53971bca43d943a4c1abb56e95b924841  ./apps/web/api/v1/[...slug].js
+9ad62a5d475b540ddc9305bbb06394597b81137f02d4e678dbb7c363a0fc5448  ./apps/web/api/readyz.js
+5c81191187254ee5c6f219580c278b3d1a4b4e21dbd997bc048f8bc0d95dcdd3  ./apps/web/api/v1/[...slug].js
 46e6056bc43d459d294c2bfff7cb9ea9474f11d377766ba43bc901b47ca47d34  ./apps/web/package.json
 aeecf729492aca05b3c7833b3ac5e7913db92169202172127a73d46ea54b74c2  ./apps/web/public/app.mjs
 abf8703a57c22bb73f9d5c70ef2c25a13c6cfa264ca754a1c95539388ae4535d  ./apps/web/public/chains.mjs
@@ -50,7 +50,7 @@ cc0e87a6cfdd7679a1a2113d75288db8cffb9335c6e0b7d522de74fb5d3a12a7  ./apps/web/pub
 f4fa35d56d4bd59be1dfbac02d049fe488c61d957f06ac853cb1000284c2df47  ./apps/web/public/v2-app.mjs
 9475eca46351ac83d629b3bed656a1322cea06b6feb37ee12932ca7b95033449  ./apps/web/public/wallet.mjs
 83801d1546f4802277969c7403826858d2f70e61ce0077a0e9ac88050bc46eaf  ./apps/web/scripts/build-web.mjs
-cf13911443f0989098dc30799630d1b481058790addb8c11e2c5688e9094492d  ./apps/web/vercel.json
+aaf213c6cf2aac49995f23bb2cfd4ad1e22475d742209953c3738ccda6ea0384  ./apps/web/vercel.json
 55032cb5e1da28cbef359d506e9af505def0ee6170732595b71affb4dd13c740  ./artifacts/deployment-plan/robinhood-mainnet.deploy.safe.json
 e77eee28af3b4556b6309574251f2063f5469c45bb8a9d946c94ab2c824c96ff  ./artifacts/deployment-plan/robinhood-mainnet.json
 c851e50f2301f921858da6f1ef8b1c47fc9b921af209149c02eec97ab0e84185  ./artifacts/deployment-plan/robinhood-mainnet.wire.safe.json
@@ -269,4 +269,4 @@ f3ab49089c06036bca30b050ae794797b311cee8587bc1cf66bbfba30eca6f4c  ./test/transac
 2b1ea408827bda81647c95b793a3c19da322ea414f106cfdad62c94fbcf7f0aa  ./test/transaction-lifecycle.test.mjs
 6b68b9e686cf7f26ab355acd2868ad89cc5fdcc172b629427bf39bfe4023d867  ./test/web-e2e.test.mjs
 71cc22942cd113fdb0b861c9aee4ff9fd0d88b30da6feae85a09ce902a2334f3  ./test/web.test.mjs
-cf13911443f0989098dc30799630d1b481058790addb8c11e2c5688e9094492d  ./vercel.json
+aaf213c6cf2aac49995f23bb2cfd4ad1e22475d742209953c3738ccda6ea0384  ./vercel.json
