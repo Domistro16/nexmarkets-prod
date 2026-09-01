@@ -3,4 +3,7 @@ scripts/
 deployments/
 infra/
 services/
-packages/contracts/
+packages/
+apps/
+api-src/
+docs/
