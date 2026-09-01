@@ -32,7 +32,7 @@ f4fa35d56d4bd59be1dfbac02d049fe488c61d957f06ac853cb1000284c2df47  ./apps/api/pub
 83801d1546f4802277969c7403826858d2f70e61ce0077a0e9ac88050bc46eaf  ./apps/api/scripts/build-web.mjs
 bac26f66a2017b4194a2b0b66a0f2aba79851b0b3985d476c8336b9ea149b059  ./apps/api/src/memory-store.mjs
 70881986c87143c5349dabdea448202e0ab5c259c619172e222ca654980bf5ac  ./apps/api/src/server.mjs
-4419700aba7ce809682f7fa0eb6283a1f05d6fdf5f89350dae1afe385d4386c2  ./apps/api/vercel.json
+cf13911443f0989098dc30799630d1b481058790addb8c11e2c5688e9094492d  ./apps/api/vercel.json
 fd539fe4c5f6acecaf1c0379d7ca8e43ff9e62e9174a2232ed87c5d4fd93f6f0  ./apps/web/README.md
 4e93483cd5d6c29f77fdbc4760eb4da2ecbedb435f21f9275d4f5331ec2b3f04  ./apps/web/api/healthz.js
 9f7c60f82394024ca68ebe6fc77512ef04d2871930588f5761668e7dab1eb676  ./apps/web/api/readyz.js
@@ -50,7 +50,7 @@ cc0e87a6cfdd7679a1a2113d75288db8cffb9335c6e0b7d522de74fb5d3a12a7  ./apps/web/pub
 f4fa35d56d4bd59be1dfbac02d049fe488c61d957f06ac853cb1000284c2df47  ./apps/web/public/v2-app.mjs
 9475eca46351ac83d629b3bed656a1322cea06b6feb37ee12932ca7b95033449  ./apps/web/public/wallet.mjs
 83801d1546f4802277969c7403826858d2f70e61ce0077a0e9ac88050bc46eaf  ./apps/web/scripts/build-web.mjs
-4419700aba7ce809682f7fa0eb6283a1f05d6fdf5f89350dae1afe385d4386c2  ./apps/web/vercel.json
+cf13911443f0989098dc30799630d1b481058790addb8c11e2c5688e9094492d  ./apps/web/vercel.json
 55032cb5e1da28cbef359d506e9af505def0ee6170732595b71affb4dd13c740  ./artifacts/deployment-plan/robinhood-mainnet.deploy.safe.json
 e77eee28af3b4556b6309574251f2063f5469c45bb8a9d946c94ab2c824c96ff  ./artifacts/deployment-plan/robinhood-mainnet.json
 c851e50f2301f921858da6f1ef8b1c47fc9b921af209149c02eec97ab0e84185  ./artifacts/deployment-plan/robinhood-mainnet.wire.safe.json
@@ -269,4 +269,4 @@ f3ab49089c06036bca30b050ae794797b311cee8587bc1cf66bbfba30eca6f4c  ./test/transac
 2b1ea408827bda81647c95b793a3c19da322ea414f106cfdad62c94fbcf7f0aa  ./test/transaction-lifecycle.test.mjs
 6b68b9e686cf7f26ab355acd2868ad89cc5fdcc172b629427bf39bfe4023d867  ./test/web-e2e.test.mjs
 71cc22942cd113fdb0b861c9aee4ff9fd0d88b30da6feae85a09ce902a2334f3  ./test/web.test.mjs
-4419700aba7ce809682f7fa0eb6283a1f05d6fdf5f89350dae1afe385d4386c2  ./vercel.json
+cf13911443f0989098dc30799630d1b481058790addb8c11e2c5688e9094492d  ./vercel.json
