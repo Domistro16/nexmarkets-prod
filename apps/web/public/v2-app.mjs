@@ -42,10 +42,28 @@ function seconds(value) {
 }
 function iso(value) { const s = seconds(value); return s == null ? null : new Date(s * 1000).toISOString(); }
 function usd(value) {
-  const units = typeof value === 'bigint' ? value : BigInt(String(value ?? 0));
-  const whole = units / 1_000_000n;
-  const fraction = String(units % 1_000_000n).padStart(6, '0').replace(/0+$/, '');
-  return Number(`${whole}${fraction ? `.${fraction}` : ''}`);
+  if (value == null || value === '') return 0;
+  if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
+  if (typeof value === 'bigint') {
+    const whole = value / 1_000_000n;
+    const fraction = String(value % 1_000_000n).padStart(6, '0').replace(/0+$/, '');
+    return Number(`${whole}${fraction ? `.${fraction}` : ''}`);
+  }
+  const str = String(value).trim();
+  if (!str) return 0;
+  if (str.includes('.')) {
+    const num = Number(str);
+    return Number.isFinite(num) ? num : 0;
+  }
+  try {
+    const units = BigInt(str);
+    const whole = units / 1_000_000n;
+    const fraction = String(units % 1_000_000n).padStart(6, '0').replace(/0+$/, '');
+    return Number(`${whole}${fraction ? `.${fraction}` : ''}`);
+  } catch {
+    const num = Number(str);
+    return Number.isFinite(num) ? num : 0;
+  }
 }
 function padSerial(value) { return `#${String(Math.max(0, number(value))).padStart(3, '0')}`; }
 function initials(value) { return String(value || 'NP').split(/\s+/).map((part) => part[0]).join('').slice(0, 2).toUpperCase() || 'NP'; }
