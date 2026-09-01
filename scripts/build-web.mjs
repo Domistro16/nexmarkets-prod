@@ -1,9 +1,22 @@
 import { cp, mkdir, readFile, rm } from 'node:fs/promises';
-const source = new URL('../apps/web/public/', import.meta.url); const output = new URL('../apps/web/dist/', import.meta.url);
-await rm(output, { recursive: true, force: true }); await mkdir(output, { recursive: true }); await cp(source, output, { recursive: true });
-const app = await readFile(new URL('../apps/web/public/app.mjs', import.meta.url), 'utf8');
-const v2App = await readFile(new URL('../apps/web/public/v2-app.mjs', import.meta.url), 'utf8');
-const template = await readFile(new URL('../apps/web/public/index.html', import.meta.url), 'utf8');
+
+const root = new URL('../', import.meta.url);
+const source = new URL('./apps/web/public/', root);
+const outputs = [
+  new URL('./apps/web/dist/', root),
+  new URL('./apps/api/dist/', root),
+  new URL('./dist/', root)
+];
+
+for (const output of outputs) {
+  await rm(output, { recursive: true, force: true });
+  await mkdir(output, { recursive: true });
+  await cp(source, output, { recursive: true });
+}
+
+const app = await readFile(new URL('./apps/web/public/app.mjs', root), 'utf8');
+const v2App = await readFile(new URL('./apps/web/public/v2-app.mjs', root), 'utf8');
+const template = await readFile(new URL('./apps/web/public/index.html', root), 'utf8');
 const routes = ['/discover','/projects/','/editions/','/market','/create','/dashboard/holder','/dashboard/builder','/passes/','/transactions/','/edition-requests/'];
 for (const route of routes) if (!app.includes(route)) throw new Error(`Missing certified route: ${route}`);
 for (const forbidden of ['mockProducts','guaranteed appreciation','APY','passive yield','revenue share']) if (app.toLowerCase().includes(forbidden.toLowerCase())) throw new Error(`Forbidden production copy: ${forbidden}`);

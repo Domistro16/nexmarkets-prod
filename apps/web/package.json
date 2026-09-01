@@ -1,1 +1,1 @@
-{"name":"@nexmarkets/web","private":true,"type":"module","scripts":{"build":"node ../../scripts/build-web.mjs","web:build":"node ../../scripts/build-web.mjs","test":"node --test ../../test/web*.test.mjs"}}
+{"name":"@nexmarkets/web","private":true,"type":"module","scripts":{"build":"node scripts/build-web.mjs","web:build":"node scripts/build-web.mjs","test":"node --test ../../test/web*.test.mjs"}}
