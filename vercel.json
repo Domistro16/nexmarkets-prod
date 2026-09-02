@@ -9,14 +9,8 @@
       "maxDuration": 15
     }
   },
-  "redirects": [
-    {
-      "source": "/",
-      "destination": "/index.html",
-      "permanent": false
-    }
-  ],
   "rewrites": [
+    { "source": "/", "destination": "/index.html" },
     { "source": "/healthz", "destination": "/api/healthz" },
     { "source": "/readyz", "destination": "/api/readyz" },
     { "source": "/v1/:match*", "destination": "/api/v1/:match*" },

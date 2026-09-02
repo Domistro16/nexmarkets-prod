@@ -28882,6 +28882,7 @@ window.nmProjectPassFlipAudit=()=>{const f=activeProjectPassFrame();return {host
     return {projects:projects.length,collections:collections.length,listings:listings.length,ownedPasses:ownedPasses.length};
   };
   window.__nmV2GetData=function(){return {projects:projects.slice(),collections:collections.slice(),listings:listings.slice(),ownedPasses:ownedPasses.slice()}};
+  window.__nmV2GetSelections=function(){return {project:selectedProject,edition:selectedEdition,listing:selectedListing,owned:selectedOwnedPassKey,route:currentRoute}};
   window.__nmV2CompileCreateLaunch=function(){return typeof compileCreateLaunch==='function'?compileCreateLaunch():null};
 })();
 </script>

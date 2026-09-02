@@ -699,6 +699,54 @@ function guardMutations() {
     showRuntimeBanner('This browser view is read-only. No blockchain transaction was submitted.', false);
   }, true);
 }
+
+// The V2 template uses a single static document and renders its surfaces in
+// place. Keep that architecture, but mirror the active surface in the
+// browser URL so navigation is shareable, refreshable, and does not expose
+// the implementation entrypoint (index.html).
+function installHistoryRouting() {
+  const originalGo = window.go;
+  if (typeof originalGo !== 'function' || originalGo.__nmHistoryWrapped) return;
+
+  const selections = () => window.__nmV2GetSelections?.() || {};
+  const pathForRoute = (route) => {
+    switch (route) {
+      case 'home': return '/';
+      case 'discover': return '/discover';
+      case 'market': return '/market';
+      case 'create': return '/create';
+      case 'dashboard': return '/dashboard/holder';
+      case 'project': {
+        const name = selections().project || state.detailProject?.name || '';
+        return name ? `/projects/${encodeURIComponent(name)}` : '/discover';
+      }
+      case 'collection': {
+        const edition = selections().edition || state.edition?.address || '';
+        return /^0x[0-9a-f]{40}$/i.test(edition)
+          ? `/editions/${encodeURIComponent(edition)}`
+          : (selections().project ? `/projects/${encodeURIComponent(selections().project)}` : '/discover');
+      }
+      case 'listing': {
+        return '/market';
+      }
+      case 'owned': return '/dashboard/holder?view=owned';
+      case 'launch': return '/projects/nexstudio';
+      default: return null;
+    }
+  };
+
+  const wrappedGo = function wrappedGo(route) {
+    const nextPath = pathForRoute(route);
+    if (nextPath) {
+      const current = `${window.location.pathname}${window.location.search}`;
+      if (current !== nextPath) window.history.pushState({ nexmarketsRoute: route }, '', nextPath);
+    }
+    return originalGo.call(this, route);
+  };
+  wrappedGo.__nmHistoryWrapped = true;
+  wrappedGo.__nmOriginalGo = originalGo;
+  window.go = wrappedGo;
+}
 function exposeRuntime() {
   window.__nmV2SubmitCreateDraft = submitCreateDraft;
   window.completeCreatePublish = submitCreateDraft;
@@ -713,6 +761,6 @@ function exposeRuntime() {
   };
 }
 
-wireWallet(); guardMutations(); exposeRuntime();
+installHistoryRouting(); wireWallet(); guardMutations(); exposeRuntime();
 addEventListener('popstate', () => goView(routeInfo()));
 hydrate();

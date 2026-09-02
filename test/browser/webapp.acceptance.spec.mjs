@@ -120,6 +120,20 @@ test('V2 template renders certified API/Subgraph data across public routes witho
   expect(errors, `fatal browser errors: ${errors.join('; ')}`).toEqual([]);
 });
 
+test('template navigation keeps clean browser URLs and supports back navigation', async ({ page }) => {
+  await installFixtureApi(page);
+  await goto(page, '/');
+
+  await page.evaluate(() => window.go('discover'));
+  await expect.poll(() => page.evaluate(() => ({ path: location.pathname, screen: document.querySelector('.screen.active')?.id }))).toEqual({ path: '/discover', screen: 'discover' });
+
+  await page.evaluate(() => window.go('market'));
+  await expect.poll(() => page.evaluate(() => ({ path: location.pathname, screen: document.querySelector('.screen.active')?.id }))).toEqual({ path: '/market', screen: 'market' });
+
+  await page.goBack({ waitUntil: 'commit' });
+  await expect.poll(() => page.evaluate(() => ({ path: location.pathname, screen: document.querySelector('.screen.active')?.id }))).toEqual({ path: '/discover', screen: 'discover' });
+});
+
 test('wallet disconnected and wrong-network states are explicit', async ({ page }) => {
   await installFixtureApi(page);
   await page.addInitScript(({ owner }) => {
