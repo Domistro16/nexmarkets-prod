@@ -269,4 +269,4 @@ f3ab49089c06036bca30b050ae794797b311cee8587bc1cf66bbfba30eca6f4c  ./test/transac
 2b1ea408827bda81647c95b793a3c19da322ea414f106cfdad62c94fbcf7f0aa  ./test/transaction-lifecycle.test.mjs
 6b68b9e686cf7f26ab355acd2868ad89cc5fdcc172b629427bf39bfe4023d867  ./test/web-e2e.test.mjs
 71cc22942cd113fdb0b861c9aee4ff9fd0d88b30da6feae85a09ce902a2334f3  ./test/web.test.mjs
-dc9afe2618f8ce08fb18024cf7a1ec1b8ed8efa313cab5226539edb5f3eda41c  ./vercel.json
+67a59e85179ec7245c5992a98ea87a46f61f7c4ad0d5f134599d1c158ce49f84  ./vercel.json
