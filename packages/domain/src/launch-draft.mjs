@@ -8,6 +8,10 @@ export const ALLOWED_PRODUCT_STATES = Object.freeze([
   'Live', 'MVP', 'Beta', 'Development', 'Concept', 'Preview'
 ]);
 
+export const ALLOWED_NETWORKS = Object.freeze([
+  'robinhood', 'base'
+]);
+
 export const ALLOWED_ADVANTAGE_MECHANISMS = Object.freeze([
   'TimeBased', 'QuantityBased', 'Connected', 'Redemption'
 ]);
@@ -15,7 +19,7 @@ export const ALLOWED_ADVANTAGE_MECHANISMS = Object.freeze([
 export const ALLOWED_REFERRAL_RATES = Object.freeze([5, 10, 15, 20]);
 
 export const ALLOWED_PASS_DESIGNS = Object.freeze([
-  'classic', 'modern', 'glass', 'metal', 'chroma'
+  'classic', 'modern', 'glass', 'metal', 'chroma', 'chromatic'
 ]);
 
 export const ALLOWED_THEME_MODES = Object.freeze([
@@ -27,7 +31,7 @@ export const ALLOWED_COLOR_STYLES = Object.freeze([
 ]);
 
 export const ALLOWED_GRADIENT_DIRECTIONS = Object.freeze([
-  'diagonal', 'vertical', 'horizontal', 'radial'
+  'diagonal', 'vertical', 'horizontal', 'radial', 'reverse'
 ]);
 
 export const ALLOWED_FRAMES = Object.freeze([
@@ -36,7 +40,8 @@ export const ALLOWED_FRAMES = Object.freeze([
 ]);
 
 export const ALLOWED_TEXTURES = Object.freeze([
-  'none', 'grain', 'dots', 'lines', 'mesh', 'grid', 'carbon'
+  'none', 'linen', 'grain', 'leather', 'brushed', 'silk', 'hammered',
+  'concrete', 'canvas', 'emboss', 'foil', 'dots', 'lines', 'mesh', 'grid', 'carbon'
 ]);
 
 export const ALLOWED_ART_MODES = Object.freeze([
@@ -172,6 +177,11 @@ export function normalizeLaunchDraft(draft = {}, defaults = {}) {
     throw Object.assign(new Error('INVALID_PRODUCT_STATE'), { status: 400 });
   }
 
+  const network = String(draft.network ?? projectInput.network ?? draft.edition?.network ?? 'robinhood').trim().toLowerCase();
+  if (!ALLOWED_NETWORKS.includes(network)) {
+    throw Object.assign(new Error('INVALID_NETWORK'), { status: 400 });
+  }
+
   const bannerInput = projectInput.banner ?? {};
   const bannerPalette = Array.isArray(bannerInput.palette) && bannerInput.palette.length >= 3
     ? bannerInput.palette.slice(0, 3).map((c) => HEX_COLOR_REGEX.test(c) ? c : '#5f6f50')
@@ -267,6 +277,7 @@ export function normalizeLaunchDraft(draft = {}, defaults = {}) {
   }
 
   const color = HEX_COLOR_REGEX.test(designInput.color) ? designInput.color : '#5f6f50';
+  const customColor = HEX_COLOR_REGEX.test(designInput.customColor) ? designInput.customColor : color;
   const colorStyle = ALLOWED_COLOR_STYLES.includes(designInput.colorStyle) ? designInput.colorStyle : 'solid';
   const gradientA = HEX_COLOR_REGEX.test(designInput.gradientA) ? designInput.gradientA : color;
   const gradientB = HEX_COLOR_REGEX.test(designInput.gradientB) ? designInput.gradientB : '#17241f';
@@ -280,6 +291,10 @@ export function normalizeLaunchDraft(draft = {}, defaults = {}) {
   const artMode = ALLOWED_ART_MODES.includes(designInput.artMode) ? designInput.artMode : 'single';
   const artX = Math.max(0, Math.min(100, Number(designInput.artX ?? 50)));
   const artY = Math.max(0, Math.min(100, Number(designInput.artY ?? 50)));
+  const frameHueCustomized = Boolean(designInput.frameHueCustomized);
+  const artEditionView = ['grid', 'serials', 'list'].includes(designInput.artEditionView) ? designInput.artEditionView : 'grid';
+  const rawSelectedSerialIndex = Number(designInput.selectedSerialIndex ?? 0);
+  const selectedSerialIndex = Number.isFinite(rawSelectedSerialIndex) ? Math.max(0, Math.floor(rawSelectedSerialIndex)) : 0;
 
   const rawArtEdition = Array.isArray(designInput.artEdition) ? designInput.artEdition : [];
   const artEdition = rawArtEdition.map((entry, idx) => {
@@ -304,11 +319,13 @@ export function normalizeLaunchDraft(draft = {}, defaults = {}) {
     passDesign,
     themeMode,
     color,
+    customColor,
     colorStyle,
     gradientA,
     gradientB,
     gradientDirection,
     frame,
+    frameHueCustomized,
     frameColor,
     texture,
     textureTint,
@@ -316,7 +333,8 @@ export function normalizeLaunchDraft(draft = {}, defaults = {}) {
     artMode,
     artSrc: sanitizeMediaUrl(designInput.artSrc),
     artEdition,
-    selectedSerialIndex: Math.max(0, Number(designInput.selectedSerialIndex ?? 0)),
+    artEditionView,
+    selectedSerialIndex,
     artX,
     artY
   };
@@ -352,9 +370,6 @@ export function normalizeLaunchDraft(draft = {}, defaults = {}) {
     advantages: Boolean(reviewInput.advantages ?? draft.reviewAdvantages),
     preview: Boolean(reviewInput.preview ?? draft.reviewPreview)
   };
-
-  // Network
-  const network = 'robinhood';
 
   return {
     id: `launch-${slug}`,

@@ -3557,7 +3557,13 @@ body[data-nm-foundation="elite-v1"]{
   #create .nm-create-stage-rail{position:sticky;top:58px;display:flex!important;margin:0 -15px;padding:0 15px;overflow-x:auto;scroll-snap-type:x proximity;background:rgba(10,12,11,.95)}
   #create .stage-btn{flex:0 0 auto;min-width:138px;scroll-snap-align:start;min-height:54px}
   #create .nm-create-layout{display:block;margin:0}
-  #create .nm-create-workspace{padding-top:34px}
+  #create .nm-create-workspace{padding-top:34px;padding-bottom:170px}
+  #create .nm-create-actions{pointer-events:none}
+  #create .nm-create-actions .btn{pointer-events:auto}
+  #create .nm-create-workspace input,
+  #create .nm-create-workspace textarea,
+  #create .nm-create-workspace select,
+  #create .nm-create-workspace button{scroll-margin-top:76px;scroll-margin-bottom:170px}
   #create .nm-stage-head{margin-bottom:28px}
   #create .nm-stage-head h2{font-size:34px}
   #create .nm-stage-section{grid-template-columns:1fr;gap:14px;padding:22px 0}
@@ -22928,13 +22934,15 @@ function compileCreateLaunch(){
   ensureCreateDefaults();
   const econ=createEconomics(),slug=slugKey(createData.name);
   return {id:'launch-'+slug,draftId:createData.draftId,
-    project:{name:createData.name.trim(),builder:createData.builder.trim(),builderHandle:createData.builderHandle.trim(),desc:createData.desc.trim(),about:createData.about.trim(),videoUrl:createData.videoUrl.trim(),category:createData.category,productState:createData.productState,evidence:{type:createData.evidenceType,url:createData.evidenceUrl.trim(),label:createEvidenceLabel(createData.evidenceType)},supportUrl:createData.supportUrl.trim(),banner:{src:createData.bannerSrc,palette:(createData.bannerPalette||[]).slice(0,3),logoPosition:createData.bannerLogoPosition}},
-    edition:{name:createData.edition.trim(),series:createData.series.trim(),supply:Number(createData.supply),price:Number(createData.price),royalty:Number(createData.royalty)},
+    project:{name:createData.name.trim(),builder:createData.builder.trim(),builderHandle:createData.builderHandle.trim(),desc:createData.desc.trim(),about:createData.about.trim(),videoUrl:createData.videoUrl.trim(),category:createData.category,productState:createData.productState,evidence:{type:createData.evidenceType,url:createData.evidenceUrl.trim(),label:createEvidenceLabel(createData.evidenceType)},supportUrl:createData.supportUrl.trim(),banner:{src:createData.bannerSrc,palette:(createData.bannerPalette||[]).slice(0,3),logoPosition:createData.bannerLogoPosition},network:createData.network||'robinhood'},
+    edition:{name:createData.edition.trim(),series:createData.series.trim(),supply:Number(createData.supply),price:Number(createData.price),royalty:Number(createData.royalty),network:createData.network||'robinhood'},
     advantages:createData.advantages.map(a=>({id:a.id,mechanism:a.mechanism,covered:a.covered.trim(),benefit:a.benefit.trim(),duration:a.duration.trim(),summary:createAdvSummary(a)})),
-    referral:createData.referral?{enabled:true,rate:Number(createData.referralRate),settlement:'Builder Settled'}:{enabled:false},
+    referral:createData.referral?{enabled:true,rate:Number(createData.referralRate),settlement:'Builder Settled'}:{enabled:false,rate:0,settlement:'Builder Settled'},
     economics:{maxPrimary:econ.max,nexMarketsFeeRate:.05,nexMarketsFee:econ.fee,afterPlatformFee:econ.afterFee},
-    design:{passDesign:createData.passDesign,themeMode:createData.themeMode,color:createData.color,colorStyle:createData.colorStyle,gradientA:createData.gradientA,gradientB:createData.gradientB,gradientDirection:createData.gradientDirection,frame:createData.frame,frameColor:createData.frameColor,texture:createData.texture,textureTint:createData.textureTint,logoSrc:createData.logoSrc,artMode:createData.artMode,artSrc:createData.artSrc,artEdition:(createData.artEdition||[]).map(a=>({...a})),selectedSerialIndex:0,artX:createData.artX,artY:createData.artY},
-    preview:{hours:Number(createData.previewHours),opensAt:nmCreateOpenDate().toISOString(),localOpensAt:createData.opensAt,timezone:createData.timezone,termsVersion:createData.termsVersion},status:'draft'};
+    design:{passDesign:createData.passDesign,themeMode:createData.themeMode,color:createData.color,customColor:createData.customColor,colorStyle:createData.colorStyle,gradientA:createData.gradientA,gradientB:createData.gradientB,gradientDirection:createData.gradientDirection,frame:createData.frame,frameHueCustomized:Boolean(createData.frameHueCustomized),frameColor:createData.frameColor,texture:createData.texture,textureTint:createData.textureTint,logoSrc:createData.logoSrc,artMode:createData.artMode,artSrc:createData.artSrc,artEdition:(createData.artEdition||[]).map(a=>({...a})),artEditionView:createData.artEditionView,selectedSerialIndex:Number(createData.artEditionSelected||0),artX:createData.artX,artY:createData.artY},
+    preview:{hours:Number(createData.previewHours),opensAt:nmCreateOpenDate().toISOString(),localOpensAt:createData.opensAt,timezone:createData.timezone,termsVersion:createData.termsVersion},
+    review:{evidence:Boolean(createData.reviewEvidence),advantages:Boolean(createData.reviewAdvantages),preview:Boolean(createData.reviewPreview)},
+    network:createData.network||'robinhood',status:'draft'};
 }
 function nmCreateConsequenceHTML(stage){
   const econ=createEconomics(),adv=createPrimaryAdv(),promise=createAdvSummary(adv)||'Define the holder Advantage';
@@ -27098,6 +27106,7 @@ window.nmPassExportSpinAudit=function(){
 .screen.nm-route-enter{animation:nmRouteEnter var(--nm-dur-surface) var(--nm-ease-surface) both}
 @keyframes nmRouteEnter{from{opacity:.55;transform:translateY(7px)}to{opacity:1;transform:none}}
 .nm-reveal-item{transition:opacity var(--nm-dur-section) var(--nm-ease-surface),transform var(--nm-dur-section) var(--nm-ease-surface)}
+.nm-reveal-item:not(.is-visible){pointer-events:none}
 .nm-reveal-item:not(.is-visible){opacity:0;transform:translateY(14px)}
 .nm-reveal-item.is-visible{opacity:1;transform:none}
 

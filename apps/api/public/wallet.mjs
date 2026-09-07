@@ -1,9 +1,13 @@
 const DECIMALS_SELECTOR = '0x313ce567';
 const BALANCE_OF_SELECTOR = '0x70a08231';
 const ALLOWANCE_SELECTOR = '0xdd62ed3e';
+const APPROVE_SELECTOR = '0x095ea7b3';
+const IS_APPROVED_FOR_ALL_SELECTOR = '0xe985e9c5';
+const SET_APPROVAL_FOR_ALL_SELECTOR = '0xa22cb465';
 const SEAPORT_COUNTER_SELECTOR = '0xf07ec373';
 const CHAIN_FAMILIES = Object.freeze({ 4663: 'ROBINHOOD', 46630: 'ROBINHOOD', 8453: 'BASE', 84532: 'BASE' });
 function word(address) { return address.toLowerCase().replace('0x', '').padStart(64, '0'); }
+function uintWord(value) { return BigInt(value).toString(16).padStart(64, '0'); }
 
 export class NexWallet {
   constructor(provider = globalThis.ethereum) { this.provider = provider; this.address = null; this.chainId = null; }
@@ -46,7 +50,33 @@ export class NexWallet {
   async call(to, data) { return this.provider.request({ method: 'eth_call', params: [{ to, data }, 'latest'] }); }
   async erc20Balance(token, owner = this.address) { return BigInt(await this.call(token, `${BALANCE_OF_SELECTOR}${word(owner)}`)); }
   async erc20Allowance(token, owner, spender) { return BigInt(await this.call(token, `${ALLOWANCE_SELECTOR}${word(owner)}${word(spender)}`)); }
+  async approveErc20(token, spender, amount) {
+    if (!this.address) throw new Error('WALLET_NOT_CONNECTED');
+    return this.submit({ to: token, data: `${APPROVE_SELECTOR}${word(spender)}${uintWord(amount)}`, value: '0x0' });
+  }
+  async erc721IsApprovedForAll(token, owner = this.address, operator) {
+    if (!owner || !operator) throw new Error('NFT_APPROVAL_ADDRESSES_REQUIRED');
+    return BigInt(await this.call(token, `${IS_APPROVED_FOR_ALL_SELECTOR}${word(owner)}${word(operator)}`)) !== 0n;
+  }
+  async approveErc721ForAll(token, operator, approved = true) {
+    if (!this.address) throw new Error('WALLET_NOT_CONNECTED');
+    return this.submit({ to: token, data: `${SET_APPROVAL_FOR_ALL_SELECTOR}${word(operator)}${uintWord(approved ? 1 : 0)}`, value: '0x0' });
+  }
   async erc20Decimals(token) { return Number(BigInt(await this.call(token, DECIMALS_SELECTOR))); }
   async seaportCounter(seaport, owner = this.address) { return BigInt(await this.call(seaport, `${SEAPORT_COUNTER_SELECTOR}${word(owner)}`)); }
+  async waitForReceipt(txHash, { timeoutMs = 180_000, pollMs = 1_500 } = {}) {
+    if (!txHash || !this.provider?.request) throw new Error('TX_HASH_REQUIRED');
+    const startedAt = Date.now();
+    while (Date.now() - startedAt < timeoutMs) {
+      const receipt = await this.provider.request({ method: 'eth_getTransactionReceipt', params: [txHash] });
+      if (receipt) {
+        const status = receipt.status;
+        if (status === '0x0' || status === 0 || status === false) throw new Error('TRANSACTION_REVERTED');
+        return receipt;
+      }
+      await new Promise((resolve) => setTimeout(resolve, pollMs));
+    }
+    throw new Error('TRANSACTION_CONFIRMATION_TIMEOUT');
+  }
   async submit(transaction) { if (!this.address) throw new Error('WALLET_NOT_CONNECTED'); return this.provider.request({ method: 'eth_sendTransaction', params: [{ ...transaction, from: this.address }] }); }
 }

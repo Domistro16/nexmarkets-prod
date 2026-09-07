@@ -127,11 +127,13 @@ function fullDraftFixture(overrides = {}) {
         passDesign: 'modern',
         themeMode: 'custom',
         color: '#4a2c0a',
+        customColor: '#7a3f12',
         colorStyle: 'gradient',
         gradientA: '#4a2c0a',
         gradientB: '#0a1830',
         gradientDirection: 'diagonal',
         frame: 'titanium',
+        frameHueCustomized: true,
         frameColor: '#74849d',
         texture: 'grain',
         textureTint: '#9b9b94',
@@ -139,7 +141,8 @@ function fullDraftFixture(overrides = {}) {
         artMode: 'single',
         artSrc: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
         artEdition: [],
-        selectedSerialIndex: 0,
+        artEditionView: 'serials',
+        selectedSerialIndex: 2,
         artX: 50,
         artY: 50
       },
@@ -238,14 +241,18 @@ test('Full API round-trip test proving every Create field is persisted in projec
   assert.equal(content.design.passDesign, 'modern');
   assert.equal(content.design.themeMode, 'custom');
   assert.equal(content.design.color, '#4a2c0a');
+  assert.equal(content.design.customColor, '#7a3f12');
   assert.equal(content.design.colorStyle, 'gradient');
   assert.equal(content.design.gradientA, '#4a2c0a');
   assert.equal(content.design.gradientB, '#0a1830');
   assert.equal(content.design.gradientDirection, 'diagonal');
   assert.equal(content.design.frame, 'titanium');
+  assert.equal(content.design.frameHueCustomized, true);
   assert.equal(content.design.frameColor, '#74849d');
   assert.equal(content.design.texture, 'grain');
   assert.equal(content.design.artMode, 'single');
+  assert.equal(content.design.artEditionView, 'serials');
+  assert.equal(content.design.selectedSerialIndex, 2);
 
   // Verify Preview settings
   assert.equal(content.preview.hours, 48);
@@ -270,6 +277,21 @@ test('Full API round-trip test proving every Create field is persisted in projec
   const listed = dash.data.projects.find((p) => p.slug === fixture.slug);
   assert.ok(listed, 'Project draft must appear in builder dashboard');
   assert.equal(listed.status, 'DRAFT');
+});
+
+test('Create draft preserves the selected Base network in normalized content', () => {
+  const fixture = fullDraftFixture();
+  const launchDraft = {
+    ...fixture.launchDraft,
+    network: 'base',
+    project: { ...fixture.launchDraft.project, network: 'base' },
+    edition: { ...fixture.launchDraft.edition, network: 'base' }
+  };
+  const normalized = validateAndNormalizeProjectPayload({ ...fixture, launchDraft });
+
+  assert.equal(normalized.launchDraft.network, 'base');
+  assert.equal(normalized.launchDraft.project.network, 'base');
+  assert.equal(normalized.launchDraft.edition.network, 'base');
 });
 
 test('Idempotent repeated draft submission updates existing draft without creating duplicates', async (t) => {

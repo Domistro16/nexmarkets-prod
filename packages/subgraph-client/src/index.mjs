@@ -95,12 +95,26 @@ export class SubgraphClient {
   }
 
   async editionByAddress(address) {
-    const data = await this.query(`query($address:Bytes!){ editions(where:{address:$address}){ id address editionId publisher protocolAdmin mintController absoluteSupplyCap artworkCommitment totalMinted disabled currentTerms { id hash version activeSupply pricePerPass previewStartsAt mintStartsAt mintEndsAt primaryRecipient royaltyReceiver royaltyBps advantagesHash referralTermsHash blockNumber timestamp transactionHash } terms(orderBy:version,orderDirection:desc){ id hash version activeSupply pricePerPass previewStartsAt mintStartsAt mintEndsAt primaryRecipient royaltyReceiver royaltyBps advantagesHash referralTermsHash } } }`, { address: lower(address) });
+    const data = await this.query(`query($address:Bytes!,$editionId:ID!){ editions(where:{address:$address}){ id address editionId publisher protocolAdmin mintController absoluteSupplyCap artworkCommitment totalMinted disabled currentTerms { id hash version activeSupply pricePerPass previewStartsAt mintStartsAt mintEndsAt primaryRecipient royaltyReceiver royaltyBps advantagesHash referralTermsHash blockNumber timestamp transactionHash } terms(orderBy:version,orderDirection:desc){ id hash version activeSupply pricePerPass previewStartsAt mintStartsAt mintEndsAt primaryRecipient royaltyReceiver royaltyBps advantagesHash referralTermsHash } } advantageDefinitions(where:{edition:$editionId}){ termsHash advantageId kind startsAt endsAt totalUnits definitionHash } }`, { address: lower(address), editionId: lower(address) });
     const edition = data.editions?.[0];
     if (!edition) return null;
     const normalizedAddress = lower(edition.address);
     const normalizedTerms = (edition.terms ?? []).map(normalizeTerms);
     const currentTerms = edition.currentTerms ? normalizeTerms(edition.currentTerms) : null;
+    const definitions = (data.advantageDefinitions ?? []).map((definition) => ({
+      advantageId: lower(definition.advantageId),
+      kind: { TIME_BASED: 0, QUANTITY_BASED: 1, CONNECTED: 2, REDEMPTION: 3 }[String(definition.kind).toUpperCase()] ?? definition.kind,
+      startsAt: definition.startsAt,
+      endsAt: definition.endsAt,
+      totalUnits: definition.totalUnits,
+      definitionHash: lower(definition.definitionHash),
+      termsHash: lower(definition.termsHash)
+    }));
+    const withAdvantages = (terms) => terms ? {
+      ...terms,
+      advantageConfigs: definitions.filter((definition) => definition.termsHash === lower(terms.hash))
+        .map(({ termsHash, ...definition }) => definition)
+    } : terms;
     return {
       ...edition,
       id: normalizedAddress,
@@ -114,8 +128,8 @@ export class SubgraphClient {
       mintController: lower(edition.mintController),
       artworkCommitment: lower(edition.artworkCommitment),
       absolute_supply_cap: edition.absoluteSupplyCap,
-      currentTerms,
-      termsHistory: normalizedTerms
+      currentTerms: withAdvantages(currentTerms),
+      termsHistory: normalizedTerms.map(withAdvantages)
     };
   }
 

@@ -36,6 +36,32 @@ test('wallet supports Base Sepolia and can add a missing network', async () => {
   assert.equal(calls.find((call) => call.method === 'wallet_addEthereumChain').params[0].chainId, '0x14a34');
 });
 
+test('wallet encodes settlement and NFT approval transactions and waits for receipts', async () => {
+  const calls = [];
+  const provider = { async request(request) {
+    calls.push(request);
+    if (request.method === 'eth_call') {
+      if (request.params[0].data.startsWith('0xe985e9c5')) return `0x${'0'.repeat(63)}1`;
+      return `0x${'0'.repeat(64)}`;
+    }
+    if (request.method === 'eth_sendTransaction') return `0x${'33'.repeat(32)}`;
+    if (request.method === 'eth_getTransactionReceipt') return { status: '0x1', transactionHash: request.params[0] };
+    throw new Error(`unexpected ${request.method}`);
+  } };
+  const wallet = new NexWallet(provider);
+  wallet.address = '0x1111111111111111111111111111111111111111';
+  const token = '0x2222222222222222222222222222222222222222';
+  const operator = '0x3333333333333333333333333333333333333333';
+  assert.equal(await wallet.erc721IsApprovedForAll(token, wallet.address, operator), true);
+  await wallet.approveErc721ForAll(token, operator);
+  await wallet.approveErc20(token, operator, 1234567n);
+  const receipt = await wallet.waitForReceipt(`0x${'33'.repeat(32)}`, { timeoutMs: 100, pollMs: 0 });
+  assert.equal(receipt.status, '0x1');
+  assert.match(calls.find((call) => call.method === 'eth_sendTransaction' && call.params[0].data.startsWith('0xa22cb465')).params[0].data, /^0xa22cb465/);
+  assert.match(calls.find((call) => call.method === 'eth_sendTransaction' && call.params[0].data.startsWith('0x095ea7b3')).params[0].data, /^0x095ea7b3/);
+  assert.match(calls.find((call) => call.method === 'eth_call' && call.params[0].data.startsWith('0xe985e9c5')).params[0].data, /^0xe985e9c5/);
+});
+
 test('transaction UI never treats a tx hash as finality', () => {
   assert.deepEqual(transactionProgress('SUBMITTED'), { state: 'SUBMITTED', completed: 3, terminal: false, final: false });
   assert.equal(transactionProgress('FINALIZED').final, true); assert.equal(transactionProgress('REORGED').terminal, true);
@@ -55,4 +81,14 @@ test('Advantage entitlement UI never submits a view-only TimeBased/Connected use
   const app = await readFile(new URL('../apps/web/public/app.mjs', import.meta.url), 'utf8');
   assert.match(app, /Entitlement\/access state; no onchain use transaction/);
   assert.doesNotMatch(app, /kind === 'REDEMPTION' \? 'REDEEM' : kind === 'QUANTITY_BASED' \? 'CONSUME_QUANTITY' : 'USE_AMOUNT'/);
+});
+
+test('V2 runtime exposes live agent launch and trading mutations', async () => {
+  const app = await readFile(new URL('../apps/web/public/v2-app.mjs', import.meta.url), 'utf8');
+  for (const route of ['/v1/mints/prepare', '/v1/listings/prepare', '/v1/listings/signed-order', '/v1/listings/buy', '/v1/listings/cancel', '/v1/advantages/consume', '/v1/royalties/withdraw']) assert.ok(app.includes(route));
+  for (const action of ['prepareEdition', 'submitSafeEvidence', 'publishTerms', 'liveConfirmProjectMint', 'liveMarketConfirmBuy', 'liveConfirmListing']) assert.match(app, new RegExp(action));
+  assert.match(app, /wallet\.submit/);
+  assert.match(app, /walletMustSign|Safe workflow/);
+  assert.match(app, /eth_signTypedData_v4|signTypedData/);
+  assert.match(app, /waitForReceipt/);
 });

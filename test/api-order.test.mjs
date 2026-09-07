@@ -28,6 +28,29 @@ test('authenticated listing preparation emits the exact Zone-compatible USDG ord
   assert.equal(result.prepared.order.consideration[1].recipient, policy.royaltyVault);
 });
 
+test('market listings join signed Seaport payloads to the indexed read model', async (t) => {
+  const store = new MemoryStore();
+  const orderHash = `0x${'ab'.repeat(32)}`;
+  const signature = `0x${'cd'.repeat(65)}`;
+  const order = { offerer: '0x1111111111111111111111111111111111111111', zone: '0x2222222222222222222222222222222222222222' };
+  store.listingRows.push({ order_hash: orderHash, status: 'ACTIVE', expires_at: new Date(Date.now() + 3600_000).toISOString() });
+  await store.storeSignedOrder({ orderHash, order, counter: '7', signature });
+  const server = createApiServer({
+    store,
+    allowedOrigin: 'https://nexmarkets.fun',
+    secureCookies: false,
+    subgraph: { enabled: true, async listings() { return [{ order_hash: orderHash, edition_address: '0x3333333333333333333333333333333333333333', token_id: '1', price_usdg: '1000000' }]; } }
+  });
+  server.listen(0, '127.0.0.1'); await once(server, 'listening'); t.after(() => server.close());
+  const response = await fetch(`http://127.0.0.1:${server.address().port}/v1/market/listings`);
+  assert.equal(response.status, 200);
+  const result = await response.json();
+  assert.equal(result.authority, 'GOLDSKY_SUBGRAPH_READ_MODEL_PLUS_SIGNED_ORDER');
+  assert.equal(result.data[0].signature, signature);
+  assert.equal(result.data[0].counter, '7');
+  assert.deepEqual(result.data[0].order_payload, order);
+});
+
 test('listing request cannot override USDG, Zone, fee recipient, or RoyaltyVault deployment policy', async (t) => {
   const store = new MemoryStore();
   const policy = {

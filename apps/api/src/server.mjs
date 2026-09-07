@@ -124,7 +124,36 @@ export function networkKeyForChainId(chainId) {
   return ({ 4663: 'robinhood-mainnet', 46630: 'robinhood-testnet', 8453: 'base-mainnet', 84532: 'base-sepolia' })[Number(chainId)] ?? null;
 }
 
-function networkPolicyEnv(env, prefix, settlementAddress, seaportAddress) {
+// These are public, verified testnet deployments. Environment variables still
+// take precedence, but keeping the manifest-backed defaults here means the
+// Vercel API and the browser cannot drift when only public testnet config is
+// available. Mainnet deliberately has no fallback addresses below.
+const VERIFIED_TESTNET_POLICIES = Object.freeze({
+  'robinhood-testnet': Object.freeze({
+    PROTOCOL_ADMIN_SAFE_ADDRESS: '0xCE54c8453fF48670781a6b908c1A3e9209FC95A0',
+    SECONDARY_FEE_RECIPIENT: '0xCE54c8453fF48670781a6b908c1A3e9209FC95A0',
+    NEX_ROYALTY_VAULT_ADDRESS: '0x9D69ab1897aFA9d6ffc97EEa6A936233a999DFa1',
+    NEX_MARKETS_ZONE_ADDRESS: '0xF21dA23d8928b320124fBc17bd678c7C48c55af6',
+    NEX_LISTING_REGISTRY_ADDRESS: '0xF8fD8D378F6a61Ecb207732F4f1d0c3E4Eb2c75c',
+    NEX_MINT_CONTROLLER_ADDRESS: '0x0ea6F883808447f115C7b6C037902361C365555A',
+    NEX_PASS_FACTORY_ADDRESS: '0x957DE0de07D33c9a89c791B876074657a7fFeEb6',
+    NEX_LAUNCH_REGISTRY_ADDRESS: '0xeE3C8F330C0B2738201fDb2F1720D06c0D27620d',
+    NEX_ADVANTAGE_REGISTRY_ADDRESS: '0x1e265Fee39d75b5211895820926B4ff77B4f1cDd'
+  }),
+  'base-sepolia': Object.freeze({
+    PROTOCOL_ADMIN_SAFE_ADDRESS: '0xE6D0846e6C0b51C61FdDb593A1914b85181E5783',
+    SECONDARY_FEE_RECIPIENT: '0xE6D0846e6C0b51C61FdDb593A1914b85181E5783',
+    NEX_ROYALTY_VAULT_ADDRESS: '0x2A75E1568703B3fd2B692889e08f1Da0949bE618',
+    NEX_MARKETS_ZONE_ADDRESS: '0x7dEFe2d8392A2096EdA97DD9b606b6A404843c2d',
+    NEX_LISTING_REGISTRY_ADDRESS: '0x6F33B84325041d15443827540057763bCD3FEAD8',
+    NEX_MINT_CONTROLLER_ADDRESS: '0x38Ca185Bd179989bFCAa05aF61B0de837B8FcB97',
+    NEX_PASS_FACTORY_ADDRESS: '0x8fDE37c4C1A60733c9842f336fc331c4C7d8eB41',
+    NEX_LAUNCH_REGISTRY_ADDRESS: '0x811D7B04d37118F71002c4abe112bc41161e3D53',
+    NEX_ADVANTAGE_REGISTRY_ADDRESS: '0xDe076a2D0F998a69A87226041E6075dAd534ECdD'
+  })
+});
+
+function networkPolicyEnv(env, prefix, settlementAddress, seaportAddress, fallback = {}) {
   const policyEnv = { ...env };
   const mappings = {
     PROTOCOL_ADMIN_SAFE_ADDRESS: 'PROTOCOL_ADMIN_SAFE_ADDRESS',
@@ -137,8 +166,14 @@ function networkPolicyEnv(env, prefix, settlementAddress, seaportAddress) {
     NEX_LAUNCH_REGISTRY_ADDRESS: 'NEX_LAUNCH_REGISTRY_ADDRESS',
     NEX_ADVANTAGE_REGISTRY_ADDRESS: 'NEX_ADVANTAGE_REGISTRY_ADDRESS'
   };
-  for (const [target, suffix] of Object.entries(mappings)) policyEnv[target] = env[`${prefix}_${suffix}`];
-  policyEnv.USDG_ADDRESS = env[`${prefix}_USDC_ADDRESS`] ?? settlementAddress;
+  for (const [target, suffix] of Object.entries(mappings)) {
+    policyEnv[target] = env[`${prefix}_${suffix}`]
+      ?? (prefix === 'ROBINHOOD_TESTNET' ? env[suffix] : undefined)
+      ?? fallback[suffix];
+  }
+  policyEnv.USDG_ADDRESS = env[`${prefix}_USDC_ADDRESS`]
+    ?? (prefix === 'ROBINHOOD_TESTNET' ? env.USDG_ADDRESS : undefined)
+    ?? settlementAddress;
   policyEnv.SEAPORT_16_ADDRESS = env[`${prefix}_SEAPORT_16_ADDRESS`] ?? seaportAddress;
   return policyEnv;
 }
@@ -150,6 +185,22 @@ function networkSubgraph(env, prefix, fallbackEndpoint, fallbackEdition, fallbac
     certificationEditionAddress: env[`${prefix}_CERTIFICATION_EDITION_ADDRESS`] ?? fallbackEdition,
     certificationEditionName: env[`${prefix}_CERTIFICATION_EDITION_NAME`] ?? fallbackName
   });
+}
+
+async function attachSignedListingData(listings, store) {
+  if (!Array.isArray(listings) || !store?.signedOrder) return listings ?? [];
+  return Promise.all(listings.map(async (listing) => {
+    const orderHash = listing.order_hash ?? listing.orderHash;
+    if (!orderHash) return listing;
+    const signed = await store.signedOrder(orderHash);
+    if (!signed) return listing;
+    return {
+      ...listing,
+      signature: signed.signature,
+      counter: signed.counter,
+      order_payload: signed.order_payload ?? signed.order ?? null
+    };
+  }));
 }
 
 export function createNetworkConfigs(env = process.env) {
@@ -165,6 +216,8 @@ export function createNetworkConfigs(env = process.env) {
   const rhMainnetSubgraph = networkSubgraph(env, 'ROBINHOOD_MAINNET', env.RH_MAINNET_SUBGRAPH_URL, env.RH_MAINNET_CERTIFICATION_EDITION_ADDRESS, env.RH_MAINNET_CERTIFICATION_EDITION_NAME);
   const baseSepoliaSubgraph = networkSubgraph(env, 'BASE_SEPOLIA', env.BASE_SEPOLIA_SUBGRAPH_URL ?? env.BASE_SEPOLIA_NEXMARKETS_SUBGRAPH_URL, env.BASE_SEPOLIA_CERTIFICATION_EDITION_ADDRESS, env.BASE_SEPOLIA_CERTIFICATION_EDITION_NAME);
   const baseMainnetSubgraph = networkSubgraph(env, 'BASE_MAINNET', env.BASE_MAINNET_SUBGRAPH_URL ?? env.BASE_MAINNET_NEXMARKETS_SUBGRAPH_URL, env.BASE_MAINNET_CERTIFICATION_EDITION_ADDRESS, env.BASE_MAINNET_CERTIFICATION_EDITION_NAME);
+  const rhTestnetPolicy = networkPolicyEnv(env, 'ROBINHOOD_TESTNET', env.USDG_ADDRESS ?? '0x6A4F8832c23C51ba626Eba9d50c8F862647C1679', '0x0000000000000068F116a894984e2DB1123eB395', VERIFIED_TESTNET_POLICIES['robinhood-testnet']);
+  const baseSepoliaPolicy = networkPolicyEnv(env, 'BASE_SEPOLIA', baseSepoliaUsdc, '0x0000000000000068F116a894984e2DB1123eB395', VERIFIED_TESTNET_POLICIES['base-sepolia']);
   const config = (key, chainId, rpcEnv, fallbackRpc, subgraph, policyEnv, readModelDisabled = false) => ({
     key,
     chainId,
@@ -175,9 +228,9 @@ export function createNetworkConfigs(env = process.env) {
   });
   return {
     'robinhood-mainnet': config('robinhood-mainnet', 4663, 'RH_MAINNET_RPC_URL', 'https://rpc.mainnet.chain.robinhood.com', rhMainnetSubgraph, env, !rhMainnetSubgraph.enabled),
-    'robinhood-testnet': config('robinhood-testnet', 46630, 'RH_TESTNET_RPC_URL', 'https://rpc.testnet.chain.robinhood.com', rhTestnetSubgraph, env),
+    'robinhood-testnet': config('robinhood-testnet', 46630, 'RH_TESTNET_RPC_URL', 'https://rpc.testnet.chain.robinhood.com', rhTestnetSubgraph, rhTestnetPolicy),
     'base-mainnet': config('base-mainnet', 8453, 'BASE_MAINNET_RPC_URL', 'https://mainnet.base.org', baseMainnetSubgraph, networkPolicyEnv(env, 'BASE_MAINNET', baseMainnetUsdc, '0x0000000000000068F116a894984e2DB1123eB395'), !baseMainnetSubgraph.enabled),
-    'base-sepolia': config('base-sepolia', 84532, 'BASE_SEPOLIA_RPC_URL', 'https://sepolia.base.org', baseSepoliaSubgraph, networkPolicyEnv(env, 'BASE_SEPOLIA', baseSepoliaUsdc, '0x0000000000000068F116a894984e2DB1123eB395'), !baseSepoliaSubgraph.enabled)
+    'base-sepolia': config('base-sepolia', 84532, 'BASE_SEPOLIA_RPC_URL', 'https://sepolia.base.org', baseSepoliaSubgraph, baseSepoliaPolicy, !baseSepoliaSubgraph.enabled)
   };
 }
 
@@ -414,7 +467,10 @@ export function createApiServer({
         }));
         return json(res, 200, { data, authority: subgraph?.enabled ? 'GOLDSKY_SUBGRAPH_READ_MODEL' : 'POSTGRES_READ_MODEL' });
       }
-      if (req.method === 'GET' && url.pathname === '/v1/market/listings') return json(res, 200, { data: readModelDisabled ? [] : subgraph?.enabled ? await subgraph.listings() : await store.listings(), authority: subgraph?.enabled ? 'GOLDSKY_SUBGRAPH_READ_MODEL' : 'NEX_LISTING_REGISTRY_PROJECTION' });
+      if (req.method === 'GET' && url.pathname === '/v1/market/listings') {
+        const listings = readModelDisabled ? [] : subgraph?.enabled ? await subgraph.listings() : await store.listings();
+        return json(res, 200, { data: await attachSignedListingData(listings, store), authority: subgraph?.enabled ? 'GOLDSKY_SUBGRAPH_READ_MODEL_PLUS_SIGNED_ORDER' : 'NEX_LISTING_REGISTRY_PROJECTION' });
+      }
       if (req.method === 'GET' && url.pathname.startsWith('/v1/projects/')) return json(res, 200, { data: readModelDisabled ? null : await store.projectBySlug(decodeURIComponent(url.pathname.slice(13))) });
       if (req.method === 'GET' && url.pathname.startsWith('/v1/editions/')) return json(res, 200, { data: readModelDisabled ? null : subgraph?.enabled ? await subgraph.editionByAddress(url.pathname.slice(13)) : await store.editionByAddress(url.pathname.slice(13)), authority: subgraph?.enabled ? 'GOLDSKY_SUBGRAPH_READ_MODEL' : 'CHAIN_PROJECTION' });
       if (req.method === 'GET' && url.pathname.startsWith('/v1/passes/')) {

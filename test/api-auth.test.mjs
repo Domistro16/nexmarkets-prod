@@ -127,6 +127,9 @@ test('/readyz uses Goldsky Subgraph indexed progress against the RPC head', asyn
 
 test('API selects Base Sepolia by network header and does not serve Robinhood projections', async (t) => {
   const networkConfigs = createNetworkConfigs({});
+  assert.equal(networkConfigs['base-sepolia'].orderPolicy.usdg.toLowerCase(), '0x036cbd53842c5426634e7929541ec2318f3dcf7e');
+  assert.equal(networkConfigs['base-sepolia'].orderPolicy.transactionTargets.MINT, '0x38Ca185Bd179989bFCAa05aF61B0de837B8FcB97');
+  assert.equal(networkConfigs['base-mainnet'].orderPolicy.transactionTargets.MINT, undefined);
   const { server, base } = await running({ chainId: 46630, networkConfigs }); t.after(() => server.close());
   const challenge = await fetch(`${base}/v1/auth/challenge`, { method: 'POST', headers: { 'content-type': 'application/json', 'x-nex-network': 'base-sepolia', origin: 'https://nexmarkets.fun' }, body: JSON.stringify({ address: Wallet.createRandom().address }) });
   assert.equal(challenge.status, 201);

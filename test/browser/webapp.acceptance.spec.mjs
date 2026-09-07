@@ -12,7 +12,12 @@ function fixture() {
     version: 1, hash: TERMS, terms_hash: TERMS, pricePerPass: '1000000', price_usdg: '1000000',
     previewStartsAt: 1787340000, mintStartsAt: 1787348550, mintEndsAt: 1789940550,
     royaltyBps: 300, royalty_bps: 300, advantagesHash: ADVANTAGE_HASH,
-    referralTermsHash: `0x${'b'.repeat(64)}`
+    referralTermsHash: `0x${'b'.repeat(64)}`,
+    advantageConfigs: [
+      { advantageId: `0x${'3'.repeat(64)}`, kind: 1, startsAt: 1787348550, endsAt: 1789940550, totalUnits: '4', definitionHash: `0x${'6'.repeat(64)}` },
+      { advantageId: `0x${'4'.repeat(64)}`, kind: 0, startsAt: 1787348550, endsAt: 1789940550, totalUnits: '2592000', definitionHash: `0x${'7'.repeat(64)}` },
+      { advantageId: `0x${'5'.repeat(64)}`, kind: 2, startsAt: 1787348550, endsAt: 1789940550, totalUnits: '1', definitionHash: `0x${'8'.repeat(64)}` }
+    ]
   };
   const edition = {
     edition_address: EDITION, address: EDITION, name: 'NexMarkets V1 Test Certification Edition',
@@ -74,6 +79,10 @@ function collectFatalErrors(page) {
   page.on('pageerror', (error) => errors.push(error.message));
   page.on('console', (message) => { if (message.type() === 'error') errors.push(message.text()); });
   return errors;
+}
+
+function valueAtPath(value, path) {
+  return path.split('.').reduce((current, key) => current?.[key], value);
 }
 
 async function assertNoMutationRequests(page, action) {
@@ -234,10 +243,25 @@ test('Create wizard submits full draft to API with CSRF, retains DRAFT status, a
   await goto(page, '/create');
   await page.getByRole('button', { name: 'Connect wallet' }).first().click();
   await expect(page.locator('.account-label').first()).toContainText('0x');
+  await expect.poll(() => page.evaluate(() => window.nexmarketsV2.state.authenticated)).toBe(true);
+  await expect.poll(() => page.evaluate(() => !window.nexmarketsV2.state.hydrating)).toBe(true);
 
-  const projectResult = await page.evaluate(async () => {
-    return window.nexmarketsV2.submitCreateDraft();
-  });
+  // Fill the visible Product fields with non-default values before submitting.
+  // The remaining stages are covered by the payload contract assertion below.
+  await page.locator('[data-product-state="Beta"]').evaluate((element) => element.scrollIntoView({ block: 'center', behavior: 'instant' }));
+  await page.locator('[data-product-state="Beta"]').click({ force: true });
+  await page.locator('#cName').fill('Payload Complete Project');
+  await page.locator('#cBuilder').fill('Payload Builder');
+  await page.locator('#cHandle').fill('@payloadbuilder');
+  await page.locator('#cDesc').fill('A complete project used to verify every create field reaches the API.');
+  await page.locator('#cAbout').fill('Payload Complete Project gives builders a complete pass workflow with clear terms, useful holder benefits, and a public product experience that can be inspected before the debut opens.');
+  await page.locator('#cCategory').selectOption('finance');
+  await page.locator('#cVideoUrl').fill('https://www.youtube.com/watch?v=dQw4w9WgXcQ');
+  await page.locator('#cEvidenceType').selectOption('Demo');
+  await page.locator('#cEvidenceUrl').fill('https://payload.example/demo');
+  await page.locator('#cSupportUrl').fill('https://payload.example/support');
+  await page.locator('#cBannerLogoPosition').selectOption('tr');
+  const projectResult = await page.evaluate(async () => window.nexmarketsV2.submitCreateDraft());
 
   expect(projectResult.id).toBe('prj_browser_test_01');
   expect(projectResult.status).toBe('DRAFT');
@@ -252,6 +276,34 @@ test('Create wizard submits full draft to API with CSRF, retains DRAFT status, a
   expect(submittedPayload.launchDraft.status).toBe('DRAFT');
   expect(submittedHeaders['x-csrf-token']).toBe('browser-csrf');
 
+  const expectedPaths = await page.evaluate(() => window.__nmV2CreateDraftFieldPaths);
+  expect(expectedPaths.length).toBeGreaterThan(40);
+  for (const path of expectedPaths) {
+    expect(valueAtPath(submittedPayload.launchDraft, path), `missing create field ${path}`).not.toBeUndefined();
+  }
+  expect(submittedPayload.launchDraft.network).toBe('robinhood');
+  expect(submittedPayload.launchDraft.project).toMatchObject({
+    name: 'Payload Complete Project',
+    builder: 'Payload Builder',
+    builderHandle: '@payloadbuilder',
+    category: 'finance',
+    productState: 'Beta',
+    videoUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+    network: 'robinhood'
+  });
+  expect(submittedPayload.launchDraft.project.evidence).toMatchObject({ type: 'Demo', url: 'https://payload.example/demo' });
+  expect(submittedPayload.launchDraft.project.supportUrl).toBe('https://payload.example/support');
+  expect(submittedPayload.launchDraft.project.banner.logoPosition).toBe('tr');
+  expect(submittedPayload.launchDraft.edition.network).toBe('robinhood');
+  expect(submittedPayload.launchDraft.referral).toEqual({ enabled: false, rate: 0, settlement: 'Builder Settled' });
+  expect(submittedPayload.launchDraft.design).toMatchObject({
+    customColor: '#5f6f50',
+    frameHueCustomized: false,
+    artEditionView: 'grid',
+    selectedSerialIndex: 0
+  });
+  expect(submittedPayload.launchDraft.review).toEqual({ evidence: false, advantages: false, preview: false });
+
   await expect(page.locator('#projectActionMount')).toContainText('Draft saved');
   await expect(page.locator('#projectActionMount')).toContainText('Safe workflow is pending protocol admin execution');
 
@@ -260,4 +312,202 @@ test('Create wizard submits full draft to API with CSRF, retains DRAFT status, a
 
   await navigate(page, '/discover');
   await expect(page.locator('#discover').getByText(submittedPayload.name, { exact: true })).toHaveCount(0);
+});
+
+test('live mint flow sends committed Terms and broadcasts the prepared transaction', async ({ page }) => {
+  const signer = Wallet.createRandom();
+  const mintTarget = '0x0ea6F883808447f115C7b6C037902361C365555A';
+  const txHash = `0x${'9'.repeat(64)}`;
+  let mintPayload = null;
+  let submittedTransaction = null;
+
+  const data = await installFixtureApi(page);
+  await page.route('**/v1/mints/prepare', async (route) => {
+    mintPayload = JSON.parse(route.request().postData() || '{}');
+    return route.fulfill({ json: {
+      data: {
+        transaction: { id: 'tx_browser_mint', state: 'PREPARED' },
+        prepared: { to: mintTarget, data: '0x12345678', value: '0x0' },
+        walletMustSign: true,
+        serverCustodiesKey: false
+      }
+    } });
+  });
+  await page.exposeFunction('__nexmarketsSignPersonalMessage', (message) => signer.signMessage(getBytes(message)));
+  await page.addInitScript(({ address, txHash: providerTxHash }) => {
+    window.__nexmarketsProviderMethods = [];
+    window.__nexmarketsSubmittedTransaction = null;
+    window.ethereum = { request: async ({ method, params }) => {
+      window.__nexmarketsProviderMethods.push(method);
+      if (method === 'eth_requestAccounts') return [address];
+      if (method === 'eth_chainId') return '0xb626';
+      if (method === 'personal_sign') return window.__nexmarketsSignPersonalMessage(params[0]);
+      if (method === 'eth_call') return `0x${'f'.repeat(64)}`;
+      if (method === 'eth_sendTransaction') {
+        window.__nexmarketsSubmittedTransaction = params[0];
+        return providerTxHash;
+      }
+      return '0x0';
+    } };
+  }, { address: signer.address, txHash });
+
+  await goto(page, '/discover');
+  await page.getByRole('button', { name: 'Connect wallet' }).first().click();
+  await expect.poll(() => page.evaluate(() => window.nexmarketsV2.state.authenticated)).toBe(true);
+  await expect.poll(() => page.evaluate(() => !window.nexmarketsV2.state.hydrating)).toBe(true);
+  await page.evaluate((name) => window.openProjectMint(name), data.edition.name);
+  await page.getByRole('button', { name: 'Confirm purchase' }).click();
+
+  await expect.poll(() => mintPayload).toBeTruthy();
+  expect(mintPayload.edition.toLowerCase()).toBe(EDITION.toLowerCase());
+  expect(mintPayload.termsVersionHash).toBe(TERMS);
+  expect(mintPayload.recipient.toLowerCase()).toBe(signer.address.toLowerCase());
+  expect(mintPayload.quantity).toBe(1);
+  expect(mintPayload.advantageConfigs).toEqual(data.terms.advantageConfigs);
+  await expect(page.locator('#projectActionMount')).toContainText('Mint submitted');
+  const providerState = await page.evaluate(() => ({ methods: window.__nexmarketsProviderMethods, transaction: window.__nexmarketsSubmittedTransaction }));
+  expect(providerState.methods).toContain('eth_sendTransaction');
+  expect(providerState.transaction).toMatchObject({ to: mintTarget, data: '0x12345678', value: '0x0' });
+});
+
+test('live listing flow reads the exact owned Pass, signs Seaport data, and registers the order', async ({ page }) => {
+  const signer = Wallet.createRandom();
+  const listingRegistry = '0xF8fD8D378F6a61Ecb207732F4f1d0c3E4Eb2c75c';
+  const txHash = `0x${'8'.repeat(64)}`;
+  const orderHash = `0x${'7'.repeat(64)}`;
+  let listingPayload = null;
+  let signedOrderPayload = null;
+
+  const data = await installFixtureApi(page);
+  const ownedPass = { ...data.pass, owner_address: signer.address, owner: signer.address, royalty_receiver: OWNER, royalty_bps: 300 };
+  await page.route('**/v1/me/passes', (route) => route.fulfill({ json: { data: [ownedPass] } }));
+  await page.route('**/v1/passes/**', (route) => route.fulfill({ json: { data: ownedPass } }));
+  await page.route('**/v1/me/advantages', (route) => route.fulfill({ json: { data: [{
+    edition_address: EDITION, token_id: '1', advantage_id_hash: `0x${'3'.repeat(64)}`, kind: 'QUANTITY_BASED', remaining_units: '4', terms_hash: TERMS
+  }] } }));
+  await page.route('**/v1/listings/prepare', async (route) => {
+    listingPayload = JSON.parse(route.request().postData() || '{}');
+    const order = {
+      offerer: signer.address, zone: '0x6666666666666666666666666666666666666666',
+      offer: [{ itemType: 2, token: EDITION, identifierOrCriteria: '1', startAmount: '1', endAmount: '1' }],
+      consideration: [{ itemType: 1, token: '0x3333333333333333333333333333333333333333', identifierOrCriteria: '0', startAmount: '10000', endAmount: '10000', recipient: OWNER }],
+      orderType: 2, startTime: '1', endTime: '9999999999', zoneHash: `0x${'6'.repeat(64)}`, salt: '1',
+      conduitKey: `0x${'0'.repeat(64)}`, totalOriginalConsiderationItems: 1
+    };
+    return route.fulfill({ json: { data: {
+      transaction: { id: 'tx_browser_listing', state: 'PREPARED' },
+      prepared: {
+        orderHash, order,
+        typedData: { domain: { name: 'Seaport', version: '1.6', chainId: 46630, verifyingContract: data.edition.address }, types: { OrderComponents: [] }, value: order },
+        registryTransaction: { to: listingRegistry, data: '0x87654321', value: '0x0' }
+      },
+      walletMustSign: true, serverCustodiesKey: false
+    } } });
+  });
+  await page.route('**/v1/listings/signed-order', async (route) => {
+    signedOrderPayload = JSON.parse(route.request().postData() || '{}');
+    return route.fulfill({ status: 201, json: { data: { orderHash } } });
+  });
+  await page.exposeFunction('__nexmarketsSignPersonalMessage', (message) => signer.signMessage(getBytes(message)));
+  await page.addInitScript(({ address, txHash: providerTxHash }) => {
+    window.__nexmarketsProviderMethods = [];
+    window.__nexmarketsSubmittedTransaction = null;
+    window.ethereum = { request: async ({ method, params }) => {
+      window.__nexmarketsProviderMethods.push(method);
+      if (method === 'eth_requestAccounts') return [address];
+      if (method === 'eth_chainId') return '0xb626';
+      if (method === 'personal_sign') return window.__nexmarketsSignPersonalMessage(params[0]);
+      if (method === 'eth_call') return `0x${'f'.repeat(64)}`;
+      if (method === 'eth_signTypedData_v4') return `0x${'a'.repeat(130)}`;
+      if (method === 'eth_sendTransaction') {
+        window.__nexmarketsSubmittedTransaction = params[0];
+        return providerTxHash;
+      }
+      return '0x0';
+    } };
+  }, { address: signer.address, txHash });
+
+  await goto(page, '/dashboard/holder');
+  await page.getByRole('button', { name: 'Connect wallet' }).first().click();
+  await expect.poll(() => page.evaluate(() => window.nexmarketsV2.state.authenticated)).toBe(true);
+  await expect.poll(() => page.evaluate(() => !window.nexmarketsV2.state.hydrating)).toBe(true);
+  const passKey = await page.evaluate(() => window.nexmarketsV2.state.templateData.ownedPasses[0].key);
+  await page.evaluate((key) => window.dashListPass(key), passKey);
+  await page.getByRole('button', { name: 'Sign and list' }).click();
+
+  await expect.poll(() => listingPayload).toBeTruthy();
+  expect(listingPayload).toMatchObject({
+    seller: signer.address,
+    currentOwner: signer.address,
+    edition: EDITION,
+    tokenId: '1',
+    termsVersionHash: TERMS,
+    price: '1000000',
+    royaltyBps: '300'
+  });
+  await expect.poll(() => signedOrderPayload).toBeTruthy();
+  expect(signedOrderPayload).toMatchObject({ orderHash, signature: `0x${'a'.repeat(130)}` });
+  await expect(page.locator('#dashModalBody')).toContainText('Listing submitted');
+  const providerState = await page.evaluate(() => ({ methods: window.__nexmarketsProviderMethods, transaction: window.__nexmarketsSubmittedTransaction }));
+  expect(providerState.methods).toContain('eth_signTypedData_v4');
+  expect(providerState.methods).toContain('eth_sendTransaction');
+  expect(providerState.transaction).toMatchObject({ to: listingRegistry, data: '0x87654321', value: '0x0' });
+});
+
+test('live buy flow requires the signed listing and broadcasts Seaport fulfillment', async ({ page }) => {
+  const signer = Wallet.createRandom();
+  const seaport = '0x0000000000000068F116a894984e2DB1123eB395';
+  const txHash = `0x${'6'.repeat(64)}`;
+  const orderHash = `0x${'5'.repeat(64)}`;
+  let buyPayload = null;
+  const order = {
+    offerer: OWNER, zone: '0x6666666666666666666666666666666666666666',
+    offer: [{ itemType: 2, token: EDITION, identifierOrCriteria: '1', startAmount: '1', endAmount: '1' }],
+    consideration: [{ itemType: 1, token: '0x3333333333333333333333333333333333333333', identifierOrCriteria: '0', startAmount: '20000', endAmount: '20000', recipient: signer.address }],
+    orderType: 2, startTime: '1', endTime: '9999999999', zoneHash: `0x${'4'.repeat(64)}`, salt: '1',
+    conduitKey: `0x${'0'.repeat(64)}`, totalOriginalConsiderationItems: 1
+  };
+  await installFixtureApi(page);
+  await page.route('**/v1/market/listings', (route) => route.fulfill({ json: { data: [{
+    order_hash: orderHash, edition_address: EDITION, token_id: '1', price_usdg: '2000000', royalty_bps: 300,
+    seller_address: OWNER, signature: `0x${'b'.repeat(130)}`, counter: '0', order_payload: order, status: 'ACTIVE'
+  }] } }));
+  await page.route('**/v1/listings/buy', async (route) => {
+    buyPayload = JSON.parse(route.request().postData() || '{}');
+    return route.fulfill({ json: { data: {
+      transaction: { id: 'tx_browser_buy', state: 'PREPARED' },
+      prepared: { to: seaport, data: '0xfedcba98', value: '0x0' },
+      walletMustSign: true, serverCustodiesKey: false
+    } } });
+  });
+  await page.addInitScript(({ address, txHash: providerTxHash }) => {
+    window.__nexmarketsProviderMethods = [];
+    window.__nexmarketsSubmittedTransaction = null;
+    window.ethereum = { request: async ({ method, params }) => {
+      window.__nexmarketsProviderMethods.push(method);
+      if (method === 'eth_requestAccounts') return [address];
+      if (method === 'eth_chainId') return '0xb626';
+      if (method === 'personal_sign') return `0x${'c'.repeat(130)}`;
+      if (method === 'eth_call') return `0x${'f'.repeat(64)}`;
+      if (method === 'eth_sendTransaction') {
+        window.__nexmarketsSubmittedTransaction = params[0];
+        return providerTxHash;
+      }
+      return '0x0';
+    } };
+  }, { address: signer.address, txHash });
+
+  await goto(page, '/market');
+  await page.getByRole('button', { name: 'Connect wallet' }).first().click();
+  await expect.poll(() => page.evaluate(() => window.nexmarketsV2.state.authenticated)).toBe(true);
+  await expect.poll(() => page.evaluate(() => !window.nexmarketsV2.state.hydrating)).toBe(true);
+  await page.evaluate(() => window.buySelectedListing());
+  await page.getByRole('button', { name: 'Confirm purchase' }).click();
+
+  await expect.poll(() => buyPayload).toBeTruthy();
+  expect(buyPayload).toEqual({ orderHash });
+  await expect(page.locator('#projectActionMount')).toContainText('Purchase submitted');
+  const providerState = await page.evaluate(() => ({ methods: window.__nexmarketsProviderMethods, transaction: window.__nexmarketsSubmittedTransaction }));
+  expect(providerState.methods).toContain('eth_sendTransaction');
+  expect(providerState.transaction).toMatchObject({ to: seaport, data: '0xfedcba98', value: '0x0' });
 });
