@@ -141,7 +141,7 @@ var init_postgres_store = __esm({
         );
       }
       async prepareTransaction({ accountId, walletAddress, chainId, intentType, intentId, idempotencyKey, correlationId, requestId, toAddress = null, calldata = null }) {
-        if (![4663, 46630].includes(Number(chainId))) throw new Error("ROBINHOOD_CHAIN_REQUIRED");
+        if (![4663, 46630, 8453, 84532].includes(Number(chainId))) throw new Error("SUPPORTED_EVM_CHAIN_REQUIRED");
         const id2 = `txj_${randomUUID2()}`;
         const result = await (await this._getPool()).query(
           `INSERT INTO chain_transaction(id,chain_id,intent_type,intent_id,wallet_address,state,correlation_id,request_id,to_address,calldata)
@@ -207,11 +207,11 @@ var init_postgres_store = __esm({
           client.release();
         }
       }
-      async transaction(id2, accountId) {
+      async transaction(id2, accountId, chainId = null) {
         const { rows } = await (await this._getPool()).query(
           `SELECT t.* FROM chain_transaction t JOIN wallet w ON w.address=t.wallet_address AND w.chain_id=t.chain_id
-       WHERE t.id=$1 AND w.account_id=$2`,
-          [id2, accountId]
+       WHERE t.id=$1 AND w.account_id=$2 AND ($3::bigint IS NULL OR t.chain_id=$3)`,
+          [id2, accountId, chainId]
         );
         return rows[0] ?? null;
       }
@@ -380,8 +380,8 @@ var init_postgres_store = __esm({
         );
         return rows[0];
       }
-      async editionRequestById(id2, builderAccountId) {
-        const { rows } = await (await this._getPool()).query("SELECT * FROM edition_request WHERE id=$1 AND builder_account_id=$2", [id2, builderAccountId]);
+      async editionRequestById(id2, builderAccountId, chainId = null) {
+        const { rows } = await (await this._getPool()).query("SELECT * FROM edition_request WHERE id=$1 AND builder_account_id=$2 AND ($3::bigint IS NULL OR chain_id=$3)", [id2, builderAccountId, chainId]);
         return rows[0] ?? null;
       }
       async submitEditionRequest({ id: id2, safeTransactionHash, txHash, evidence = null }) {
@@ -505,6 +505,223 @@ var init_postgres_store = __esm({
           [id2, status, result.checkedCount ?? 0, result.discrepancies.length, JSON.stringify(result)]
         );
       }
+      // --- Social layer ---
+      async getBuilderProfile(identifier) {
+        const { rows } = await (await this._getPool()).query(
+          `SELECT bp.*, w.address AS wallet_address, a.created_at AS joined_at,
+       (SELECT count(*)::int FROM builder_follow bf WHERE bf.builder_account_id=bp.account_id) AS follower_count,
+       (SELECT count(*)::int FROM edition e JOIN project p ON p.id=e.project_id WHERE p.builder_account_id=bp.account_id AND e.orphaned_at IS NULL) AS editions_count,
+       (SELECT count(*)::int FROM pass_token_projection pt JOIN edition e ON e.id=pt.edition_id JOIN project p ON p.id=e.project_id WHERE p.builder_account_id=bp.account_id AND pt.orphaned_at IS NULL) AS passes_issued,
+       (SELECT count(DISTINCT pt.owner_address)::int FROM pass_token_projection pt JOIN edition e ON e.id=pt.edition_id JOIN project p ON p.id=e.project_id WHERE p.builder_account_id=bp.account_id AND pt.orphaned_at IS NULL) AS active_holders
+       FROM builder_profile bp
+       JOIN account a ON a.id=bp.account_id
+       LEFT JOIN LATERAL (SELECT address FROM wallet WHERE account_id=bp.account_id ORDER BY created_at ASC LIMIT 1) w ON true
+       WHERE bp.account_id=$1 OR bp.id=$1 OR LOWER(w.address)=LOWER($1)`,
+          [identifier.toLowerCase()]
+        );
+        if (!rows[0]) return null;
+        const r = rows[0];
+        return {
+          ...r,
+          stats: {
+            editionsCount: r.editions_count,
+            passesIssued: r.passes_issued,
+            activeHolders: r.active_holders,
+            totalVolumeUsdg: "0"
+          }
+        };
+      }
+      async upsertBuilderProfile(accountId, data) {
+        const id2 = `bprf_${randomUUID2()}`;
+        const { rows } = await (await this._getPool()).query(
+          `INSERT INTO builder_profile(id,account_id,display_name,bio,about,avatar_url,category,links)
+       VALUES($1,$2,$3,$4,$5,$6,$7,$8::jsonb)
+       ON CONFLICT(account_id) DO UPDATE SET
+         display_name=COALESCE(NULLIF($3,''),builder_profile.display_name),
+         bio=COALESCE(NULLIF($4,''),builder_profile.bio),
+         about=COALESCE(NULLIF($5,''),builder_profile.about),
+         avatar_url=COALESCE(NULLIF($6,''),builder_profile.avatar_url),
+         category=COALESCE(NULLIF($7,''),builder_profile.category),
+         links=CASE WHEN $8::jsonb='{}'::jsonb THEN builder_profile.links ELSE $8::jsonb END,
+         updated_at=now()
+       RETURNING *`,
+          [id2, accountId, data.displayName ?? "", data.bio ?? "", data.about ?? "", data.avatarUrl ?? "", data.category ?? "", JSON.stringify(data.links ?? {})]
+        );
+        return rows[0];
+      }
+      async followBuilder(followerAccountId, builderAccountId) {
+        const id2 = `bfl_${randomUUID2()}`;
+        await (await this._getPool()).query(
+          `INSERT INTO builder_follow(id,follower_account_id,builder_account_id) VALUES($1,$2,$3) ON CONFLICT(follower_account_id,builder_account_id) DO NOTHING`,
+          [id2, followerAccountId, builderAccountId]
+        );
+        const { rows } = await (await this._getPool()).query(
+          `SELECT count(*)::int AS cnt FROM builder_follow WHERE builder_account_id=$1`,
+          [builderAccountId]
+        );
+        return { followed: true, followerCount: rows[0].cnt };
+      }
+      async unfollowBuilder(followerAccountId, builderAccountId) {
+        await (await this._getPool()).query(
+          `DELETE FROM builder_follow WHERE follower_account_id=$1 AND builder_account_id=$2`,
+          [followerAccountId, builderAccountId]
+        );
+        const { rows } = await (await this._getPool()).query(
+          `SELECT count(*)::int AS cnt FROM builder_follow WHERE builder_account_id=$1`,
+          [builderAccountId]
+        );
+        return { unfollowed: true, followerCount: rows[0].cnt };
+      }
+      async getFollowStatus(followerAccountId, builderAccountId) {
+        const pool = await this._getPool();
+        const [followRow, countRow, holderRow] = await Promise.all([
+          pool.query(`SELECT 1 FROM builder_follow WHERE follower_account_id=$1 AND builder_account_id=$2 LIMIT 1`, [followerAccountId, builderAccountId]),
+          pool.query(`SELECT count(*)::int AS cnt FROM builder_follow WHERE builder_account_id=$1`, [builderAccountId]),
+          pool.query(
+            `SELECT 1 FROM pass_token_projection pt
+         JOIN edition e ON e.id=pt.edition_id JOIN project p ON p.id=e.project_id
+         WHERE pt.owner_address IN (SELECT w.address FROM wallet w WHERE w.account_id=$1)
+         AND p.builder_account_id=$2 AND pt.orphaned_at IS NULL LIMIT 1`,
+            [followerAccountId, builderAccountId]
+          )
+        ]);
+        return { isFollowing: followRow.rows.length > 0, followerCount: countRow.rows[0].cnt, isHolder: holderRow.rows.length > 0 };
+      }
+      async getFollowedBuilders(accountId) {
+        const { rows } = await (await this._getPool()).query(
+          `SELECT bf.builder_account_id, bf.created_at AS followed_at, bp.id AS profile_id, bp.display_name, bp.bio, bp.avatar_url, bp.category
+       FROM builder_follow bf LEFT JOIN builder_profile bp ON bp.account_id=bf.builder_account_id
+       WHERE bf.follower_account_id=$1 ORDER BY bf.created_at DESC`,
+          [accountId]
+        );
+        return rows;
+      }
+      async watchProject(accountId, slug) {
+        const project = await (await this._getPool()).query(`SELECT id FROM project WHERE slug=$1`, [slug]);
+        if (!project.rows[0]) throw Object.assign(new Error("PROJECT_NOT_FOUND"), { status: 404 });
+        const projectId = project.rows[0].id;
+        const id2 = `pwl_${randomUUID2()}`;
+        await (await this._getPool()).query(
+          `INSERT INTO project_watchlist(id,account_id,project_id) VALUES($1,$2,$3) ON CONFLICT(account_id,project_id) DO NOTHING`,
+          [id2, accountId, projectId]
+        );
+        const { rows } = await (await this._getPool()).query(`SELECT count(*)::int AS cnt FROM project_watchlist WHERE project_id=$1`, [projectId]);
+        return { watching: true, watcherCount: rows[0].cnt };
+      }
+      async unwatchProject(accountId, slug) {
+        const project = await (await this._getPool()).query(`SELECT id FROM project WHERE slug=$1`, [slug]);
+        if (!project.rows[0]) throw Object.assign(new Error("PROJECT_NOT_FOUND"), { status: 404 });
+        const projectId = project.rows[0].id;
+        await (await this._getPool()).query(`DELETE FROM project_watchlist WHERE account_id=$1 AND project_id=$2`, [accountId, projectId]);
+        const { rows } = await (await this._getPool()).query(`SELECT count(*)::int AS cnt FROM project_watchlist WHERE project_id=$1`, [projectId]);
+        return { unwatched: true, watcherCount: rows[0].cnt };
+      }
+      async getWatchlist(accountId) {
+        const { rows } = await (await this._getPool()).query(
+          `SELECT pw.*, p.slug, p.name, p.summary,
+       (SELECT count(*)::int FROM project_watchlist x WHERE x.project_id=pw.project_id) AS watcher_count
+       FROM project_watchlist pw JOIN project p ON p.id=pw.project_id
+       WHERE pw.account_id=$1 ORDER BY pw.created_at DESC`,
+          [accountId]
+        );
+        return rows;
+      }
+      async createMilestone(builderAccountId, payload) {
+        if (!payload.title?.trim()) throw Object.assign(new Error("MILESTONE_TITLE_REQUIRED"), { status: 400 });
+        if (!payload.content?.trim()) throw Object.assign(new Error("MILESTONE_CONTENT_REQUIRED"), { status: 400 });
+        const cadence = await (await this._getPool()).query(
+          `SELECT 1 FROM builder_milestone WHERE builder_account_id=$1
+       AND (project_id=$2 OR ($2::text IS NULL AND project_id IS NULL))
+       AND created_at > now() - interval '7 days' LIMIT 1`,
+          [builderAccountId, payload.projectId ?? null]
+        );
+        if (cadence.rows[0]) throw Object.assign(new Error("MILESTONE_CADENCE_EXCEEDED"), { status: 429 });
+        const id2 = `bms_${randomUUID2()}`;
+        const { rows } = await (await this._getPool()).query(
+          `INSERT INTO builder_milestone(id,builder_account_id,project_id,title,content,links) VALUES($1,$2,$3,$4,$5,$6::jsonb) RETURNING *`,
+          [id2, builderAccountId, payload.projectId ?? null, payload.title.trim(), payload.content.trim(), JSON.stringify(payload.links ?? [])]
+        );
+        return rows[0];
+      }
+      async getMilestonesByBuilder(builderAccountId, { limit = 20 } = {}) {
+        const { rows } = await (await this._getPool()).query(
+          `SELECT * FROM builder_milestone WHERE builder_account_id=$1 ORDER BY created_at DESC LIMIT $2`,
+          [builderAccountId, limit]
+        );
+        return rows;
+      }
+      async getActivityByBuilder(builderAccountId, { limit = 20 } = {}) {
+        const pool = await this._getPool();
+        const [milestones, debuts, sales, holders] = await Promise.all([
+          pool.query(`SELECT id, 'MILESTONE' AS type, title, content, links, created_at FROM builder_milestone WHERE builder_account_id=$1 ORDER BY created_at DESC LIMIT $2`, [builderAccountId, limit]),
+          pool.query(`SELECT e.id, 'NEW_DEBUT' AS type, p.name AS title, p.summary AS content, '[]'::jsonb AS links, e.created_at FROM edition e JOIN project p ON p.id=e.project_id WHERE p.builder_account_id=$1 AND e.orphaned_at IS NULL ORDER BY e.created_at DESC LIMIT $2`, [builderAccountId, limit]),
+          pool.query(`SELECT l.order_hash AS id, 'SECONDARY_SALE' AS type, ('Pass #' || l.token_id || ' Sold') AS title, (l.price_usdg || ' USDG') AS content, '[]'::jsonb AS links, l.updated_at AS created_at FROM listing_projection l JOIN edition e ON e.id=l.edition_id JOIN project p ON p.id=e.project_id WHERE p.builder_account_id=$1 AND l.status='FILLED' AND l.orphaned_at IS NULL ORDER BY l.updated_at DESC LIMIT $2`, [builderAccountId, limit]),
+          pool.query(`SELECT (pt.edition_id || '_' || pt.token_id) AS id, 'NEW_HOLDER' AS type, ('New Holder for #' || pt.token_id) AS title, pt.owner_address AS content, '[]'::jsonb AS links, pt.updated_at AS created_at FROM pass_token_projection pt JOIN edition e ON e.id=pt.edition_id JOIN project p ON p.id=e.project_id WHERE p.builder_account_id=$1 AND pt.orphaned_at IS NULL ORDER BY pt.updated_at DESC LIMIT $2`, [builderAccountId, limit])
+        ]);
+        const combined = [...milestones.rows, ...debuts.rows, ...sales.rows, ...holders.rows].sort((a, b2) => new Date(b2.created_at) - new Date(a.created_at)).slice(0, limit);
+        return combined;
+      }
+      async getFeed(accountId, { limit = 50 } = {}) {
+        const { rows } = await (await this._getPool()).query(
+          `WITH followed AS (
+         SELECT builder_account_id FROM builder_follow WHERE follower_account_id=$1
+         UNION
+         SELECT p.builder_account_id FROM pass_token_projection pt
+         JOIN edition e ON e.id=pt.edition_id
+         JOIN project p ON p.id=e.project_id
+         WHERE pt.owner_address IN (SELECT address FROM wallet WHERE account_id=$1)
+           AND pt.orphaned_at IS NULL
+       )
+       SELECT bm.*, 'MILESTONE' AS type, bp.display_name AS builder_display_name, bp.avatar_url AS builder_avatar_url
+       FROM builder_milestone bm
+       JOIN followed f ON f.builder_account_id=bm.builder_account_id
+       LEFT JOIN builder_profile bp ON bp.account_id=bm.builder_account_id
+       ORDER BY bm.created_at DESC LIMIT $2`,
+          [accountId, limit]
+        );
+        return rows;
+      }
+      async getHolders(editionAddress, { limit = 100 } = {}) {
+        const { rows } = await (await this._getPool()).query(
+          `SELECT pt.owner_address, pt.token_id, pt.updated_at AS held_since, pt.minted_block_number
+       FROM pass_token_projection pt JOIN edition e ON e.id=pt.edition_id
+       WHERE e.edition_address=$1 AND pt.orphaned_at IS NULL
+       ORDER BY pt.token_id ASC LIMIT $2`,
+          [editionAddress.toLowerCase(), limit]
+        );
+        return rows;
+      }
+      async getPlatformStats() {
+        const pool = await this._getPool();
+        const [passes, holders, volume] = await Promise.all([
+          pool.query(`SELECT count(*)::int AS cnt FROM pass_token_projection WHERE orphaned_at IS NULL`),
+          pool.query(`SELECT count(DISTINCT owner_address)::int AS cnt FROM pass_token_projection WHERE orphaned_at IS NULL`),
+          pool.query(`SELECT COALESCE(sum(price_usdg),0)::text AS vol FROM listing_projection WHERE status='FILLED' AND orphaned_at IS NULL`)
+        ]);
+        return { passesIssued: passes.rows[0].cnt, activeHolders: holders.rows[0].cnt, totalVolumeUsdg: volume.rows[0].vol };
+      }
+      async getWatchlistCount(projectIdOrSlug) {
+        const { rows } = await (await this._getPool()).query(
+          `SELECT count(*)::int AS cnt FROM project_watchlist pw
+       JOIN project p ON p.id=pw.project_id
+       WHERE p.id=$1 OR p.slug=$1`,
+          [projectIdOrSlug]
+        );
+        return rows[0]?.cnt ?? 0;
+      }
+      async getFeaturedBuilders({ limit = 4 } = {}) {
+        const { rows } = await (await this._getPool()).query(
+          `SELECT bp.*,
+       (SELECT count(*)::int FROM edition e JOIN project p ON p.id=e.project_id WHERE p.builder_account_id=bp.account_id AND e.orphaned_at IS NULL) AS editions_count,
+       (SELECT count(*)::int FROM pass_token_projection pt JOIN edition e ON e.id=pt.edition_id JOIN project p ON p.id=e.project_id WHERE p.builder_account_id=bp.account_id AND pt.orphaned_at IS NULL) AS passes_issued,
+       (SELECT e.absolute_supply_cap FROM edition e JOIN project p ON p.id=e.project_id WHERE p.builder_account_id=bp.account_id AND e.orphaned_at IS NULL ORDER BY e.created_at DESC LIMIT 1) AS supply_cap,
+       (SELECT t.price_usdg::text FROM edition e JOIN project p ON p.id=e.project_id LEFT JOIN terms_version t ON t.edition_id=e.id AND t.orphaned_at IS NULL WHERE p.builder_account_id=bp.account_id AND e.orphaned_at IS NULL ORDER BY e.created_at DESC LIMIT 1) AS price_usdg,
+       (SELECT p.slug FROM project p WHERE p.builder_account_id=bp.account_id ORDER BY p.updated_at DESC LIMIT 1) AS project_slug
+       FROM builder_profile bp WHERE bp.featured=true LIMIT $1`,
+          [limit]
+        );
+        return rows;
+      }
     };
   }
 });
@@ -530,6 +747,10 @@ var init_memory_store = __esm({
         this.editionRequests = [];
         this.termsCommitments = /* @__PURE__ */ new Map();
         this.media = [];
+        this.builderProfiles = /* @__PURE__ */ new Map();
+        this.builderFollows = [];
+        this.projectWatchlist = [];
+        this.builderMilestones = [];
       }
       async ready() {
         return true;
@@ -583,9 +804,9 @@ var init_memory_store = __esm({
         delete result.appliedEvents;
         return structuredClone(result);
       }
-      async transaction(id2, accountId) {
+      async transaction(id2, accountId, chainId = null) {
         const tx = this.transactions.get(id2);
-        return tx?.accountId === accountId ? structuredClone(tx) : null;
+        return tx?.accountId === accountId && (chainId == null || Number(tx.chainId) === Number(chainId)) ? structuredClone(tx) : null;
       }
       async discover() {
         return structuredClone(this.projects.filter((project) => project.status === "PUBLISHED"));
@@ -675,8 +896,8 @@ var init_memory_store = __esm({
         this.termsCommitments.set(input.advantagesHash.toLowerCase(), structuredClone(input));
         return structuredClone(input);
       }
-      async editionRequestById(id2, builderAccountId) {
-        return structuredClone(this.editionRequests.find((request) => request.id === id2 && request.builderAccountId === builderAccountId) ?? null);
+      async editionRequestById(id2, builderAccountId, chainId = null) {
+        return structuredClone(this.editionRequests.find((request) => request.id === id2 && request.builderAccountId === builderAccountId && (chainId == null || Number(request.chainId) === Number(chainId))) ?? null);
       }
       async submitEditionRequest({ id: id2, safeTransactionHash, txHash, evidence = null }) {
         const existing = this.editionRequests.find((item) => item.id === id2);
@@ -691,228 +912,235 @@ var init_memory_store = __esm({
         this.media.push(row);
         return structuredClone(row);
       }
+      // --- Social layer ---
+      async getBuilderProfile(identifier) {
+        let profile = this.builderProfiles.get(identifier) ?? null;
+        if (!profile) {
+          const session2 = [...this.sessions.values()].find((s) => s.walletAddress?.toLowerCase() === identifier.toLowerCase());
+          if (session2) profile = this.builderProfiles.get(session2.accountId) ?? null;
+        }
+        if (!profile) {
+          for (const p of this.builderProfiles.values()) {
+            if (p.account_id === identifier || p.id === identifier || p.wallet_address?.toLowerCase() === identifier.toLowerCase()) {
+              profile = p;
+              break;
+            }
+          }
+        }
+        if (!profile) return null;
+        const session = [...this.sessions.values()].find((s) => s.accountId === profile.account_id);
+        const wallet_address = session?.walletAddress ?? profile.wallet_address ?? "0x0000000000000000000000000000000000000000";
+        const joined_at = profile.created_at;
+        const projectIds = this.projects.filter((p) => p.builderAccountId === profile.account_id || p.builder_account_id === profile.account_id).map((p) => p.id);
+        const editions = this.editions.filter((e) => projectIds.includes(e.projectId ?? e.project_id));
+        const passes = this.passes.filter((p) => editions.some((e) => (e.editionAddress ?? e.edition_address)?.toLowerCase() === p.editionAddress?.toLowerCase()));
+        const activeHolders = new Set(passes.map((p) => p.ownerAddress?.toLowerCase())).size;
+        const stats = {
+          editionsCount: editions.length,
+          passesIssued: passes.length,
+          activeHolders,
+          totalVolumeUsdg: "0"
+        };
+        const followerCount = this.builderFollows.filter((f) => f.builder_account_id === profile.account_id).length;
+        return structuredClone({ ...profile, wallet_address, joined_at, stats, followerCount, editions });
+      }
+      async upsertBuilderProfile(accountId, data) {
+        const existing = this.builderProfiles.get(accountId);
+        const profile = {
+          id: existing?.id ?? `bprf_${randomUUID4()}`,
+          account_id: accountId,
+          display_name: data.displayName ?? existing?.display_name ?? "",
+          bio: data.bio ?? existing?.bio ?? "",
+          about: data.about ?? existing?.about ?? "",
+          avatar_url: data.avatarUrl ?? existing?.avatar_url ?? "",
+          category: data.category ?? existing?.category ?? "",
+          links: data.links ?? existing?.links ?? {},
+          featured: existing?.featured ?? false,
+          created_at: existing?.created_at ?? (/* @__PURE__ */ new Date()).toISOString(),
+          updated_at: (/* @__PURE__ */ new Date()).toISOString()
+        };
+        this.builderProfiles.set(accountId, profile);
+        return structuredClone(profile);
+      }
+      async followBuilder(followerAccountId, builderAccountId) {
+        if (followerAccountId === builderAccountId) throw Object.assign(new Error("SELF_FOLLOW_REJECTED"), { status: 400 });
+        const exists2 = this.builderFollows.find((f) => f.follower_account_id === followerAccountId && f.builder_account_id === builderAccountId);
+        if (!exists2) this.builderFollows.push({ id: `bfl_${randomUUID4()}`, follower_account_id: followerAccountId, builder_account_id: builderAccountId, created_at: (/* @__PURE__ */ new Date()).toISOString() });
+        const followerCount = this.builderFollows.filter((f) => f.builder_account_id === builderAccountId).length;
+        return { followed: true, followerCount };
+      }
+      async unfollowBuilder(followerAccountId, builderAccountId) {
+        this.builderFollows = this.builderFollows.filter((f) => !(f.follower_account_id === followerAccountId && f.builder_account_id === builderAccountId));
+        const followerCount = this.builderFollows.filter((f) => f.builder_account_id === builderAccountId).length;
+        return { unfollowed: true, followerCount };
+      }
+      async getFollowStatus(followerAccountId, builderAccountId) {
+        const isFollowing = this.builderFollows.some((f) => f.follower_account_id === followerAccountId && f.builder_account_id === builderAccountId);
+        const followerCount = this.builderFollows.filter((f) => f.builder_account_id === builderAccountId).length;
+        const builderProjectIds = this.projects.filter((p) => p.builderAccountId === builderAccountId || p.builder_account_id === builderAccountId).map((p) => p.id);
+        const isHolder = this.passes.some((pass) => {
+          const ownerSessions = [...this.sessions.values()].filter((s) => s.accountId === followerAccountId);
+          const ownerAddresses = ownerSessions.map((s) => s.walletAddress?.toLowerCase());
+          return ownerAddresses.includes(pass.ownerAddress?.toLowerCase()) && builderProjectIds.length > 0;
+        });
+        return { isFollowing, followerCount, isHolder };
+      }
+      async getFollowedBuilders(accountId) {
+        const follows = this.builderFollows.filter((f) => f.follower_account_id === accountId);
+        return structuredClone(follows.map((f) => ({ builderAccountId: f.builder_account_id, followedAt: f.created_at, profile: this.builderProfiles.get(f.builder_account_id) ?? null })));
+      }
+      async watchProject(accountId, slug) {
+        const project = this.projects.find((p) => p.slug === slug);
+        if (!project) throw Object.assign(new Error("PROJECT_NOT_FOUND"), { status: 404 });
+        const exists2 = this.projectWatchlist.find((w) => w.account_id === accountId && w.project_id === project.id);
+        if (!exists2) this.projectWatchlist.push({ id: `pwl_${randomUUID4()}`, account_id: accountId, project_id: project.id, created_at: (/* @__PURE__ */ new Date()).toISOString() });
+        const watcherCount = this.projectWatchlist.filter((w) => w.project_id === project.id).length;
+        return { watching: true, watcherCount };
+      }
+      async unwatchProject(accountId, slug) {
+        const project = this.projects.find((p) => p.slug === slug);
+        if (!project) throw Object.assign(new Error("PROJECT_NOT_FOUND"), { status: 404 });
+        this.projectWatchlist = this.projectWatchlist.filter((w) => !(w.account_id === accountId && w.project_id === project.id));
+        const watcherCount = this.projectWatchlist.filter((w) => w.project_id === project.id).length;
+        return { unwatched: true, watcherCount };
+      }
+      async getWatchlist(accountId) {
+        const entries = this.projectWatchlist.filter((w) => w.account_id === accountId);
+        return structuredClone(entries.map((w) => {
+          const project = this.projects.find((p) => p.id === w.project_id);
+          const watcherCount = this.projectWatchlist.filter((x) => x.project_id === w.project_id).length;
+          return { ...w, slug: project?.slug, name: project?.name, summary: project?.summary, watcherCount };
+        }));
+      }
+      async createMilestone(builderAccountId, payload) {
+        if (!payload.title?.trim()) throw Object.assign(new Error("MILESTONE_TITLE_REQUIRED"), { status: 400 });
+        if (!payload.content?.trim()) throw Object.assign(new Error("MILESTONE_CONTENT_REQUIRED"), { status: 400 });
+        const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1e3;
+        const recent = this.builderMilestones.find((m) => m.builder_account_id === builderAccountId && (m.project_id ?? null) === (payload.projectId ?? null) && new Date(m.created_at).getTime() > weekAgo);
+        if (recent) throw Object.assign(new Error("MILESTONE_CADENCE_EXCEEDED"), { status: 429 });
+        const milestone = { id: `bms_${randomUUID4()}`, builder_account_id: builderAccountId, project_id: payload.projectId ?? null, title: payload.title.trim(), content: payload.content.trim(), links: payload.links ?? [], created_at: (/* @__PURE__ */ new Date()).toISOString() };
+        this.builderMilestones.push(milestone);
+        return structuredClone(milestone);
+      }
+      async getMilestonesByBuilder(builderAccountId, { limit = 20 } = {}) {
+        return structuredClone(this.builderMilestones.filter((m) => m.builder_account_id === builderAccountId).sort((a, b2) => new Date(b2.created_at) - new Date(a.created_at)).slice(0, limit));
+      }
+      async getActivityByBuilder(builderAccountId, { limit = 20 } = {}) {
+        const milestones = this.builderMilestones.filter((m) => m.builder_account_id === builderAccountId).map((m) => ({
+          id: m.id,
+          type: "MILESTONE",
+          title: m.title,
+          content: m.content,
+          links: m.links,
+          created_at: m.created_at
+        }));
+        const projectIds = this.projects.filter((p) => (p.builderAccountId ?? p.builder_account_id) === builderAccountId).map((p) => p.id);
+        const editions = this.editions.filter((e) => projectIds.includes(e.projectId ?? e.project_id));
+        const debuts = editions.map((e) => {
+          const prj = this.projects.find((p) => p.id === (e.projectId ?? e.project_id));
+          return {
+            id: `act_${e.id}`,
+            type: "NEW_DEBUT",
+            title: `New Debut: ${prj?.name ?? "Edition"}`,
+            content: `Launched edition with supply cap of ${e.absoluteSupplyCap ?? e.absolute_supply_cap ?? 555}.`,
+            created_at: e.createdAt ?? e.created_at ?? (/* @__PURE__ */ new Date()).toISOString()
+          };
+        });
+        const sales = this.listingRows.filter((l) => l.status === "FILLED" && editions.some((e) => (e.editionAddress ?? e.edition_address)?.toLowerCase() === (l.editionAddress ?? l.edition_address)?.toLowerCase())).map((l) => ({
+          id: `sale_${l.orderHash ?? l.order_hash}`,
+          type: "SECONDARY_SALE",
+          title: `Pass #${l.tokenId ?? l.token_id} Sold`,
+          content: `Sold for ${l.priceUsdg ?? l.price_usdg ?? 0} USDG on secondary market.`,
+          created_at: l.updatedAt ?? l.updated_at ?? (/* @__PURE__ */ new Date()).toISOString()
+        }));
+        const holders = this.passes.filter((p) => editions.some((e) => (e.editionAddress ?? e.edition_address)?.toLowerCase() === p.editionAddress?.toLowerCase())).map((p) => ({
+          id: `holder_${p.editionAddress}_${p.tokenId}`,
+          type: "NEW_HOLDER",
+          title: `New Holder for #${p.tokenId}`,
+          content: `Pass acquired by ${p.ownerAddress?.slice(0, 6)}...${p.ownerAddress?.slice(-4)}`,
+          created_at: p.updatedAt ?? p.mintedAt ?? (/* @__PURE__ */ new Date()).toISOString()
+        }));
+        const all = [...milestones, ...debuts, ...sales, ...holders].sort((a, b2) => new Date(b2.created_at) - new Date(a.created_at)).slice(0, limit);
+        return structuredClone(all);
+      }
+      async getFeed(accountId, { limit = 50 } = {}) {
+        const followedIds = this.builderFollows.filter((f) => f.follower_account_id === accountId).map((f) => f.builder_account_id);
+        const userSessions = [...this.sessions.values()].filter((s) => s.accountId === accountId);
+        const userAddresses = userSessions.map((s) => s.walletAddress?.toLowerCase());
+        const heldPasses = this.passes.filter((p) => userAddresses.includes(p.ownerAddress?.toLowerCase()));
+        const heldEditionAddresses = heldPasses.map((p) => p.editionAddress?.toLowerCase());
+        const heldProjects = this.projects.filter((prj) => {
+          const prjEditions = this.editions.filter((e) => (e.projectId ?? e.project_id) === prj.id);
+          return prjEditions.some((e) => heldEditionAddresses.includes((e.editionAddress ?? e.edition_address)?.toLowerCase()));
+        });
+        const heldBuilderIds = heldProjects.map((prj) => prj.builderAccountId ?? prj.builder_account_id);
+        const relevantBuilderIds = [.../* @__PURE__ */ new Set([...followedIds, ...heldBuilderIds])];
+        const milestones = this.builderMilestones.filter((m) => relevantBuilderIds.includes(m.builder_account_id)).map((m) => ({
+          ...m,
+          type: "MILESTONE",
+          builderProfile: this.builderProfiles.get(m.builder_account_id) ?? null
+        }));
+        const debuts = this.editions.filter((e) => {
+          const prj = this.projects.find((p) => p.id === (e.projectId ?? e.project_id));
+          return prj && relevantBuilderIds.includes(prj.builderAccountId ?? prj.builder_account_id);
+        }).map((e) => {
+          const prj = this.projects.find((p) => p.id === (e.projectId ?? e.project_id));
+          return {
+            id: `debut_${e.id}`,
+            type: "NEW_DEBUT",
+            builder_account_id: prj?.builderAccountId ?? prj?.builder_account_id,
+            title: `New Debut: ${prj?.name ?? "Edition"}`,
+            content: prj?.summary ?? "New pass edition debuted.",
+            created_at: e.createdAt ?? e.created_at ?? (/* @__PURE__ */ new Date()).toISOString(),
+            builderProfile: this.builderProfiles.get(prj?.builderAccountId ?? prj?.builder_account_id) ?? null
+          };
+        });
+        const feed = [...milestones, ...debuts].sort((a, b2) => new Date(b2.created_at) - new Date(a.created_at)).slice(0, limit);
+        return structuredClone(feed);
+      }
+      async getHolders(editionAddress, { limit = 100 } = {}) {
+        const passes = this.passes.filter((p) => p.editionAddress?.toLowerCase() === editionAddress.toLowerCase());
+        return structuredClone(passes.sort((a, b2) => Number(a.tokenId) - Number(b2.tokenId)).slice(0, limit).map((p) => ({
+          owner_address: p.ownerAddress,
+          token_id: p.tokenId,
+          held_since: p.updatedAt ?? p.mintedAt ?? (/* @__PURE__ */ new Date()).toISOString(),
+          minted_block_number: p.mintedBlockNumber ?? 0
+        })));
+      }
+      async getPlatformStats() {
+        const passesIssued = this.passes.length;
+        const activeHolders = new Set(this.passes.map((p) => p.ownerAddress?.toLowerCase())).size;
+        const filled = this.listingRows.filter((l) => l.status === "FILLED");
+        const totalVolumeUsdg = filled.reduce((sum, l) => sum + Number(l.price_usdg ?? l.priceUsdg ?? 0), 0).toString();
+        return { passesIssued, activeHolders, totalVolumeUsdg };
+      }
+      async getWatchlistCount(projectIdOrSlug) {
+        const project = this.projects.find((p) => p.id === projectIdOrSlug || p.slug === projectIdOrSlug);
+        const id2 = project ? project.id : projectIdOrSlug;
+        return this.projectWatchlist.filter((w) => w.project_id === id2).length;
+      }
+      async getFeaturedBuilders({ limit = 4 } = {}) {
+        const featured = [...this.builderProfiles.values()].filter((p) => p.featured).slice(0, limit);
+        return structuredClone(featured.map((profile) => {
+          const project = this.projects.find((p) => p.builderAccountId === profile.account_id || p.builder_account_id === profile.account_id);
+          const projectIds = this.projects.filter((p) => p.builderAccountId === profile.account_id || p.builder_account_id === profile.account_id).map((p) => p.id);
+          const editions = this.editions.filter((e) => projectIds.includes(e.projectId ?? e.project_id));
+          const latestEdition = editions[0];
+          const passesIssued = this.passes.filter((p) => projectIds.length > 0).length;
+          return {
+            ...profile,
+            editionsCount: editions.length,
+            passesIssued,
+            supplyCap: latestEdition?.absoluteSupplyCap ?? latestEdition?.absolute_supply_cap ?? 555,
+            priceUsdg: latestEdition?.priceUsdg ?? latestEdition?.price_usdg ?? "50",
+            advantageSummary: latestEdition?.advantageSummary ?? "Priority Access & Builder Advantage",
+            projectSlug: project?.slug ?? null
+          };
+        }));
+      }
     };
   }
 });
-
-// packages/chain/src/keccak.mjs
-var MASK = (1n << 64n) - 1n;
-
-// packages/chain/src/rpc.mjs
-var JsonRpcClient = class {
-  constructor(url, { timeoutMs = 12e3 } = {}) {
-    this.url = url;
-    this.timeoutMs = timeoutMs;
-    this.id = 0;
-  }
-  async call(method, params = []) {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), this.timeoutMs);
-    try {
-      const response = await fetch(this.url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: ++this.id, method, params }), signal: controller.signal });
-      if (!response.ok) throw new Error(`RPC HTTP ${response.status}`);
-      const body = await response.json();
-      if (body.error) throw new Error(`RPC ${method}: ${body.error.message || JSON.stringify(body.error)}`);
-      return body.result;
-    } finally {
-      clearTimeout(timer);
-    }
-  }
-  chainId() {
-    return this.call("eth_chainId").then((x) => Number(BigInt(x)));
-  }
-  getBlockNumber() {
-    return this.call("eth_blockNumber").then((value) => Number(BigInt(value)));
-  }
-  getBlockByNumber(blockNumber) {
-    return this.call("eth_getBlockByNumber", [`0x${BigInt(blockNumber).toString(16)}`, false]);
-  }
-  getTransactionReceipt(txHash) {
-    return this.call("eth_getTransactionReceipt", [txHash]);
-  }
-  getTransactionByHash(txHash) {
-    return this.call("eth_getTransactionByHash", [txHash]);
-  }
-  getCode(address2, block = "latest") {
-    return this.call("eth_getCode", [address2, block]);
-  }
-  getStorageAt(address2, slot, block = "latest") {
-    return this.call("eth_getStorageAt", [address2, slot, block]);
-  }
-  ethCall(to, data, block = "latest") {
-    return this.call("eth_call", [{ to, data }, block]);
-  }
-};
-
-// packages/subgraph-client/src/index.mjs
-var DEFAULT_TIMEOUT_MS = 1e4;
-function asNumber(value, fallback = null) {
-  const number2 = Number(value);
-  return Number.isFinite(number2) ? number2 : fallback;
-}
-function lower(value) {
-  return typeof value === "string" ? value.toLowerCase() : value;
-}
-function unix(value) {
-  return value == null ? null : Number(value);
-}
-function advantageRemaining(advantage, now = Math.floor(Date.now() / 1e3)) {
-  if (!advantage) return "0";
-  const kind = String(advantage.kind ?? "").toUpperCase();
-  const starts = unix(advantage.startsAt) ?? 0;
-  const ends = unix(advantage.endsAt) ?? 0;
-  const frozen = asNumber(advantage.frozenSeconds, 0);
-  let effective = Math.max(0, now - frozen);
-  if (kind === "TIME_BASED" && advantage.listed && advantage.listedAt != null) {
-    const listed = (unix(advantage.listedAt) ?? 0) - frozen;
-    if (listed < ends) {
-      const freezeAt = Math.max(listed, starts);
-      effective = effective < freezeAt ? effective : freezeAt;
-    }
-  }
-  if (effective < starts || effective >= ends) return "0";
-  if (kind === "TIME_BASED") return String(Math.max(0, ends - effective));
-  if (kind === "CONNECTED") return "1";
-  return String(advantage.remainingUnits ?? advantage.totalUnits ?? 0);
-}
-var SubgraphClient = class {
-  constructor({ endpoint, fetchImpl = globalThis.fetch, timeoutMs = DEFAULT_TIMEOUT_MS, logger = console, certificationEditionAddress = null, certificationEditionName = null } = {}) {
-    this.endpoint = endpoint?.trim() || null;
-    this.fetchImpl = fetchImpl;
-    this.timeoutMs = timeoutMs;
-    this.logger = logger;
-    this.certificationEditionAddress = lower(certificationEditionAddress);
-    this.certificationEditionName = certificationEditionName;
-  }
-  get enabled() {
-    return Boolean(this.endpoint);
-  }
-  async query(query, variables = {}, { cacheBust = false } = {}) {
-    if (!this.endpoint) throw new Error("SUBGRAPH_ENDPOINT_REQUIRED");
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), this.timeoutMs);
-    try {
-      const endpoint = cacheBust ? `${this.endpoint}${this.endpoint.includes("?") ? "&" : "?"}_nexmarkets_meta=${Date.now()}` : this.endpoint;
-      const response = await this.fetchImpl(endpoint, {
-        method: "POST",
-        headers: { "content-type": "application/json", accept: "application/json", "cache-control": cacheBust ? "no-cache" : "no-cache" },
-        body: JSON.stringify({ query, variables }),
-        signal: controller.signal
-      });
-      const body = await response.json();
-      if (!response.ok) throw new Error(`SUBGRAPH_HTTP_${response.status}`);
-      if (body.errors?.length) throw new Error(`SUBGRAPH_QUERY_ERROR:${body.errors[0].message}`);
-      return body.data ?? {};
-    } finally {
-      clearTimeout(timer);
-    }
-  }
-  async indexingStatus() {
-    const data = await this.query("{ _meta { block { number hash } deployment } }", {}, { cacheBust: true });
-    const block = data._meta?.block ?? {};
-    return { indexedBlock: asNumber(block.number, 0), blockHash: lower(block.hash ?? null), deployment: data._meta?.deployment ?? null };
-  }
-  async discover({ first = 100 } = {}) {
-    const data = await this.query(`query($first:Int!){ editions(first:$first,orderBy:createdBlock,orderDirection:desc){ id address editionId publisher absoluteSupplyCap totalMinted disabled currentTerms { hash pricePerPass previewStartsAt mintStartsAt mintEndsAt } createdBlock createdTimestamp createdTx } }`, { first });
-    return (data.editions ?? []).map((edition) => {
-      const address2 = lower(edition.address);
-      const name = address2 === this.certificationEditionAddress && this.certificationEditionName ? this.certificationEditionName : `NexPass Edition ${address2?.slice(0, 10) ?? ""}`;
-      const currentTerms = normalizeTerms(edition.currentTerms ?? {});
-      return {
-        slug: address2,
-        name,
-        summary: `${edition.totalMinted ?? "0"}/${edition.absoluteSupplyCap ?? "0"} serials minted \xB7 ${edition.disabled ? "disabled" : "onchain"}`,
-        status: edition.disabled ? "Disabled" : "Edition",
-        edition_address: address2,
-        edition_id: lower(edition.editionId),
-        publisher: lower(edition.publisher),
-        absolute_supply_cap: edition.absoluteSupplyCap,
-        total_minted: edition.totalMinted,
-        disabled: edition.disabled,
-        active_terms_hash: lower(edition.currentTerms?.hash ?? null),
-        price_usdg: edition.currentTerms?.pricePerPass ?? null,
-        preview_starts_at: iso(currentTerms.previewStartsAt),
-        mint_starts_at: iso(currentTerms.mintStartsAt),
-        mint_ends_at: iso(currentTerms.mintEndsAt),
-        created_block: edition.createdBlock,
-        created_tx: lower(edition.createdTx)
-      };
-    });
-  }
-  async editionByAddress(address2) {
-    const data = await this.query(`query($address:Bytes!){ editions(where:{address:$address}){ id address editionId publisher protocolAdmin mintController absoluteSupplyCap artworkCommitment totalMinted disabled currentTerms { id hash version activeSupply pricePerPass previewStartsAt mintStartsAt mintEndsAt primaryRecipient royaltyReceiver royaltyBps advantagesHash referralTermsHash blockNumber timestamp transactionHash } terms(orderBy:version,orderDirection:desc){ id hash version activeSupply pricePerPass previewStartsAt mintStartsAt mintEndsAt primaryRecipient royaltyReceiver royaltyBps advantagesHash referralTermsHash } } }`, { address: lower(address2) });
-    const edition = data.editions?.[0];
-    if (!edition) return null;
-    const normalizedAddress = lower(edition.address);
-    const normalizedTerms = (edition.terms ?? []).map(normalizeTerms);
-    const currentTerms = edition.currentTerms ? normalizeTerms(edition.currentTerms) : null;
-    return {
-      ...edition,
-      id: normalizedAddress,
-      name: normalizedAddress === this.certificationEditionAddress && this.certificationEditionName ? this.certificationEditionName : `NexPass Edition ${normalizedAddress.slice(0, 10)}`,
-      address: normalizedAddress,
-      edition_address: normalizedAddress,
-      editionId: lower(edition.editionId),
-      edition_id: lower(edition.editionId),
-      publisher: lower(edition.publisher),
-      protocolAdmin: lower(edition.protocolAdmin),
-      mintController: lower(edition.mintController),
-      artworkCommitment: lower(edition.artworkCommitment),
-      absolute_supply_cap: edition.absoluteSupplyCap,
-      currentTerms,
-      termsHistory: normalizedTerms
-    };
-  }
-  async pass(edition, tokenId) {
-    const id2 = `${lower(edition)}-${tokenId}`;
-    const data = await this.query(`query($tokenId:BigInt!){ passes(where:{tokenId:$tokenId}){ id tokenId owner termsHash mintBlock mintTimestamp mintTransactionHash royaltyReceiver royaltyBps listed edition { address editionId publisher } advantages { id advantageId kind startsAt endsAt totalUnits remainingUnits frozenSeconds listed listedAt definitionHash termsHash } tba { account implementation registry } } }`, { tokenId: String(tokenId) });
-    const pass = data.passes?.find((candidate) => String(candidate.id).toLowerCase() === id2.toLowerCase()) ?? data.passes?.[0] ?? null;
-    if (!pass) return null;
-    const owner = lower(pass.owner);
-    const normalizedEdition = { ...pass.edition, address: lower(pass.edition.address), editionId: lower(pass.edition.editionId), publisher: lower(pass.edition.publisher) };
-    const advantages = (pass.advantages ?? []).map((advantage) => {
-      const remaining = advantageRemaining(advantage);
-      return { ...advantage, advantageId: lower(advantage.advantageId), advantage_id_hash: lower(advantage.advantageId), termsHash: lower(advantage.termsHash), terms_hash: lower(advantage.termsHash), definitionHash: lower(advantage.definitionHash), definition_hash: lower(advantage.definitionHash), remainingUnits: advantage.remainingUnits, remaining_units: advantage.remainingUnits, userFacingRemaining: remaining, remaining, consumesOnchain: ["QUANTITY_BASED", "REDEMPTION"].includes(String(advantage.kind).toUpperCase()) };
-    });
-    const tba = pass.tba ? { ...pass.tba, account: lower(pass.tba.account), implementation: lower(pass.tba.implementation), registry: lower(pass.tba.registry) } : null;
-    return {
-      ...pass,
-      token_id: pass.tokenId,
-      owner,
-      owner_address: owner,
-      termsHash: lower(pass.termsHash),
-      terms_hash: lower(pass.termsHash),
-      edition: normalizedEdition,
-      edition_address: normalizedEdition.address,
-      name: normalizedEdition.address === this.certificationEditionAddress && this.certificationEditionName ? this.certificationEditionName : `NexPass Edition ${normalizedEdition.address.slice(0, 10)}`,
-      advantages,
-      tba,
-      token_bound_account: tba?.account ?? null
-    };
-  }
-  async listings({ first = 100, status = "ACTIVE" } = {}) {
-    const data = await this.query(`query($first:Int!,$status:String!){ listings(first:$first,where:{status:$status},orderBy:createdBlock,orderDirection:desc){ id orderHash tokenId seller termsHash price royaltyReceiver royaltyBps startTime expiry zoneHash status buyer salePrice protocolFee builderRoyalty sellerProceeds edition { address editionId } } }`, { first, status });
-    return (data.listings ?? []).map(normalizeListing);
-  }
-  async listing(orderHash) {
-    const data = await this.query(`query($id:ID!){ listing(id:$id){ id orderHash tokenId seller termsHash price royaltyReceiver royaltyBps startTime expiry zoneHash status buyer salePrice protocolFee builderRoyalty sellerProceeds edition { address editionId } } }`, { id: lower(orderHash) });
-    const listing = data.listing;
-    if (!listing) return null;
-    return normalizeListing(listing);
-  }
-};
-function normalizeTerms(terms) {
-  const previewStartsAt = unix(terms.previewStartsAt);
-  const mintStartsAt = unix(terms.mintStartsAt);
-  const mintEndsAt = unix(terms.mintEndsAt);
-  return { ...terms, hash: lower(terms.hash), primaryRecipient: lower(terms.primaryRecipient), royaltyReceiver: lower(terms.royaltyReceiver), advantagesHash: lower(terms.advantagesHash), referralTermsHash: lower(terms.referralTermsHash), previewStartsAt, mintStartsAt, mintEndsAt, price_usdg: terms.pricePerPass, preview_starts_at: iso(previewStartsAt), mint_starts_at: iso(mintStartsAt), mint_ends_at: iso(mintEndsAt), terms_hash: lower(terms.hash), primary_recipient: lower(terms.primaryRecipient), royalty_receiver: lower(terms.royaltyReceiver), royalty_bps: terms.royaltyBps, advantages_hash: lower(terms.advantagesHash), referral_terms_hash: lower(terms.referralTermsHash) };
-}
-function iso(value) {
-  return value == null ? null : new Date(Number(value) * 1e3).toISOString();
-}
-function normalizeListing(listing) {
-  return { ...listing, order_hash: lower(listing.orderHash), edition_address: lower(listing.edition.address), token_id: listing.tokenId, seller_address: lower(listing.seller), terms_hash: lower(listing.termsHash), price_usdg: listing.price, royalty_receiver: lower(listing.royaltyReceiver), royalty_bps: listing.royaltyBps, starts_at: unix(listing.startTime), expires_at: unix(listing.expiry), zone_hash: lower(listing.zoneHash), buyer: lower(listing.buyer) };
-}
 
 // apps/api/src/server.mjs
 import http from "node:http";
@@ -8740,7 +8968,7 @@ import { randomBytes as randomBytes3, timingSafeEqual } from "node:crypto";
 function issueWalletChallenge({ accountId, address: address2, origin, chainId = 4663, ttlSeconds = 300, now = Date.now() }) {
   if (!/^0x[0-9a-fA-F]{40}$/.test(address2)) throw new Error("Invalid EVM address");
   if (!origin) throw new Error("origin required");
-  if (![4663, 46630].includes(chainId)) throw new Error("Robinhood chain required");
+  if (![4663, 46630, 8453, 84532].includes(Number(chainId))) throw new Error("Supported EVM chain required");
   const url = new URL(origin);
   if (url.protocol !== "https:" && url.hostname !== "localhost") throw new Error("secure origin required");
   const nonce = randomBytes3(32).toString("hex");
@@ -9604,6 +9832,225 @@ var REQUIRED_METRICS = Object.freeze([
   "nexmarkets_db_ready"
 ]);
 
+// packages/chain/src/keccak.mjs
+var MASK = (1n << 64n) - 1n;
+
+// packages/chain/src/rpc.mjs
+var JsonRpcClient = class {
+  constructor(url, { timeoutMs = 12e3 } = {}) {
+    this.url = url;
+    this.timeoutMs = timeoutMs;
+    this.id = 0;
+  }
+  async call(method, params = []) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), this.timeoutMs);
+    try {
+      const response = await fetch(this.url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: ++this.id, method, params }), signal: controller.signal });
+      if (!response.ok) throw new Error(`RPC HTTP ${response.status}`);
+      const body = await response.json();
+      if (body.error) throw new Error(`RPC ${method}: ${body.error.message || JSON.stringify(body.error)}`);
+      return body.result;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+  chainId() {
+    return this.call("eth_chainId").then((x) => Number(BigInt(x)));
+  }
+  getBlockNumber() {
+    return this.call("eth_blockNumber").then((value) => Number(BigInt(value)));
+  }
+  getBlockByNumber(blockNumber) {
+    return this.call("eth_getBlockByNumber", [`0x${BigInt(blockNumber).toString(16)}`, false]);
+  }
+  getTransactionReceipt(txHash) {
+    return this.call("eth_getTransactionReceipt", [txHash]);
+  }
+  getTransactionByHash(txHash) {
+    return this.call("eth_getTransactionByHash", [txHash]);
+  }
+  getCode(address2, block = "latest") {
+    return this.call("eth_getCode", [address2, block]);
+  }
+  getStorageAt(address2, slot, block = "latest") {
+    return this.call("eth_getStorageAt", [address2, slot, block]);
+  }
+  ethCall(to, data, block = "latest") {
+    return this.call("eth_call", [{ to, data }, block]);
+  }
+};
+
+// packages/subgraph-client/src/index.mjs
+var DEFAULT_TIMEOUT_MS = 1e4;
+function asNumber(value, fallback = null) {
+  const number2 = Number(value);
+  return Number.isFinite(number2) ? number2 : fallback;
+}
+function lower(value) {
+  return typeof value === "string" ? value.toLowerCase() : value;
+}
+function unix(value) {
+  return value == null ? null : Number(value);
+}
+function advantageRemaining(advantage, now = Math.floor(Date.now() / 1e3)) {
+  if (!advantage) return "0";
+  const kind = String(advantage.kind ?? "").toUpperCase();
+  const starts = unix(advantage.startsAt) ?? 0;
+  const ends = unix(advantage.endsAt) ?? 0;
+  const frozen = asNumber(advantage.frozenSeconds, 0);
+  let effective = Math.max(0, now - frozen);
+  if (kind === "TIME_BASED" && advantage.listed && advantage.listedAt != null) {
+    const listed = (unix(advantage.listedAt) ?? 0) - frozen;
+    if (listed < ends) {
+      const freezeAt = Math.max(listed, starts);
+      effective = effective < freezeAt ? effective : freezeAt;
+    }
+  }
+  if (effective < starts || effective >= ends) return "0";
+  if (kind === "TIME_BASED") return String(Math.max(0, ends - effective));
+  if (kind === "CONNECTED") return "1";
+  return String(advantage.remainingUnits ?? advantage.totalUnits ?? 0);
+}
+var SubgraphClient = class {
+  constructor({ endpoint, fetchImpl = globalThis.fetch, timeoutMs = DEFAULT_TIMEOUT_MS, logger = console, certificationEditionAddress = null, certificationEditionName = null } = {}) {
+    this.endpoint = endpoint?.trim() || null;
+    this.fetchImpl = fetchImpl;
+    this.timeoutMs = timeoutMs;
+    this.logger = logger;
+    this.certificationEditionAddress = lower(certificationEditionAddress);
+    this.certificationEditionName = certificationEditionName;
+  }
+  get enabled() {
+    return Boolean(this.endpoint);
+  }
+  async query(query, variables = {}, { cacheBust = false } = {}) {
+    if (!this.endpoint) throw new Error("SUBGRAPH_ENDPOINT_REQUIRED");
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), this.timeoutMs);
+    try {
+      const endpoint = cacheBust ? `${this.endpoint}${this.endpoint.includes("?") ? "&" : "?"}_nexmarkets_meta=${Date.now()}` : this.endpoint;
+      const response = await this.fetchImpl(endpoint, {
+        method: "POST",
+        headers: { "content-type": "application/json", accept: "application/json", "cache-control": cacheBust ? "no-cache" : "no-cache" },
+        body: JSON.stringify({ query, variables }),
+        signal: controller.signal
+      });
+      const body = await response.json();
+      if (!response.ok) throw new Error(`SUBGRAPH_HTTP_${response.status}`);
+      if (body.errors?.length) throw new Error(`SUBGRAPH_QUERY_ERROR:${body.errors[0].message}`);
+      return body.data ?? {};
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+  async indexingStatus() {
+    const data = await this.query("{ _meta { block { number hash } deployment } }", {}, { cacheBust: true });
+    const block = data._meta?.block ?? {};
+    return { indexedBlock: asNumber(block.number, 0), blockHash: lower(block.hash ?? null), deployment: data._meta?.deployment ?? null };
+  }
+  async discover({ first = 100 } = {}) {
+    const data = await this.query(`query($first:Int!){ editions(first:$first,orderBy:createdBlock,orderDirection:desc){ id address editionId publisher absoluteSupplyCap totalMinted disabled currentTerms { hash pricePerPass previewStartsAt mintStartsAt mintEndsAt } createdBlock createdTimestamp createdTx } }`, { first });
+    return (data.editions ?? []).map((edition) => {
+      const address2 = lower(edition.address);
+      const name = address2 === this.certificationEditionAddress && this.certificationEditionName ? this.certificationEditionName : `NexPass Edition ${address2?.slice(0, 10) ?? ""}`;
+      const currentTerms = normalizeTerms(edition.currentTerms ?? {});
+      return {
+        slug: address2,
+        name,
+        summary: `${edition.totalMinted ?? "0"}/${edition.absoluteSupplyCap ?? "0"} serials minted \xB7 ${edition.disabled ? "disabled" : "onchain"}`,
+        status: edition.disabled ? "Disabled" : "Edition",
+        edition_address: address2,
+        edition_id: lower(edition.editionId),
+        publisher: lower(edition.publisher),
+        absolute_supply_cap: edition.absoluteSupplyCap,
+        total_minted: edition.totalMinted,
+        disabled: edition.disabled,
+        active_terms_hash: lower(edition.currentTerms?.hash ?? null),
+        price_usdg: edition.currentTerms?.pricePerPass ?? null,
+        preview_starts_at: iso(currentTerms.previewStartsAt),
+        mint_starts_at: iso(currentTerms.mintStartsAt),
+        mint_ends_at: iso(currentTerms.mintEndsAt),
+        created_block: edition.createdBlock,
+        created_tx: lower(edition.createdTx)
+      };
+    });
+  }
+  async editionByAddress(address2) {
+    const data = await this.query(`query($address:Bytes!){ editions(where:{address:$address}){ id address editionId publisher protocolAdmin mintController absoluteSupplyCap artworkCommitment totalMinted disabled currentTerms { id hash version activeSupply pricePerPass previewStartsAt mintStartsAt mintEndsAt primaryRecipient royaltyReceiver royaltyBps advantagesHash referralTermsHash blockNumber timestamp transactionHash } terms(orderBy:version,orderDirection:desc){ id hash version activeSupply pricePerPass previewStartsAt mintStartsAt mintEndsAt primaryRecipient royaltyReceiver royaltyBps advantagesHash referralTermsHash } } }`, { address: lower(address2) });
+    const edition = data.editions?.[0];
+    if (!edition) return null;
+    const normalizedAddress = lower(edition.address);
+    const normalizedTerms = (edition.terms ?? []).map(normalizeTerms);
+    const currentTerms = edition.currentTerms ? normalizeTerms(edition.currentTerms) : null;
+    return {
+      ...edition,
+      id: normalizedAddress,
+      name: normalizedAddress === this.certificationEditionAddress && this.certificationEditionName ? this.certificationEditionName : `NexPass Edition ${normalizedAddress.slice(0, 10)}`,
+      address: normalizedAddress,
+      edition_address: normalizedAddress,
+      editionId: lower(edition.editionId),
+      edition_id: lower(edition.editionId),
+      publisher: lower(edition.publisher),
+      protocolAdmin: lower(edition.protocolAdmin),
+      mintController: lower(edition.mintController),
+      artworkCommitment: lower(edition.artworkCommitment),
+      absolute_supply_cap: edition.absoluteSupplyCap,
+      currentTerms,
+      termsHistory: normalizedTerms
+    };
+  }
+  async pass(edition, tokenId) {
+    const id2 = `${lower(edition)}-${tokenId}`;
+    const data = await this.query(`query($tokenId:BigInt!){ passes(where:{tokenId:$tokenId}){ id tokenId owner termsHash mintBlock mintTimestamp mintTransactionHash royaltyReceiver royaltyBps listed edition { address editionId publisher } advantages { id advantageId kind startsAt endsAt totalUnits remainingUnits frozenSeconds listed listedAt definitionHash termsHash } tba { account implementation registry } } }`, { tokenId: String(tokenId) });
+    const pass = data.passes?.find((candidate) => String(candidate.id).toLowerCase() === id2.toLowerCase()) ?? data.passes?.[0] ?? null;
+    if (!pass) return null;
+    const owner = lower(pass.owner);
+    const normalizedEdition = { ...pass.edition, address: lower(pass.edition.address), editionId: lower(pass.edition.editionId), publisher: lower(pass.edition.publisher) };
+    const advantages = (pass.advantages ?? []).map((advantage) => {
+      const remaining = advantageRemaining(advantage);
+      return { ...advantage, advantageId: lower(advantage.advantageId), advantage_id_hash: lower(advantage.advantageId), termsHash: lower(advantage.termsHash), terms_hash: lower(advantage.termsHash), definitionHash: lower(advantage.definitionHash), definition_hash: lower(advantage.definitionHash), remainingUnits: advantage.remainingUnits, remaining_units: advantage.remainingUnits, userFacingRemaining: remaining, remaining, consumesOnchain: ["QUANTITY_BASED", "REDEMPTION"].includes(String(advantage.kind).toUpperCase()) };
+    });
+    const tba = pass.tba ? { ...pass.tba, account: lower(pass.tba.account), implementation: lower(pass.tba.implementation), registry: lower(pass.tba.registry) } : null;
+    return {
+      ...pass,
+      token_id: pass.tokenId,
+      owner,
+      owner_address: owner,
+      termsHash: lower(pass.termsHash),
+      terms_hash: lower(pass.termsHash),
+      edition: normalizedEdition,
+      edition_address: normalizedEdition.address,
+      name: normalizedEdition.address === this.certificationEditionAddress && this.certificationEditionName ? this.certificationEditionName : `NexPass Edition ${normalizedEdition.address.slice(0, 10)}`,
+      advantages,
+      tba,
+      token_bound_account: tba?.account ?? null
+    };
+  }
+  async listings({ first = 100, status = "ACTIVE" } = {}) {
+    const data = await this.query(`query($first:Int!,$status:String!){ listings(first:$first,where:{status:$status},orderBy:createdBlock,orderDirection:desc){ id orderHash tokenId seller termsHash price royaltyReceiver royaltyBps startTime expiry zoneHash status buyer salePrice protocolFee builderRoyalty sellerProceeds edition { address editionId } } }`, { first, status });
+    return (data.listings ?? []).map(normalizeListing);
+  }
+  async listing(orderHash) {
+    const data = await this.query(`query($id:ID!){ listing(id:$id){ id orderHash tokenId seller termsHash price royaltyReceiver royaltyBps startTime expiry zoneHash status buyer salePrice protocolFee builderRoyalty sellerProceeds edition { address editionId } } }`, { id: lower(orderHash) });
+    const listing = data.listing;
+    if (!listing) return null;
+    return normalizeListing(listing);
+  }
+};
+function normalizeTerms(terms) {
+  const previewStartsAt = unix(terms.previewStartsAt);
+  const mintStartsAt = unix(terms.mintStartsAt);
+  const mintEndsAt = unix(terms.mintEndsAt);
+  return { ...terms, hash: lower(terms.hash), primaryRecipient: lower(terms.primaryRecipient), royaltyReceiver: lower(terms.royaltyReceiver), advantagesHash: lower(terms.advantagesHash), referralTermsHash: lower(terms.referralTermsHash), previewStartsAt, mintStartsAt, mintEndsAt, price_usdg: terms.pricePerPass, preview_starts_at: iso(previewStartsAt), mint_starts_at: iso(mintStartsAt), mint_ends_at: iso(mintEndsAt), terms_hash: lower(terms.hash), primary_recipient: lower(terms.primaryRecipient), royalty_receiver: lower(terms.royaltyReceiver), royalty_bps: terms.royaltyBps, advantages_hash: lower(terms.advantagesHash), referral_terms_hash: lower(terms.referralTermsHash) };
+}
+function iso(value) {
+  return value == null ? null : new Date(Number(value) * 1e3).toISOString();
+}
+function normalizeListing(listing) {
+  return { ...listing, order_hash: lower(listing.orderHash), edition_address: lower(listing.edition.address), token_id: listing.tokenId, seller_address: lower(listing.seller), terms_hash: lower(listing.termsHash), price_usdg: listing.price, royalty_receiver: lower(listing.royaltyReceiver), royalty_bps: listing.royaltyBps, starts_at: unix(listing.startTime), expires_at: unix(listing.expiry), zone_hash: lower(listing.zoneHash), buyer: lower(listing.buyer) };
+}
+
 // apps/api/src/server.mjs
 var JSON_HEADERS = { "content-type": "application/json; charset=utf-8" };
 var INTENT_TYPE = Object.freeze({
@@ -9727,6 +10174,63 @@ function productionOrderPolicy(env = process.env) {
     }
   };
 }
+function networkKeyForChainId(chainId) {
+  return { 4663: "robinhood-mainnet", 46630: "robinhood-testnet", 8453: "base-mainnet", 84532: "base-sepolia" }[Number(chainId)] ?? null;
+}
+function networkPolicyEnv(env, prefix, settlementAddress, seaportAddress) {
+  const policyEnv = { ...env };
+  const mappings = {
+    PROTOCOL_ADMIN_SAFE_ADDRESS: "PROTOCOL_ADMIN_SAFE_ADDRESS",
+    SECONDARY_FEE_RECIPIENT: "SECONDARY_FEE_RECIPIENT",
+    NEX_ROYALTY_VAULT_ADDRESS: "NEX_ROYALTY_VAULT_ADDRESS",
+    NEX_MARKETS_ZONE_ADDRESS: "NEX_MARKETS_ZONE_ADDRESS",
+    NEX_LISTING_REGISTRY_ADDRESS: "NEX_LISTING_REGISTRY_ADDRESS",
+    NEX_MINT_CONTROLLER_ADDRESS: "NEX_MINT_CONTROLLER_ADDRESS",
+    NEX_PASS_FACTORY_ADDRESS: "NEX_PASS_FACTORY_ADDRESS",
+    NEX_LAUNCH_REGISTRY_ADDRESS: "NEX_LAUNCH_REGISTRY_ADDRESS",
+    NEX_ADVANTAGE_REGISTRY_ADDRESS: "NEX_ADVANTAGE_REGISTRY_ADDRESS"
+  };
+  for (const [target, suffix] of Object.entries(mappings)) policyEnv[target] = env[`${prefix}_${suffix}`];
+  policyEnv.USDG_ADDRESS = env[`${prefix}_USDC_ADDRESS`] ?? settlementAddress;
+  policyEnv.SEAPORT_16_ADDRESS = env[`${prefix}_SEAPORT_16_ADDRESS`] ?? seaportAddress;
+  return policyEnv;
+}
+function networkSubgraph(env, prefix, fallbackEndpoint, fallbackEdition, fallbackName) {
+  const endpoint = env[`${prefix}_SUBGRAPH_URL`] ?? fallbackEndpoint;
+  return new SubgraphClient({
+    endpoint,
+    certificationEditionAddress: env[`${prefix}_CERTIFICATION_EDITION_ADDRESS`] ?? fallbackEdition,
+    certificationEditionName: env[`${prefix}_CERTIFICATION_EDITION_NAME`] ?? fallbackName
+  });
+}
+function createNetworkConfigs(env = process.env) {
+  const baseSepoliaUsdc = env.BASE_SEPOLIA_USDC_ADDRESS ?? "0x036CbD53842c5426634e7929541eC2318f3dCF7e";
+  const baseMainnetUsdc = env.BASE_MAINNET_USDC_ADDRESS ?? "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";
+  const rhTestnetSubgraph = networkSubgraph(
+    env,
+    "ROBINHOOD_TESTNET",
+    env.NEXMARKETS_SUBGRAPH_URL ?? "https://api.goldsky.com/api/public/project_cmt3es3z03t5101vr8ggx1j7e/subgraphs/nexmarkets-v1-robinhood-testnet/1.0.1/gn",
+    env.CERTIFICATION_EDITION_ADDRESS ?? "0x4171D62F43B4168b07a01C04594455DBc3298437",
+    env.CERTIFICATION_EDITION_NAME ?? "NexMarkets V1 Test Certification Edition"
+  );
+  const rhMainnetSubgraph = networkSubgraph(env, "ROBINHOOD_MAINNET", env.RH_MAINNET_SUBGRAPH_URL, env.RH_MAINNET_CERTIFICATION_EDITION_ADDRESS, env.RH_MAINNET_CERTIFICATION_EDITION_NAME);
+  const baseSepoliaSubgraph = networkSubgraph(env, "BASE_SEPOLIA", env.BASE_SEPOLIA_SUBGRAPH_URL ?? env.BASE_SEPOLIA_NEXMARKETS_SUBGRAPH_URL, env.BASE_SEPOLIA_CERTIFICATION_EDITION_ADDRESS, env.BASE_SEPOLIA_CERTIFICATION_EDITION_NAME);
+  const baseMainnetSubgraph = networkSubgraph(env, "BASE_MAINNET", env.BASE_MAINNET_SUBGRAPH_URL ?? env.BASE_MAINNET_NEXMARKETS_SUBGRAPH_URL, env.BASE_MAINNET_CERTIFICATION_EDITION_ADDRESS, env.BASE_MAINNET_CERTIFICATION_EDITION_NAME);
+  const config = (key, chainId, rpcEnv, fallbackRpc, subgraph, policyEnv, readModelDisabled = false) => ({
+    key,
+    chainId,
+    chain: new JsonRpcClient(env[rpcEnv] ?? fallbackRpc),
+    subgraph,
+    orderPolicy: productionOrderPolicy(policyEnv),
+    readModelDisabled
+  });
+  return {
+    "robinhood-mainnet": config("robinhood-mainnet", 4663, "RH_MAINNET_RPC_URL", "https://rpc.mainnet.chain.robinhood.com", rhMainnetSubgraph, env, !rhMainnetSubgraph.enabled),
+    "robinhood-testnet": config("robinhood-testnet", 46630, "RH_TESTNET_RPC_URL", "https://rpc.testnet.chain.robinhood.com", rhTestnetSubgraph, env),
+    "base-mainnet": config("base-mainnet", 8453, "BASE_MAINNET_RPC_URL", "https://mainnet.base.org", baseMainnetSubgraph, networkPolicyEnv(env, "BASE_MAINNET", baseMainnetUsdc, "0x0000000000000068F116a894984e2DB1123eB395"), !baseMainnetSubgraph.enabled),
+    "base-sepolia": config("base-sepolia", 84532, "BASE_SEPOLIA_RPC_URL", "https://sepolia.base.org", baseSepoliaSubgraph, networkPolicyEnv(env, "BASE_SEPOLIA", baseSepoliaUsdc, "0x0000000000000068F116a894984e2DB1123eB395"), !baseSepoliaSubgraph.enabled)
+  };
+}
 function json(res, status, payload, headers = {}) {
   res.writeHead(status, { ...JSON_HEADERS, ...headers });
   res.end(JSON.stringify(payload, (_, value) => typeof value === "bigint" ? value.toString() : value));
@@ -9776,6 +10280,37 @@ function securityHeaders(requestId) {
     "strict-transport-security": "max-age=31536000; includeSubDomains"
   };
 }
+function formatHeldDuration(since) {
+  if (!since) return "Recent";
+  const ms = Date.now() - new Date(since).getTime();
+  const days = Math.floor(ms / (24 * 60 * 60 * 1e3));
+  if (days >= 365) {
+    const yrs = Math.floor(days / 365);
+    return `${yrs} yr${yrs > 1 ? "s" : ""}`;
+  }
+  if (days >= 30) {
+    const mos = Math.floor(days / 30);
+    return `${mos} mo${mos > 1 ? "s" : ""}`;
+  }
+  if (days >= 1) return `${days} day${days > 1 ? "s" : ""}`;
+  const hrs = Math.floor(ms / (60 * 60 * 1e3));
+  if (hrs >= 1) return `${hrs} hr${hrs > 1 ? "s" : ""}`;
+  return "Just now";
+}
+function formatPassVault(pass) {
+  if (!pass) return null;
+  const tba = pass.token_bound_account ?? pass.tokenBoundAccount ?? pass.tba?.account ?? null;
+  return {
+    name: "Pass Vault",
+    address: tba,
+    compatible: true,
+    standard: "ERC-6551",
+    registry: "0x000000006551c19487814612e58FE06813775758",
+    framing: "Every Pass is ERC-6551 compatible. As the ecosystem grows, Passes accumulate. What they accumulate is determined by each builder's Edition design.",
+    description: "Every Pass has a Vault. What flows into it is decided by the builder who created the Edition. Platform activity, tokens, exclusive drops, future distributions \u2014 builders choose what their holders accumulate. We provide the infrastructure. They decide what it means.",
+    regulatoryBoundary: "Builders decide what flows into the Pass wallet. Platform decides nothing on their behalf. Completely permissionless. Zero regulatory exposure."
+  };
+}
 function createApiServer({
   store,
   chainId = 4663,
@@ -9790,6 +10325,7 @@ function createApiServer({
   requireIndexedReadiness = false,
   chain = null,
   subgraph = null,
+  networkConfigs = null,
   maxIndexerLagBlocks = 120,
   maxFinalityLagBlocks = 120,
   storage = { async prepareUpload({ key }) {
@@ -9797,6 +10333,10 @@ function createApiServer({
   } }
 } = {}) {
   if (!store) throw new Error("store required");
+  const defaultChainId = chainId;
+  const defaultChain = chain;
+  const defaultSubgraph = subgraph;
+  const defaultOrderPolicy = orderPolicy;
   return http.createServer(async (req, res) => {
     const headers = req.headers ?? {};
     const requestId = headers["x-request-id"]?.toString().slice(0, 128) || randomUUID3();
@@ -9807,6 +10347,18 @@ function createApiServer({
       metrics.increment("nexmarkets_api_requests_total");
       rateLimiter.take(req.socket?.remoteAddress ?? headers["x-forwarded-for"] ?? "unknown");
       const url = new URL(req.url ?? "/", allowedOrigin);
+      const requestedNetwork = headers["x-nex-network"]?.toString().trim() || null;
+      const selectedNetwork = networkConfigs ? networkConfigs[requestedNetwork ?? networkKeyForChainId(defaultChainId)] : null;
+      if (networkConfigs && !selectedNetwork) throw Object.assign(new Error("NETWORK_UNSUPPORTED"), { status: 400 });
+      const fallbackChainId = defaultChainId;
+      const fallbackChain = defaultChain;
+      const fallbackSubgraph = defaultSubgraph;
+      const fallbackOrderPolicy = defaultOrderPolicy;
+      const chainId2 = selectedNetwork?.chainId ?? fallbackChainId;
+      const chain2 = selectedNetwork?.chain ?? fallbackChain;
+      const subgraph2 = selectedNetwork?.subgraph ?? fallbackSubgraph;
+      const orderPolicy2 = selectedNetwork?.orderPolicy ?? fallbackOrderPolicy;
+      const readModelDisabled = Boolean(selectedNetwork?.readModelDisabled && !subgraph2?.enabled);
       const origin = headers.origin;
       if (origin && new URL(origin).origin !== new URL(allowedOrigin).origin) {
         const reqHost = headers["x-forwarded-host"] || headers.host;
@@ -9820,15 +10372,15 @@ function createApiServer({
       if (req.method === "GET" && url.pathname === "/readyz") {
         await store.ready();
         metrics.set("nexmarkets_db_ready", 1);
-        const subgraphStatus = requireIndexedReadiness && subgraph?.enabled ? await subgraph.indexingStatus() : null;
-        const indexer = requireIndexedReadiness && !subgraphStatus ? await store.indexerHealth(chainId) : null;
+        const subgraphStatus = requireIndexedReadiness && subgraph2?.enabled ? await subgraph2.indexingStatus() : null;
+        const indexer = requireIndexedReadiness && !subgraphStatus ? await store.indexerHealth(chainId2) : null;
         if (requireIndexedReadiness && !indexer && !subgraphStatus) throw Object.assign(new Error("INDEXER_NOT_READY"), { status: 503 });
-        if (requireIndexedReadiness && !chain?.getBlockNumber) throw Object.assign(new Error("CHAIN_HEAD_UNAVAILABLE"), { status: 503 });
+        if (requireIndexedReadiness && !chain2?.getBlockNumber) throw Object.assign(new Error("CHAIN_HEAD_UNAVAILABLE"), { status: 503 });
         let chainHead = null;
         let indexedLag = null;
         let finalityLag = null;
-        if ((indexer || subgraphStatus) && chain?.getBlockNumber) {
-          chainHead = await chain.getBlockNumber();
+        if ((indexer || subgraphStatus) && chain2?.getBlockNumber) {
+          chainHead = await chain2.getBlockNumber();
           const landed = subgraphStatus ? Number(subgraphStatus.indexedBlock ?? 0) : Number(indexer.landed_block_number ?? indexer.latest_block_number ?? 0);
           const finalized = subgraphStatus ? landed : Number(indexer.finalized_watermark_block_number ?? indexer.finalized_block_number ?? 0);
           indexedLag = chainHead - landed;
@@ -9849,25 +10401,100 @@ function createApiServer({
         res.writeHead(200, { "content-type": "text/plain; version=0.0.4" });
         return res.end(metrics.render());
       }
-      if (req.method === "GET" && url.pathname === "/v1/discover") return json(res, 200, { data: subgraph?.enabled ? await subgraph.discover() : await store.discover(), authority: subgraph?.enabled ? "GOLDSKY_SUBGRAPH_READ_MODEL" : "POSTGRES_READ_MODEL" });
-      if (req.method === "GET" && url.pathname === "/v1/market/listings") return json(res, 200, { data: subgraph?.enabled ? await subgraph.listings() : await store.listings(), authority: subgraph?.enabled ? "GOLDSKY_SUBGRAPH_READ_MODEL" : "NEX_LISTING_REGISTRY_PROJECTION" });
-      if (req.method === "GET" && url.pathname.startsWith("/v1/projects/")) return json(res, 200, { data: await store.projectBySlug(decodeURIComponent(url.pathname.slice(13))) });
-      if (req.method === "GET" && url.pathname.startsWith("/v1/editions/")) return json(res, 200, { data: subgraph?.enabled ? await subgraph.editionByAddress(url.pathname.slice(13)) : await store.editionByAddress(url.pathname.slice(13)), authority: subgraph?.enabled ? "GOLDSKY_SUBGRAPH_READ_MODEL" : "CHAIN_PROJECTION" });
+      if (req.method === "GET" && url.pathname === "/v1/stats") {
+        const stats = readModelDisabled ? {} : await store.getPlatformStats();
+        return json(res, 200, {
+          data: {
+            ...stats,
+            heroCopy: "Get there early. Own your place in what's next.",
+            tagline: "A Pass is your position in a builder's story.",
+            howItWorks: [
+              { step: 1, text: "Find it early on Discover." },
+              { step: 2, text: "Mint your numbered Pass." },
+              { step: 3, text: "Use your Advantage, keep it, or sell it when the Market opens." }
+            ],
+            royaltyFraming: "Builder royalties are earned, not assumed. Every 30-day cycle, fees queue for release. Holders can challenge. Clean builders get paid. The market polices itself.",
+            passVaultFraming: "Every Pass has a Vault. What flows into it is decided by the builder who created the Edition. Platform activity, tokens, exclusive drops, future distributions \u2014 builders choose what their holders accumulate. We provide the infrastructure. They decide what it means."
+          }
+        });
+      }
+      if (req.method === "GET" && url.pathname === "/v1/builders/featured") return json(res, 200, { data: await store.getFeaturedBuilders() });
+      if (req.method === "GET" && /^\/v1\/builders\/[^/]+\/milestones$/.test(url.pathname)) {
+        const builderId = url.pathname.split("/")[3];
+        return json(res, 200, { data: await store.getMilestonesByBuilder(builderId) });
+      }
+      if (req.method === "GET" && /^\/v1\/builders\/[^/]+\/activity$/.test(url.pathname)) {
+        const builderId = url.pathname.split("/")[3];
+        const activity = store.getActivityByBuilder ? await store.getActivityByBuilder(builderId, { limit: 20 }) : await store.getMilestonesByBuilder(builderId, { limit: 20 });
+        return json(res, 200, { data: activity });
+      }
+      if (req.method === "GET" && /^\/v1\/builders\/[^/]+$/.test(url.pathname) && !["featured"].includes(url.pathname.split("/")[3])) {
+        const builderId = url.pathname.split("/")[3];
+        const profile = await store.getBuilderProfile(builderId);
+        if (!profile) throw Object.assign(new Error("BUILDER_NOT_FOUND"), { status: 404 });
+        return json(res, 200, { data: profile });
+      }
+      if (req.method === "GET" && /^\/v1\/projects\/[^/]+\/holders$/.test(url.pathname)) {
+        if (readModelDisabled) return json(res, 200, { data: [] });
+        const slug = decodeURIComponent(url.pathname.split("/")[3]);
+        const project = await store.projectBySlug(slug);
+        if (!project) throw Object.assign(new Error("NOT_FOUND"), { status: 404 });
+        const editionAddress = project.editionAddress ?? project.edition_address ?? project.editions?.[0]?.edition_address ?? project.editions?.[0]?.editionAddress;
+        const holders = editionAddress ? await store.getHolders(editionAddress) : [];
+        const formatted = holders.map((h) => ({
+          ...h,
+          serialNumber: `#${String(h.token_id ?? h.tokenId).padStart(3, "0")}`,
+          heldDuration: formatHeldDuration(h.held_since ?? h.heldSince ?? h.updated_at ?? h.created_at)
+        }));
+        return json(res, 200, { data: formatted });
+      }
+      if (req.method === "GET" && /^\/v1\/editions\/[^/]+\/holders$/.test(url.pathname)) {
+        if (readModelDisabled) return json(res, 200, { data: [] });
+        const address2 = url.pathname.split("/")[3];
+        const holders = await store.getHolders(address2);
+        const formatted = holders.map((h) => ({
+          ...h,
+          serialNumber: `#${String(h.token_id ?? h.tokenId).padStart(3, "0")}`,
+          heldDuration: formatHeldDuration(h.held_since ?? h.heldSince ?? h.updated_at ?? h.created_at)
+        }));
+        return json(res, 200, { data: formatted });
+      }
+      if (req.method === "GET" && url.pathname === "/v1/discover") {
+        const raw = readModelDisabled ? [] : subgraph2?.enabled ? await subgraph2.discover() : await store.discover();
+        const now = Date.now();
+        const data = await Promise.all((raw ?? []).map(async (project) => {
+          const starts = project.mint_starts_at ?? project.mintStartsAt;
+          const ends = project.mint_ends_at ?? project.mintEndsAt;
+          let statusTag = "LIVE_DEBUT";
+          if (starts && new Date(starts).getTime() > now) statusTag = "PREVIEW";
+          else if (ends && new Date(ends).getTime() < now) statusTag = "CLOSED";
+          else if (ends && new Date(ends).getTime() - now < 24 * 60 * 60 * 1e3) statusTag = "ENDING_SOON";
+          const watcherCount = readModelDisabled ? 0 : await store.getWatchlistCount?.(project.id ?? project.slug) ?? 0;
+          const links = project.content?.links ?? project.launchDraft?.links ?? project.links ?? {};
+          return { ...project, statusTag, watcherCount, links };
+        }));
+        return json(res, 200, { data, authority: subgraph2?.enabled ? "GOLDSKY_SUBGRAPH_READ_MODEL" : "POSTGRES_READ_MODEL" });
+      }
+      if (req.method === "GET" && url.pathname === "/v1/market/listings") return json(res, 200, { data: readModelDisabled ? [] : subgraph2?.enabled ? await subgraph2.listings() : await store.listings(), authority: subgraph2?.enabled ? "GOLDSKY_SUBGRAPH_READ_MODEL" : "NEX_LISTING_REGISTRY_PROJECTION" });
+      if (req.method === "GET" && url.pathname.startsWith("/v1/projects/")) return json(res, 200, { data: readModelDisabled ? null : await store.projectBySlug(decodeURIComponent(url.pathname.slice(13))) });
+      if (req.method === "GET" && url.pathname.startsWith("/v1/editions/")) return json(res, 200, { data: readModelDisabled ? null : subgraph2?.enabled ? await subgraph2.editionByAddress(url.pathname.slice(13)) : await store.editionByAddress(url.pathname.slice(13)), authority: subgraph2?.enabled ? "GOLDSKY_SUBGRAPH_READ_MODEL" : "CHAIN_PROJECTION" });
       if (req.method === "GET" && url.pathname.startsWith("/v1/passes/")) {
         const [, , , edition, tokenId] = url.pathname.split("/");
-        return json(res, 200, { data: subgraph?.enabled ? await subgraph.pass(edition, tokenId) : await store.pass(edition, tokenId), authority: subgraph?.enabled ? "GOLDSKY_SUBGRAPH_READ_MODEL_PLUS_RPC_VERIFICATION" : "CHAIN_PROJECTION" });
+        const rawPass = readModelDisabled ? null : subgraph2?.enabled ? await subgraph2.pass(edition, tokenId) : await store.pass(edition, tokenId);
+        if (!rawPass) return json(res, 404, { error: { code: "NOT_FOUND", requestId } });
+        return json(res, 200, { data: { ...rawPass, passVault: formatPassVault(rawPass) }, authority: subgraph2?.enabled ? "GOLDSKY_SUBGRAPH_READ_MODEL_PLUS_RPC_VERIFICATION" : "CHAIN_PROJECTION" });
       }
       if (req.method === "POST" && url.pathname === "/v1/auth/challenge") {
         const input = await readBody(req);
-        const challenge = issueWalletChallenge({ accountId: `pending:${input.address?.toLowerCase()}`, address: input.address, origin: allowedOrigin, chainId });
+        const challenge = issueWalletChallenge({ accountId: `pending:${input.address?.toLowerCase()}`, address: input.address, origin: allowedOrigin, chainId: chainId2 });
         await store.saveChallenge(challenge);
-        return json(res, 201, { nonce: challenge.nonce, message: challenge.message, expiresAt: challenge.expiresAt, chainId });
+        return json(res, 201, { nonce: challenge.nonce, message: challenge.message, expiresAt: challenge.expiresAt, chainId: chainId2 });
       }
       if (req.method === "POST" && url.pathname === "/v1/auth/verify") {
         const input = await readBody(req);
         const challenge = await store.challenge(input.nonce);
         if (!challenge) throw Object.assign(new Error("CHALLENGE_NOT_FOUND"), { status: 404 });
-        assertChallengeUsable(challenge, { accountId: challenge.accountId, address: challenge.address, origin: allowedOrigin, chainId });
+        assertChallengeUsable(challenge, { accountId: challenge.accountId, address: challenge.address, origin: allowedOrigin, chainId: chainId2 });
         verifyWalletChallengeSignature(challenge, input.signature);
         const issued = issueSession({ accountId: "pending", walletId: "pending" });
         const identity = await store.consumeChallengeAndCreateSession({ challenge, session: issued.record, signature: input.signature });
@@ -9877,31 +10504,85 @@ function createApiServer({
       const session = token ? await store.sessionByToken(token) : null;
       if (!session) throw Object.assign(new Error("AUTH_REQUIRED"), { status: 401 });
       assertSession(session, token, { csrfToken: req.headers["x-csrf-token"], mutation: req.method !== "GET" });
+      if (Number(session.chainId) !== Number(chainId2)) throw Object.assign(new Error("SESSION_NETWORK_MISMATCH"), { status: 401 });
       if (req.method === "POST" && url.pathname === "/v1/auth/logout") {
         await store.revokeSession(session.id);
         await store.recordAudit?.({ accountId: session.accountId, walletAddress: session.walletAddress, action: "SESSION_REVOKED", objectType: "SESSION", objectId: session.id, requestId, correlationId });
         return json(res, 200, { status: "revoked" }, { "set-cookie": "nexmarkets_session=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0" });
       }
-      if (req.method === "GET" && url.pathname === "/v1/me/passes") return json(res, 200, { data: await store.ownedPasses(session.walletAddress), authority: "CHAIN_PROJECTION" });
-      if (req.method === "GET" && url.pathname === "/v1/me/advantages") return json(res, 200, { data: await store.advantagesForOwner(session.walletAddress), authority: "NEX_ADVANTAGE_REGISTRY_PROJECTION" });
-      if (req.method === "GET" && url.pathname === "/v1/builder/dashboard") return json(res, 200, { data: await store.builderDashboard(session.accountId), authority: "MIXED_PROJECTION" });
+      if (req.method === "GET" && url.pathname === "/v1/me/passes") {
+        const rawPasses = readModelDisabled ? [] : await store.ownedPasses(session.walletAddress);
+        const data = (rawPasses ?? []).map((pass) => ({ ...pass, passVault: formatPassVault(pass) }));
+        return json(res, 200, { data, authority: "CHAIN_PROJECTION" });
+      }
+      if (req.method === "PUT" && url.pathname === "/v1/builder/profile") {
+        const input = await readBody(req);
+        const profile = await store.upsertBuilderProfile(session.accountId, input);
+        await store.recordAudit?.({ accountId: session.accountId, walletAddress: session.walletAddress, action: "BUILDER_PROFILE_UPDATED", objectType: "BUILDER_PROFILE", objectId: profile.id, requestId, correlationId });
+        return json(res, 200, { data: profile });
+      }
+      if (req.method === "POST" && url.pathname === "/v1/builder/milestones") {
+        const input = await readBody(req);
+        const milestone = await store.createMilestone(session.accountId, input);
+        await store.recordAudit?.({ accountId: session.accountId, walletAddress: session.walletAddress, action: "BUILDER_MILESTONE_CREATED", objectType: "BUILDER_MILESTONE", objectId: milestone.id, requestId, correlationId });
+        return json(res, 201, { data: milestone });
+      }
+      if (req.method === "POST" && /^\/v1\/builders\/[^/]+\/follow$/.test(url.pathname)) {
+        const builderId = url.pathname.split("/")[3];
+        const result = await store.followBuilder(session.accountId, builderId);
+        return json(res, 200, { data: result });
+      }
+      if (req.method === "DELETE" && /^\/v1\/builders\/[^/]+\/follow$/.test(url.pathname)) {
+        const builderId = url.pathname.split("/")[3];
+        const result = await store.unfollowBuilder(session.accountId, builderId);
+        return json(res, 200, { data: result });
+      }
+      if (req.method === "GET" && /^\/v1\/builders\/[^/]+\/follow-status$/.test(url.pathname)) {
+        const builderId = url.pathname.split("/")[3];
+        const status = await store.getFollowStatus(session.accountId, builderId);
+        return json(res, 200, { data: status });
+      }
+      if (req.method === "GET" && url.pathname === "/v1/me/following") {
+        const followed = await store.getFollowedBuilders(session.accountId);
+        return json(res, 200, { data: followed });
+      }
+      if (req.method === "POST" && /^\/v1\/projects\/[^/]+\/watch$/.test(url.pathname)) {
+        const slug = decodeURIComponent(url.pathname.split("/")[3]);
+        const result = await store.watchProject(session.accountId, slug);
+        return json(res, 200, { data: result });
+      }
+      if (req.method === "DELETE" && /^\/v1\/projects\/[^/]+\/watch$/.test(url.pathname)) {
+        const slug = decodeURIComponent(url.pathname.split("/")[3]);
+        const result = await store.unwatchProject(session.accountId, slug);
+        return json(res, 200, { data: result });
+      }
+      if (req.method === "GET" && url.pathname === "/v1/me/watchlist") {
+        const watchlist = await store.getWatchlist(session.accountId);
+        return json(res, 200, { data: watchlist });
+      }
+      if (req.method === "GET" && url.pathname === "/v1/feed") {
+        const feed = await store.getFeed(session.accountId);
+        return json(res, 200, { data: feed });
+      }
+      if (req.method === "GET" && url.pathname === "/v1/me/advantages") return json(res, 200, { data: readModelDisabled ? [] : await store.advantagesForOwner(session.walletAddress), authority: "NEX_ADVANTAGE_REGISTRY_PROJECTION" });
+      if (req.method === "GET" && url.pathname === "/v1/builder/dashboard") return json(res, 200, { data: readModelDisabled ? { projects: [], editions: [], royalties: [], referrals: [] } : await store.builderDashboard(session.accountId), authority: "MIXED_PROJECTION" });
       if (req.method === "GET" && url.pathname.startsWith("/v1/transactions/")) {
-        const tx = await store.transaction(url.pathname.slice(17), session.accountId);
+        const tx = await store.transaction(url.pathname.slice(17), session.accountId, chainId2);
         if (!tx) throw Object.assign(new Error("NOT_FOUND"), { status: 404 });
         return json(res, 200, { data: tx });
       }
       if (req.method === "GET" && url.pathname.startsWith("/v1/edition-requests/")) {
-        const request = await store.editionRequestById(url.pathname.slice(21), session.accountId);
+        const request = await store.editionRequestById(url.pathname.slice(21), session.accountId, chainId2);
         if (!request) throw Object.assign(new Error("NOT_FOUND"), { status: 404 });
         return json(res, 200, { data: request, authority: "SAFE_WORKFLOW_REQUEST" });
       }
       if (req.method === "POST" && /^\/v1\/edition-requests\/[^/]+\/safe-submit$/.test(url.pathname)) {
         const requestId2 = url.pathname.split("/")[3];
-        const request = await store.editionRequestById(requestId2, session.accountId);
+        const request = await store.editionRequestById(requestId2, session.accountId, chainId2);
         if (!request) throw Object.assign(new Error("NOT_FOUND"), { status: 404 });
         const input = await readBody(req);
         if (!/^0x[0-9a-fA-F]{64}$/.test(input.txHash ?? "") || !/^0x[0-9a-fA-F]{64}$/.test(input.safeTransactionHash ?? "")) throw Object.assign(new Error("SAFE_TX_HASH_REQUIRED"), { status: 400 });
-        const evidence = await verifySafeExecutionEvidence({ chain, request, txHash: input.txHash.toLowerCase(), safeTransactionHash: input.safeTransactionHash.toLowerCase(), orderPolicy });
+        const evidence = await verifySafeExecutionEvidence({ chain: chain2, request, txHash: input.txHash.toLowerCase(), safeTransactionHash: input.safeTransactionHash.toLowerCase(), orderPolicy: orderPolicy2 });
         const submitted = await store.submitEditionRequest({ id: requestId2, safeTransactionHash: input.safeTransactionHash.toLowerCase(), txHash: input.txHash.toLowerCase(), evidence });
         await store.recordAudit?.({ accountId: session.accountId, walletAddress: session.walletAddress, action: "EDITION_SAFE_SUBMITTED", objectType: "EDITION_REQUEST", objectId: submitted.id, requestId: requestId2, correlationId, metadata: { txHash: submitted.txHash, safeTransactionHash: submitted.safeTransactionHash, evidence } });
         return json(res, 200, { data: submitted, authority: "PROTOCOL_ADMIN_SAFE_EVIDENCE" });
@@ -9909,7 +10590,7 @@ function createApiServer({
       if (req.method === "POST" && /^\/v1\/transactions\/[^/]+\/events$/.test(url.pathname)) {
         const id2 = url.pathname.split("/")[3];
         const input = await readBody(req);
-        const transaction = await store.transaction(id2, session.accountId);
+        const transaction = await store.transaction(id2, session.accountId, chainId2);
         if (!transaction) throw Object.assign(new Error("NOT_FOUND"), { status: 404 });
         if (!["WALLET_PENDING", "SUBMITTED", "CANCELLED"].includes(input.state)) throw Object.assign(new Error("USER_TRANSACTION_STATE_REJECTED"), { status: 400 });
         if (transaction.state !== input.state) transitionTransaction(transaction.state, input.state);
@@ -9951,9 +10632,9 @@ function createApiServer({
         if (String(input.order?.offerer ?? "").toLowerCase() !== session.walletAddress.toLowerCase()) throw Object.assign(new Error("SELLER_SESSION_MISMATCH"), { status: 403 });
         const computedHash = seaportOrderHash(input.order, input.counter);
         if (computedHash.toLowerCase() !== String(input.orderHash).toLowerCase()) throw Object.assign(new Error("ORDER_HASH_MISMATCH"), { status: 400 });
-        if (listing) validateProjectedNexMarketsOrder(input.order, listing, orderPolicy);
-        else if (String(input.order.zone).toLowerCase() !== String(orderPolicy.zone).toLowerCase()) throw Object.assign(new Error("ZONE_MISMATCH"), { status: 400 });
-        verifySeaportOrderSignature({ order: input.order, counter: input.counter, signature: input.signature, chainId: session.chainId, seaport: orderPolicy.seaport });
+        if (listing) validateProjectedNexMarketsOrder(input.order, listing, orderPolicy2);
+        else if (String(input.order.zone).toLowerCase() !== String(orderPolicy2.zone).toLowerCase()) throw Object.assign(new Error("ZONE_MISMATCH"), { status: 400 });
+        verifySeaportOrderSignature({ order: input.order, counter: input.counter, signature: input.signature, chainId: session.chainId, seaport: orderPolicy2.seaport });
         const stored = await store.storeSignedOrder({ accountId: session.accountId, chainId: session.chainId, orderHash: computedHash, seller: session.walletAddress, order: input.order, counter: input.counter, signature: input.signature });
         await store.recordAudit?.({ accountId: session.accountId, walletAddress: session.walletAddress, action: "SEAPORT_ORDER_STORED", objectType: "LISTING", objectId: computedHash, requestId, correlationId });
         return json(res, 201, { data: stored, authority: "SIGNED_ORDER_CAPABILITY_ONLY" });
@@ -9966,9 +10647,9 @@ function createApiServer({
         if (!signed || signed.status !== "ACTIVE" || new Date(signed.expires_at ?? signed.expiresAt).getTime() <= Date.now()) throw Object.assign(new Error("ACTIVE_SIGNED_LISTING_REQUIRED"), { status: 409 });
         const order = signed.order_payload ?? signed.order;
         const listing = await store.listing(input.orderHash);
-        validateProjectedNexMarketsOrder(order, listing, orderPolicy);
-        verifySeaportOrderSignature({ order, counter: signed.counter, signature: signed.signature, chainId: session.chainId, seaport: orderPolicy.seaport });
-        const prepared = buildSeaportFulfillment({ order, signature: signed.signature, seaport: orderPolicy.seaport });
+        validateProjectedNexMarketsOrder(order, listing, orderPolicy2);
+        verifySeaportOrderSignature({ order, counter: signed.counter, signature: signed.signature, chainId: session.chainId, seaport: orderPolicy2.seaport });
+        const prepared = buildSeaportFulfillment({ order, signature: signed.signature, seaport: orderPolicy2.seaport });
         const transaction = await store.prepareTransaction({ accountId: session.accountId, walletAddress: session.walletAddress, chainId: session.chainId, intentType: "LISTING_BUY", intentId: input.orderHash, idempotencyKey, correlationId, requestId, toAddress: prepared.to, calldata: prepared.data });
         await store.recordAudit?.({ accountId: session.accountId, walletAddress: session.walletAddress, action: "TRANSACTION_PREPARED", objectType: "CHAIN_TRANSACTION", objectId: transaction.id, requestId, correlationId, metadata: { intentType: "LISTING_BUY", orderHash: input.orderHash } });
         return json(res, 201, { transaction, prepared, totalBuyerPayment: String(listing.price_usdg ?? listing.priceUsdg), walletMustSign: true, serverCustodiesKey: false });
@@ -9981,20 +10662,20 @@ function createApiServer({
         let workflowPayload = input;
         if (url.pathname === "/v1/listings/prepare") {
           if (String(input.seller).toLowerCase() !== session.walletAddress.toLowerCase()) throw Object.assign(new Error("SELLER_SESSION_MISMATCH"), { status: 403 });
-          prepared = buildNexMarketsOrder({ ...input, ...orderPolicy });
-          if (prepared.orderHash) prepared.typedData = seaportTypedData(prepared.order, input.counter, { chainId: session.chainId, seaport: orderPolicy.seaport });
+          prepared = buildNexMarketsOrder({ ...input, ...orderPolicy2 });
+          if (prepared.orderHash) prepared.typedData = seaportTypedData(prepared.order, input.counter, { chainId: session.chainId, seaport: orderPolicy2.seaport });
         } else {
           const intentType = INTENT_TYPE[url.pathname];
-          const target = orderPolicy.transactionTargets?.[intentType];
+          const target = orderPolicy2.transactionTargets?.[intentType];
           if (!isAddress(target ?? "")) throw Object.assign(new Error("CONTRACT_CONFIGURATION_REQUIRED"), { status: 503 });
           if (input.to !== void 0 && (!isAddress(input.to) || getAddress(input.to) !== getAddress(target))) throw Object.assign(new Error("TRANSACTION_TARGET_REJECTED"), { status: 400 });
           let calldata = input.calldata;
           let protocolInput = input;
           if (intentType === "EDITION_CREATE") {
             if (!input.projectId) throw Object.assign(new Error("PROJECT_ID_REQUIRED"), { status: 400 });
-            if (!isAddress(orderPolicy.protocolAdminSafe ?? "")) throw Object.assign(new Error("PROTOCOL_ADMIN_SAFE_CONFIGURATION_REQUIRED"), { status: 503 });
-            if (input.initialOwner !== void 0 && getAddress(input.initialOwner) !== getAddress(orderPolicy.protocolAdminSafe)) throw Object.assign(new Error("PROTOCOL_ADMIN_SAFE_REQUIRED"), { status: 400 });
-            protocolInput = { ...input, initialOwner: orderPolicy.protocolAdminSafe, protocolAdmin: orderPolicy.protocolAdminSafe, mintController: orderPolicy.transactionTargets?.MINT ?? null };
+            if (!isAddress(orderPolicy2.protocolAdminSafe ?? "")) throw Object.assign(new Error("PROTOCOL_ADMIN_SAFE_CONFIGURATION_REQUIRED"), { status: 503 });
+            if (input.initialOwner !== void 0 && getAddress(input.initialOwner) !== getAddress(orderPolicy2.protocolAdminSafe)) throw Object.assign(new Error("PROTOCOL_ADMIN_SAFE_REQUIRED"), { status: 400 });
+            protocolInput = { ...input, initialOwner: orderPolicy2.protocolAdminSafe, protocolAdmin: orderPolicy2.protocolAdminSafe, mintController: orderPolicy2.transactionTargets?.MINT ?? null };
             const predictedEditionAddress = predictEditionAddress({ factoryAddress: target, ...protocolInput });
             protocolInput = { ...protocolInput, predictedEditionAddress };
             workflowPayload = protocolInput;
@@ -10036,15 +10717,17 @@ function createApiServer({
 if (!process.env.VERCEL && !process.env.AWS_LAMBDA_FUNCTION_NAME && import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
   const store = new PostgresStore();
   const port = Number(process.env.PORT || 4010);
-  const chainId = Number(process.env.ROBINHOOD_CHAIN_ID ?? 4663);
-  const rpc = new JsonRpcClient(chainId === 46630 ? process.env.RH_TESTNET_RPC_URL ?? "https://rpc.testnet.chain.robinhood.com" : process.env.RH_MAINNET_RPC_URL ?? "https://rpc.mainnet.chain.robinhood.com");
-  const subgraph = new SubgraphClient({ endpoint: process.env.NEXMARKETS_SUBGRAPH_URL, certificationEditionAddress: process.env.CERTIFICATION_EDITION_ADDRESS, certificationEditionName: process.env.CERTIFICATION_EDITION_NAME });
+  const networkConfigs = createNetworkConfigs(process.env);
+  const configured = networkConfigs[networkKeyForChainId(Number(process.env.ROBINHOOD_CHAIN_ID ?? 4663)) ?? "robinhood-mainnet"];
+  const chainId = configured.chainId;
+  const rpc = configured.chain;
+  const subgraph = configured.subgraph;
   const secureCookies = process.env.SECURE_COOKIES === "true" ? true : process.env.SECURE_COOKIES === "false" ? false : process.env.NODE_ENV !== "test";
   const requireIndexedReadiness = process.env.REQUIRE_INDEXED_READINESS === "true" || process.env.NODE_ENV === "production";
   const logger = process.env.LOG_API_ERRORS === "true" ? console : { info() {
   }, error() {
   } };
-  const server = createApiServer({ store, chainId, chain: rpc, subgraph, secureCookies, logger, maxIndexerLagBlocks: Number(process.env.INDEXER_MAX_LAG_BLOCKS ?? 120), maxFinalityLagBlocks: Number(process.env.INDEXER_MAX_FINALITY_LAG_BLOCKS ?? 120), orderPolicy: productionOrderPolicy(), requireIndexedReadiness });
+  const server = createApiServer({ store, chainId, chain: rpc, subgraph, secureCookies, logger, maxIndexerLagBlocks: Number(process.env.INDEXER_MAX_LAG_BLOCKS ?? 120), maxFinalityLagBlocks: Number(process.env.INDEXER_MAX_FINALITY_LAG_BLOCKS ?? 120), orderPolicy: configured.orderPolicy, networkConfigs, requireIndexedReadiness });
   server.listen(port, () => console.log(JSON.stringify({ event: "api_started", port })));
   const shutdown = async () => {
     server.close();
@@ -10059,14 +10742,9 @@ init_memory_store();
 var requestListener = null;
 async function getApiListener() {
   if (requestListener) return requestListener;
+  const networkConfigs = createNetworkConfigs(process.env);
   const chainId = Number(process.env.ROBINHOOD_CHAIN_ID ?? 46630);
-  const rpcUrl = chainId === 46630 ? process.env.RH_TESTNET_RPC_URL ?? "https://rpc.testnet.chain.robinhood.com" : process.env.RH_MAINNET_RPC_URL ?? "https://rpc.mainnet.chain.robinhood.com";
-  const rpc = new JsonRpcClient(rpcUrl);
-  const subgraph = new SubgraphClient({
-    endpoint: process.env.NEXMARKETS_SUBGRAPH_URL ?? "https://api.goldsky.com/api/public/project_cmt3es3z03t5101vr8ggx1j7e/subgraphs/nexmarkets-v1-robinhood-testnet/1.0.1/gn",
-    certificationEditionAddress: process.env.CERTIFICATION_EDITION_ADDRESS ?? "0x4171D62F43B4168b07a01C04594455DBc3298437",
-    certificationEditionName: process.env.CERTIFICATION_EDITION_NAME ?? "NexMarkets V1 Test Certification Edition"
-  });
+  const defaultNetwork = networkConfigs[networkKeyForChainId(chainId) ?? "robinhood-testnet"];
   let store = null;
   if (process.env.DATABASE_URL) {
     try {
@@ -10078,16 +10756,16 @@ async function getApiListener() {
   } else {
     store = new MemoryStore();
   }
-  const orderPolicy = productionOrderPolicy(process.env);
   const rateLimiter = new RateLimiter({ limit: 300, windowMs: 6e4 });
   const server = createApiServer({
     store,
-    chainId,
-    chain: rpc,
-    subgraph,
-    allowedOrigin: process.env.APP_ORIGIN ?? "https://nexmarkets.fun",
+    chainId: defaultNetwork.chainId,
+    chain: defaultNetwork.chain,
+    subgraph: defaultNetwork.subgraph,
+    allowedOrigin: process.env.APP_ORIGIN ?? "https://www.nexmarkets.xyz",
     secureCookies: process.env.NODE_ENV === "production",
-    orderPolicy,
+    orderPolicy: defaultNetwork.orderPolicy,
+    networkConfigs,
     rateLimiter,
     requireIndexedReadiness: false
   });

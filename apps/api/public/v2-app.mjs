@@ -11,10 +11,13 @@ import { openConnectModal, openAccountModal, openChainModal, onAccountChange, on
 const CERTIFICATION_EDITION = '0x4171D62F43B4168b07a01C04594455DBc3298437';
 const CERTIFICATION_TOKEN = '1';
 const CHAIN_ID = 46630;
+const DEFAULT_NETWORK_KEY = 'robinhood-testnet';
 const ZERO = '0x0000000000000000000000000000000000000000';
 
 const state = {
   config: null,
+  runtimeConfig: null,
+  networkKey: DEFAULT_NETWORK_KEY,
   edition: null,
   pass: null,
   discover: [],
@@ -94,13 +97,18 @@ function advantageText(advantages, fallbackHash) {
     return `${remaining} unit${remaining === 1 ? '' : 's'} remaining`;
   }).join(' · ');
 }
+function activeNetworkName() { return state.config?.displayName || state.config?.name || (state.config?.family === 'base' ? 'Base' : 'Robinhood'); }
+function activeNetworkFamily() { return state.config?.family || (state.config?.network?.startsWith('base-') ? 'base' : 'robinhood'); }
+function activeCertificationEdition() { return address(state.config?.certificationEdition?.address || state.config?.certificationEditionAddress) || null; }
+function activeSettlementSymbol() { return state.config?.settlementSymbol || state.config?.settlement?.symbol || 'USDG'; }
+function defaultCertificationEdition() { return activeCertificationEdition() || (activeNetworkFamily() === 'robinhood' ? CERTIFICATION_EDITION : null); }
 function termsOf(edition) {
   const rows = Array.isArray(edition?.termsHistory) ? edition.termsHistory : Array.isArray(edition?.terms) ? edition.terms : [];
   const current = edition?.currentTerms || rows[0] || null;
   return { current, history: rows.length ? rows : current ? [current] : [] };
 }
 function termHash(term) { return lower(term?.terms_hash || term?.termsHash || term?.hash) || null; }
-function editionAddress(value) { return address(value) || CERTIFICATION_EDITION; }
+function editionAddress(value) { return address(value) || defaultCertificationEdition() || ZERO; }
 function statusFor(edition, summary) {
   const terms = termsOf(edition).current || summary?.currentTerms || summary;
   const cap = number(edition?.absolute_supply_cap ?? edition?.absoluteSupplyCap ?? summary?.absolute_supply_cap ?? summary?.absoluteSupplyCap);
@@ -120,7 +128,7 @@ function normalizeEdition(raw, summary = null) {
   const current = terms.current || {};
   const cap = number(raw?.absolute_supply_cap ?? raw?.absoluteSupplyCap ?? summary?.absolute_supply_cap ?? summary?.absoluteSupplyCap);
   const minted = number(raw?.totalMinted ?? raw?.total_minted ?? summary?.total_minted ?? summary?.totalMinted);
-  const name = raw?.name || summary?.name || (addr.toLowerCase() === CERTIFICATION_EDITION.toLowerCase() ? 'NexMarkets V1 Test Certification Edition' : `NexPass Edition ${short(addr)}`);
+  const name = raw?.name || summary?.name || (addr.toLowerCase() === (defaultCertificationEdition() || ZERO).toLowerCase() ? 'NexMarkets V1 Test Certification Edition' : `NexPass Edition ${short(addr)}`);
   return {
     ...raw,
     address: addr,
@@ -210,7 +218,7 @@ function projectModel(edition, summary, pass) {
     evidenceLabel: 'View onchain record',
     evidenceUrl: '',
     evidenceType: 'Onchain record',
-    about: `A permanent NexPass Edition on Robinhood Chain. Ownership, serials and versioned Terms are read from the certified deployment. Edition ${short(edition?.address)} is indexed by Goldsky.`,
+    about: `A permanent NexPass Edition on ${activeNetworkName()}. Ownership, serials and versioned Terms are read from the certified deployment. Edition ${short(edition?.address)} is indexed by Goldsky.`,
     edition: 'NEXMARKETS EDITION',
     royalty: `${number(terms.royaltyBps ?? terms.royalty_bps) / 100}%`,
     termsVersion: terms.version == null ? 'Published Terms' : `v${terms.version}`,
@@ -228,9 +236,9 @@ function projectModel(edition, summary, pass) {
     price: edition?.price || usd(terms.pricePerPass ?? terms.price_usdg),
     supply: edition?.absoluteSupplyCap || 0,
     color: '#34483a',
-    desc: `Finite Pass Edition · ${edition?.totalMinted || 0}/${edition?.absoluteSupplyCap || 0} serials issued on Robinhood Chain.`,
+    desc: `Finite Pass Edition · ${edition?.totalMinted || 0}/${edition?.absoluteSupplyCap || 0} serials issued on ${activeNetworkName()}.`,
     opens: stage === 'preview' ? 'Preview' : 'Live',
-    network: 'robinhood',
+    network: activeNetworkFamily(),
     editionAddress: edition?.address,
     termsHash: termHash(terms) || lower(summary?.active_terms_hash) || null
   };
@@ -246,8 +254,8 @@ function ownedModel(raw, pass, edition) {
     key: `${lower(raw?.edition_address || pass?.edition_address || edition?.address)}-${token}`,
     name: title,
     serial: `${padSerial(token)} / ${edition?.absoluteSupplyCap || raw?.absolute_supply_cap || ''}`.trim(),
-    logo: initials(title), color: '#34483a', category: 'Robinhood Edition',
-    desc: 'Exact serial ownership recorded on Robinhood Chain.',
+    logo: initials(title), color: '#34483a', category: `${activeNetworkName()} Edition`,
+    desc: `Exact serial ownership recorded on ${activeNetworkName()}.`,
     advantage: rem, duration: kindLabel(first?.kind).toUpperCase(), utility: rem.toUpperCase(), state: rem,
     floor: 0, art: 'nx', artSrc: '',
     editionAddress: lower(raw?.edition_address || pass?.edition_address || edition?.address),
@@ -321,6 +329,71 @@ function showRuntimeBanner(message, error = false) {
   banner.dataset.error = error ? 'true' : 'false'; banner.textContent = message;
   if (!error) setTimeout(() => banner.remove(), 2600);
 }
+function configuredNetworks() {
+  const networks = state.runtimeConfig?.networks;
+  if (networks && typeof networks === 'object') return networks;
+  return state.config ? { [state.config.network || DEFAULT_NETWORK_KEY]: state.config } : {};
+}
+function networkOptions() {
+  const networks = configuredNetworks();
+  const allowed = state.runtimeConfig?.availableNetworks || Object.keys(networks);
+  return allowed.map((key) => ({ key, config: networks[key] })).filter((item) => item.config);
+}
+function ensureNetworkSelectors() {
+  const options = networkOptions();
+  if (options.length < 2) return;
+  document.querySelectorAll('.site-header, .mobile-header').forEach((header) => {
+    const account = header.querySelector('.account-chip');
+    const host = account?.parentElement || header;
+    let wrapper = host.querySelector(':scope > .nm-network-switcher');
+    if (!wrapper) {
+      wrapper = document.createElement('label');
+      wrapper.className = 'nm-network-switcher';
+      wrapper.innerHTML = '<span>Network</span><select aria-label="Select network"></select>';
+      host.insertBefore(wrapper, account || null);
+      wrapper.querySelector('select').addEventListener('change', (event) => switchNetwork(event.target.value).catch((error) => showRuntimeBanner(error.message, true)));
+    }
+    const select = wrapper.querySelector('select');
+    select.replaceChildren(...options.map(({ key, config }) => {
+      const option = document.createElement('option');
+      option.value = key;
+      option.textContent = `${config.displayName || config.name || key}${config.testnetOnly || /testnet|sepolia/i.test(key) ? ' Testnet' : ''}`;
+      return option;
+    }));
+    select.value = state.networkKey;
+  });
+}
+async function switchNetwork(nextKey, { switchWallet = true } = {}) {
+  const next = configuredNetworks()[nextKey];
+  if (!next || nextKey === state.networkKey) return;
+  const previous = { networkKey: state.networkKey, config: state.config, authenticated: state.authenticated, csrfToken: state.csrfToken };
+  state.networkKey = nextKey;
+  state.config = next;
+  state.authenticated = false;
+  state.csrfToken = null;
+  sessionStorage.removeItem('nex_csrf');
+  try { localStorage.setItem('nexmarkets_network', nextKey); } catch {}
+  ensureNetworkSelectors();
+  try {
+    if (switchWallet && state.wallet) {
+      await wallet.switchChain({ chainId: Number(next.chainId), name: next.name, rpcUrl: next.rpcUrl, explorer: next.explorer });
+    }
+    await hydrate();
+  } catch (error) {
+    state.networkKey = previous.networkKey;
+    state.config = previous.config;
+    state.authenticated = previous.authenticated;
+    state.csrfToken = previous.csrfToken;
+    try {
+      if (previous.csrfToken) sessionStorage.setItem('nex_csrf', previous.csrfToken);
+      else sessionStorage.removeItem('nex_csrf');
+      localStorage.setItem('nexmarkets_network', previous.networkKey);
+    } catch {}
+    ensureNetworkSelectors();
+    throw error;
+  }
+  showRuntimeBanner(`Switched to ${activeNetworkName()}`);
+}
 function injectLiveDataStyle() {
   if (document.getElementById('nm-v2-live-data-style')) return;
   const style = document.createElement('style'); style.id = 'nm-v2-live-data-style'; style.textContent = `
@@ -335,6 +408,9 @@ function injectLiveDataStyle() {
     #dashboard .dash-person:hover b, #dashboard .dash-account:hover b {
       color: var(--amber, #ffb000) !important;
     }
+    .nm-network-switcher{display:inline-flex;align-items:center;gap:7px;margin:0 12px;color:#849084;font:10px/1.2 system-ui,sans-serif;text-transform:uppercase;letter-spacing:.08em;white-space:nowrap}
+    .nm-network-switcher select{appearance:none;border:1px solid rgba(244,241,233,.15);border-radius:7px;background:#111711;color:#e7ece4;padding:7px 23px 7px 9px;font:11px system-ui,sans-serif;cursor:pointer}
+    .nm-network-switcher select:focus{outline:1px solid var(--amber,#ffb000);outline-offset:1px}
     #nm-v2-data-panel{margin:26px 0 0;padding:18px;border:1px solid rgba(244,241,233,.10);border-radius:18px;background:#0d110e;color:#dfe5dc}
     #nm-v2-data-panel h2{margin:0 0 14px;font-size:22px;letter-spacing:-.03em}#nm-v2-data-panel h3{margin:0;font-size:14px}
     #nm-v2-data-panel .nm-v2-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
@@ -362,7 +438,7 @@ function renderDetailPanel(mode) {
   const advantages = selected?.advantages || [];
   const history = terms.history || [];
   const panel = document.createElement('section'); panel.id = 'nm-v2-data-panel'; panel.dataset.source = 'nexmarkets-api-goldsky';
-  panel.innerHTML = `<h2>${escapeHtml(title || 'Certification Edition')}</h2><div class="nm-v2-grid">${rows.map(([label, value]) => `<div class="nm-v2-cell"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value || '—')}</strong></div>`).join('')}</div>${history.length ? `<h3 style="margin:20px 0 8px">Terms history</h3><div>${history.map((term) => `<div class="nm-v2-cell"><span>Version ${escapeHtml(term.version ?? '—')} · ${escapeHtml(termHash(term) || '—')}</span><strong>Preview ${escapeHtml(iso(term.previewStartsAt ?? term.preview_starts_at) || '—')} · Mint ${escapeHtml(iso(term.mintStartsAt ?? term.mint_starts_at) || '—')} · ${escapeHtml(usd(term.pricePerPass ?? term.price_usdg).toFixed(6))} USDG</strong></div>`).join('')}</div>` : ''}${selected ? `<h3 style="margin:20px 0 8px">Advantages</h3>${advantages.length ? advantages.map((advantage) => `<div class="nm-v2-adv"><small>${escapeHtml(kindLabel(advantage.kind))}</small><b>${escapeHtml(advantageText([advantage]))}</b><span>${consumes(advantage.kind) ? 'Onchain consumption available when not listed.' : 'Entitlement/access state; no view-only transaction.'}</span></div>`).join('') : '<div class="nm-v2-cell">No committed Advantages indexed.</div>'}` : ''}`;
+  panel.innerHTML = `<h2>${escapeHtml(title || 'Certification Edition')}</h2><div class="nm-v2-grid">${rows.map(([label, value]) => `<div class="nm-v2-cell"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value || '—')}</strong></div>`).join('')}</div>${history.length ? `<h3 style="margin:20px 0 8px">Terms history</h3><div>${history.map((term) => `<div class="nm-v2-cell"><span>Version ${escapeHtml(term.version ?? '—')} · ${escapeHtml(termHash(term) || '—')}</span><strong>Preview ${escapeHtml(iso(term.previewStartsAt ?? term.preview_starts_at) || '—')} · Mint ${escapeHtml(iso(term.mintStartsAt ?? term.mint_starts_at) || '—')} · ${escapeHtml(usd(term.pricePerPass ?? term.price_usdg).toFixed(6))} ${escapeHtml(activeSettlementSymbol())}</strong></div>`).join('')}</div>` : ''}${selected ? `<h3 style="margin:20px 0 8px">Advantages</h3>${advantages.length ? advantages.map((advantage) => `<div class="nm-v2-adv"><small>${escapeHtml(kindLabel(advantage.kind))}</small><b>${escapeHtml(advantageText([advantage]))}</b><span>${consumes(advantage.kind) ? 'Onchain consumption available when not listed.' : 'Entitlement/access state; no view-only transaction.'}</span></div>`).join('') : '<div class="nm-v2-cell">No committed Advantages indexed.</div>'}` : ''}`;
   mount.appendChild(panel);
 }
 function escapeHtml(value) { return String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]); }
@@ -402,7 +478,7 @@ function goView(route) {
 }
 async function read(path, options = {}) {
   const origin = state.config?.apiOrigin || '';
-  const response = await fetch(`${origin}${path}`, { credentials: 'same-origin', ...options, headers: { accept: 'application/json', ...(options.headers || {}) } });
+  const response = await fetch(`${origin}${path}`, { credentials: 'same-origin', ...options, headers: { accept: 'application/json', 'x-nex-network': state.networkKey, ...(options.headers || {}) } });
   let payload = null; try { payload = await response.json(); } catch { payload = {}; }
   if (!response.ok) throw new Error(payload?.error?.code || `API_${response.status}`);
   return payload?.data ?? payload;
@@ -411,20 +487,31 @@ async function loadConfig() {
   const response = await fetch('/config.json', { cache: 'no-store' });
   if (!response.ok) throw new Error('TESTNET_CONFIG_UNAVAILABLE');
   const config = await response.json();
-  if (Number(config.chainId) !== CHAIN_ID) throw new Error('TESTNET_CHAIN_CONFIGURATION_REQUIRED');
-  state.config = config;
+  const networks = config.networks && typeof config.networks === 'object'
+    ? config.networks
+    : { [config.network || DEFAULT_NETWORK_KEY]: config };
+  const available = Array.isArray(config.availableNetworks) && config.availableNetworks.length ? config.availableNetworks : Object.keys(networks);
+  let requested = null;
+  try { requested = new URL(location.href).searchParams.get('network') || localStorage.getItem('nexmarkets_network'); } catch {}
+  const selectedKey = available.includes(requested) ? requested : (available.includes(config.defaultNetwork) ? config.defaultNetwork : available[0]);
+  if (!selectedKey || !networks[selectedKey] || !Number.isInteger(Number(networks[selectedKey].chainId))) throw new Error('NETWORK_CONFIGURATION_REQUIRED');
+  state.runtimeConfig = { ...config, networks, availableNetworks: available };
+  state.networkKey = selectedKey;
+  state.config = { ...networks[selectedKey], network: selectedKey };
+  ensureNetworkSelectors();
   setAccountLabel(state.wallet ? short(state.wallet) : 'Connect wallet');
-  return config;
+  return state.config;
 }
 async function loadChainData() {
+  const certificationEdition = activeCertificationEdition();
   const [discoverResult, editionResult, passResult, listingsResult] = await Promise.allSettled([
     read('/v1/discover'),
-    read(`/v1/editions/${CERTIFICATION_EDITION}`),
-    read(`/v1/passes/${CERTIFICATION_EDITION}/${CERTIFICATION_TOKEN}`),
+    certificationEdition ? read(`/v1/editions/${certificationEdition}`) : Promise.resolve(null),
+    certificationEdition ? read(`/v1/passes/${certificationEdition}/${CERTIFICATION_TOKEN}`) : Promise.resolve(null),
     read('/v1/market/listings')
   ]);
   const discover = discoverResult.status === 'fulfilled' ? (Array.isArray(discoverResult.value) ? discoverResult.value : discoverResult.value?.editions || []) : [];
-  const summary = discover.find((item) => lower(item.edition_address || item.address) === CERTIFICATION_EDITION.toLowerCase()) || discover[0] || null;
+  const summary = discover.find((item) => certificationEdition && lower(item.edition_address || item.address) === certificationEdition.toLowerCase()) || discover[0] || null;
   const editionRaw = editionResult.status === 'fulfilled' ? editionResult.value : null;
   state.edition = normalizeEdition(editionRaw, summary);
   state.pass = normalizePass(passResult.status === 'fulfilled' ? passResult.value : null, state.edition);
@@ -449,7 +536,8 @@ async function hydrate() {
     const first = state.discover[0] || state.edition;
     const editions = state.discover.length ? state.discover : (state.edition ? [state.edition] : []);
     const mappedProjects = editions.map((item) => {
-      const isCertification = lower(item.address) === CERTIFICATION_EDITION.toLowerCase();
+      const certificationEdition = activeCertificationEdition();
+      const isCertification = Boolean(certificationEdition && lower(item.address) === certificationEdition.toLowerCase());
       return projectModel(isCertification ? state.edition : item, item, isCertification ? state.pass : null);
     }).filter((item) => item?.project);
     if (!mappedProjects.length && (state.edition || first)) mappedProjects.push(projectModel(state.edition || first, null, state.pass));
@@ -489,7 +577,7 @@ async function authenticate() {
     const signature = await wallet.signMessage(challenge.message);
     const verified = await read('/v1/auth/verify', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ nonce: challenge.nonce, signature }) });
     state.csrfToken = verified.csrfToken; state.authenticated = true; sessionStorage.setItem('nex_csrf', verified.csrfToken);
-    await hydrate(); showRuntimeBanner('Wallet verified on Robinhood Chain');
+    await hydrate(); showRuntimeBanner(`Wallet verified on ${activeNetworkName()}`);
   } catch (error) { showRuntimeBanner(error.message, true); }
 }
 function sanitizeCompiledForApi(compiled) {
@@ -534,7 +622,7 @@ async function submitCreateDraft() {
     const summary = compiled.project?.desc || compiled.project?.about?.slice(0, 500) || '';
 
     if (!state.authenticated || !state.wallet) {
-      if (mount) mount.innerHTML = `<div class="project-action-state"><div class="market-tx-spinner"></div><h3>Connecting wallet</h3><p>Connecting your Builder wallet on Robinhood Chain.</p></div>`;
+      if (mount) mount.innerHTML = `<div class="project-action-state"><div class="market-tx-spinner"></div><h3>Connecting wallet</h3><p>Connecting your Builder wallet on ${escapeHtml(activeNetworkName())}.</p></div>`;
       await authenticate();
     }
 
@@ -565,7 +653,7 @@ async function submitCreateDraft() {
       name: `${name} ${compiled.edition?.name || 'Edition'}`,
       project: name,
       state: 'Draft',
-      network: compiled.network || 'robinhood',
+      network: compiled.network || activeNetworkFamily(),
       minted: 0,
       supply: compiled.edition?.supply || 1,
       price: compiled.edition?.price || 0,
@@ -600,7 +688,7 @@ async function submitCreateDraft() {
         <div class="create-publish-success">
           <div class="create-publish-mark">✓</div>
           <h3>Draft saved</h3>
-          <p><strong>${escapeHtml(name)}</strong> draft has been securely saved to the server. Safe workflow is pending protocol admin execution on Robinhood Chain.</p>
+          <p><strong>${escapeHtml(name)}</strong> draft has been securely saved to the server. Safe workflow is pending protocol admin execution on ${escapeHtml(activeNetworkName())}.</p>
           <div class="project-action-buttons" style="justify-content:center">
             <button class="btn" onclick="closeProjectAction();go('dashboard');setTimeout(()=>dashGo('launches'),30)">Dashboard</button>
             <button class="btn primary" onclick="closeProjectAction();go('create')">Edit draft</button>
@@ -682,8 +770,13 @@ function wireWallet() {
 
   onChainChange(async (newChainId) => {
     const required = Number(state.config?.chainId || CHAIN_ID);
+    const matching = networkOptions().find(({ config }) => Number(config.chainId) === Number(newChainId));
+    if (matching && matching.key !== state.networkKey) {
+      try { await switchNetwork(matching.key, { switchWallet: false }); } catch (error) { showRuntimeBanner(error.message, true); }
+      return;
+    }
     if (newChainId && newChainId !== required) {
-      showRuntimeBanner(`Please switch network to Robinhood Chain (${required})`, true);
+      showRuntimeBanner(`Please switch network to ${activeNetworkName()} (${required})`, true);
     }
   });
 }
@@ -756,7 +849,7 @@ function exposeRuntime() {
     connect: authenticate,
     navigate,
     submitCreateDraft,
-    certificationEdition: CERTIFICATION_EDITION,
+    get certificationEdition() { return defaultCertificationEdition(); },
     certificationToken: CERTIFICATION_TOKEN
   };
 }

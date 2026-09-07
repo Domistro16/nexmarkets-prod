@@ -9,14 +9,22 @@ function normalizeImmutables(bytecode, immutableReferences = {}) {
   return `0x${bytes.join('')}`;
 }
 
-const network = process.argv.includes('--mainnet') ? 'robinhood-mainnet' : 'robinhood-testnet';
+const requestedNetwork = process.argv.find((arg) => arg.startsWith('--network='))?.slice('--network='.length);
+const network = requestedNetwork ?? (process.argv.includes('--mainnet') ? 'robinhood-mainnet' : 'robinhood-testnet');
+const networkDetails = {
+  'robinhood-mainnet': { chainId: 4663, rpcEnv: 'RH_MAINNET_RPC_URL' },
+  'robinhood-testnet': { chainId: 46630, rpcEnv: 'RH_TESTNET_RPC_URL' },
+  'base-mainnet': { chainId: 8453, rpcEnv: 'BASE_MAINNET_RPC_URL' },
+  'base-sepolia': { chainId: 84532, rpcEnv: 'BASE_SEPOLIA_RPC_URL' }
+}[network];
+if (!networkDetails) throw new Error(`Unsupported deployment network: ${network}`);
 const postWire = process.argv.includes('--post-wire');
 const planPath = new URL(`../artifacts/deployment-plan/${network}.json`, import.meta.url);
 let plan;
 try { plan = JSON.parse(await readFile(planPath, 'utf8')); } catch { throw new Error('BLOCKED: run plan-v1-deployment.mjs with complete Safe inputs first'); }
-const rpc = process.env[network === 'robinhood-mainnet' ? 'RH_MAINNET_RPC_URL' : 'RH_TESTNET_RPC_URL'];
+const rpc = process.env[networkDetails.rpcEnv] ?? (network === 'base-sepolia' ? 'https://sepolia.base.org' : network === 'base-mainnet' ? 'https://mainnet.base.org' : null);
 if (!rpc) throw new Error(`BLOCKED: ${network} RPC credential/environment missing`);
-const provider = new JsonRpcProvider(rpc, plan.chainId, { staticNetwork: true });
+const provider = new JsonRpcProvider(rpc, networkDetails.chainId, { staticNetwork: true });
 for (const [name, contract] of Object.entries(plan.contracts)) {
   const code = await provider.getCode(contract.address);
   if (code === '0x') throw new Error(`BLOCKED_NOT_DEPLOYED: ${name} ${contract.address}`);

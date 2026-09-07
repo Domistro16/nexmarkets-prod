@@ -9,7 +9,9 @@ import {
 } from './deployment-source.mjs';
 
 const root = new URL('../', import.meta.url);
-const network = process.argv.includes('--mainnet') ? 'robinhood-mainnet' : 'robinhood-testnet';
+const requestedNetwork = process.argv.find((arg) => arg.startsWith('--network='))?.slice('--network='.length);
+const network = requestedNetwork ?? (process.argv.includes('--mainnet') ? 'robinhood-mainnet' : 'robinhood-testnet');
+if (!['robinhood-mainnet', 'robinhood-testnet', 'base-mainnet', 'base-sepolia'].includes(network)) throw new Error(`UNSUPPORTED_DEPLOYMENT_NETWORK ${network}`);
 const sourceArg = process.argv.find((arg) => arg.startsWith('--source-commit='))?.slice('--source-commit='.length);
 const unfrozenDevPlan = process.argv.includes('--unfrozen-dev');
 if (sourceArg && unfrozenDevPlan) throw new Error('choose either --source-commit or --unfrozen-dev');
@@ -48,7 +50,7 @@ if (network === 'robinhood-mainnet' && sourceCommit === FROZEN_V1_DEPLOYMENT_SOU
   // replace the release candidate with a new Safe bundle.
   sourceVerification.mainnetReproductionRequired = true;
 }
-const inputPath = process.argv.find((arg) => arg.startsWith('--inputs='))?.slice(9) ?? 'deployments/nexmarkets-v1.inputs.example.json';
+const inputPath = process.argv.find((arg) => arg.startsWith('--inputs='))?.slice(9) ?? `deployments/nexmarkets-v1.inputs.${network}.json`;
 const inputs = JSON.parse(await readFile(new URL(inputPath, root), 'utf8'));
 const bootstrap = JSON.parse(await readFile(new URL(`deployments/${network}.bootstrap.json`, root), 'utf8'));
 if (inputs.network !== network) throw new Error('deployment input network mismatch');
@@ -60,8 +62,11 @@ if (!Array.isArray(inputs.safeOwners) || inputs.safeOwners.length < 2 || new Set
 if (!Number.isInteger(inputs.safeThreshold) || inputs.safeThreshold < 1 || inputs.safeThreshold > inputs.safeOwners.length) throw new Error('BLOCKED: Safe threshold must be between 1 and owner count');
 if (inputs.governanceTransition !== 'RAISE_THRESHOLD_TO_2_PLUS') throw new Error('governance transition must be recorded');
 for (const key of ['primaryFeeRecipient','secondaryFeeRecipient']) if (!isAddress(inputs[key] ?? '')) throw new Error(`BLOCKED: ${key} required`);
-const settlementToken = network === 'robinhood-mainnet' ? bootstrap.primitives.usdg.address : inputs.mockUsdgAddress;
+const settlementPrimitive = bootstrap.primitives.usdc ?? bootstrap.primitives.usdg ?? bootstrap.primitives.settlementToken;
+const settlementToken = inputs.settlementTokenAddress
+  ?? (network === 'robinhood-mainnet' ? bootstrap.primitives.usdg.address : network === 'robinhood-testnet' ? inputs.mockUsdgAddress : settlementPrimitive?.address);
 if (!isAddress(settlementToken ?? '')) throw new Error('BLOCKED: verified settlement token required');
+if ((network === 'base-mainnet' || network === 'base-sepolia') && settlementToken.toLowerCase() !== settlementPrimitive.address.toLowerCase()) throw new Error('BLOCKED: Base must use canonical USDC settlement');
 
 const create2Factory = bootstrap.primitives.immutableCreate2Factory.address;
 const coder = AbiCoder.defaultAbiCoder();
@@ -135,7 +140,7 @@ const plan = {
   status: unfrozenDevPlan ? 'UNFROZEN_DEV_PLAN' : 'DRY_RUN_ONLY', mainnetDeploymentPerformed: false,
   sourceVerification,
   governance: { safe, owners: inputs.safeOwners.map(getAddress), ownerCount: inputs.safeOwners.length, threshold: inputs.safeThreshold, plannedTransition: inputs.governanceTransition },
-  primitives: { settlementToken, seaport16: bootstrap.primitives.seaport16.address, conduitController: bootstrap.primitives.conduitController.address, erc6551Registry: erc6551.registry.address, immutableCreate2Factory: create2Factory },
+  primitives: { settlementToken, settlementSymbol: inputs.settlementTokenSymbol ?? bootstrap.policy?.settlementAsset ?? 'USDG', usdg: settlementToken, seaport16: bootstrap.primitives.seaport16.address, conduitController: bootstrap.primitives.conduitController.address, erc6551Registry: erc6551.registry.address, immutableCreate2Factory: create2Factory },
   contractInputs: { primaryFeeRecipient: getAddress(inputs.primaryFeeRecipient), secondaryFeeRecipient: getAddress(inputs.secondaryFeeRecipient) },
   erc6551: { registryRuntimeCodeHash: erc6551.registry.expectedRuntimeCodeHash, accountRuntimeCodeHash: erc6551.accountImplementation.expectedBuildRuntimeCodeHash },
   contracts: Object.fromEntries(specs.map((spec) => [spec.name, spec])),

@@ -18,6 +18,24 @@ test('wallet rejects a non-Robinhood chain and exposes real USDG read calls', as
   const wallet = new NexWallet(provider); wallet.address = '0x1111111111111111111111111111111111111111'; assert.equal(await wallet.erc20Balance('0x2222222222222222222222222222222222222222'), 100n);
 });
 
+test('wallet supports Base Sepolia and can add a missing network', async () => {
+  const calls = [];
+  let chainId = '0x14a34';
+  const provider = { async request(request) {
+    calls.push(request);
+    if (request.method === 'eth_requestAccounts') return ['0x1111111111111111111111111111111111111111'];
+    if (request.method === 'eth_chainId') return chainId;
+    if (request.method === 'wallet_switchEthereumChain') throw Object.assign(new Error('unknown chain'), { code: 4902 });
+    if (request.method === 'wallet_addEthereumChain') return null;
+    throw new Error(`unexpected ${request.method}`);
+  } };
+  const wallet = new NexWallet(provider);
+  const identity = await wallet.connect(84532);
+  assert.equal(identity.chainId, 84532);
+  await wallet.switchChain({ chainId: 84532, name: 'Base Sepolia', rpcUrl: 'https://sepolia.base.org', explorer: 'https://sepolia.basescan.org' });
+  assert.equal(calls.find((call) => call.method === 'wallet_addEthereumChain').params[0].chainId, '0x14a34');
+});
+
 test('transaction UI never treats a tx hash as finality', () => {
   assert.deepEqual(transactionProgress('SUBMITTED'), { state: 'SUBMITTED', completed: 3, terminal: false, final: false });
   assert.equal(transactionProgress('FINALIZED').final, true); assert.equal(transactionProgress('REORGED').terminal, true);

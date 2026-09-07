@@ -8,7 +8,7 @@ const phase = process.argv.find((arg) => arg.startsWith('--phase='))?.slice('--p
 const planShaArg = process.argv.find((arg) => arg.startsWith('--plan-sha256='))?.slice('--plan-sha256='.length)?.toLowerCase();
 const broadcast = process.argv.includes('--broadcast');
 const confirmation = 'I_UNDERSTAND_THIS_SUBMITS_A_TESTNET_SAFE_TRANSACTION';
-if (network !== 'robinhood-testnet') throw new Error('TESTNET_ONLY_SAFE_BUNDLE_EXECUTOR');
+if (!['robinhood-testnet', 'base-sepolia'].includes(network)) throw new Error('TESTNET_ONLY_SAFE_BUNDLE_EXECUTOR');
 if (phase !== 'deploy' && phase !== 'wire') throw new Error('SAFE_BUNDLE_PHASE_INVALID');
 
 const planUrl = new URL(`artifacts/deployment-plan/${network}.json`, root);
@@ -24,12 +24,13 @@ if (broadcast && !planShaArg) throw new Error('SAFE_BUNDLE_PLAN_SHA_REQUIRED');
 if (bundle.meta?.description && !bundle.meta.description.includes(plan.sourceCommit)) throw new Error('SAFE_BUNDLE_SOURCE_METADATA_MISMATCH');
 if (!Array.isArray(bundle.transactions) || bundle.transactions.length !== (phase === 'deploy' ? 10 : 6)) throw new Error('SAFE_BUNDLE_TRANSACTION_COUNT_MISMATCH');
 
-const rpcUrl = process.env.RH_TESTNET_RPC_URL?.trim();
+const chainId = network === 'base-sepolia' ? 84532 : 46630;
+const rpcUrl = (network === 'base-sepolia' ? process.env.BASE_SEPOLIA_RPC_URL : process.env.RH_TESTNET_RPC_URL)?.trim()
+  ?? (network === 'base-sepolia' ? 'https://sepolia.base.org' : 'https://rpc.testnet.chain.robinhood.com');
 const privateKey = process.env.DEPLOYER_PRIVATE_KEY?.trim();
-if (!rpcUrl) throw new Error('Missing RH_TESTNET_RPC_URL');
 if (broadcast && !privateKey) throw new Error('Missing DEPLOYER_PRIVATE_KEY');
-const provider = new JsonRpcProvider(rpcUrl, 46630, { staticNetwork: true });
-if ((await provider.getNetwork()).chainId !== 46630n) throw new Error('TESTNET_CHAIN_ID_MISMATCH');
+const provider = new JsonRpcProvider(rpcUrl, chainId, { staticNetwork: true });
+if ((await provider.getNetwork()).chainId !== BigInt(chainId)) throw new Error('TESTNET_CHAIN_ID_MISMATCH');
 const safeAddress = getAddress(plan.governance.safe);
 const safeAbi = [
   'function getOwners() view returns(address[])',
@@ -61,7 +62,24 @@ const wiringInterfaces = new Map([
   ['setZone(address)', new Interface(['function setZone(address)'])],
   ['setListingAuthority(address)', new Interface(['function setListingAuthority(address)'])]
 ]);
+const wiringGetterNames = {
+  'setFactory(address)': 'factory',
+  'setInitializer(address)': 'initializer',
+  'setAdvantageInitializer(address)': 'advantageInitializer',
+  'setListingRegistry(address)': 'listingRegistry',
+  'setZone(address)': 'zone',
+  'setListingAuthority(address)': 'listingAuthority'
+};
+let safeNonce = BigInt(await safe.nonce());
 const records = [];
+async function waitForCode(address, attempts = 12) {
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    const code = await provider.getCode(address);
+    if (code !== '0x') return code;
+    if (attempt + 1 < attempts) await new Promise((resolve) => setTimeout(resolve, 1000));
+  }
+  return '0x';
+}
 for (const [index, transaction] of bundle.transactions.entries()) {
   if (transaction.value !== '0') throw new Error('SAFE_BUNDLE_TARGET_OR_VALUE_MISMATCH');
   let contract = null;
@@ -72,7 +90,10 @@ for (const [index, transaction] of bundle.transactions.entries()) {
     contract = contractBySalt.get(salt);
     if (!contract) throw new Error('SAFE_BUNDLE_SALT_NOT_IN_PLAN');
     if (keccak256(decoded[1]) !== contract.initCodeHash) throw new Error(`SAFE_BUNDLE_INIT_CODE_MISMATCH ${contract.name}`);
-    if ((await provider.getCode(contract.address)) !== '0x') throw new Error(`SAFE_BUNDLE_ADDRESS_OCCUPIED ${contract.name}`);
+    if ((await provider.getCode(contract.address)) !== '0x') {
+      records.push({ index, phase, safe: safeAddress, nonce: String(await safe.nonce()), safeTxHash: null, target: transaction.to, data: transaction.data, contract: contract.name, status: 'ALREADY_DEPLOYED', txHash: null, blockNumber: null });
+      continue;
+    }
   } else {
     const expected = plan.wiring?.[index];
     if (!expected || transaction.to.toLowerCase() !== expected.target.toLowerCase()) throw new Error('SAFE_WIRING_TARGET_MISMATCH');
@@ -81,8 +102,16 @@ for (const [index, transaction] of bundle.transactions.entries()) {
     const expectedData = wiringInterface.encodeFunctionData(expected.call.slice(0, expected.call.indexOf('(')), expected.args);
     if (transaction.data.toLowerCase() !== expectedData.toLowerCase()) throw new Error(`SAFE_WIRING_DATA_MISMATCH ${expected.call}`);
     if ((await provider.getCode(expected.target)) === '0x') throw new Error(`SAFE_WIRING_TARGET_UNDEPLOYED ${expected.target}`);
+    const getterName = wiringGetterNames[expected.call];
+    if (getterName) {
+      const current = await new Contract(expected.target, [`function ${getterName}() view returns(address)`], provider)[getterName]();
+      if (current.toLowerCase() === String(expected.args[0]).toLowerCase()) {
+        records.push({ index, phase, safe: safeAddress, nonce: safeNonce.toString(), safeTxHash: null, target: transaction.to, data: transaction.data, contract: null, status: 'ALREADY_WIRED', txHash: null, blockNumber: null });
+        continue;
+      }
+    }
   }
-  const nonce = BigInt(await safe.nonce());
+  const nonce = safeNonce;
   const safeTxGas = 0n;
   const baseGas = 0n;
   const gasPrice = 0n;
@@ -95,10 +124,11 @@ for (const [index, transaction] of bundle.transactions.entries()) {
     const tx = await safe.connect(signer).execTransaction(transaction.to, 0n, transaction.data, 0, safeTxGas, baseGas, gasPrice, ZeroAddress, refundReceiver, signature);
     const receipt = await tx.wait();
     if (!receipt || receipt.status !== 1) throw new Error(`SAFE_EXECUTION_REVERTED ${tx.hash}`);
-    if (phase === 'deploy' && (await provider.getCode(contract.address)) === '0x') throw new Error(`SAFE_DEPLOYMENT_CODE_MISSING ${contract.name}`);
+    if (phase === 'deploy' && (await waitForCode(contract.address)) === '0x') throw new Error(`SAFE_DEPLOYMENT_CODE_MISSING ${contract.name}`);
     record.status = 'EXECUTED_VERIFIED';
     record.txHash = tx.hash;
     record.blockNumber = receipt.blockNumber;
+    safeNonce += 1n;
   }
   records.push(record);
 }

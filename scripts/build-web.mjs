@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = new URL('../', import.meta.url);
+const rootPath = fileURLToPath(root);
 const source = new URL('./apps/web/public/', root);
 const outputs = [
   new URL('./apps/web/dist/', root),
@@ -27,9 +28,9 @@ try {
   const { build } = await import('esbuild');
   await build({
     entryPoints: [
-      { in: './api-src/healthz.js', out: 'healthz' },
-      { in: './api-src/readyz.js', out: 'readyz' },
-      { in: './api-src/v1/[...slug].js', out: 'v1/[...slug]' }
+      { in: join(rootPath, 'api-src', 'healthz.js'), out: 'healthz' },
+      { in: join(rootPath, 'api-src', 'readyz.js'), out: 'readyz' },
+      { in: join(rootPath, 'api-src', 'v1', '[...slug].js'), out: 'v1/[...slug]' }
     ],
     bundle: true,
     platform: 'node',
@@ -37,7 +38,7 @@ try {
     target: 'node20',
     external: ['pg'],
     allowOverwrite: true,
-    outdir: './api'
+    outdir: join(rootPath, 'api')
   });
 
   async function fixExports(dir) {
@@ -63,7 +64,10 @@ try {
       await cp(apiDir, target, { recursive: true });
     } catch {}
   }
-} catch {}
+} catch (error) {
+  console.error(JSON.stringify({ status: 'FAIL', stage: 'api-build', error: error.message }));
+  process.exitCode = 1;
+}
 
 const app = await readFile(new URL('./apps/web/public/app.mjs', root), 'utf8');
 const v2App = await readFile(new URL('./apps/web/public/v2-app.mjs', root), 'utf8');

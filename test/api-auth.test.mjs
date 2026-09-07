@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { once } from 'node:events';
 import { Interface, Wallet, id } from 'ethers';
-import { createApiServer, RateLimiter, predictEditionAddress } from '../apps/api/src/server.mjs';
+import { createApiServer, createNetworkConfigs, RateLimiter, predictEditionAddress } from '../apps/api/src/server.mjs';
 import { MemoryStore } from '../apps/api/src/memory-store.mjs';
 
 async function running(options = {}) {
@@ -123,4 +123,15 @@ test('/readyz uses Goldsky Subgraph indexed progress against the RPC head', asyn
   assert.equal(body.indexerProvider, 'GOLDSKY_SUBGRAPH');
   assert.equal(body.landedBlock, 1000);
   assert.equal(body.indexedLag, 5);
+});
+
+test('API selects Base Sepolia by network header and does not serve Robinhood projections', async (t) => {
+  const networkConfigs = createNetworkConfigs({});
+  const { server, base } = await running({ chainId: 46630, networkConfigs }); t.after(() => server.close());
+  const challenge = await fetch(`${base}/v1/auth/challenge`, { method: 'POST', headers: { 'content-type': 'application/json', 'x-nex-network': 'base-sepolia', origin: 'https://nexmarkets.fun' }, body: JSON.stringify({ address: Wallet.createRandom().address }) });
+  assert.equal(challenge.status, 201);
+  assert.equal((await challenge.json()).chainId, 84532);
+  const discover = await fetch(`${base}/v1/discover`, { headers: { 'x-nex-network': 'base-sepolia', origin: 'https://nexmarkets.fun' } });
+  assert.equal(discover.status, 200);
+  assert.deepEqual((await discover.json()).data, []);
 });

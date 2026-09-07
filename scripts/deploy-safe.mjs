@@ -18,12 +18,12 @@ import {
 
 const requestedNetwork = process.argv.find((arg) => arg.startsWith('--network='))?.slice('--network='.length)
   ?? (process.argv.includes('--testnet') ? 'robinhood-testnet' : 'robinhood-mainnet');
-if (!['robinhood-mainnet', 'robinhood-testnet'].includes(requestedNetwork)) {
+if (!['robinhood-mainnet', 'robinhood-testnet', 'base-mainnet', 'base-sepolia'].includes(requestedNetwork)) {
   throw new Error(`Unsupported Safe network: ${requestedNetwork}`);
 }
 const networkSlug = requestedNetwork;
-const CHAIN_ID = networkSlug === 'robinhood-mainnet' ? 4663n : 46630n;
-const RPC_ENV = networkSlug === 'robinhood-mainnet' ? 'RH_MAINNET_RPC_URL' : 'RH_TESTNET_RPC_URL';
+const CHAIN_ID = ({ 'robinhood-mainnet': 4663n, 'robinhood-testnet': 46630n, 'base-mainnet': 8453n, 'base-sepolia': 84532n })[networkSlug];
+const RPC_ENV = ({ 'robinhood-mainnet': 'RH_MAINNET_RPC_URL', 'robinhood-testnet': 'RH_TESTNET_RPC_URL', 'base-mainnet': 'BASE_MAINNET_RPC_URL', 'base-sepolia': 'BASE_SEPOLIA_RPC_URL' })[networkSlug];
 const MINIMUM_SAFE_OWNERS = 2;
 const DEFAULT_SINGLETON = '0x41675C099F32341bf84BFc5382aF534df5C7461a';
 const DEFAULT_PROXY_FACTORY = '0x4e1DCf7AD4e460CfD30791CCC4F9c8a4f820ec67';
@@ -158,7 +158,7 @@ async function main() {
 
   const provider = new JsonRpcProvider(rpcUrl, Number(CHAIN_ID), { staticNetwork: true });
   const network = await provider.getNetwork();
-  if (network.chainId !== CHAIN_ID) fail(`RPC chain ID ${network.chainId} does not match Robinhood Chain ${CHAIN_ID}.`);
+  if (network.chainId !== CHAIN_ID) fail(`RPC chain ID ${network.chainId} does not match ${networkSlug} (${CHAIN_ID}).`);
 
   const [singletonCode, factoryCode, fallbackCode] = await Promise.all([
     provider.getCode(singletonAddress),

@@ -1,6 +1,4 @@
-import { JsonRpcClient } from '@nexmarkets/chain';
-import { SubgraphClient } from '@nexmarkets/subgraph-client';
-import { createApiServer, productionOrderPolicy, RateLimiter } from '@nexmarkets/api';
+import { createApiServer, createNetworkConfigs, networkKeyForChainId, RateLimiter } from '@nexmarkets/api';
 import { MemoryStore } from '@nexmarkets/api/memory-store';
 
 let requestListener = null;
@@ -8,17 +6,9 @@ let requestListener = null;
 export async function getApiListener() {
   if (requestListener) return requestListener;
 
+  const networkConfigs = createNetworkConfigs(process.env);
   const chainId = Number(process.env.ROBINHOOD_CHAIN_ID ?? 46630);
-  const rpcUrl = chainId === 46630
-    ? (process.env.RH_TESTNET_RPC_URL ?? 'https://rpc.testnet.chain.robinhood.com')
-    : (process.env.RH_MAINNET_RPC_URL ?? 'https://rpc.mainnet.chain.robinhood.com');
-  const rpc = new JsonRpcClient(rpcUrl);
-
-  const subgraph = new SubgraphClient({
-    endpoint: process.env.NEXMARKETS_SUBGRAPH_URL ?? 'https://api.goldsky.com/api/public/project_cmt3es3z03t5101vr8ggx1j7e/subgraphs/nexmarkets-v1-robinhood-testnet/1.0.1/gn',
-    certificationEditionAddress: process.env.CERTIFICATION_EDITION_ADDRESS ?? '0x4171D62F43B4168b07a01C04594455DBc3298437',
-    certificationEditionName: process.env.CERTIFICATION_EDITION_NAME ?? 'NexMarkets V1 Test Certification Edition'
-  });
+  const defaultNetwork = networkConfigs[networkKeyForChainId(chainId) ?? 'robinhood-testnet'];
 
   let store = null;
   if (process.env.DATABASE_URL) {
@@ -32,17 +22,17 @@ export async function getApiListener() {
     store = new MemoryStore();
   }
 
-  const orderPolicy = productionOrderPolicy(process.env);
   const rateLimiter = new RateLimiter({ limit: 300, windowMs: 60_000 });
 
   const server = createApiServer({
     store,
-    chainId,
-    chain: rpc,
-    subgraph,
-    allowedOrigin: process.env.APP_ORIGIN ?? 'https://nexmarkets.fun',
+    chainId: defaultNetwork.chainId,
+    chain: defaultNetwork.chain,
+    subgraph: defaultNetwork.subgraph,
+    allowedOrigin: process.env.APP_ORIGIN ?? 'https://www.nexmarkets.xyz',
     secureCookies: process.env.NODE_ENV === 'production',
-    orderPolicy,
+    orderPolicy: defaultNetwork.orderPolicy,
+    networkConfigs,
     rateLimiter,
     requireIndexedReadiness: false
   });

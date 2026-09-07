@@ -1,0 +1,44 @@
+{
+  "schemaVersion": 1,
+  "network": "base-mainnet",
+  "chainId": 8453,
+  "status": "PREPARED_NOT_BROADCAST",
+  "mainnetDeploymentPerformed": false,
+  "deploymentSourceCommit": "8790b635ba55512e5d0e295fb1217a3993ecdafb",
+  "deploymentPlanSha256": "251326b9a20a1b381953d0366bdad3f386aedb164c76bf6ca9e6b9124e4c90dd",
+  "protocolAdminSafe": {
+    "address": "0x2a2673044CAC174C43982b9A0A708587be1596b7",
+    "status": "PREDICTED_NOT_DEPLOYED",
+    "owners": [
+      "0x7ec76611Da0AeE7C1B11273E9767FDA1Faa31790",
+      "0xD83deFbA240568040b39bb2C8B4DB7dB02d40593"
+    ],
+    "threshold": 1,
+    "version": "1.4.1",
+    "governanceTransition": "RAISE_THRESHOLD_TO_2_PLUS"
+  },
+  "settlement": {
+    "symbol": "USDC",
+    "decimals": 6,
+    "address": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+    "canonical": true
+  },
+  "predictedContracts": {
+    "NexLaunchRegistry": "0x36E17A94a69009D1688dC528a17B38714F29C455",
+    "NexMintController": "0x00587d83A5D5EDB3782b38586C5f8B88B5702479",
+    "NexPassFactory": "0x4f3a2363834CF757245c9205FfDd706572487eb8",
+    "NexAdvantageRegistry": "0x58B56Ee554B3c03Fb2b951bdEeC9803A51C5bFb8",
+    "NexAdvantageInitializer": "0x4dbb19CF32672143a2348566d24Ad14157e0AD4f",
+    "NexRoyaltyVault": "0x3Eecd1363F6529262D612c3CAFa1c7a6D5bBcCA2",
+    "NexListingRegistry": "0x0E972117495241D279580D0A1db38284a7885eb5",
+    "NexMarketsZone": "0x600B351eC65e806d654013252E4Da7C6Bf4737fb",
+    "NexPassAccount": "0x0f24A9b221f66E851ECE6ec8Ff9D08a21D6dA8f8",
+    "NexTBAResolver": "0x3FF058E753F1e8527541555F9eB0698bD844089F"
+  },
+  "blockers": [
+    "Base mainnet Safe is predicted but not deployed.",
+    "No Safe bundle has been broadcast.",
+    "Explicit release approval is required before any Base mainnet transaction."
+  ],
+  "recordedAt": "2026-09-07T09:35:00.000Z"
+}

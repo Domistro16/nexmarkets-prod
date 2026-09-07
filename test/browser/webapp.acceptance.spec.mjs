@@ -90,6 +90,13 @@ test('V2 template renders certified API/Subgraph data across public routes witho
   const errors = collectFatalErrors(page);
   await installFixtureApi(page);
   await goto(page, '/discover');
+  const networkSelector = page.locator('.nm-network-switcher select:visible').first();
+  await expect(networkSelector).toHaveValue('robinhood-testnet');
+  await expect(networkSelector.locator('option[value="base-sepolia"]')).toHaveCount(1);
+  await networkSelector.selectOption('base-sepolia');
+  await expect(networkSelector).toHaveValue('base-sepolia');
+  await expect(page.locator('#nm-v2-runtime-banner')).toContainText('Switched to Base');
+  await networkSelector.selectOption('robinhood-testnet');
   await expect(page.getByRole('heading', { name: 'Find what is worth being early to.' })).toBeVisible();
   await expect(page.locator('#discover').getByText('NexMarkets V1 Test Certification Edition', { exact: true }).first()).toBeVisible();
   await expect(page.locator('#discover').getByText('1/3 serials issued').first()).toBeVisible();

@@ -1,4 +1,4 @@
-import { robinhoodTestnet, robinhoodMainnet, chains } from './chains.mjs';
+import { robinhoodTestnet, robinhoodMainnet, baseSepolia, baseMainnet, chains } from './chains.mjs';
 
 const PROJECT_ID = 'c4f79cc821944d9680842e34466bfb00';
 
@@ -36,18 +36,20 @@ async function initModal() {
         projectId: PROJECT_ID,
         transports: {
           [robinhoodTestnet.id]: http('https://rpc.testnet.chain.robinhood.com'),
-          [robinhoodMainnet.id]: http('https://rpc.mainnet.chain.robinhood.com')
+          [robinhoodMainnet.id]: http('https://rpc.mainnet.chain.robinhood.com'),
+          [baseSepolia.id]: http('https://sepolia.base.org'),
+          [baseMainnet.id]: http('https://mainnet.base.org')
         }
       });
 
       modalInstance = createAppKit({
         adapters: [wagmiAdapter],
-        networks: [robinhoodTestnet, robinhoodMainnet],
+        networks: [robinhoodTestnet, robinhoodMainnet, baseSepolia, baseMainnet],
         defaultNetwork: robinhoodTestnet,
         projectId: PROJECT_ID,
         metadata: {
           name: 'NexMarkets',
-          description: 'Verifiable passes and utility editions on Robinhood Chain',
+          description: 'Verifiable passes and utility editions across Robinhood and Base',
           url: typeof window !== 'undefined' ? window.location.origin : 'https://nexmarkets.fun',
           icons: ['https://nexmarkets.fun/favicon.ico']
         },

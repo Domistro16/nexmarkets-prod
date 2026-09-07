@@ -53,8 +53,17 @@ if (offline) {
     const callUint=(hex,index=0)=>Number(BigInt('0x'+firstWord(hex,index)));
     const hasRole=async(to,role,address)=>callUint(await rpc.ethCall(to,selector('hasRole(bytes32,address)')+role.slice(2)+address.slice(2).padStart(64,'0')))!==0;
 
-    // USDG mainnet. Testnet mock is deployed in the next phase and therefore may be unset here.
-    if (manifest.primitives.usdg.address) {
+    // Base uses canonical USDC; Robinhood uses USDG/MockUSDG.
+    if (manifest.primitives.usdc?.address) {
+      const p = manifest.primitives.usdc;
+      await codeCheck('usdc_runtime', p);
+      const symbol = decodeAbiString(await rpc.ethCall(p.address, selector('symbol()')));
+      const decimals = Number(BigInt(await rpc.ethCall(p.address, selector('decimals()'))));
+      report.observed.usdc = { ...report.observed.usdc_runtime, symbol, decimals };
+      check('usdc_symbol', symbol === p.expectedSymbol ? 'PASS' : 'FAIL', { expected: p.expectedSymbol, observed: symbol });
+      check('usdc_decimals', decimals === p.expectedDecimals ? 'PASS' : 'FAIL', { expected: p.expectedDecimals, observed: decimals });
+      check('usdc_authority', 'PASS', { mode: 'canonical-external-token' });
+    } else if (manifest.primitives.usdg?.address) {
       const p=manifest.primitives.usdg; await codeCheck('usdg_runtime',p);
       const symbol=decodeAbiString(await rpc.ethCall(p.address,selector('symbol()')));
       const decimals=Number(BigInt(await rpc.ethCall(p.address,selector('decimals()'))));

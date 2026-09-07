@@ -1,5 +1,10 @@
 # V1 deployment and abort gate
 
+Robinhood and Base are independent deployment contexts. Use the explicit
+`--network` form for Base; do not reuse Robinhood addresses or settlement
+tokens. Base Sepolia uses canonical testnet USDC and Base mainnet uses
+canonical mainnet USDC.
+
 No Robinhood mainnet deployment is authorized by this implementation PR.
 
 Testnet uses the isolated `MockUSDG` source at

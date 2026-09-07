@@ -10,7 +10,7 @@ function assertEvent(event) {
   for (const field of ['chainId','blockNumber','blockHash','txHash','logIndex','contractAddress','eventName','blockTimestamp']) {
     if (event[field] === undefined || event[field] === null || event[field] === '') throw new Error(`indexer event missing ${field}`);
   }
-  if (![4663, 46630].includes(Number(event.chainId))) throw new Error('non-Robinhood event');
+  if (![4663, 46630, 8453, 84532].includes(Number(event.chainId))) throw new Error('unsupported chain event');
 }
 
 export class ProjectionEngine {

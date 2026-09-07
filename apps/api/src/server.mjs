@@ -120,6 +120,67 @@ export function productionOrderPolicy(env = process.env) {
   };
 }
 
+export function networkKeyForChainId(chainId) {
+  return ({ 4663: 'robinhood-mainnet', 46630: 'robinhood-testnet', 8453: 'base-mainnet', 84532: 'base-sepolia' })[Number(chainId)] ?? null;
+}
+
+function networkPolicyEnv(env, prefix, settlementAddress, seaportAddress) {
+  const policyEnv = { ...env };
+  const mappings = {
+    PROTOCOL_ADMIN_SAFE_ADDRESS: 'PROTOCOL_ADMIN_SAFE_ADDRESS',
+    SECONDARY_FEE_RECIPIENT: 'SECONDARY_FEE_RECIPIENT',
+    NEX_ROYALTY_VAULT_ADDRESS: 'NEX_ROYALTY_VAULT_ADDRESS',
+    NEX_MARKETS_ZONE_ADDRESS: 'NEX_MARKETS_ZONE_ADDRESS',
+    NEX_LISTING_REGISTRY_ADDRESS: 'NEX_LISTING_REGISTRY_ADDRESS',
+    NEX_MINT_CONTROLLER_ADDRESS: 'NEX_MINT_CONTROLLER_ADDRESS',
+    NEX_PASS_FACTORY_ADDRESS: 'NEX_PASS_FACTORY_ADDRESS',
+    NEX_LAUNCH_REGISTRY_ADDRESS: 'NEX_LAUNCH_REGISTRY_ADDRESS',
+    NEX_ADVANTAGE_REGISTRY_ADDRESS: 'NEX_ADVANTAGE_REGISTRY_ADDRESS'
+  };
+  for (const [target, suffix] of Object.entries(mappings)) policyEnv[target] = env[`${prefix}_${suffix}`];
+  policyEnv.USDG_ADDRESS = env[`${prefix}_USDC_ADDRESS`] ?? settlementAddress;
+  policyEnv.SEAPORT_16_ADDRESS = env[`${prefix}_SEAPORT_16_ADDRESS`] ?? seaportAddress;
+  return policyEnv;
+}
+
+function networkSubgraph(env, prefix, fallbackEndpoint, fallbackEdition, fallbackName) {
+  const endpoint = env[`${prefix}_SUBGRAPH_URL`] ?? fallbackEndpoint;
+  return new SubgraphClient({
+    endpoint,
+    certificationEditionAddress: env[`${prefix}_CERTIFICATION_EDITION_ADDRESS`] ?? fallbackEdition,
+    certificationEditionName: env[`${prefix}_CERTIFICATION_EDITION_NAME`] ?? fallbackName
+  });
+}
+
+export function createNetworkConfigs(env = process.env) {
+  const baseSepoliaUsdc = env.BASE_SEPOLIA_USDC_ADDRESS ?? '0x036CbD53842c5426634e7929541eC2318f3dCF7e';
+  const baseMainnetUsdc = env.BASE_MAINNET_USDC_ADDRESS ?? '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
+  const rhTestnetSubgraph = networkSubgraph(
+    env,
+    'ROBINHOOD_TESTNET',
+    env.NEXMARKETS_SUBGRAPH_URL ?? 'https://api.goldsky.com/api/public/project_cmt3es3z03t5101vr8ggx1j7e/subgraphs/nexmarkets-v1-robinhood-testnet/1.0.1/gn',
+    env.CERTIFICATION_EDITION_ADDRESS ?? '0x4171D62F43B4168b07a01C04594455DBc3298437',
+    env.CERTIFICATION_EDITION_NAME ?? 'NexMarkets V1 Test Certification Edition'
+  );
+  const rhMainnetSubgraph = networkSubgraph(env, 'ROBINHOOD_MAINNET', env.RH_MAINNET_SUBGRAPH_URL, env.RH_MAINNET_CERTIFICATION_EDITION_ADDRESS, env.RH_MAINNET_CERTIFICATION_EDITION_NAME);
+  const baseSepoliaSubgraph = networkSubgraph(env, 'BASE_SEPOLIA', env.BASE_SEPOLIA_SUBGRAPH_URL ?? env.BASE_SEPOLIA_NEXMARKETS_SUBGRAPH_URL, env.BASE_SEPOLIA_CERTIFICATION_EDITION_ADDRESS, env.BASE_SEPOLIA_CERTIFICATION_EDITION_NAME);
+  const baseMainnetSubgraph = networkSubgraph(env, 'BASE_MAINNET', env.BASE_MAINNET_SUBGRAPH_URL ?? env.BASE_MAINNET_NEXMARKETS_SUBGRAPH_URL, env.BASE_MAINNET_CERTIFICATION_EDITION_ADDRESS, env.BASE_MAINNET_CERTIFICATION_EDITION_NAME);
+  const config = (key, chainId, rpcEnv, fallbackRpc, subgraph, policyEnv, readModelDisabled = false) => ({
+    key,
+    chainId,
+    chain: new JsonRpcClient(env[rpcEnv] ?? fallbackRpc),
+    subgraph,
+    orderPolicy: productionOrderPolicy(policyEnv),
+    readModelDisabled
+  });
+  return {
+    'robinhood-mainnet': config('robinhood-mainnet', 4663, 'RH_MAINNET_RPC_URL', 'https://rpc.mainnet.chain.robinhood.com', rhMainnetSubgraph, env, !rhMainnetSubgraph.enabled),
+    'robinhood-testnet': config('robinhood-testnet', 46630, 'RH_TESTNET_RPC_URL', 'https://rpc.testnet.chain.robinhood.com', rhTestnetSubgraph, env),
+    'base-mainnet': config('base-mainnet', 8453, 'BASE_MAINNET_RPC_URL', 'https://mainnet.base.org', baseMainnetSubgraph, networkPolicyEnv(env, 'BASE_MAINNET', baseMainnetUsdc, '0x0000000000000068F116a894984e2DB1123eB395'), !baseMainnetSubgraph.enabled),
+    'base-sepolia': config('base-sepolia', 84532, 'BASE_SEPOLIA_RPC_URL', 'https://sepolia.base.org', baseSepoliaSubgraph, networkPolicyEnv(env, 'BASE_SEPOLIA', baseSepoliaUsdc, '0x0000000000000068F116a894984e2DB1123eB395'), !baseSepoliaSubgraph.enabled)
+  };
+}
+
 function json(res, status, payload, headers = {}) {
   res.writeHead(status, { ...JSON_HEADERS, ...headers });
   res.end(JSON.stringify(payload, (_, value) => typeof value === 'bigint' ? value.toString() : value));
@@ -163,6 +224,39 @@ function securityHeaders(requestId) {
   };
 }
 
+function formatHeldDuration(since) {
+  if (!since) return 'Recent';
+  const ms = Date.now() - new Date(since).getTime();
+  const days = Math.floor(ms / (24 * 60 * 60 * 1000));
+  if (days >= 365) {
+    const yrs = Math.floor(days / 365);
+    return `${yrs} yr${yrs > 1 ? 's' : ''}`;
+  }
+  if (days >= 30) {
+    const mos = Math.floor(days / 30);
+    return `${mos} mo${mos > 1 ? 's' : ''}`;
+  }
+  if (days >= 1) return `${days} day${days > 1 ? 's' : ''}`;
+  const hrs = Math.floor(ms / (60 * 60 * 1000));
+  if (hrs >= 1) return `${hrs} hr${hrs > 1 ? 's' : ''}`;
+  return 'Just now';
+}
+
+function formatPassVault(pass) {
+  if (!pass) return null;
+  const tba = pass.token_bound_account ?? pass.tokenBoundAccount ?? pass.tba?.account ?? null;
+  return {
+    name: 'Pass Vault',
+    address: tba,
+    compatible: true,
+    standard: 'ERC-6551',
+    registry: '0x000000006551c19487814612e58FE06813775758',
+    framing: "Every Pass is ERC-6551 compatible. As the ecosystem grows, Passes accumulate. What they accumulate is determined by each builder's Edition design.",
+    description: "Every Pass has a Vault. What flows into it is decided by the builder who created the Edition. Platform activity, tokens, exclusive drops, future distributions — builders choose what their holders accumulate. We provide the infrastructure. They decide what it means.",
+    regulatoryBoundary: "Builders decide what flows into the Pass wallet. Platform decides nothing on their behalf. Completely permissionless. Zero regulatory exposure."
+  };
+}
+
 export function createApiServer({
   store,
   chainId = 4663,
@@ -175,11 +269,16 @@ export function createApiServer({
   requireIndexedReadiness = false,
   chain = null,
   subgraph = null,
+  networkConfigs = null,
   maxIndexerLagBlocks = 120,
   maxFinalityLagBlocks = 120,
   storage = { async prepareUpload({ key }) { return { method: 'PUT', key, expiresInSeconds: 900 }; } }
 } = {}) {
   if (!store) throw new Error('store required');
+  const defaultChainId = chainId;
+  const defaultChain = chain;
+  const defaultSubgraph = subgraph;
+  const defaultOrderPolicy = orderPolicy;
   return http.createServer(async (req, res) => {
     const headers = req.headers ?? {};
     const requestId = headers['x-request-id']?.toString().slice(0, 128) || randomUUID();
@@ -190,6 +289,20 @@ export function createApiServer({
       metrics.increment('nexmarkets_api_requests_total');
       rateLimiter.take(req.socket?.remoteAddress ?? headers['x-forwarded-for'] ?? 'unknown');
       const url = new URL(req.url ?? '/', allowedOrigin);
+      const requestedNetwork = headers['x-nex-network']?.toString().trim() || null;
+      const selectedNetwork = networkConfigs
+        ? networkConfigs[requestedNetwork ?? networkKeyForChainId(defaultChainId)]
+        : null;
+      if (networkConfigs && !selectedNetwork) throw Object.assign(new Error('NETWORK_UNSUPPORTED'), { status: 400 });
+      const fallbackChainId = defaultChainId;
+      const fallbackChain = defaultChain;
+      const fallbackSubgraph = defaultSubgraph;
+      const fallbackOrderPolicy = defaultOrderPolicy;
+      const chainId = selectedNetwork?.chainId ?? fallbackChainId;
+      const chain = selectedNetwork?.chain ?? fallbackChain;
+      const subgraph = selectedNetwork?.subgraph ?? fallbackSubgraph;
+      const orderPolicy = selectedNetwork?.orderPolicy ?? fallbackOrderPolicy;
+      const readModelDisabled = Boolean(selectedNetwork?.readModelDisabled && !subgraph?.enabled);
       const origin = headers.origin;
       if (origin && new URL(origin).origin !== new URL(allowedOrigin).origin) {
         const reqHost = headers['x-forwarded-host'] || headers.host;
@@ -227,11 +340,89 @@ export function createApiServer({
         return json(res, 200, { status: 'ready', database: 'ok', indexer: (indexer || subgraphStatus) ? 'fresh' : 'not-required', indexerProvider: subgraphStatus ? 'GOLDSKY_SUBGRAPH' : indexer ? 'GOLDSKY_TURBO_DEPRECATED' : null, chainHead, landedBlock: subgraphStatus ? Number(subgraphStatus.indexedBlock ?? 0) : indexer ? Number(indexer.landed_block_number ?? indexer.latest_block_number ?? 0) : null, latestEventBlock: indexer ? Number(indexer.latest_event_block_number ?? indexer.latest_block_number ?? 0) : null, indexedLag, finalityLag, requestId });
       }
       if (req.method === 'GET' && url.pathname === '/metrics') { res.writeHead(200, { 'content-type': 'text/plain; version=0.0.4' }); return res.end(metrics.render()); }
-      if (req.method === 'GET' && url.pathname === '/v1/discover') return json(res, 200, { data: subgraph?.enabled ? await subgraph.discover() : await store.discover(), authority: subgraph?.enabled ? 'GOLDSKY_SUBGRAPH_READ_MODEL' : 'POSTGRES_READ_MODEL' });
-      if (req.method === 'GET' && url.pathname === '/v1/market/listings') return json(res, 200, { data: subgraph?.enabled ? await subgraph.listings() : await store.listings(), authority: subgraph?.enabled ? 'GOLDSKY_SUBGRAPH_READ_MODEL' : 'NEX_LISTING_REGISTRY_PROJECTION' });
-      if (req.method === 'GET' && url.pathname.startsWith('/v1/projects/')) return json(res, 200, { data: await store.projectBySlug(decodeURIComponent(url.pathname.slice(13))) });
-      if (req.method === 'GET' && url.pathname.startsWith('/v1/editions/')) return json(res, 200, { data: subgraph?.enabled ? await subgraph.editionByAddress(url.pathname.slice(13)) : await store.editionByAddress(url.pathname.slice(13)), authority: subgraph?.enabled ? 'GOLDSKY_SUBGRAPH_READ_MODEL' : 'CHAIN_PROJECTION' });
-      if (req.method === 'GET' && url.pathname.startsWith('/v1/passes/')) { const [, , , edition, tokenId] = url.pathname.split('/'); return json(res, 200, { data: subgraph?.enabled ? await subgraph.pass(edition, tokenId) : await store.pass(edition, tokenId), authority: subgraph?.enabled ? 'GOLDSKY_SUBGRAPH_READ_MODEL_PLUS_RPC_VERIFICATION' : 'CHAIN_PROJECTION' }); }
+      if (req.method === 'GET' && url.pathname === '/v1/stats') {
+        const stats = readModelDisabled ? {} : await store.getPlatformStats();
+        return json(res, 200, {
+          data: {
+            ...stats,
+            heroCopy: "Get there early. Own your place in what's next.",
+            tagline: "A Pass is your position in a builder's story.",
+            howItWorks: [
+              { step: 1, text: "Find it early on Discover." },
+              { step: 2, text: "Mint your numbered Pass." },
+              { step: 3, text: "Use your Advantage, keep it, or sell it when the Market opens." }
+            ],
+            royaltyFraming: "Builder royalties are earned, not assumed. Every 30-day cycle, fees queue for release. Holders can challenge. Clean builders get paid. The market polices itself.",
+            passVaultFraming: "Every Pass has a Vault. What flows into it is decided by the builder who created the Edition. Platform activity, tokens, exclusive drops, future distributions — builders choose what their holders accumulate. We provide the infrastructure. They decide what it means."
+          }
+        });
+      }
+      if (req.method === 'GET' && url.pathname === '/v1/builders/featured') return json(res, 200, { data: await store.getFeaturedBuilders() });
+      if (req.method === 'GET' && /^\/v1\/builders\/[^/]+\/milestones$/.test(url.pathname)) {
+        const builderId = url.pathname.split('/')[3];
+        return json(res, 200, { data: await store.getMilestonesByBuilder(builderId) });
+      }
+      if (req.method === 'GET' && /^\/v1\/builders\/[^/]+\/activity$/.test(url.pathname)) {
+        const builderId = url.pathname.split('/')[3];
+        const activity = store.getActivityByBuilder ? await store.getActivityByBuilder(builderId, { limit: 20 }) : await store.getMilestonesByBuilder(builderId, { limit: 20 });
+        return json(res, 200, { data: activity });
+      }
+      if (req.method === 'GET' && /^\/v1\/builders\/[^/]+$/.test(url.pathname) && !['featured'].includes(url.pathname.split('/')[3])) {
+        const builderId = url.pathname.split('/')[3];
+        const profile = await store.getBuilderProfile(builderId);
+        if (!profile) throw Object.assign(new Error('BUILDER_NOT_FOUND'), { status: 404 });
+        return json(res, 200, { data: profile });
+      }
+      if (req.method === 'GET' && /^\/v1\/projects\/[^/]+\/holders$/.test(url.pathname)) {
+        if (readModelDisabled) return json(res, 200, { data: [] });
+        const slug = decodeURIComponent(url.pathname.split('/')[3]);
+        const project = await store.projectBySlug(slug);
+        if (!project) throw Object.assign(new Error('NOT_FOUND'), { status: 404 });
+        const editionAddress = project.editionAddress ?? project.edition_address ?? project.editions?.[0]?.edition_address ?? project.editions?.[0]?.editionAddress;
+        const holders = editionAddress ? await store.getHolders(editionAddress) : [];
+        const formatted = holders.map((h) => ({
+          ...h,
+          serialNumber: `#${String(h.token_id ?? h.tokenId).padStart(3, '0')}`,
+          heldDuration: formatHeldDuration(h.held_since ?? h.heldSince ?? h.updated_at ?? h.created_at)
+        }));
+        return json(res, 200, { data: formatted });
+      }
+      if (req.method === 'GET' && /^\/v1\/editions\/[^/]+\/holders$/.test(url.pathname)) {
+        if (readModelDisabled) return json(res, 200, { data: [] });
+        const address = url.pathname.split('/')[3];
+        const holders = await store.getHolders(address);
+        const formatted = holders.map((h) => ({
+          ...h,
+          serialNumber: `#${String(h.token_id ?? h.tokenId).padStart(3, '0')}`,
+          heldDuration: formatHeldDuration(h.held_since ?? h.heldSince ?? h.updated_at ?? h.created_at)
+        }));
+        return json(res, 200, { data: formatted });
+      }
+      if (req.method === 'GET' && url.pathname === '/v1/discover') {
+        const raw = readModelDisabled ? [] : subgraph?.enabled ? await subgraph.discover() : await store.discover();
+        const now = Date.now();
+        const data = await Promise.all((raw ?? []).map(async (project) => {
+          const starts = project.mint_starts_at ?? project.mintStartsAt;
+          const ends = project.mint_ends_at ?? project.mintEndsAt;
+          let statusTag = 'LIVE_DEBUT';
+          if (starts && new Date(starts).getTime() > now) statusTag = 'PREVIEW';
+          else if (ends && new Date(ends).getTime() < now) statusTag = 'CLOSED';
+          else if (ends && (new Date(ends).getTime() - now) < 24 * 60 * 60 * 1000) statusTag = 'ENDING_SOON';
+          const watcherCount = readModelDisabled ? 0 : await store.getWatchlistCount?.(project.id ?? project.slug) ?? 0;
+          const links = project.content?.links ?? project.launchDraft?.links ?? project.links ?? {};
+          return { ...project, statusTag, watcherCount, links };
+        }));
+        return json(res, 200, { data, authority: subgraph?.enabled ? 'GOLDSKY_SUBGRAPH_READ_MODEL' : 'POSTGRES_READ_MODEL' });
+      }
+      if (req.method === 'GET' && url.pathname === '/v1/market/listings') return json(res, 200, { data: readModelDisabled ? [] : subgraph?.enabled ? await subgraph.listings() : await store.listings(), authority: subgraph?.enabled ? 'GOLDSKY_SUBGRAPH_READ_MODEL' : 'NEX_LISTING_REGISTRY_PROJECTION' });
+      if (req.method === 'GET' && url.pathname.startsWith('/v1/projects/')) return json(res, 200, { data: readModelDisabled ? null : await store.projectBySlug(decodeURIComponent(url.pathname.slice(13))) });
+      if (req.method === 'GET' && url.pathname.startsWith('/v1/editions/')) return json(res, 200, { data: readModelDisabled ? null : subgraph?.enabled ? await subgraph.editionByAddress(url.pathname.slice(13)) : await store.editionByAddress(url.pathname.slice(13)), authority: subgraph?.enabled ? 'GOLDSKY_SUBGRAPH_READ_MODEL' : 'CHAIN_PROJECTION' });
+      if (req.method === 'GET' && url.pathname.startsWith('/v1/passes/')) {
+        const [, , , edition, tokenId] = url.pathname.split('/');
+        const rawPass = readModelDisabled ? null : subgraph?.enabled ? await subgraph.pass(edition, tokenId) : await store.pass(edition, tokenId);
+        if (!rawPass) return json(res, 404, { error: { code: 'NOT_FOUND', requestId } });
+        return json(res, 200, { data: { ...rawPass, passVault: formatPassVault(rawPass) }, authority: subgraph?.enabled ? 'GOLDSKY_SUBGRAPH_READ_MODEL_PLUS_RPC_VERIFICATION' : 'CHAIN_PROJECTION' });
+      }
 
       if (req.method === 'POST' && url.pathname === '/v1/auth/challenge') {
         const input = await readBody(req);
@@ -253,15 +444,69 @@ export function createApiServer({
       const session = token ? await store.sessionByToken(token) : null;
       if (!session) throw Object.assign(new Error('AUTH_REQUIRED'), { status: 401 });
       assertSession(session, token, { csrfToken: req.headers['x-csrf-token'], mutation: req.method !== 'GET' });
+      if (Number(session.chainId) !== Number(chainId)) throw Object.assign(new Error('SESSION_NETWORK_MISMATCH'), { status: 401 });
 
       if (req.method === 'POST' && url.pathname === '/v1/auth/logout') { await store.revokeSession(session.id); await store.recordAudit?.({ accountId: session.accountId, walletAddress: session.walletAddress, action: 'SESSION_REVOKED', objectType: 'SESSION', objectId: session.id, requestId, correlationId }); return json(res, 200, { status: 'revoked' }, { 'set-cookie': 'nexmarkets_session=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0' }); }
-      if (req.method === 'GET' && url.pathname === '/v1/me/passes') return json(res, 200, { data: await store.ownedPasses(session.walletAddress), authority: 'CHAIN_PROJECTION' });
-      if (req.method === 'GET' && url.pathname === '/v1/me/advantages') return json(res, 200, { data: await store.advantagesForOwner(session.walletAddress), authority: 'NEX_ADVANTAGE_REGISTRY_PROJECTION' });
-      if (req.method === 'GET' && url.pathname === '/v1/builder/dashboard') return json(res, 200, { data: await store.builderDashboard(session.accountId), authority: 'MIXED_PROJECTION' });
-      if (req.method === 'GET' && url.pathname.startsWith('/v1/transactions/')) { const tx = await store.transaction(url.pathname.slice(17), session.accountId); if (!tx) throw Object.assign(new Error('NOT_FOUND'), { status: 404 }); return json(res, 200, { data: tx }); }
-      if (req.method === 'GET' && url.pathname.startsWith('/v1/edition-requests/')) { const request = await store.editionRequestById(url.pathname.slice(21), session.accountId); if (!request) throw Object.assign(new Error('NOT_FOUND'), { status: 404 }); return json(res, 200, { data: request, authority: 'SAFE_WORKFLOW_REQUEST' }); }
+      if (req.method === 'GET' && url.pathname === '/v1/me/passes') {
+        const rawPasses = readModelDisabled ? [] : await store.ownedPasses(session.walletAddress);
+        const data = (rawPasses ?? []).map((pass) => ({ ...pass, passVault: formatPassVault(pass) }));
+        return json(res, 200, { data, authority: 'CHAIN_PROJECTION' });
+      }
+      if (req.method === 'PUT' && url.pathname === '/v1/builder/profile') {
+        const input = await readBody(req);
+        const profile = await store.upsertBuilderProfile(session.accountId, input);
+        await store.recordAudit?.({ accountId: session.accountId, walletAddress: session.walletAddress, action: 'BUILDER_PROFILE_UPDATED', objectType: 'BUILDER_PROFILE', objectId: profile.id, requestId, correlationId });
+        return json(res, 200, { data: profile });
+      }
+      if (req.method === 'POST' && url.pathname === '/v1/builder/milestones') {
+        const input = await readBody(req);
+        const milestone = await store.createMilestone(session.accountId, input);
+        await store.recordAudit?.({ accountId: session.accountId, walletAddress: session.walletAddress, action: 'BUILDER_MILESTONE_CREATED', objectType: 'BUILDER_MILESTONE', objectId: milestone.id, requestId, correlationId });
+        return json(res, 201, { data: milestone });
+      }
+      if (req.method === 'POST' && /^\/v1\/builders\/[^/]+\/follow$/.test(url.pathname)) {
+        const builderId = url.pathname.split('/')[3];
+        const result = await store.followBuilder(session.accountId, builderId);
+        return json(res, 200, { data: result });
+      }
+      if (req.method === 'DELETE' && /^\/v1\/builders\/[^/]+\/follow$/.test(url.pathname)) {
+        const builderId = url.pathname.split('/')[3];
+        const result = await store.unfollowBuilder(session.accountId, builderId);
+        return json(res, 200, { data: result });
+      }
+      if (req.method === 'GET' && /^\/v1\/builders\/[^/]+\/follow-status$/.test(url.pathname)) {
+        const builderId = url.pathname.split('/')[3];
+        const status = await store.getFollowStatus(session.accountId, builderId);
+        return json(res, 200, { data: status });
+      }
+      if (req.method === 'GET' && url.pathname === '/v1/me/following') {
+        const followed = await store.getFollowedBuilders(session.accountId);
+        return json(res, 200, { data: followed });
+      }
+      if (req.method === 'POST' && /^\/v1\/projects\/[^/]+\/watch$/.test(url.pathname)) {
+        const slug = decodeURIComponent(url.pathname.split('/')[3]);
+        const result = await store.watchProject(session.accountId, slug);
+        return json(res, 200, { data: result });
+      }
+      if (req.method === 'DELETE' && /^\/v1\/projects\/[^/]+\/watch$/.test(url.pathname)) {
+        const slug = decodeURIComponent(url.pathname.split('/')[3]);
+        const result = await store.unwatchProject(session.accountId, slug);
+        return json(res, 200, { data: result });
+      }
+      if (req.method === 'GET' && url.pathname === '/v1/me/watchlist') {
+        const watchlist = await store.getWatchlist(session.accountId);
+        return json(res, 200, { data: watchlist });
+      }
+      if (req.method === 'GET' && url.pathname === '/v1/feed') {
+        const feed = await store.getFeed(session.accountId);
+        return json(res, 200, { data: feed });
+      }
+      if (req.method === 'GET' && url.pathname === '/v1/me/advantages') return json(res, 200, { data: readModelDisabled ? [] : await store.advantagesForOwner(session.walletAddress), authority: 'NEX_ADVANTAGE_REGISTRY_PROJECTION' });
+      if (req.method === 'GET' && url.pathname === '/v1/builder/dashboard') return json(res, 200, { data: readModelDisabled ? { projects: [], editions: [], royalties: [], referrals: [] } : await store.builderDashboard(session.accountId), authority: 'MIXED_PROJECTION' });
+      if (req.method === 'GET' && url.pathname.startsWith('/v1/transactions/')) { const tx = await store.transaction(url.pathname.slice(17), session.accountId, chainId); if (!tx) throw Object.assign(new Error('NOT_FOUND'), { status: 404 }); return json(res, 200, { data: tx }); }
+      if (req.method === 'GET' && url.pathname.startsWith('/v1/edition-requests/')) { const request = await store.editionRequestById(url.pathname.slice(21), session.accountId, chainId); if (!request) throw Object.assign(new Error('NOT_FOUND'), { status: 404 }); return json(res, 200, { data: request, authority: 'SAFE_WORKFLOW_REQUEST' }); }
       if (req.method === 'POST' && /^\/v1\/edition-requests\/[^/]+\/safe-submit$/.test(url.pathname)) {
-        const requestId = url.pathname.split('/')[3]; const request = await store.editionRequestById(requestId, session.accountId); if (!request) throw Object.assign(new Error('NOT_FOUND'), { status: 404 });
+        const requestId = url.pathname.split('/')[3]; const request = await store.editionRequestById(requestId, session.accountId, chainId); if (!request) throw Object.assign(new Error('NOT_FOUND'), { status: 404 });
         const input = await readBody(req); if (!/^0x[0-9a-fA-F]{64}$/.test(input.txHash ?? '') || !/^0x[0-9a-fA-F]{64}$/.test(input.safeTransactionHash ?? '')) throw Object.assign(new Error('SAFE_TX_HASH_REQUIRED'), { status: 400 });
         const evidence = await verifySafeExecutionEvidence({ chain, request, txHash: input.txHash.toLowerCase(), safeTransactionHash: input.safeTransactionHash.toLowerCase(), orderPolicy });
         const submitted = await store.submitEditionRequest({ id: requestId, safeTransactionHash: input.safeTransactionHash.toLowerCase(), txHash: input.txHash.toLowerCase(), evidence });
@@ -270,7 +515,7 @@ export function createApiServer({
       }
       if (req.method === 'POST' && /^\/v1\/transactions\/[^/]+\/events$/.test(url.pathname)) {
         const id = url.pathname.split('/')[3]; const input = await readBody(req);
-        const transaction = await store.transaction(id, session.accountId);
+        const transaction = await store.transaction(id, session.accountId, chainId);
         if (!transaction) throw Object.assign(new Error('NOT_FOUND'), { status: 404 });
         if (!['WALLET_PENDING', 'SUBMITTED', 'CANCELLED'].includes(input.state)) throw Object.assign(new Error('USER_TRANSACTION_STATE_REJECTED'), { status: 400 });
         if (transaction.state !== input.state) transitionTransaction(transaction.state, input.state);
@@ -395,11 +640,11 @@ export function createApiServer({
 }
 
 if (!process.env.VERCEL && !process.env.AWS_LAMBDA_FUNCTION_NAME && import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
-  const store = new PostgresStore(); const port = Number(process.env.PORT || 4010); const chainId = Number(process.env.ROBINHOOD_CHAIN_ID ?? 4663); const rpc = new JsonRpcClient(chainId === 46630 ? (process.env.RH_TESTNET_RPC_URL ?? 'https://rpc.testnet.chain.robinhood.com') : (process.env.RH_MAINNET_RPC_URL ?? 'https://rpc.mainnet.chain.robinhood.com')); const subgraph = new SubgraphClient({ endpoint: process.env.NEXMARKETS_SUBGRAPH_URL, certificationEditionAddress: process.env.CERTIFICATION_EDITION_ADDRESS, certificationEditionName: process.env.CERTIFICATION_EDITION_NAME });
+  const store = new PostgresStore(); const port = Number(process.env.PORT || 4010); const networkConfigs = createNetworkConfigs(process.env); const configured = networkConfigs[networkKeyForChainId(Number(process.env.ROBINHOOD_CHAIN_ID ?? 4663)) ?? 'robinhood-mainnet']; const chainId = configured.chainId; const rpc = configured.chain; const subgraph = configured.subgraph;
   const secureCookies = process.env.SECURE_COOKIES === 'true' ? true : process.env.SECURE_COOKIES === 'false' ? false : process.env.NODE_ENV !== 'test';
   const requireIndexedReadiness = process.env.REQUIRE_INDEXED_READINESS === 'true' || process.env.NODE_ENV === 'production';
   const logger = process.env.LOG_API_ERRORS === 'true' ? console : { info() {}, error() {} };
-  const server = createApiServer({ store, chainId, chain: rpc, subgraph, secureCookies, logger, maxIndexerLagBlocks: Number(process.env.INDEXER_MAX_LAG_BLOCKS ?? 120), maxFinalityLagBlocks: Number(process.env.INDEXER_MAX_FINALITY_LAG_BLOCKS ?? 120), orderPolicy: productionOrderPolicy(), requireIndexedReadiness });
+  const server = createApiServer({ store, chainId, chain: rpc, subgraph, secureCookies, logger, maxIndexerLagBlocks: Number(process.env.INDEXER_MAX_LAG_BLOCKS ?? 120), maxFinalityLagBlocks: Number(process.env.INDEXER_MAX_FINALITY_LAG_BLOCKS ?? 120), orderPolicy: configured.orderPolicy, networkConfigs, requireIndexedReadiness });
   server.listen(port, () => console.log(JSON.stringify({ event: 'api_started', port })));
   const shutdown = async () => { server.close(); await store.close(); };
   process.on('SIGTERM', shutdown); process.on('SIGINT', shutdown);
@@ -409,16 +654,12 @@ let defaultServerlessListener = null;
 
 export default async function handler(req, res) {
   if (!defaultServerlessListener) {
-    const chainId = Number(process.env.ROBINHOOD_CHAIN_ID ?? 46630);
-    const rpcUrl = chainId === 46630
-      ? (process.env.RH_TESTNET_RPC_URL ?? 'https://rpc.testnet.chain.robinhood.com')
-      : (process.env.RH_MAINNET_RPC_URL ?? 'https://rpc.mainnet.chain.robinhood.com');
-    const rpc = new JsonRpcClient(rpcUrl);
-    const subgraph = new SubgraphClient({
-      endpoint: process.env.NEXMARKETS_SUBGRAPH_URL ?? 'https://api.goldsky.com/api/public/project_cmt3es3z03t5101vr8ggx1j7e/subgraphs/nexmarkets-v1-robinhood-testnet/1.0.1/gn',
-      certificationEditionAddress: process.env.CERTIFICATION_EDITION_ADDRESS ?? '0x4171D62F43B4168b07a01C04594455DBc3298437',
-      certificationEditionName: process.env.CERTIFICATION_EDITION_NAME ?? 'NexMarkets V1 Test Certification Edition'
-    });
+    const networkConfigs = createNetworkConfigs(process.env);
+    const requestedChainId = Number(process.env.ROBINHOOD_CHAIN_ID ?? 46630);
+    const configured = networkConfigs[networkKeyForChainId(requestedChainId) ?? 'robinhood-testnet'];
+    const chainId = configured.chainId;
+    const rpc = configured.chain;
+    const subgraph = configured.subgraph;
     let store = null;
     if (process.env.DATABASE_URL) {
       try { store = new PostgresStore(process.env.DATABASE_URL); } catch { const { MemoryStore } = await import('./memory-store.mjs'); store = new MemoryStore(); }
@@ -432,7 +673,8 @@ export default async function handler(req, res) {
       subgraph,
       allowedOrigin: process.env.APP_ORIGIN ?? 'https://nexmarkets.fun',
       secureCookies: process.env.NODE_ENV === 'production',
-      orderPolicy: productionOrderPolicy(process.env),
+      orderPolicy: configured.orderPolicy,
+      networkConfigs,
       rateLimiter: new RateLimiter({ limit: 300, windowMs: 60_000 }),
       requireIndexedReadiness: false
     });

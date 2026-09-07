@@ -1,0 +1,23 @@
+{
+  "network": "base-mainnet",
+  "deploymentSourceCommit": "8790b635ba55512e5d0e295fb1217a3993ecdafb",
+  "deploymentStatus": "BASE_MAINNET_PREPARED_NOT_BROADCAST",
+  "protocolAdminSafe": "0x2a2673044CAC174C43982b9A0A708587be1596b7",
+  "safeOwners": [
+    "0x7ec76611Da0AeE7C1B11273E9767FDA1Faa31790",
+    "0xD83deFbA240568040b39bb2C8B4DB7dB02d40593"
+  ],
+  "safeThreshold": 1,
+  "primaryFeeRecipient": "0x2a2673044CAC174C43982b9A0A708587be1596b7",
+  "secondaryFeeRecipient": "0x2a2673044CAC174C43982b9A0A708587be1596b7",
+  "settlementTokenAddress": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+  "settlementTokenSymbol": "USDC",
+  "settlementTokenDecimals": 6,
+  "governanceTransition": "RAISE_THRESHOLD_TO_2_PLUS",
+  "safeDeploymentTxHash": null,
+  "mainnetBroadcastAuthorized": false,
+  "blockingReasons": [
+    "Deploy and verify the chain-specific Safe before any protocol transaction.",
+    "Obtain explicit release approval before Base mainnet broadcast."
+  ]
+}

@@ -4,7 +4,7 @@ import { getAddress, verifyMessage } from 'ethers';
 export function issueWalletChallenge({ accountId, address, origin, chainId = 4663, ttlSeconds = 300, now = Date.now() }) {
   if (!/^0x[0-9a-fA-F]{40}$/.test(address)) throw new Error('Invalid EVM address');
   if (!origin) throw new Error('origin required');
-  if (![4663, 46630].includes(chainId)) throw new Error('Robinhood chain required');
+  if (![4663, 46630, 8453, 84532].includes(Number(chainId))) throw new Error('Supported EVM chain required');
   const url = new URL(origin);
   if (url.protocol !== 'https:' && url.hostname !== 'localhost') throw new Error('secure origin required');
   const nonce = randomBytes(32).toString('hex');

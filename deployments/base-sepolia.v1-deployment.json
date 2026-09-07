@@ -1,0 +1,65 @@
+{
+  "schemaVersion": 1,
+  "network": "base-sepolia",
+  "chainId": 84532,
+  "status": "DEPLOYED_WIRED_AND_VERIFIED",
+  "testOnly": true,
+  "deploymentSourceCommit": "8790b635ba55512e5d0e295fb1217a3993ecdafb",
+  "deploymentPlanSha256": "8cbdacd6d9b2fbea0c82f5d3a5af9d485868e93f1e95810b63b3a63c5adff7c9",
+  "protocolAdminSafe": {
+    "address": "0xE6D0846e6C0b51C61FdDb593A1914b85181E5783",
+    "owners": [
+      "0x7ec76611Da0AeE7C1B11273E9767FDA1Faa31790",
+      "0xD83deFbA240568040b39bb2C8B4DB7dB02d40593"
+    ],
+    "threshold": 1,
+    "version": "1.4.1",
+    "deploymentTxHash": "0x51215a8561ed5988c2ec9cefd6d3b790410bfa0bf5b1ffb0bd8fd8fb337cd5bc",
+    "deploymentBlock": 46501997,
+    "proxyRuntimeCodeHash": "0xd7d408ebcd99b2b70be43e20253d6d92a8ea8fab29bd3be7f55b10032331fb4c",
+    "governanceTransition": "RAISE_THRESHOLD_TO_2_PLUS"
+  },
+  "usdc": {
+    "address": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+    "symbol": "USDC",
+    "decimals": 6,
+    "canonical": true,
+    "testnetOnly": true
+  },
+  "primitives": {
+    "seaport16": { "address": "0x0000000000000068F116a894984e2DB1123eB395", "runtimeCodeHash": "0x7912af42062ec0080cde88360c1429d58984ae16eb3f17af505b815bf6ffc745", "version": "1.6" },
+    "conduitController": { "address": "0x00000000F9490004C11Cef243f5400493c00Ad63", "runtimeCodeHash": "0x880348b652e7cce91216153a4d0107e70c77b92192f3d7a127ff1f1351961948" },
+    "immutableCreate2Factory": { "address": "0x0000000000ffe8b47b3e2130213b802212439497", "runtimeCodeHash": "0x767db8f19b71e367540fa372e8e81e4dcb7ca8feede0ae58a0c0bd08b7320dee" },
+    "erc6551Registry": { "address": "0x000000006551c19487814612e58FE06813775758", "runtimeCodeHash": "0xda1d5b06e579f9e42e59b00fbc22939896ecb38dc8830d40de0a2508fecd6735" }
+  },
+  "contracts": {
+    "NexLaunchRegistry": { "address": "0x811D7B04d37118F71002c4abe112bc41161e3D53", "salt": "0xe6d0846e6c0b51c61fddb593a1914b85181e57837db21ab564ce33edb12bd62e", "initCodeHash": "0xa83c48b1e54af09ee15cba1ae2c965175b981cb3c9f04ac97cd96f34fc24d74d", "runtimeCodeHash": "0xb16f8d672999c6b4283e6b5014bf45fab812c8921b2aab00075a0d4551790269", "deploymentTxHash": "0xc9a5c9861a81da7112dfaa6eff9c42ec6d6be9b3012a3064ebf97ef8006fec00", "deploymentBlock": 46502050 },
+    "NexMintController": { "address": "0x38Ca185Bd179989bFCAa05aF61B0de837B8FcB97", "salt": "0xe6d0846e6c0b51c61fddb593a1914b85181e5783230b8e6ed511a9e63e9267d8", "initCodeHash": "0x21e2204ce39e0c2938a1c076531f002c60a4f54613d62932e747da79bcda36f6", "runtimeCodeHash": "0x5b19179c485a96210952779c5fdbb18400616d0dd7d8e4fd86932d671e113f5a", "deploymentTxHash": "0x9d59b77610d42fbf1779338a4c54f91319dafe0ae4115b53360d9f702d236116", "deploymentBlock": 46502079 },
+    "NexPassFactory": { "address": "0x8fDE37c4C1A60733c9842f336fc331c4C7d8eB41", "salt": "0xe6d0846e6c0b51c61fddb593a1914b85181e5783e2c7b72021c48ea14626cb89", "initCodeHash": "0x4aa9ddafe9137f53a7188939d704c046cd0817f69824c7681f9b97d9156dcb42", "runtimeCodeHash": "0x0a93c01f7d8a863c3e9b12425d10d6d5712638dc24364566f06ff923238370c5", "deploymentTxHash": "0xa90e45e831241a9c0274f8b7c54b34564c38ce34e96b83ca028ecaff695dff22", "deploymentBlock": 46502081 },
+    "NexAdvantageRegistry": { "address": "0xDe076a2D0F998a69A87226041E6075dAd534ECdD", "salt": "0xe6d0846e6c0b51c61fddb593a1914b85181e5783f558c396475c504a48f94152", "initCodeHash": "0x159495652a8ce1c855f94dbc24802aa6edc4d1e07799d0de02766c2410b0c837", "runtimeCodeHash": "0x5357bb326179ee16b9187bc4f853c4d0708f87e5ebfcd275933ceb97b75b78ac", "deploymentTxHash": "0x24a3fe246b65ca33b2885afcef0686467fecda203609db53cac19b42c16ec146", "deploymentBlock": 46502083 },
+    "NexAdvantageInitializer": { "address": "0x4c1F382354B83d6Eab5cc55c99015c232112c687", "salt": "0xe6d0846e6c0b51c61fddb593a1914b85181e578326c0c28cf043c8e0be831285", "initCodeHash": "0x8ae41dc3738bb977097777232d25f0cd56f2a1ef4e470bc140834366fa7b9d54", "runtimeCodeHash": "0x55eb62be55560ff613ac65ceeb552989c3f64bd113e654b7b29d1037c8ded645", "deploymentTxHash": "0xd850a0e24ffa1c6d2e3cabbc6a337b1e3f1776359cad63f87455d73d18a051c2", "deploymentBlock": 46502085 },
+    "NexRoyaltyVault": { "address": "0x2A75E1568703B3fd2B692889e08f1Da0949bE618", "salt": "0xe6d0846e6c0b51c61fddb593a1914b85181e57833b39bd99c08f72b45b32c4e4", "initCodeHash": "0x0fd5cfae494cf8f5f7b61c442034ffd11a772323ecc9e754f52df895c1864189", "runtimeCodeHash": "0x0b682af744a5c75d3b3cd7d8fb7f7ca1f416937d730850dba99cb59234c5ef07", "deploymentTxHash": "0x07ea9544edf8eee2e8b96c9194e30f849fd46e5f3e2a16dea87aca002b9af114", "deploymentBlock": 46502087 },
+    "NexListingRegistry": { "address": "0x6F33B84325041d15443827540057763bCD3FEAD8", "salt": "0xe6d0846e6c0b51c61fddb593a1914b85181e5783467f068eed7ac3bab2d78de8", "initCodeHash": "0xabb859d3c41e58e8db2d1d9b885bc5667d48fde7b40ed0cf45d549d80319c20f", "runtimeCodeHash": "0x5ed0fe5f169d3aae463763092744f9148ccf85b030b2c05677f6866892850836", "deploymentTxHash": "0x20b3f1784eaa6f37afd7a4f59b5d943a121f8693ee25148d8ce0e1a78589b026", "deploymentBlock": 46502089 },
+    "NexMarketsZone": { "address": "0x7dEFe2d8392A2096EdA97DD9b606b6A404843c2d", "salt": "0xe6d0846e6c0b51c61fddb593a1914b85181e57831cbbe63892377cab41a0fd3f", "initCodeHash": "0x73361e69be27992559650947960d378a3968af22c2386f4e459c8d93f71edc33", "runtimeCodeHash": "0x9e68560199e25d0704179d8f1c0e0afeb4bd0a8318020f69540000056827e2ea", "deploymentTxHash": "0xbd07702271368c2275e259bd454b97d015fe882b8e5f95da7e3b685a1418b821", "deploymentBlock": 46502091 },
+    "NexPassAccount": { "address": "0x2D24C926aCBA633C1d55Da8CA92F31cf0D4B32fB", "salt": "0xe6d0846e6c0b51c61fddb593a1914b85181e578374c8cb0452c900b8ac448a54", "initCodeHash": "0x6c2b92672320f13d489e0ada61a3074f8e151ce08c914d3ac2593b643038c77c", "runtimeCodeHash": "0xc849f1d83cf1d83f7f1de0a071c117b32e94d59aacf3e8c3599ee7cc69e52963", "deploymentTxHash": "0xea5d2e44159fc4590d77dd2ffcff5711ef8405bb88768e4ac2246d3845d358ad", "deploymentBlock": 46502093 },
+    "NexTBAResolver": { "address": "0x31c249C0DC9A45756A9A2578EC9e3E316a31A9cD", "salt": "0xe6d0846e6c0b51c61fddb593a1914b85181e578339e1f094a8f02e61ef52e2a2", "initCodeHash": "0xf0cd22d51be715ffbe36c8c15a3e0430dcbf02a344d55692636892617d6a1497", "runtimeCodeHash": "0xf4d887cef746c3597952e15fdb44c0a4f4756955b619e5f3fee10fe35d8cad94", "deploymentTxHash": "0x8c962e90abb61cf61922c857898888684af0774b83373022df934b222325df3b", "deploymentBlock": 46502095 }
+  },
+  "wiring": [
+    { "call": "setFactory(address)", "target": "0x811D7B04d37118F71002c4abe112bc41161e3D53", "argument": "0x8fDE37c4C1A60733c9842f336fc331c4C7d8eB41", "txHash": "0x51b19af0be8114377a3febe5ac313500219abe4199f17ef402c09f4d59d50983", "blockNumber": 46502181 },
+    { "call": "setInitializer(address)", "target": "0xDe076a2D0F998a69A87226041E6075dAd534ECdD", "argument": "0x4c1F382354B83d6Eab5cc55c99015c232112c687", "txHash": "0x7bac7433fcf66d6668ade72abb7ee05ee173af92a746fce62317780a392a99bd", "blockNumber": 46502228 },
+    { "call": "setAdvantageInitializer(address)", "target": "0x38Ca185Bd179989bFCAa05aF61B0de837B8FcB97", "argument": "0x4c1F382354B83d6Eab5cc55c99015c232112c687", "txHash": "0xe41a00abfae2b23e3d48a50aa5e829ae5e31325bc42f74b0f9f52e123e64ae2e", "blockNumber": 46502231 },
+    { "call": "setListingRegistry(address)", "target": "0x2A75E1568703B3fd2B692889e08f1Da0949bE618", "argument": "0x6F33B84325041d15443827540057763bCD3FEAD8", "txHash": "0x41144b88779b47f2f04fe3c4aec4f86e007b98961fb0e6d66d06f6dd920ce5bd", "blockNumber": 46502277 },
+    { "call": "setZone(address)", "target": "0x6F33B84325041d15443827540057763bCD3FEAD8", "argument": "0x7dEFe2d8392A2096EdA97DD9b606b6A404843c2d", "txHash": "0x67f54d63c6204729d4fbe0358ec263518bc608069fa6e7929f606d207377f929", "blockNumber": 46502278 },
+    { "call": "setListingAuthority(address)", "target": "0xDe076a2D0F998a69A87226041E6075dAd534ECdD", "argument": "0x6F33B84325041d15443827540057763bCD3FEAD8", "txHash": "0x69d684b7e994dcee31d9aad3bcfdc69c5e167746a45a39584ebc62e23a102756", "blockNumber": 46502279 }
+  ],
+  "verification": {
+    "v1Graph": "PASS",
+    "primitiveRuntime": "PASS",
+    "oneTimeSlots": "WIRED_AND_VERIFIED",
+    "settlementToken": "CANONICAL_BASE_SEPOLIA_USDC"
+  },
+  "runtimeReady": true,
+  "productionReady": false,
+  "mainnetCustomDeploymentPerformed": false,
+  "recordedAt": "2026-09-07T09:30:00.000Z"
+}

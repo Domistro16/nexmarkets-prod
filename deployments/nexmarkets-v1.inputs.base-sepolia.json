@@ -1,0 +1,20 @@
+{
+  "network": "base-sepolia",
+  "deploymentSourceCommit": "8790b635ba55512e5d0e295fb1217a3993ecdafb",
+  "deploymentStatus": "BASE_SEPOLIA_DEPLOYED_WIRED_AND_VERIFIED",
+  "protocolAdminSafe": "0xE6D0846e6C0b51C61FdDb593A1914b85181E5783",
+  "safeOwners": [
+    "0x7ec76611Da0AeE7C1B11273E9767FDA1Faa31790",
+    "0xD83deFbA240568040b39bb2C8B4DB7dB02d40593"
+  ],
+  "safeThreshold": 1,
+  "primaryFeeRecipient": "0xE6D0846e6C0b51C61FdDb593A1914b85181E5783",
+  "secondaryFeeRecipient": "0xE6D0846e6C0b51C61FdDb593A1914b85181E5783",
+  "settlementTokenAddress": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+  "settlementTokenSymbol": "USDC",
+  "settlementTokenDecimals": 6,
+  "governanceTransition": "RAISE_THRESHOLD_TO_2_PLUS",
+  "safeDeploymentTxHash": "0x51215a8561ed5988c2ec9cefd6d3b790410bfa0bf5b1ffb0bd8fd8fb337cd5bc",
+  "mainnetBroadcastAuthorized": false,
+  "blockingReasons": []
+}

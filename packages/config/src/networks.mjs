@@ -11,9 +11,18 @@ export const PRIMITIVES = Object.freeze({
   safe141SingletonCodeHash: '0x1fe2df852ba3299d6534ef416eefa406e56ced995bca886ab7a553e6d0c5e1c4'
 });
 
+export const SUPPORTED_CHAIN_IDS = Object.freeze([4663, 46630, 8453, 84532]);
+
+export const NETWORK_FAMILIES = Object.freeze({
+  robinhood: Object.freeze({ key: 'robinhood', name: 'Robinhood', networks: Object.freeze(['robinhood-mainnet', 'robinhood-testnet']) }),
+  base: Object.freeze({ key: 'base', name: 'Base', networks: Object.freeze(['base-mainnet', 'base-sepolia']) })
+});
+
 export const NETWORKS = Object.freeze({
   'robinhood-mainnet': Object.freeze({
     name: 'Robinhood Chain',
+    displayName: 'Robinhood',
+    family: 'robinhood',
     chainId: 4663,
     rpcEnv: 'RH_MAINNET_RPC_URL',
     defaultRpc: 'https://rpc.mainnet.chain.robinhood.com',
@@ -29,6 +38,8 @@ export const NETWORKS = Object.freeze({
   }),
   'robinhood-testnet': Object.freeze({
     name: 'Robinhood Chain Testnet',
+    displayName: 'Robinhood',
+    family: 'robinhood',
     chainId: 46630,
     rpcEnv: 'RH_TESTNET_RPC_URL',
     defaultRpc: 'https://rpc.testnet.chain.robinhood.com',
@@ -43,6 +54,45 @@ export const NETWORKS = Object.freeze({
     }),
     wethSettlementAllowed: false,
     baseAllowed: false
+  }),
+  'base-mainnet': Object.freeze({
+    name: 'Base',
+    displayName: 'Base',
+    family: 'base',
+    chainId: 8453,
+    rpcEnv: 'BASE_MAINNET_RPC_URL',
+    defaultRpc: 'https://mainnet.base.org',
+    explorer: 'https://basescan.org',
+    nativeGasToken: 'ETH',
+    settlement: Object.freeze({
+      symbol: 'USDC',
+      address: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
+      decimals: 6,
+      allowed: true,
+      canonical: true
+    }),
+    wethSettlementAllowed: false,
+    baseAllowed: true
+  }),
+  'base-sepolia': Object.freeze({
+    name: 'Base Sepolia',
+    displayName: 'Base',
+    family: 'base',
+    chainId: 84532,
+    rpcEnv: 'BASE_SEPOLIA_RPC_URL',
+    defaultRpc: 'https://sepolia.base.org',
+    explorer: 'https://sepolia.basescan.org',
+    nativeGasToken: 'ETH',
+    settlement: Object.freeze({
+      symbol: 'USDC',
+      address: '0x036CbD53842c5426634e7929541eC2318f3dCF7e',
+      decimals: 6,
+      allowed: true,
+      canonical: true,
+      testnetOnly: true
+    }),
+    wethSettlementAllowed: false,
+    baseAllowed: true
   })
 });
 

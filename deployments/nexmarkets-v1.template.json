@@ -12,7 +12,9 @@
   },
   "networks": {
     "robinhood-mainnet": { "chainId": 4663, "settlement": "USDG", "productionDeploymentAllowedByThisFile": false },
-    "robinhood-testnet": { "chainId": 46630, "settlement": "MockUSDG", "productionDeploymentAllowedByThisFile": false }
+    "robinhood-testnet": { "chainId": 46630, "settlement": "MockUSDG", "productionDeploymentAllowedByThisFile": false },
+    "base-mainnet": { "chainId": 8453, "settlement": "USDC", "productionDeploymentAllowedByThisFile": false },
+    "base-sepolia": { "chainId": 84532, "settlement": "USDC", "productionDeploymentAllowedByThisFile": false }
   },
   "deploymentOrder": [
     "NexLaunchRegistry", "NexMintController", "NexPassFactory", "NexAdvantageRegistry",
