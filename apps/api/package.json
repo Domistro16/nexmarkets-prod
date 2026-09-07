@@ -20,6 +20,7 @@
     "@nexmarkets/domain": "*",
     "@nexmarkets/observability": "*",
     "@nexmarkets/subgraph-client": "*",
+    "esbuild": "0.25.0",
     "ethers": "6.17.0",
     "pg": "8.16.3"
   }
