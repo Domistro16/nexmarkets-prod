@@ -11,6 +11,7 @@ function uintWord(value) { return BigInt(value).toString(16).padStart(64, '0'); 
 
 export class NexWallet {
   constructor(provider = globalThis.ethereum) { this.provider = provider; this.address = null; this.chainId = null; }
+  setProvider(provider) { if (!provider?.request) throw new Error('EVM_WALLET_REQUIRED'); this.provider = provider; return this; }
   async connect(requiredChainId = 4663) {
     if (!this.provider?.request) throw new Error('EVM_WALLET_REQUIRED');
     const [address] = await this.provider.request({ method: 'eth_requestAccounts' });

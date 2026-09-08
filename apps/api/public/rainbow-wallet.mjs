@@ -1,125 +1,141 @@
-import { robinhoodTestnet, robinhoodMainnet, baseSepolia, baseMainnet, chains } from './chains.mjs';
-
-const PROJECT_ID = 'c4f79cc821944d9680842e34466bfb00';
-
 let modalInstance = null;
+let initPromise = null;
 let currentAddress = null;
 let currentChainId = null;
+let currentProvider = null;
 const accountListeners = new Set();
 const chainListeners = new Set();
+const connectionWaiters = new Set();
+
+function normalizeAddress(value) {
+  return typeof value === 'string' && /^0x[0-9a-f]{40}$/i.test(value) ? value : null;
+}
 
 function notifyAccount(address) {
-  currentAddress = address;
-  accountListeners.forEach((fn) => { try { fn(address); } catch (e) { console.error(e); } });
+  currentAddress = normalizeAddress(address);
+  accountListeners.forEach((fn) => { try { fn(currentAddress); } catch (error) { console.error(error); } });
+  if (currentAddress) {
+    const identity = { address: currentAddress, chainId: currentChainId };
+    [...connectionWaiters].forEach((waiter) => waiter.resolve(identity));
+  }
 }
 
 function notifyChain(chainId) {
-  currentChainId = chainId;
-  chainListeners.forEach((fn) => { try { fn(chainId); } catch (e) { console.error(e); } });
+  currentChainId = chainId == null ? null : Number(chainId);
+  chainListeners.forEach((fn) => { try { fn(currentChainId); } catch (error) { console.error(error); } });
+}
+
+function isLocalBrowser() {
+  return typeof window !== 'undefined'
+    && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+}
+
+function shouldUseInjectedFallback() {
+  return isLocalBrowser() && window.ethereum?.request && !window.__useRainbowKitInLocal;
+}
+
+function ensureBridgeRoot() {
+  if (typeof document === 'undefined') return null;
+  let root = document.getElementById('nm-rainbowkit-root');
+  if (!root) {
+    root = document.createElement('div');
+    root.id = 'nm-rainbowkit-root';
+    // Keep the bridge visually inert while allowing RainbowKit's modal portal
+    // to render if the library chooses this element as its portal container.
+    root.style.display = 'contents';
+    document.body.appendChild(root);
+  }
+  return root;
 }
 
 async function initModal() {
   if (modalInstance) return modalInstance;
-  if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') && window.ethereum && !window.__useAppKitInLocal) {
-    return null;
-  }
-  try {
-    const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('MODAL_TIMEOUT')), 2000));
-    const importPromise = (async () => {
-      const { createAppKit } = await import('https://esm.sh/@reown/appkit?bundle');
-      const { WagmiAdapter } = await import('https://esm.sh/@reown/appkit-adapter-wagmi?bundle');
-      const { http } = await import('https://esm.sh/@wagmi/core?bundle');
+  if (shouldUseInjectedFallback()) return null;
+  if (initPromise) return initPromise;
 
-      const wagmiAdapter = new WagmiAdapter({
-        ssr: false,
-        networks: chains,
-        projectId: PROJECT_ID,
-        transports: {
-          [robinhoodTestnet.id]: http('https://rpc.testnet.chain.robinhood.com'),
-          [robinhoodMainnet.id]: http('https://rpc.mainnet.chain.robinhood.com'),
-          [baseSepolia.id]: http('https://sepolia.base.org'),
-          [baseMainnet.id]: http('https://mainnet.base.org')
-        }
+  const initialize = (async () => {
+    try {
+      const { mountRainbowKit } = await import('./rainbowkit-bridge.mjs');
+      const root = ensureBridgeRoot();
+      if (!root) throw new Error('RAINBOWKIT_ROOT_REQUIRED');
+      const controls = await mountRainbowKit({
+        root,
+        onAccount: notifyAccount,
+        onChain: notifyChain,
+        onProvider: (provider) => { currentProvider = provider; }
       });
-
-      modalInstance = createAppKit({
-        adapters: [wagmiAdapter],
-        networks: [robinhoodTestnet, robinhoodMainnet, baseSepolia, baseMainnet],
-        defaultNetwork: robinhoodTestnet,
-        projectId: PROJECT_ID,
-        metadata: {
-          name: 'NexMarkets',
-          description: 'Verifiable passes and utility editions across Robinhood and Base',
-          url: typeof window !== 'undefined' ? window.location.origin : 'https://nexmarkets.fun',
-          icons: ['https://nexmarkets.fun/favicon.ico']
-        },
-        themeMode: 'dark',
-        themeVariables: {
-          '--w3m-accent': '#ffb000',
-          '--w3m-color-mix': '#0d0e12',
-          '--w3m-color-mix-strength': 40,
-          '--w3m-border-radius-master': '1px'
-        }
-      });
-
-      modalInstance.subscribeAccount((account) => {
-        if (account.isConnected && account.address) {
-          notifyAccount(account.address);
-        } else {
-          notifyAccount(null);
-        }
-      });
-
-      modalInstance.subscribeNetwork((network) => {
-        if (network.chainId) {
-          notifyChain(Number(network.chainId));
-        }
-      });
-
+      modalInstance = controls;
       return modalInstance;
-    })();
+    } catch (error) {
+      console.warn('RainbowKit initialization failed; using injected-wallet fallback.', error);
+      return null;
+    }
+  })();
+  initPromise = initialize;
 
-    return await Promise.race([importPromise, timeoutPromise]);
-  } catch {
-    return null;
-  }
+  const result = await initPromise;
+  if (!result) initPromise = null;
+  return result;
+}
+
+async function connectInjected() {
+  if (typeof window === 'undefined' || !window.ethereum?.request) throw new Error('EVM_WALLET_REQUIRED');
+  currentProvider = window.ethereum;
+  const [address] = await currentProvider.request({ method: 'eth_requestAccounts' });
+  if (!normalizeAddress(address)) throw new Error('WALLET_ACCOUNT_REQUIRED');
+  const chainId = Number(BigInt(await currentProvider.request({ method: 'eth_chainId' })));
+  notifyAccount(address);
+  notifyChain(chainId);
+  return { address, chainId };
 }
 
 export async function openConnectModal() {
   const modal = await initModal();
-  if (modal) {
-    return modal.open();
+  if (modal?.openConnectModal) {
+    await modal.openConnectModal();
+    return { opened: true };
   }
-  if (typeof window !== 'undefined' && window.ethereum?.request) {
-    const [addr] = await window.ethereum.request({ method: 'eth_requestAccounts' });
-    const chain = Number(await window.ethereum.request({ method: 'eth_chainId' }));
-    notifyAccount(addr);
-    notifyChain(chain);
-    return { address: addr, chainId: chain };
+  if (modal?.openAccountModal) {
+    await modal.openAccountModal();
+    return { opened: true, address: currentAddress, chainId: currentChainId };
   }
-  throw new Error('EVM_WALLET_REQUIRED');
+  return connectInjected();
 }
 
 export async function openAccountModal() {
   const modal = await initModal();
-  if (modal) {
-    return modal.open({ view: 'Account' });
-  }
+  if (modal?.openAccountModal) return modal.openAccountModal();
+  return null;
 }
 
 export async function openChainModal() {
   const modal = await initModal();
-  if (modal) {
-    return modal.open({ view: 'Networks' });
-  }
+  if (modal?.openChainModal) return modal.openChainModal();
+  return null;
 }
 
 export async function disconnectWallet() {
   const modal = await initModal();
-  if (modal) {
-    await modal.disconnect();
-  }
+  if (modal?.disconnect) await modal.disconnect();
+  currentProvider = null;
   notifyAccount(null);
+  notifyChain(null);
+}
+
+export function waitForConnection({ timeoutMs = 120_000 } = {}) {
+  if (currentAddress) return Promise.resolve({ address: currentAddress, chainId: currentChainId });
+  let waiter;
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      connectionWaiters.delete(waiter);
+      reject(new Error('WALLET_CONNECTION_TIMEOUT'));
+    }, timeoutMs);
+    waiter = {
+      resolve: (value) => { clearTimeout(timer); connectionWaiters.delete(waiter); resolve(value); },
+      reject: (error) => { clearTimeout(timer); connectionWaiters.delete(waiter); reject(error); }
+    };
+    connectionWaiters.add(waiter);
+  });
 }
 
 export function onAccountChange(fn) {
@@ -133,9 +149,19 @@ export function onChainChange(fn) {
 }
 
 export function getConnectedAddress() {
-  return currentAddress || (typeof window !== 'undefined' ? window.ethereum?.selectedAddress : null);
+  return currentAddress || (typeof window !== 'undefined' ? normalizeAddress(window.ethereum?.selectedAddress) : null);
 }
 
 export function getConnectedChainId() {
   return currentChainId;
+}
+
+export async function getWalletProvider() {
+  if (currentProvider?.request) return currentProvider;
+  if (typeof window !== 'undefined' && window.ethereum?.request) {
+    currentProvider = window.ethereum;
+    return currentProvider;
+  }
+  const modal = await initModal();
+  return currentProvider || modal?.provider || null;
 }

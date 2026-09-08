@@ -64,6 +64,24 @@ try {
       await cp(apiDir, target, { recursive: true });
     } catch {}
   }
+
+  // RainbowKit is part of a local, on-demand browser bundle so wallet
+  // selection does not depend on a runtime CDN request or slow every page
+  // load. The lightweight adapter dynamically imports this bridge on click.
+  const rainbowEntry = join(rootPath, 'apps/web/public/rainbowkit-bridge.mjs');
+  for (const output of outputs) {
+    await build({
+      entryPoints: [rainbowEntry],
+      bundle: true,
+      platform: 'browser',
+      format: 'esm',
+      target: 'es2020',
+      minify: true,
+      legalComments: 'none',
+      outfile: join(fileURLToPath(output), 'rainbowkit-bridge.mjs'),
+      allowOverwrite: true
+    });
+  }
 } catch (error) {
   console.error(JSON.stringify({ status: 'FAIL', stage: 'api-build', error: error.message }));
   process.exitCode = 1;

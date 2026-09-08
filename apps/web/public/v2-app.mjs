@@ -1,5 +1,5 @@
 import { NexWallet } from './wallet.mjs';
-import { openConnectModal, openAccountModal, openChainModal, onAccountChange, onChainChange } from './rainbow-wallet.mjs';
+import { openConnectModal, openAccountModal, openChainModal, onAccountChange, onChainChange, waitForConnection, getWalletProvider } from './rainbow-wallet.mjs';
 
 /*
  * NexMarkets V2 is intentionally a data adapter around the supplied product
@@ -795,6 +795,8 @@ async function hydrate() {
   if (state.error) return;
 }
 async function authenticateWallet() {
+  const provider = await getWalletProvider();
+  if (provider) wallet.setProvider(provider);
   const identity = await wallet.connect(Number(state.config?.chainId || CHAIN_ID));
   state.wallet = identity.address; setAccountLabel(short(identity.address));
   const challenge = await read('/v1/auth/challenge', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ address: identity.address }) });
@@ -811,6 +813,11 @@ async function authenticate({ throwOnError = false } = {}) {
     if (throwOnError) throw error;
     return null;
   }
+}
+let authenticationPromise = null;
+function authenticateOnce() {
+  if (!authenticationPromise) authenticationPromise = authenticate().finally(() => { authenticationPromise = null; });
+  return authenticationPromise;
 }
 function sanitizeCompiledForApi(compiled) {
   const clone = JSON.parse(JSON.stringify(compiled));
@@ -1173,19 +1180,19 @@ function selectedAdvantage(id, passKey = null) {
 }
 
 function wireWallet() {
+  const connectFromButton = async () => {
+    try {
+      const opened = await openConnectModal();
+      if (!opened?.address) await waitForConnection();
+      await authenticateOnce();
+    } catch (error) {
+      showRuntimeBanner(error.message, true);
+    }
+  };
   document.querySelectorAll('.account-chip, #dashboard .p10-connected, #dashboard .p10-account, #dashboard .dash-person').forEach((chip) => {
     chip.addEventListener('click', async () => {
       if (!state.wallet) {
-        if (typeof window !== 'undefined' && window.ethereum?.request && !window.ethereum?.isWalletConnect) {
-          authenticate();
-        } else {
-          try {
-            await openConnectModal();
-            await authenticate();
-          } catch {
-            authenticate();
-          }
-        }
+        await connectFromButton();
       } else {
         openAccountModal();
       }
@@ -1194,16 +1201,7 @@ function wireWallet() {
       if (event.key === 'Enter' || event.key === ' ') {
         event.preventDefault();
         if (!state.wallet) {
-          if (typeof window !== 'undefined' && window.ethereum?.request && !window.ethereum?.isWalletConnect) {
-            authenticate();
-          } else {
-            try {
-              await openConnectModal();
-              await authenticate();
-            } catch {
-              authenticate();
-            }
-          }
+          await connectFromButton();
         } else {
           openAccountModal();
         }
@@ -1215,7 +1213,7 @@ function wireWallet() {
     if (newAddress && newAddress.toLowerCase() !== (state.wallet || '').toLowerCase()) {
       state.wallet = newAddress;
       setAccountLabel(short(newAddress));
-      try { await authenticate(); } catch {}
+      try { await authenticateOnce(); } catch {}
     } else if (!newAddress && state.wallet) {
       state.wallet = null;
       state.authenticated = false;
