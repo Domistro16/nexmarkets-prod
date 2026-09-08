@@ -18,6 +18,13 @@ import { robinhoodTestnet, robinhoodMainnet, baseSepolia, baseMainnet, chains } 
 import '@rainbow-me/rainbowkit/styles.css';
 
 const PROJECT_ID = 'c4f79cc821944d9680842e34466bfb00';
+const NEXMARKETS_THEME = darkTheme({
+  accentColor: '#ffb000',
+  accentColorForeground: '#151713',
+  borderRadius: 'medium',
+  fontStack: 'system',
+  overlayBlur: 'small'
+});
 
 // RainbowKit's profile hooks reference the canonical mainnet object even when
 // the product exposes a different set of chains. Keep that module initialized
@@ -107,8 +114,8 @@ export async function mountRainbowKit({ root, onAccount, onChain, onProvider }) 
       QueryClientProvider,
       { client: queryClient },
       React.createElement(
-        RainbowKitProvider,
-        { theme: darkTheme(), initialChain: robinhoodTestnet },
+      RainbowKitProvider,
+        { theme: NEXMARKETS_THEME, initialChain: robinhoodTestnet },
         React.createElement(RainbowBridge, { controls, onAccount, onChain, onProvider })
       )
     )

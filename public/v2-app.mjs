@@ -390,6 +390,24 @@ function networkOptions() {
   const allowed = state.runtimeConfig?.availableNetworks || Object.keys(networks);
   return allowed.map((key) => ({ key, config: networks[key] })).filter((item) => item.config);
 }
+function networkSelectorLabel(config, key) {
+  const name = config?.displayName || config?.name || key || 'Network';
+  return `${name}${config?.testnetOnly || /testnet|sepolia/i.test(key || '') ? ' Testnet' : ''}`;
+}
+async function openNetworkSelector() {
+  try {
+    // RainbowKit only exposes its chain modal for a connected account. Keep
+    // the navbar control useful while disconnected by taking the user to the
+    // same RainbowKit connect flow first; a second click opens ChainModal.
+    if (!state.wallet) {
+      await openConnectModal();
+      return;
+    }
+    await openChainModal();
+  } catch (error) {
+    showRuntimeBanner(error.message, true);
+  }
+}
 function ensureNetworkSelectors() {
   const options = networkOptions();
   if (options.length < 2) return;
@@ -398,20 +416,22 @@ function ensureNetworkSelectors() {
     const host = account?.parentElement || header;
     let wrapper = host.querySelector(':scope > .nm-network-switcher');
     if (!wrapper) {
-      wrapper = document.createElement('label');
+      wrapper = document.createElement('div');
       wrapper.className = 'nm-network-switcher';
-      wrapper.innerHTML = '<span>Network</span><select aria-label="Select network"></select>';
+      wrapper.innerHTML = '<span class="nm-network-switcher-label">Network</span><button type="button" class="nm-network-switcher-button" data-rainbowkit-chain-selector="true"><span class="nm-network-switcher-mark" aria-hidden="true"></span><span class="nm-network-switcher-value"></span><svg viewBox="0 0 16 16" aria-hidden="true"><path d="m4 6 4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button>';
       host.insertBefore(wrapper, account || null);
-      wrapper.querySelector('select').addEventListener('change', (event) => switchNetwork(event.target.value).catch((error) => showRuntimeBanner(error.message, true)));
+      wrapper.querySelector('button').addEventListener('click', openNetworkSelector);
     }
-    const select = wrapper.querySelector('select');
-    select.replaceChildren(...options.map(({ key, config }) => {
-      const option = document.createElement('option');
-      option.value = key;
-      option.textContent = `${config.displayName || config.name || key}${config.testnetOnly || /testnet|sepolia/i.test(key) ? ' Testnet' : ''}`;
-      return option;
-    }));
-    select.value = state.networkKey;
+    const button = wrapper.querySelector('button');
+    const value = wrapper.querySelector('.nm-network-switcher-value');
+    const current = configuredNetworks()[state.networkKey] || options[0]?.config;
+    const label = networkSelectorLabel(current, state.networkKey);
+    value.textContent = label;
+    button.dataset.network = state.networkKey;
+    button.dataset.family = current?.family || (/^base-/i.test(state.networkKey) ? 'base' : 'robinhood');
+    button.dataset.connected = state.wallet ? 'true' : 'false';
+    button.setAttribute('aria-label', state.wallet ? `Switch network, current network ${label}` : `Connect wallet to switch networks. Current network ${label}`);
+    button.title = state.wallet ? 'Switch network' : 'Connect wallet to switch networks';
   });
 }
 async function switchNetwork(nextKey, { switchWallet = true } = {}) {
@@ -460,13 +480,21 @@ function injectLiveDataStyle() {
       color: var(--amber, #ffb000) !important;
     }
     .nm-network-switcher{display:inline-flex;align-items:center;gap:7px;margin:0 12px;color:#849084;font:10px/1.2 system-ui,sans-serif;text-transform:uppercase;letter-spacing:.08em;white-space:nowrap}
-    .nm-network-switcher select{appearance:none;border:1px solid rgba(244,241,233,.15);border-radius:7px;background:#111711;color:#e7ece4;padding:7px 23px 7px 9px;font:11px system-ui,sans-serif;cursor:pointer}
-    .nm-network-switcher select:focus{outline:1px solid var(--amber,#ffb000);outline-offset:1px}
+    .nm-network-switcher-button{appearance:none;height:36px;display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line,rgba(244,241,233,.15));border-radius:12px;background:#111411;color:#e7ece4;padding:0 10px;font:10px/1 system-ui,sans-serif;letter-spacing:0;text-transform:none;cursor:pointer;transition:border-color .18s ease,background-color .18s ease,color .18s ease}
+    .nm-network-switcher-button:hover{border-color:var(--amber,#ffb000);background:#181d18;color:#fff}
+    .nm-network-switcher-button:focus-visible{outline:1px solid var(--amber,#ffb000);outline-offset:2px}
+    .nm-network-switcher-mark{width:7px;height:7px;flex:0 0 7px;border-radius:50%;background:var(--green,#9bc99c);box-shadow:0 0 0 4px rgba(155,201,156,.08)}
+    .nm-network-switcher-button[data-family="base"] .nm-network-switcher-mark{background:#7ea8ff;box-shadow:0 0 0 4px rgba(126,168,255,.10)}
+    .nm-network-switcher-value{max-width:118px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .nm-network-switcher-button svg{width:12px;height:12px;flex:0 0 12px;color:#849084;transition:transform .18s ease,color .18s ease}
+    .nm-network-switcher-button:hover svg{color:var(--amber,#ffb000)}
     @media(max-width:720px){
       .mobile-actions{min-width:0;overflow:visible}
       .mobile-actions .nm-network-switcher{flex:0 1 auto;min-width:0;gap:3px;margin:0 4px}
-      .mobile-actions .nm-network-switcher span{display:none}
-      .mobile-actions .nm-network-switcher select{min-width:0;max-width:118px;padding:6px 17px 6px 6px;font-size:9px}
+      .mobile-actions .nm-network-switcher-label{display:none}
+      .mobile-actions .nm-network-switcher-button{height:34px;min-width:0;max-width:126px;padding:0 7px;gap:5px;font-size:9px}
+      .mobile-actions .nm-network-switcher-value{max-width:83px}
+      .mobile-actions .nm-network-switcher-button svg{width:11px;height:11px;flex-basis:11px}
       .mobile-actions .account-chip{position:relative;z-index:2;flex:0 0 auto}
     }
     #nm-v2-data-panel{margin:26px 0 0;padding:18px;border:1px solid rgba(244,241,233,.10);border-radius:18px;background:#0d110e;color:#dfe5dc}
@@ -1213,11 +1241,13 @@ function wireWallet() {
     if (newAddress && newAddress.toLowerCase() !== (state.wallet || '').toLowerCase()) {
       state.wallet = newAddress;
       setAccountLabel(short(newAddress));
+      ensureNetworkSelectors();
       try { await authenticateOnce(); } catch {}
     } else if (!newAddress && state.wallet) {
       state.wallet = null;
       state.authenticated = false;
       setAccountLabel('Connect wallet');
+      ensureNetworkSelectors();
       hydrate();
     }
   });
