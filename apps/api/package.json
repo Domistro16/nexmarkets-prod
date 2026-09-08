@@ -20,8 +20,14 @@
     "@nexmarkets/domain": "*",
     "@nexmarkets/observability": "*",
     "@nexmarkets/subgraph-client": "*",
+    "@rainbow-me/rainbowkit": "2.2.11",
+    "@tanstack/react-query": "5.102.8",
     "esbuild": "0.25.0",
     "ethers": "6.17.0",
-    "pg": "8.16.3"
+    "pg": "8.16.3",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "viem": "2.56.3",
+    "wagmi": "2.19.5"
   }
 }
