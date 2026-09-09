@@ -1,0 +1,156 @@
+{
+  "schemaVersion": 1,
+  "status": "PASS_BUILDER_PROFILE_SAVED_THROUGH_UI",
+  "baseUrl": "http://localhost:4176",
+  "wallet": "0xD83deFbA240568040b39bb2C8B4DB7dB02d40593",
+  "screenshots": [
+    "artifacts/verification/final-live-browser/09-builder-profile-before-save.png",
+    "artifacts/verification/final-live-browser/10-builder-profile-saved.png"
+  ],
+  "runtime": {
+    "liveCallback": "function",
+    "visibleCallback": "async (key) => {\n    const value = (id) => String(document.getElementById(id)?.value || '').trim();\n    const form = {\n      displayName: value('ebdName'), handle: value('ebdHandle'), positioning: value('ebdTagline'),\n      about: value('eb",
+    "selectedBuilderId": "bld_e1ac9bff-a27d-40a0-bd49-f6d08bc8dfd6",
+    "managedBuilders": [
+      {
+        "id": "bld_e1ac9bff-a27d-40a0-bd49-f6d08bc8dfd6",
+        "builder_id": "bld_e1ac9bff-a27d-40a0-bd49-f6d08bc8dfd6",
+        "hasProfile": true
+      }
+    ],
+    "saveButtons": [
+      {
+        "onclick": "nmEliteSaveBuilderProfile('bld_e1ac9bff-a27d-40a0-bd49-f6d08bc8dfd6')",
+        "visible": true
+      }
+    ],
+    "fieldMatches": {
+      "ebdName": [
+        {
+          "value": "NexMarkets Certification Builder",
+          "visible": true,
+          "connected": true
+        }
+      ],
+      "ebdHandle": [
+        {
+          "value": "@nexmarkets-cert",
+          "visible": true,
+          "connected": true
+        }
+      ],
+      "ebdTagline": [
+        {
+          "value": "Independent live lifecycle certification on Robinhood testnet.",
+          "visible": true,
+          "connected": true
+        }
+      ],
+      "ebdAbout": [
+        {
+          "value": "This Builder identity exists to execute and preserve NexMarkets funded-wallet certification evidence across Product, Edition, Pass, Advantage, Market, and public social flows.",
+          "visible": true,
+          "connected": true
+        }
+      ],
+      "ebdWebsite": [
+        {
+          "value": "https://nexmarkets.fun/",
+          "visible": true,
+          "connected": true
+        }
+      ],
+      "ebdX": [
+        {
+          "value": "@nexmarkets-cert",
+          "visible": true,
+          "connected": true
+        }
+      ]
+    },
+    "values": {
+      "ebdName": "NexMarkets Certification Builder",
+      "ebdHandle": "@nexmarkets-cert",
+      "ebdTagline": "Independent live lifecycle certification on Robinhood testnet.",
+      "ebdAbout": "This Builder identity exists to execute and preserve NexMarkets funded-wallet certification evidence across Product, Edition, Pass, Advantage, Market, and public social flows.",
+      "ebdWebsite": "https://nexmarkets.fun/",
+      "ebdX": "@nexmarkets-cert"
+    }
+  },
+  "valuesAfterScreenshot": {
+    "ebdName": "NexMarkets Certification Builder",
+    "ebdHandle": "@nexmarkets-cert",
+    "ebdTagline": "Independent live lifecycle certification on Robinhood testnet.",
+    "ebdAbout": "This Builder identity exists to execute and preserve NexMarkets funded-wallet certification evidence across Product, Edition, Pass, Advantage, Market, and public social flows.",
+    "ebdWebsite": "https://nexmarkets.fun/",
+    "ebdX": "@nexmarkets-cert"
+  },
+  "profileRequests": [
+    {
+      "method": "PUT",
+      "url": "http://localhost:4176/v1/builder/profile",
+      "body": {
+        "builderId": "bld_e1ac9bff-a27d-40a0-bd49-f6d08bc8dfd6",
+        "displayName": "NexMarkets Certification Builder",
+        "handle": "@nexmarkets-cert",
+        "positioning": "Independent live lifecycle certification on Robinhood testnet.",
+        "about": "This Builder identity exists to execute and preserve NexMarkets funded-wallet certification evidence across Product, Edition, Pass, Advantage, Market, and public social flows.",
+        "website": "https://nexmarkets.fun/",
+        "x": "@nexmarkets-cert",
+        "avatarUrl": ""
+      }
+    }
+  ],
+  "profileResponse": {
+    "status": 200,
+    "requestBody": {
+      "builderId": "bld_e1ac9bff-a27d-40a0-bd49-f6d08bc8dfd6",
+      "displayName": "NexMarkets Certification Builder",
+      "handle": "@nexmarkets-cert",
+      "positioning": "Independent live lifecycle certification on Robinhood testnet.",
+      "about": "This Builder identity exists to execute and preserve NexMarkets funded-wallet certification evidence across Product, Edition, Pass, Advantage, Market, and public social flows.",
+      "website": "https://nexmarkets.fun/",
+      "x": "@nexmarkets-cert",
+      "avatarUrl": ""
+    },
+    "body": "{\"data\":{\"id\":\"bprf_a55bec2a-426a-426b-a425-6ab72b83350f\",\"account_id\":\"acct_d09f77745c0aa9cb3df14c37\",\"display_name\":\"NexMarkets Certification Builder\",\"bio\":\"\",\"about\":\"This Builder identity exists to execute and preserve NexMarkets funded-wallet certification evidence across Product, Edition, Pass, Advantage, Market, and public social flows.\",\"avatar_url\":\"\",\"category\":\"\",\"links\":{\"x\":\"@nexmarkets-cert\",\"handle\":\"@nexmarkets-cert\",\"website\":\"https://nexmarkets.fun/\",\"positioning\":\"Independent live lifecycle certification on Robinhood testnet.\"},\"featured\":false,\"created_at\":\"2026-09-09T06:27:12.198Z\",\"updated_at\":\"2026-09-09T12:13:18.283Z\",\"builder_id\":\"bld_e1ac9bff-a27d-40a0-bd49-f6d08bc8dfd6\"}}"
+  },
+  "reloadValues": {
+    "ebdName": "NexMarkets Certification Builder",
+    "ebdHandle": "@nexmarkets-cert",
+    "ebdTagline": "Independent live lifecycle certification on Robinhood testnet.",
+    "ebdAbout": "This Builder identity exists to execute and preserve NexMarkets funded-wallet certification evidence across Product, Edition, Pass, Advantage, Market, and public social flows.",
+    "ebdWebsite": "https://nexmarkets.fun/",
+    "ebdX": "@nexmarkets-cert"
+  },
+  "newSessionValues": {
+    "ebdName": "NexMarkets Certification Builder",
+    "ebdHandle": "@nexmarkets-cert",
+    "ebdTagline": "Independent live lifecycle certification on Robinhood testnet.",
+    "ebdAbout": "This Builder identity exists to execute and preserve NexMarkets funded-wallet certification evidence across Product, Edition, Pass, Advantage, Market, and public social flows.",
+    "ebdWebsite": "https://nexmarkets.fun/",
+    "ebdX": "@nexmarkets-cert"
+  },
+  "builderId": "bld_e1ac9bff-a27d-40a0-bd49-f6d08bc8dfd6",
+  "profile": {
+    "id": "bprf_a55bec2a-426a-426b-a425-6ab72b83350f",
+    "account_id": "acct_d09f77745c0aa9cb3df14c37",
+    "display_name": "NexMarkets Certification Builder",
+    "bio": "",
+    "about": "This Builder identity exists to execute and preserve NexMarkets funded-wallet certification evidence across Product, Edition, Pass, Advantage, Market, and public social flows.",
+    "avatar_url": "",
+    "category": "",
+    "links": {
+      "x": "@nexmarkets-cert",
+      "handle": "@nexmarkets-cert",
+      "website": "https://nexmarkets.fun/",
+      "positioning": "Independent live lifecycle certification on Robinhood testnet."
+    },
+    "featured": false,
+    "created_at": "2026-09-09T06:27:12.198Z",
+    "updated_at": "2026-09-09T12:13:18.283Z",
+    "builder_id": "bld_e1ac9bff-a27d-40a0-bd49-f6d08bc8dfd6"
+  },
+  "selectedBuilderId": "bld_e1ac9bff-a27d-40a0-bd49-f6d08bc8dfd6",
+  "finishedAt": "2026-09-09T12:13:30.356Z"
+}

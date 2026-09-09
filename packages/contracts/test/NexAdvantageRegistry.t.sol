@@ -96,14 +96,14 @@ contract NexAdvantageRegistryTest is Test {
         NexPassEdition.EditionConfig memory config = NexPassEdition.EditionConfig({
             name: "NexAdvantage Pass",
             symbol: "NEXADV",
-            initialOwner: OWNER,
+            initialOwner: PUBLISHER,
             editionId: EDITION_ID,
             absoluteSupplyCap: 5,
             artworkCommitment: ARTWORK_COMMITMENT,
             baseTokenURI: "ipfs://nexadvantage/"
         });
-        vm.prank(OWNER);
-        edition = NexPassEdition(factory.createEdition(config, PUBLISHER, SALT));
+        vm.prank(PUBLISHER);
+        edition = NexPassEdition(factory.createEdition(config, SALT));
 
         // The primary path initializes a production-wired utility registry
         // atomically. This test contract keeps a second isolated registry for

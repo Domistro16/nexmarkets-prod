@@ -8,9 +8,9 @@ import {NexMintController} from "./NexMintController.sol";
 import {NexPassEdition} from "./NexPassEdition.sol";
 
 /// @title NexPassFactory
-/// @notice Safe-controlled deterministic deployment and wiring for Editions.
+/// @notice Permissionless deterministic deployment and wiring for creator-owned Editions.
 /// @dev The Factory temporarily owns a new Edition so the controller handoff is
-///      atomic; final Edition ownership is always transferred to protocolAdmin.
+///      atomic; final Edition ownership and publishing authority belong to the caller.
 contract NexPassFactory is Ownable {
     NexLaunchRegistry public immutable launchRegistry;
     NexMintController public immutable mintController;
@@ -29,7 +29,7 @@ contract NexPassFactory is Ownable {
         bytes32 indexed editionId,
         address indexed publisher,
         bytes32 salt,
-        address protocolAdmin,
+        address editionOwner,
         address mintController,
         uint32 absoluteSupplyCap,
         bytes32 artworkCommitment
@@ -58,21 +58,19 @@ contract NexPassFactory is Ownable {
     }
 
     /// @notice Deploy, wire, register, and hand off one permanent Edition.
-    function createEdition(NexPassEdition.EditionConfig calldata config, address publisher, bytes32 salt)
+    function createEdition(NexPassEdition.EditionConfig calldata config, bytes32 salt)
         external
-        onlyOwner
         returns (address editionAddress)
     {
-        if (config.initialOwner != protocolAdmin) revert EditionOwnerMismatch();
+        if (config.initialOwner != msg.sender) revert EditionOwnerMismatch();
         if (editionForId[config.editionId] != address(0)) revert EditionAlreadyCreated();
-        if (publisher == address(0)) revert AddressRequired();
 
         NexPassEdition.EditionConfig memory deployConfig = config;
         deployConfig.initialOwner = address(this);
         NexPassEdition edition = new NexPassEdition{salt: salt}(deployConfig);
         edition.setMintController(address(mintController));
-        edition.transferOwnership(protocolAdmin);
-        launchRegistry.registerEdition(address(edition), publisher);
+        edition.transferOwnership(msg.sender);
+        launchRegistry.registerEdition(address(edition), msg.sender);
 
         editionAddress = address(edition);
         editionForId[config.editionId] = editionAddress;
@@ -80,9 +78,9 @@ contract NexPassFactory is Ownable {
         emit EditionCreated(
             editionAddress,
             config.editionId,
-            publisher,
+            msg.sender,
             salt,
-            protocolAdmin,
+            msg.sender,
             address(mintController),
             config.absoluteSupplyCap,
             config.artworkCommitment

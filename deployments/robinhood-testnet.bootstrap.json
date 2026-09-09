@@ -3,8 +3,8 @@
   "network": "robinhood-testnet",
   "chainId": 46630,
   "productAuthority": {
-    "file": "NEXMARKETS_ELITE_RELEASE_CANDIDATE.html",
-    "sha256": "24daa3e2afc280690db3d213f953334b10cf92309f2698552c5db543b00b90a6"
+    "file": "NEXMARKETS_V2_BUILDER_PROFILE_ELITE.html",
+    "sha256": "4863df4a8829b6ced1672248e1fd0336e577d6c13c80f1dbd7fe99d73bc821d5"
   },
   "policy": {
     "settlementAsset": "MockUSDG",

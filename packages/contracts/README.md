@@ -1,8 +1,9 @@
-# Contracts - gated NexMarkets contracts
+# Contracts - permissionless NexMarkets Passes
 
-The Robinhood primitive gate and Protocol Admin Safe approval are complete for
-the frozen bootstrap manifest. NexPassEdition is now the first feature contract
-in the NexMarkets Edition scope. It is intentionally narrow: it owns the
+The Robinhood primitive verification and shared-infrastructure deployment review
+are complete for the frozen bootstrap manifest. Neither process gates creator
+Pass creation. NexPassEdition is the first feature contract in the NexMarkets
+Edition scope. It is intentionally narrow: the creator owns the
 permanent ERC-721 collection/serial/ownership layer, while Terms, Preview,
 payment collection, mint intent, Advantages, listings, and delayed royalty
 settlement remain separate contracts that must be reviewed before deployment.
@@ -27,9 +28,9 @@ The first connected primary-launch boundary is now:
 
 `NexPassFactory` -> `NexLaunchRegistry` -> `NexMintController` -> `NexPassEdition`
 
-`NexPassFactory` is Protocol Admin Safe-controlled and deploys an Edition with
-CREATE2, wires the one-time MintController, registers the Edition, and hands
-ownership to the Protocol Admin Safe. `NexLaunchRegistry` is the canonical
+`NexPassFactory` is permissionless and deploys an Edition with CREATE2, wires
+the one-time MintController, registers the caller as publisher, and hands
+ownership to that creator. `NexLaunchRegistry` is the canonical
 Terms/Preview authority. Each material change creates a new version hash and
 restarts the Preview; it cannot lower active supply below already minted
 serials. `NexMintController` accepts only the active Registry version, settles
@@ -37,8 +38,8 @@ exact USDG using the protocol-fixed 5% primary fee, scopes idempotency
 keys to the payer, and calls the Edition only after all validation succeeds.
 
 The deployment order is Registry (with the verified USDG address),
-MintController, Factory, Safe-controlled Factory binding, then Edition
-creation. No contract in this trio is upgradeable. Production deployment still
+MintController, Factory, shared-governance Factory binding, then permissionless
+creator Edition creation. No contract in this trio is upgradeable. Production deployment still
 requires the release evidence and Protocol Admin Safe policy recorded in the
 repository.
 

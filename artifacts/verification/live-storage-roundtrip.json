@@ -1,0 +1,26 @@
+{
+  "status": "PASS",
+  "wallet": "0xD83deFbA240568040b39bb2C8B4DB7dB02d40593",
+  "asset": {
+    "id": "med_493b8c74-6c4c-4604-9771-bfb628deeeab",
+    "assetKey": "med_493b8c74-6c4c-4604-9771-bfb628deeeab",
+    "filename": "nexmarkets-testnet-certification.png",
+    "mimeType": "image/png",
+    "byteSize": 1962118,
+    "sha256": "d543e603d6beeeb4e80669aa038d3f47fdda2ab0128654e939d3a83010a001a5",
+    "width": 1254,
+    "height": 1254,
+    "uploadStatus": "UPLOADED",
+    "safetyStatus": "APPROVED",
+    "url": "/v1/media/med_493b8c74-6c4c-4604-9771-bfb628deeeab/content",
+    "createdAt": "2026-09-09T05:42:14.234Z",
+    "uploadedAt": "2026-09-09T05:56:19.265Z",
+    "verifiedAt": "2026-09-09T05:56:19.265Z"
+  },
+  "objectPut": {
+    "status": 200,
+    "errorCode": null,
+    "errorMessage": null
+  },
+  "browserCorsStillRequired": true
+}

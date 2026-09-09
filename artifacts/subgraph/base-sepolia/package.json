@@ -1,0 +1,15 @@
+{
+  "name": "@nexmarkets/robinhood-testnet-subgraph",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "codegen": "graph codegen",
+    "build": "graph build",
+    "clean": "node -e \"for (const p of ['generated','build']) { try { require('node:fs').rmSync(p,{recursive:true,force:true}); } catch {} }\"",
+    "test": "node --test test/*.test.mjs"
+  },
+  "devDependencies": {
+    "@graphprotocol/graph-cli": "0.98.1",
+    "@graphprotocol/graph-ts": "0.38.1"
+  }
+}

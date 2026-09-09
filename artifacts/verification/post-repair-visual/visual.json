@@ -1,0 +1,1457 @@
+{
+  "authorityRows": [
+    {
+      "surface": "authority-home",
+      "path": "/C:/Users/USER/NEXMARKETS/nexmarkets-production/NEXMARKETS_V2_BUILDER_PROFILE_ELITE.html",
+      "active": "home",
+      "title": "NexMarkets",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "documentWidth": 1440,
+      "bodyWidth": 1440,
+      "iframeCount": 23,
+      "visibleIframeCount": 23,
+      "text": "NEXMARKETS\nGet there early.\nOwn your place.\n\nFind promising products early. Get a limited Pass with a clear Advantage and your own serial. Use what it gives you, keep it, or sell it later when the Market opens.\n\nExplore Debuts\nCreate a Debut\nProducts you can see\nClear terms\nYour own serial\nHOW IT WORKS\nIt works in three moves.\n01\nFind a launch you like\n\nDiscover lists every Debut before it opens. You can read the product, see what the Pass includes, and check the terms while everything is still public.\n\n02\nGet a numbered Pass\n\nBuy while the Debut is open. Your serial is assigned the moment your purchase confirms, and the Pass is yours to keep or trade.\n\n03\nUse it, keep it, or sell it\n\nThe builder honours what your Pass includes, and their profile explains how to claim it. If you sell, whatever you have not used goes with the Pass.\n\nLIVE\nPulse · FOUNDING EDITION\n186 / 320 issued\nLive Debuts\n5 open now\nMarket\n9 active listings\nNexStudio #077\n$21.4 ask\nDISCOVER\nFind what's opening now and",
+      "overflows": [
+        {
+          "tag": "DIV",
+          "id": "",
+          "cls": "nm-home-inner",
+          "rect": {
+            "x": 100,
+            "y": 68,
+            "width": 1240,
+            "height": 4547.71875,
+            "top": 68,
+            "right": 1340,
+            "bottom": 4615.71875,
+            "left": 100
+          },
+          "scrollWidth": 1379,
+          "clientWidth": 1240,
+          "text": "NEXMARKETS\nGet there early.\nOwn your place.\n\nFind promising products early. Get a limited Pass with a clear Advantage an"
+        },
+        {
+          "tag": "SECTION",
+          "id": "",
+          "cls": "nm-home-hero-elite",
+          "rect": {
+            "x": 100,
+            "y": 68,
+            "width": 1240,
+            "height": 700,
+            "top": 68,
+            "right": 1340,
+            "bottom": 768,
+            "left": 100
+          },
+          "scrollWidth": 1379,
+          "clientWidth": 1240,
+          "text": "NEXMARKETS\nGet there early.\nOwn your place.\n\nFind promising products early. Get a limited Pass with a clear Advantage an"
+        },
+        {
+          "tag": "DIV",
+          "id": "nmHomePassStage",
+          "cls": "nm-home-pass-stage",
+          "rect": {
+            "x": 611.703125,
+            "y": 162.5,
+            "width": 728.296875,
+            "height": 520,
+            "top": 162.5,
+            "right": 1340,
+            "bottom": 682.5,
+            "left": 611.703125
+          },
+          "scrollWidth": 762,
+          "clientWidth": 728,
+          "text": ""
+        },
+        {
+          "tag": "DIV",
+          "id": "",
+          "cls": "nm-home-pass-object p1",
+          "rect": {
+            "x": 611.1033325195312,
+            "y": 267.84613037109375,
+            "width": 255.85174560546875,
+            "height": 384.2103271484375,
+            "top": 267.84613037109375,
+            "right": 866.955078125,
+            "bottom": 652.0564575195312,
+            "left": 611.1033325195312
+          },
+          "scrollWidth": 256,
+          "clientWidth": 223,
+          "text": ""
+        },
+        {
+          "tag": "DIV",
+          "id": "",
+          "cls": "nm-home-pass-object p2",
+          "rect": {
+            "x": 801.839111328125,
+            "y": 201.90054321289062,
+            "width": 242.355224609375,
+            "height": 389.8310241699219,
+            "top": 201.90054321289062,
+            "right": 1044.1943359375,
+            "bottom": 591.7315673828125,
+            "left": 801.839111328125
+          },
+          "scrollWidth": 270,
+          "clientWidth": 235,
+          "text": ""
+        },
+        {
+          "tag": "DIV",
+          "id": "",
+          "cls": "nm-home-pass-object p3",
+          "rect": {
+            "x": 980.53125,
+            "y": 265.1775817871094,
+            "width": 245.58349609375,
+            "height": 378.4884948730469,
+            "top": 265.1775817871094,
+            "right": 1226.11474609375,
+            "bottom": 643.6660766601562,
+            "left": 980.53125
+          },
+          "scrollWidth": 256,
+          "clientWidth": 223,
+          "text": ""
+        },
+        {
+          "tag": "DIV",
+          "id": "",
+          "cls": "nm-home-pass-object p4",
+          "rect": {
+            "x": 1117.0262451171875,
+            "y": 230.96627807617188,
+            "width": 226.5574951171875,
+            "height": 332.4263610839844,
+            "top": 230.96627807617188,
+            "right": 1343.583740234375,
+            "bottom": 563.3926391601562,
+            "left": 1117.0262451171875
+          },
+          "scrollWidth": 220,
+          "clientWidth": 190,
+          "text": ""
+        },
+        {
+          "tag": "DIV",
+          "id": "nmHomeDiscoverFeature",
+          "cls": "nm-home-discover-feature",
+          "rect": {
+            "x": 100,
+            "y": 1291.984375,
+            "width": 677.4375,
+            "height": 584.625,
+            "top": 1291.984375,
+            "right": 777.4375,
+            "bottom": 1876.609375,
+            "left": 100
+          },
+          "scrollWidth": 745,
+          "clientWidth": 677,
+          "text": "LIVE DEBUT\nPulse\n\nTurn recurring work into clear steps your team can run and improve.\n\nHOLDER ADVANTAGE\n30% off · 6 mont"
+        },
+        {
+          "tag": "DIV",
+          "id": "nmHomeDiscoverPass",
+          "cls": "nm-home-feature-pass",
+          "rect": {
+            "x": 515.277099609375,
+            "y": 1475.05419921875,
+            "width": 234.44580078125,
+            "height": 387.9228515625,
+            "top": 1475.05419921875,
+            "right": 749.722900390625,
+            "bottom": 1862.97705078125,
+            "left": 515.277099609375
+          },
+          "scrollWidth": 230,
+          "clientWidth": 215,
+          "text": ""
+        },
+        {
+          "tag": "SECTION",
+          "id": "nmHomeWhyOwn",
+          "cls": "nm-home-own-section nm-home-own-refined nm-reveal-item",
+          "rect": {
+            "x": 100,
+            "y": 2574.1875,
+            "width": 1240,
+            "height": 605,
+            "top": 2574.1875,
+            "right": 1340,
+            "bottom": 3179.1875,
+            "left": 100
+          },
+          "scrollWidth": 1389,
+          "clientWidth": 1240,
+          "text": ""
+        },
+        {
+          "tag": "DIV",
+          "id": "nmHomeMarketFeature",
+          "cls": "nm-home-market-feature",
+          "rect": {
+            "x": 100,
+            "y": 3497.4375,
+            "width": 548.3125,
+            "height": 392,
+            "top": 3497.4375,
+            "right": 648.3125,
+            "bottom": 3889.4375,
+            "left": 100
+          },
+          "scrollWidth": 625,
+          "clientWidth": 548,
+          "text": "FEATURED PASS\nCrier #039\n6 redemptions remaining\nAsk $29.4\nFloor $26.4\nLast sale $26.8\nNetwork Robinhood Chain\nView Pass"
+        },
+        {
+          "tag": "DIV",
+          "id": "nmHomeMarketPass",
+          "cls": "nm-home-market-pass",
+          "rect": {
+            "x": 128.47445678710938,
+            "y": 3543.59716796875,
+            "width": 191.05108642578125,
+            "height": 325.8837890625,
+            "top": 3543.59716796875,
+            "right": 319.5255432128906,
+            "bottom": 3869.48095703125,
+            "left": 128.47445678710938
+          },
+          "scrollWidth": 195,
+          "clientWidth": 180,
+          "text": ""
+        },
+        {
+          "tag": "SECTION",
+          "id": "",
+          "cls": "nm-home-builder nm-home-builder-refined nm-reveal-item",
+          "rect": {
+            "x": 100,
+            "y": 4050.4375,
+            "width": 1240,
+            "height": 483.28125,
+            "top": 4050.4375,
+            "right": 1340,
+            "bottom": 4533.71875,
+            "left": 100
+          },
+          "scrollWidth": 1290,
+          "clientWidth": 1240,
+          "text": "FOR BUILDERS\nHave something worth being early to?\n\nDefine an Edition. Give early holders meaningful Advantages. Launch y"
+        }
+      ]
+    },
+    {
+      "surface": "authority-discover",
+      "path": "/C:/Users/USER/NEXMARKETS/nexmarkets-production/NEXMARKETS_V2_BUILDER_PROFILE_ELITE.html",
+      "active": "discover",
+      "title": "NexMarkets",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "documentWidth": 1440,
+      "bodyWidth": 1440,
+      "iframeCount": 18,
+      "visibleIframeCount": 18,
+      "text": "DISCOVER\nFind what is worth being early to.\n\nSee what is live, what opens next, and what each Pass gives you.\n\n5 projects in this view\nAll\nLive\nOpening soon\nEnding soon\nAll categories\nAI\nMedia\nTools\nFinance\nAny price\nUnder $15\n$15-$20\n$20+\nAny Advantage\nApplied automatically\nRedeem in NexMarkets\nLIVE DEBUT\nPulse\n\nTurn recurring work into clear steps your team can run and improve.\n\nHOLDER ADVANTAGE\n30% off · 6 months\n$18 per Pass\n320 Passes\n186 issued\nView Debut\n→\nNow & next\n3 MORE\nOrbit\nKeep agent history with you · 12 months\nLive now · $20\nLive now\n0 / 220 issued\nLattice\n25% off · 6 months\nLive now · $18\nLive now\n0 / 320 issued\nNorthstar\n25% off · 6 months\nLive now · $14\nLive now\n0 / 450 issued\nEXPLORE\nMore to look at\n1 MORE\nFieldnote\n\nResearch, organise sources and use included credits as you work.\n\n40 research credits\n$9 · 600 Passes\n0 / 600\nLive Debut\nView →\nTry workspace ↗\nFieldnote Research ↗\nOPENING SCHEDULE\nWhat opens next.\nPublic Previews · soonest first\nThere is not a public ",
+      "overflows": []
+    },
+    {
+      "surface": "authority-market",
+      "path": "/C:/Users/USER/NEXMARKETS/nexmarkets-production/NEXMARKETS_V2_BUILDER_PROFILE_ELITE.html",
+      "active": "market",
+      "title": "NexMarkets",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "documentWidth": 1440,
+      "bodyWidth": 1440,
+      "iframeCount": 0,
+      "visibleIframeCount": 0,
+      "text": "Editions trading\nChoose an Edition or browse everything\nNexStudio\n4 listed\nApplied automatically\nFLOOR\n$19.9\nLAST SALE\n$19.1\nSUPPLY\n555\nCrier\n2 listed\nRedeemable Advantage\nFLOOR\n$26.4\nLAST SALE\n$26.8\nSUPPLY\n250\nVector\n1 listed\nApplied automatically\nFLOOR\n$34.2\nLAST SALE\n$30.4\nSUPPLY\n180\nForge\n2 listed\nRedeemable Advantage\nFLOOR\n$15.8\nLAST SALE\n$16.2\nSUPPLY\n480\nNexStudio\n4 listed\nApplied automatically\nFLOOR\n$19.9\nLAST SALE\n$19.1\nSUPPLY\n555\nCrier\n2 listed\nRedeemable Advantage\nFLOOR\n$26.4\nLAST SALE\n$26.8\nSUPPLY\n250\nVector\n1 listed\nApplied automatically\nFLOOR\n$34.2\nLAST SALE\n$30.4\nSUPPLY\n180\nForge\n2 listed\nRedeemable Advantage\nFLOOR\n$15.8\nLAST SALE\n$16.2\nSUPPLY\n480\nNexStudio\n4 listed\nApplied automatically\nFLOOR\n$19.9\nLAST SALE\n$19.1\nSUPPLY\n555\nCrier\n2 listed\nRedeemable Advantage\nFLOOR\n$26.4\nLAST SALE\n$26.8\nSUPPLY\n250\nVector\n1 listed\nApplied automatically\nFLOOR\n$34.2\nLAST SALE\n$30.4\nSUPPLY\n180\nForge\n2 listed\nRedeemable Advantage\nFLOOR\n$15.8\nLAST SALE\n$16.2\nSUPPLY\n480\nAll listed Passes\nAll E",
+      "overflows": [
+        {
+          "tag": "DIV",
+          "id": "",
+          "cls": "nm-p8-edition-carousel",
+          "rect": {
+            "x": 54,
+            "y": 139,
+            "width": 1332,
+            "height": 293,
+            "top": 139,
+            "right": 1386,
+            "bottom": 432,
+            "left": 54
+          },
+          "scrollWidth": 3211,
+          "clientWidth": 1332,
+          "text": "NexStudio\n4 listed\nApplied automatically\nFLOOR\n$19.9\nLAST SALE\n$19.1\nSUPPLY\n555\nCrier\n2 listed\nRedeemable Advantage\nFLOO"
+        },
+        {
+          "tag": "DIV",
+          "id": "",
+          "cls": "nm-p8-edition-track is-moving",
+          "rect": {
+            "x": 54,
+            "y": 139,
+            "width": 3206,
+            "height": 293,
+            "top": 139,
+            "right": 3260,
+            "bottom": 432,
+            "left": 54
+          },
+          "scrollWidth": 3211,
+          "clientWidth": 3206,
+          "text": "NexStudio\n4 listed\nApplied automatically\nFLOOR\n$19.9\nLAST SALE\n$19.1\nSUPPLY\n555\nCrier\n2 listed\nRedeemable Advantage\nFLOO"
+        },
+        {
+          "tag": "DIV",
+          "id": "",
+          "cls": "nm-p8-edition-set",
+          "rect": {
+            "x": 54,
+            "y": 139,
+            "width": 1062,
+            "height": 293,
+            "top": 139,
+            "right": 1116,
+            "bottom": 432,
+            "left": 54
+          },
+          "scrollWidth": 1067,
+          "clientWidth": 1062,
+          "text": "NexStudio\n4 listed\nApplied automatically\nFLOOR\n$19.9\nLAST SALE\n$19.1\nSUPPLY\n555\nCrier\n2 listed\nRedeemable Advantage\nFLOO"
+        },
+        {
+          "tag": "BUTTON",
+          "id": "",
+          "cls": "nm-p8-edition ",
+          "rect": {
+            "x": 54,
+            "y": 139,
+            "width": 258,
+            "height": 293,
+            "top": 139,
+            "right": 312,
+            "bottom": 432,
+            "left": 54
+          },
+          "scrollWidth": 262,
+          "clientWidth": 256,
+          "text": "NexStudio\n4 listed\nApplied automatically\nFLOOR\n$19.9\nLAST SALE\n$19.1\nSUPPLY\n555"
+        },
+        {
+          "tag": "BUTTON",
+          "id": "",
+          "cls": "nm-p8-edition ",
+          "rect": {
+            "x": 322,
+            "y": 139,
+            "width": 258,
+            "height": 293,
+            "top": 139,
+            "right": 580,
+            "bottom": 432,
+            "left": 322
+          },
+          "scrollWidth": 262,
+          "clientWidth": 256,
+          "text": "Crier\n2 listed\nRedeemable Advantage\nFLOOR\n$26.4\nLAST SALE\n$26.8\nSUPPLY\n250"
+        },
+        {
+          "tag": "BUTTON",
+          "id": "",
+          "cls": "nm-p8-edition ",
+          "rect": {
+            "x": 590,
+            "y": 139,
+            "width": 258,
+            "height": 293,
+            "top": 139,
+            "right": 848,
+            "bottom": 432,
+            "left": 590
+          },
+          "scrollWidth": 262,
+          "clientWidth": 256,
+          "text": "Vector\n1 listed\nApplied automatically\nFLOOR\n$34.2\nLAST SALE\n$30.4\nSUPPLY\n180"
+        },
+        {
+          "tag": "BUTTON",
+          "id": "",
+          "cls": "nm-p8-edition ",
+          "rect": {
+            "x": 858,
+            "y": 139,
+            "width": 258,
+            "height": 293,
+            "top": 139,
+            "right": 1116,
+            "bottom": 432,
+            "left": 858
+          },
+          "scrollWidth": 262,
+          "clientWidth": 256,
+          "text": "Forge\n2 listed\nRedeemable Advantage\nFLOOR\n$15.8\nLAST SALE\n$16.2\nSUPPLY\n480"
+        },
+        {
+          "tag": "DIV",
+          "id": "",
+          "cls": "nm-p8-edition-set",
+          "rect": {
+            "x": 1126,
+            "y": 139,
+            "width": 1062,
+            "height": 293,
+            "top": 139,
+            "right": 2188,
+            "bottom": 432,
+            "left": 1126
+          },
+          "scrollWidth": 1067,
+          "clientWidth": 1062,
+          "text": "NexStudio\n4 listed\nApplied automatically\nFLOOR\n$19.9\nLAST SALE\n$19.1\nSUPPLY\n555\nCrier\n2 listed\nRedeemable Advantage\nFLOO"
+        },
+        {
+          "tag": "BUTTON",
+          "id": "",
+          "cls": "nm-p8-edition ",
+          "rect": {
+            "x": 1126,
+            "y": 139,
+            "width": 258,
+            "height": 293,
+            "top": 139,
+            "right": 1384,
+            "bottom": 432,
+            "left": 1126
+          },
+          "scrollWidth": 262,
+          "clientWidth": 256,
+          "text": "NexStudio\n4 listed\nApplied automatically\nFLOOR\n$19.9\nLAST SALE\n$19.1\nSUPPLY\n555"
+        },
+        {
+          "tag": "BUTTON",
+          "id": "",
+          "cls": "nm-p8-edition ",
+          "rect": {
+            "x": 1394,
+            "y": 139,
+            "width": 258,
+            "height": 293,
+            "top": 139,
+            "right": 1652,
+            "bottom": 432,
+            "left": 1394
+          },
+          "scrollWidth": 262,
+          "clientWidth": 256,
+          "text": "Crier\n2 listed\nRedeemable Advantage\nFLOOR\n$26.4\nLAST SALE\n$26.8\nSUPPLY\n250"
+        },
+        {
+          "tag": "DIV",
+          "id": "",
+          "cls": "nm-p8-edition-visual",
+          "rect": {
+            "x": 1406,
+            "y": 151,
+            "width": 234,
+            "height": 170,
+            "top": 151,
+            "right": 1640,
+            "bottom": 321,
+            "left": 1406
+          },
+          "scrollWidth": 234,
+          "clientWidth": 234,
+          "text": ""
+        },
+        {
+          "tag": "DIV",
+          "id": "nmP8Edition_crier_1",
+          "cls": "nm-p8-edition-pass",
+          "rect": {
+            "x": 1481,
+            "y": 167,
+            "width": 84,
+            "height": 138,
+            "top": 167,
+            "right": 1565,
+            "bottom": 305,
+            "left": 1481
+          },
+          "scrollWidth": 84,
+          "clientWidth": 84,
+          "text": ""
+        },
+        {
+          "tag": "DIV",
+          "id": "",
+          "cls": "nm-fast-native-pack",
+          "rect": {
+            "x": 1481,
+            "y": 167,
+            "width": 84,
+            "height": 137.75,
+            "top": 167,
+            "right": 1565,
+            "bottom": 304.75,
+            "left": 1481
+          },
+          "scrollWidth": 84,
+          "clientWidth": 84,
+          "text": ""
+        },
+        {
+          "tag": "DIV",
+          "id": "",
+          "cls": "nm-p8-edition-copy",
+          "rect": {
+            "x": 1406,
+            "y": 321,
+            "width": 234,
+            "height": 99,
+            "top": 321,
+            "right": 1640,
+            "bottom": 420,
+            "left": 1406
+          },
+          "scrollWidth": 234,
+          "clientWidth": 234,
+          "text": "Crier\n2 listed\nRedeemable Advantage\nFLOOR\n$26.4\nLAST SALE\n$26.8\nSUPPLY\n250"
+        },
+        {
+          "tag": "DIV",
+          "id": "",
+          "cls": "nm-p8-edition-title",
+          "rect": {
+            "x": 1408,
+            "y": 332,
+            "width": 230,
+            "height": 16,
+            "top": 332,
+            "right": 1638,
+            "bottom": 348,
+            "left": 1408
+          },
+          "scrollWidth": 230,
+          "clientWidth": 230,
+          "text": "Crier\n2 listed"
+        },
+        {
+          "tag": "I",
+          "id": "",
+          "cls": "",
+          "rect": {
+            "x": 1609.4375,
+            "y": 334,
+            "width": 28.5625,
+            "height": 12,
+            "top": 334,
+            "right": 1638,
+            "bottom": 346,
+            "left": 1609.4375
+          },
+          "scrollWidth": 29,
+          "clientWidth": 29,
+          "text": "2 listed"
+        },
+        {
+          "tag": "SPAN",
+          "id": "",
+          "cls": "",
+          "rect": {
+            "x": 1408,
+            "y": 352,
+            "width": 230,
+            "height": 14,
+            "top": 352,
+            "right": 1638,
+            "bottom": 366,
+            "left": 1408
+          },
+          "scrollWidth": 230,
+          "clientWidth": 230,
+          "text": "Redeemable Advantage"
+        },
+        {
+          "tag": "DIV",
+          "id": "",
+          "cls": "nm-p8-edition-meta",
+          "rect": {
+            "x": 1408,
+            "y": 377,
+            "width": 230,
+            "height": 41,
+            "top": 377,
+            "right": 1638,
+            "bottom": 418,
+            "left": 1408
+          },
+          "scrollWidth": 230,
+          "clientWidth": 230,
+          "text": "FLOOR\n$26.4\nLAST SALE\n$26.8\nSUPPLY\n250"
+        },
+        {
+          "tag": "DIV",
+          "id": "",
+          "cls": "",
+          "rect": {
+            "x": 1408,
+            "y": 388,
+            "width": 71.328125,
+            "height": 30,
+            "top": 388,
+            "right": 1479.328125,
+            "bottom": 418,
+            "left": 1408
+          },
+          "scrollWidth": 71,
+          "clientWidth": 71,
+          "text": "FLOOR\n$26.4"
+        },
+        {
+          "tag": "SMALL",
+          "id": "",
+          "cls": "",
+          "rect": {
+            "x": 1408,
+            "y": 388,
+            "width": 71.328125,
+            "height": 11,
+            "top": 388,
+            "right": 1479.328125,
+            "bottom": 399,
+            "left": 1408
+          },
+          "scrollWidth": 71,
+          "clientWidth": 71,
+          "text": "FLOOR"
+        }
+      ]
+    },
+    {
+      "surface": "authority-create",
+      "path": "/C:/Users/USER/NEXMARKETS/nexmarkets-production/NEXMARKETS_V2_BUILDER_PROFILE_ELITE.html",
+      "active": "create",
+      "title": "NexMarkets",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "documentWidth": 1440,
+      "bodyWidth": 1440,
+      "iframeCount": 0,
+      "visibleIframeCount": 0,
+      "text": "CREATE A DEBUT\nTurn something real into an Edition people can be early to.\n\nSet up the Edition, the Advantage, and the Pass. Then share a Preview before the Debut opens.\n\nDraft saved\nStage 1 of 6\n01\nProduct information\nCurrent\n02\nPass details\nUpcoming\n03\nAdvantages\nUpcoming\n04\nPass design\nUpcoming\n05\nLaunch timing\nUpcoming\n06\nPreview and publish\nUpcoming\n01 · PRODUCT\nWhat are you launching?\n\nStart with the product itself. Help people understand what it does, who it is for, and where they can see it before they consider the Pass.\n\nHOW IT APPEARS\nNexStudio\n\nTurn a brief into finished creative work in one place.\n\nAvailable\nIDENTITY\nThis is how people will see the project before they reach the Pass.\nPROJECT NAME\nUse the name people will actually encounter in Discover.\nBUILDER NAME\nBUILDER HANDLE\nOptional public handle.\nONE-LINE DESCRIPTION\nSay what the project does in one clear sentence. This appears in Discover and at the top of the project page.\nABOUT THE PROJECT\nExplain what it does, wh",
+      "overflows": [
+        {
+          "tag": "MAIN",
+          "id": "",
+          "cls": "form-stage nm-create-workspace",
+          "rect": {
+            "x": 102,
+            "y": 398.71875,
+            "width": 681.96875,
+            "height": 2269.09375,
+            "top": 398.71875,
+            "right": 783.96875,
+            "bottom": 2667.8125,
+            "left": 102
+          },
+          "scrollWidth": 706,
+          "clientWidth": 682,
+          "text": "01 · PRODUCT\nWhat are you launching?\n\nStart with the product itself. Help people understand what it does, who it is for,"
+        },
+        {
+          "tag": "DIV",
+          "id": "stageMount",
+          "cls": "",
+          "rect": {
+            "x": 102,
+            "y": 452.71875,
+            "width": 681.96875,
+            "height": 2128.09375,
+            "top": 452.71875,
+            "right": 783.96875,
+            "bottom": 2580.8125,
+            "left": 102
+          },
+          "scrollWidth": 706,
+          "clientWidth": 682,
+          "text": "01 · PRODUCT\nWhat are you launching?\n\nStart with the product itself. Help people understand what it does, who it is for,"
+        },
+        {
+          "tag": "SECTION",
+          "id": "",
+          "cls": "nm-stage-section nm-project-banner-authoring nm-reveal-item",
+          "rect": {
+            "x": 102,
+            "y": 1708.0562744140625,
+            "width": 681.96875,
+            "height": 525.7498779296875,
+            "top": 1708.0562744140625,
+            "right": 783.96875,
+            "bottom": 2233.80615234375,
+            "left": 102
+          },
+          "scrollWidth": 706,
+          "clientWidth": 682,
+          "text": "PROJECT HEADER BANNER\nUsed in Discover and at the top of the public project page.\nN\nPROJECT HEADER\nNexStudio\n\nTurn a bri"
+        },
+        {
+          "tag": "DIV",
+          "id": "",
+          "cls": "nm-stage-fields",
+          "rect": {
+            "x": 301,
+            "y": 1736.0562744140625,
+            "width": 482.96875,
+            "height": 470.7498779296875,
+            "top": 1736.0562744140625,
+            "right": 783.96875,
+            "bottom": 2206.80615234375,
+            "left": 301
+          },
+          "scrollWidth": 507,
+          "clientWidth": 483,
+          "text": "N\nPROJECT HEADER\nNexStudio\n\nTurn a brief into finished creative work in one place.\n\nUpload header banner\nOptional · 16:9"
+        },
+        {
+          "tag": "DIV",
+          "id": "",
+          "cls": "nm-project-banner  auto-banner",
+          "rect": {
+            "x": 301,
+            "y": 1736.0562744140625,
+            "width": 506.65625,
+            "height": 190,
+            "top": 1736.0562744140625,
+            "right": 807.65625,
+            "bottom": 1926.0562744140625,
+            "left": 301
+          },
+          "scrollWidth": 553,
+          "clientWidth": 507,
+          "text": "N\nPROJECT HEADER\nNexStudio\n\nTurn a brief into finished creative work in one place."
+        },
+        {
+          "tag": "DIV",
+          "id": "",
+          "cls": "nm-project-banner  auto-banner",
+          "rect": {
+            "x": 925.359375,
+            "y": 580.59375,
+            "width": 412.625,
+            "height": 260,
+            "top": 580.59375,
+            "right": 1337.984375,
+            "bottom": 840.59375,
+            "left": 925.359375
+          },
+          "scrollWidth": 451,
+          "clientWidth": 413,
+          "text": "N\nPROJECT HEADER\nNexStudio\n\nTurn a brief into finished creative work in one place."
+        }
+      ]
+    },
+    {
+      "surface": "authority-dashboard",
+      "path": "/C:/Users/USER/NEXMARKETS/nexmarkets-production/NEXMARKETS_V2_BUILDER_PROFILE_ELITE.html",
+      "active": "dashboard",
+      "title": "NexMarkets",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "documentWidth": 1440,
+      "bodyWidth": 1440,
+      "iframeCount": 0,
+      "visibleIframeCount": 0,
+      "text": "NEXMARKETS ACCOUNT\nDashboard\n\nYour Passes, your Editions, and anything that needs you.\n\nCM\n0x21B…7A19\n5 Passes · 2 Debuts\nWallet connected\nOverview\nPasses\nAdvantages\nListings\nDebuts\nBuilder profile\nEarnings\nSettings\nActivity\nPASSES OWNED\n5\n3 Editions\nADVANTAGES READY\n3\nAvailable to use\nON THE MARKET\n2\nActive listings\nEDITIONS LAUNCHED\n2\nYour Editions\nROYALTY AVAILABLE\n$12.14\nReady to withdraw\nNeeds attention\nThings that need you now\n3 Advantages included with your Passes\n\nNexStudio #021 · 40% off NexStudio · 5 months remaining\n\nView advantages\n$12.14 Builder Royalty is available\n\nAvailable to withdraw now.\n\nView earnings\nMy Passes\nAll Passes →\nNexStudio #021\n40% off NexStudio · 5 months remaining\nOwned\nEdition floor $19.9\nPASS VAULT\nETH\n0.08\nWithdraw to wallet\nView Pass\nView advantages\nDownload PNG\nCrier #104\n8 redemptions remaining\nOwned\nEdition floor $26.4\nPASS VAULT\nUSDC\n1,250\nWithdraw to wallet\nView Pass\nView advantages\nDownload PNG\nVector #044\n25% off Vector operations\nUnused\nEdit",
+      "overflows": [
+        {
+          "tag": "DIV",
+          "id": "",
+          "cls": "nm-dash-mini-pass",
+          "rect": {
+            "x": 116,
+            "y": 1559.327880859375,
+            "width": 50,
+            "height": 82,
+            "top": 1559.327880859375,
+            "right": 166,
+            "bottom": 1641.327880859375,
+            "left": 116
+          },
+          "scrollWidth": 80,
+          "clientWidth": 50,
+          "text": ""
+        },
+        {
+          "tag": "DIV",
+          "id": "",
+          "cls": "nm-dash-v5-host",
+          "rect": {
+            "x": 116,
+            "y": 1559.327880859375,
+            "width": 50,
+            "height": 82,
+            "top": 1559.327880859375,
+            "right": 166,
+            "bottom": 1641.327880859375,
+            "left": 116
+          },
+          "scrollWidth": 80,
+          "clientWidth": 50,
+          "text": ""
+        },
+        {
+          "tag": "DIV",
+          "id": "",
+          "cls": "nm-dash-mini-pass",
+          "rect": {
+            "x": 116,
+            "y": 1666.327880859375,
+            "width": 50,
+            "height": 82,
+            "top": 1666.327880859375,
+            "right": 166,
+            "bottom": 1748.327880859375,
+            "left": 116
+          },
+          "scrollWidth": 80,
+          "clientWidth": 50,
+          "text": ""
+        },
+        {
+          "tag": "DIV",
+          "id": "",
+          "cls": "nm-dash-v5-host",
+          "rect": {
+            "x": 116,
+            "y": 1666.327880859375,
+            "width": 50,
+            "height": 82,
+            "top": 1666.327880859375,
+            "right": 166,
+            "bottom": 1748.327880859375,
+            "left": 116
+          },
+          "scrollWidth": 80,
+          "clientWidth": 50,
+          "text": ""
+        },
+        {
+          "tag": "DIV",
+          "id": "",
+          "cls": "p10-earn-row",
+          "rect": {
+            "x": 114,
+            "y": 2253.390380859375,
+            "width": 589,
+            "height": 68,
+            "top": 2253.390380859375,
+            "right": 703,
+            "bottom": 2321.390380859375,
+            "left": 114
+          },
+          "scrollWidth": 628,
+          "clientWidth": 589,
+          "text": "Builder Royalty available\nReady to withdraw\n$12.14\nAvailable"
+        },
+        {
+          "tag": "DIV",
+          "id": "",
+          "cls": "p10-earn-row",
+          "rect": {
+            "x": 114,
+            "y": 2321.390380859375,
+            "width": 589,
+            "height": 68,
+            "top": 2321.390380859375,
+            "right": 703,
+            "bottom": 2389.390380859375,
+            "left": 114
+          },
+          "scrollWidth": 628,
+          "clientWidth": 589,
+          "text": "Debut proceeds\nFrom Passes sold during the Debut\n$1,880\nReceived"
+        },
+        {
+          "tag": "DIV",
+          "id": "",
+          "cls": "p10-activity-row nm-own-linkable",
+          "rect": {
+            "x": 737,
+            "y": 2253.390380859375,
+            "width": 589,
+            "height": 68,
+            "top": 2253.390380859375,
+            "right": 1326,
+            "bottom": 2321.390380859375,
+            "left": 737
+          },
+          "scrollWidth": 628,
+          "clientWidth": 589,
+          "text": "NexStudio #077 listed\nMarket · Today\n$21.40\nOwnership / Market"
+        },
+        {
+          "tag": "DIV",
+          "id": "",
+          "cls": "p10-activity-row nm-own-linkable",
+          "rect": {
+            "x": 737,
+            "y": 2321.390380859375,
+            "width": 589,
+            "height": 68,
+            "top": 2321.390380859375,
+            "right": 1326,
+            "bottom": 2389.390380859375,
+            "left": 737
+          },
+          "scrollWidth": 628,
+          "clientWidth": 589,
+          "text": "Crier #104 redemption used\nAdvantage · Today\n1 redemption\nAdvantage"
+        },
+        {
+          "tag": "DIV",
+          "id": "",
+          "cls": "p10-activity-row nm-own-linkable",
+          "rect": {
+            "x": 737,
+            "y": 2389.390380859375,
+            "width": 589,
+            "height": 68,
+            "top": 2389.390380859375,
+            "right": 1326,
+            "bottom": 2457.390380859375,
+            "left": 737
+          },
+          "scrollWidth": 628,
+          "clientWidth": 589,
+          "text": "Vector #044 bought\nMarket · Yesterday\n$29.80\nOwnership / Market"
+        },
+        {
+          "tag": "DIV",
+          "id": "",
+          "cls": "p10-activity-row",
+          "rect": {
+            "x": 737,
+            "y": 2457.390380859375,
+            "width": 589,
+            "height": 68,
+            "top": 2457.390380859375,
+            "right": 1326,
+            "bottom": 2525.390380859375,
+            "left": 737
+          },
+          "scrollWidth": 628,
+          "clientWidth": 589,
+          "text": "Builder Royalty earned\nEarnings · Yesterday\n$8.12\nEarnings"
+        }
+      ]
+    },
+    {
+      "surface": "authority-docs",
+      "path": "/C:/Users/USER/NEXMARKETS/nexmarkets-production/NEXMARKETS_V2_BUILDER_PROFILE_ELITE.html",
+      "active": "docs",
+      "title": "NexMarkets",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "documentWidth": 1440,
+      "bodyWidth": 1440,
+      "iframeCount": 0,
+      "visibleIframeCount": 0,
+      "text": "NexMarkets\nDocs\nDiscover\nTrade\nLaunch a Pass\nNEXMARKETS DOCS\nUnderstand it before you use it.\n\nPlain explanations for buying a Pass, using an Advantage, reading the Market, launching an Edition, and dealing with the wallet or network when something does not go as expected.\n\n/\nStart with what you are trying to do\nFour useful entry points\n01\nWhat NexMarkets is\nA plain explanation of the product, without assuming you already understand Passes or wallet-based buying and resale.\n02\nHow to read a Pass page before buying\nA practical checklist for deciding whether to get a Pass during a Debut.\n03\nHow to read an Exact Pass page\nThe calm trading view: ask, Edition floor, remaining Advantage, seller, listing age and real price history.\n04\nThe six Create stages\nWhat each stage asks for and why the order matters.\nSTART HERE\nWhat NexMarkets isDebut, Edition, Pass and AdvantageFrom Preview to your Dashboard\nDISCOVER AND DEBUTS\nHow Discover worksHow to read a Pass page before buyingWhat the Preview pe",
+      "overflows": []
+    },
+    {
+      "surface": "authority-faq",
+      "path": "/C:/Users/USER/NEXMARKETS/nexmarkets-production/NEXMARKETS_V2_BUILDER_PROFILE_ELITE.html",
+      "active": "faq",
+      "title": "NexMarkets",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "documentWidth": 1440,
+      "bodyWidth": 1440,
+      "iframeCount": 0,
+      "visibleIframeCount": 0,
+      "text": "NexMarkets\nFAQ\nDiscover\nTrade\nLaunch a Pass\nFAQ\nQuestions people actually ask.\n\nShorter than the Docs, but still complete enough to help you decide what to do next. If an answer needs more context, open the related Docs from the footer or product menu.\n\nThe basics\n\nThe words and rules that make everything else easier to understand.\n\nWhat is a Pass?\n+\nWhat is an Edition?\n+\nWhat is a Debut?\n+\nWhat is an Advantage?\n+\nIs a Pass an investment?\n+\nBuying and owning\n\nWhat happens before, during and after you get a Pass.\n\nHow do I buy during a Debut?\n+\nCan I choose my serial during a Debut?\n+\nWhere does my Pass appear after purchase?\n+\nCan I download the Pass?\n+\nDoes owning the Pass mean I own the Builder company or product?\n+\nAdvantages\n\nUsing the benefit, checking what remains, and understanding transfers.\n\nWhat happens when I use one redemption?\n+\nCan I use an Advantage while the Pass is listed?\n+\nWhat happens to the Advantage when I sell the Pass?\n+\nWhat is the difference between Connected ",
+      "overflows": []
+    },
+    {
+      "surface": "authority-terms",
+      "path": "/C:/Users/USER/NEXMARKETS/nexmarkets-production/NEXMARKETS_V2_BUILDER_PROFILE_ELITE.html",
+      "active": "terms",
+      "title": "NexMarkets",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "documentWidth": 1440,
+      "bodyWidth": 1440,
+      "iframeCount": 0,
+      "visibleIframeCount": 0,
+      "text": "NexMarkets\nTerms\nDiscover\nTrade\nLaunch a Pass\nTERMS OF USE\nRules written for people to read.\n\nThese Terms explain the main rules for using NexMarkets, buying and selling Passes, using Advantages, and publishing a Debut. They do not replace the specific terms of an individual Edition.\n\nCurrent working version\nUpdated 24 August 2026\nON THIS PAGE\nWhat these Terms cover\nUsing NexMarkets\nPasses, Editions and Debuts\nAdvantages\nPreviews and Edition information\nBuilder responsibilities\nHolder and buyer responsibilities\nPayment and transaction confirmation\nFees and Builder Royalty\nMarket listings and resale\nRisk and no promise of profit\nContent and intellectual property\nService availability\nChanges to these Terms\nQuestions and support\n1. What these Terms cover\n\nThese Terms apply when you use NexMarkets to browse Debuts, get or hold a Pass, use an Advantage, list or buy a Pass in the Market, create an Edition, or use the Dashboard.\n\nThey are written to be readable because the rules matter more w",
+      "overflows": []
+    }
+  ],
+  "productionRows": [
+    {
+      "surface": "production-home",
+      "path": "/",
+      "active": "home",
+      "title": "NexMarkets",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "documentWidth": 1440,
+      "bodyWidth": 1440,
+      "iframeCount": 25,
+      "visibleIframeCount": 25,
+      "text": "NEXMARKETS\nGet there early.\nOwn your place.\n\nFind promising products early. Get a limited Pass with a clear Advantage and your own serial. Use what it gives you, keep it, or sell it later when the Market opens.\n\nExplore Debuts\nCreate a Debut\nProducts you can see\nClear terms\nYour own serial\nHOW IT WORKS\nIt works in three moves.\n01\nFind a launch you like\n\nDiscover lists every Debut before it opens. You can read the product, see what the Pass includes, and check the terms while everything is still public.\n\n02\nGet a numbered Pass\n\nBuy while the Debut is open. Your serial is assigned the moment your purchase confirms, and the Pass is yours to keep or trade.\n\n03\nUse it, keep it, or sell it\n\nThe builder honours what your Pass includes, and their profile explains how to claim it. If you sell, whatever you have not used goes with the Pass.\n\nLIVE\nNexMarkets V1 Test Certification Edition · NEXMARKETS EDITION\n1 / 3 issued\nLive Debuts\n1 open now\nDISCOVER\nFind what's opening now and next.\n\nSee what’",
+      "overflows": [
+        {
+          "tag": "DIV",
+          "id": "",
+          "cls": "nm-home-inner",
+          "rect": {
+            "x": 100,
+            "y": 68,
+            "width": 1240,
+            "height": 4306.09375,
+            "top": 68,
+            "right": 1340,
+            "bottom": 4374.09375,
+            "left": 100
+          },
+          "scrollWidth": 1379,
+          "clientWidth": 1240,
+          "text": "NEXMARKETS\nGet there early.\nOwn your place.\n\nFind promising products early. Get a limited Pass with a clear Advantage an"
+        },
+        {
+          "tag": "SECTION",
+          "id": "",
+          "cls": "nm-home-hero-elite",
+          "rect": {
+            "x": 100,
+            "y": 68,
+            "width": 1240,
+            "height": 700,
+            "top": 68,
+            "right": 1340,
+            "bottom": 768,
+            "left": 100
+          },
+          "scrollWidth": 1379,
+          "clientWidth": 1240,
+          "text": "NEXMARKETS\nGet there early.\nOwn your place.\n\nFind promising products early. Get a limited Pass with a clear Advantage an"
+        },
+        {
+          "tag": "DIV",
+          "id": "nmHomePassStage",
+          "cls": "nm-home-pass-stage",
+          "rect": {
+            "x": 611.703125,
+            "y": 162.5,
+            "width": 728.296875,
+            "height": 520,
+            "top": 162.5,
+            "right": 1340,
+            "bottom": 682.5,
+            "left": 611.703125
+          },
+          "scrollWidth": 762,
+          "clientWidth": 728,
+          "text": ""
+        },
+        {
+          "tag": "DIV",
+          "id": "",
+          "cls": "nm-home-pass-object p1",
+          "rect": {
+            "x": 611.1033325195312,
+            "y": 267.84613037109375,
+            "width": 255.85174560546875,
+            "height": 384.2103271484375,
+            "top": 267.84613037109375,
+            "right": 866.955078125,
+            "bottom": 652.0564575195312,
+            "left": 611.1033325195312
+          },
+          "scrollWidth": 256,
+          "clientWidth": 223,
+          "text": ""
+        },
+        {
+          "tag": "DIV",
+          "id": "",
+          "cls": "nm-home-pass-object p2",
+          "rect": {
+            "x": 801.839111328125,
+            "y": 201.90054321289062,
+            "width": 242.355224609375,
+            "height": 389.8310241699219,
+            "top": 201.90054321289062,
+            "right": 1044.1943359375,
+            "bottom": 591.7315673828125,
+            "left": 801.839111328125
+          },
+          "scrollWidth": 270,
+          "clientWidth": 235,
+          "text": ""
+        },
+        {
+          "tag": "DIV",
+          "id": "",
+          "cls": "nm-home-pass-object p3",
+          "rect": {
+            "x": 980.53125,
+            "y": 265.1775817871094,
+            "width": 245.58349609375,
+            "height": 378.4884948730469,
+            "top": 265.1775817871094,
+            "right": 1226.11474609375,
+            "bottom": 643.6660766601562,
+            "left": 980.53125
+          },
+          "scrollWidth": 256,
+          "clientWidth": 223,
+          "text": ""
+        },
+        {
+          "tag": "DIV",
+          "id": "",
+          "cls": "nm-home-pass-object p4",
+          "rect": {
+            "x": 1117.0262451171875,
+            "y": 230.96627807617188,
+            "width": 226.5574951171875,
+            "height": 332.4263610839844,
+            "top": 230.96627807617188,
+            "right": 1343.583740234375,
+            "bottom": 563.3926391601562,
+            "left": 1117.0262451171875
+          },
+          "scrollWidth": 220,
+          "clientWidth": 190,
+          "text": ""
+        },
+        {
+          "tag": "DIV",
+          "id": "nmHomeDiscoverFeature",
+          "cls": "nm-home-discover-feature",
+          "rect": {
+            "x": 100,
+            "y": 1291.984375,
+            "width": 677.4375,
+            "height": 420,
+            "top": 1291.984375,
+            "right": 777.4375,
+            "bottom": 1711.984375,
+            "left": 100
+          },
+          "scrollWidth": 745,
+          "clientWidth": 677,
+          "text": "LIVE DEBUT\nNexMarkets V1 Test Certification Edition\n\nFinite Pass Edition · 1/3 serials issued on Robinhood.\n\nHOLDER ADVA"
+        },
+        {
+          "tag": "DIV",
+          "id": "nmHomeDiscoverPass",
+          "cls": "nm-home-feature-pass",
+          "rect": {
+            "x": 515.277099609375,
+            "y": 1310.42919921875,
+            "width": 234.44580078125,
+            "height": 387.9228515625,
+            "top": 1310.42919921875,
+            "right": 749.722900390625,
+            "bottom": 1698.35205078125,
+            "left": 515.277099609375
+          },
+          "scrollWidth": 230,
+          "clientWidth": 215,
+          "text": ""
+        },
+        {
+          "tag": "SECTION",
+          "id": "nmHomeWhyOwn",
+          "cls": "nm-home-own-section nm-home-own-refined nm-reveal-item",
+          "rect": {
+            "x": 100,
+            "y": 2409.5625,
+            "width": 1240,
+            "height": 605,
+            "top": 2409.5625,
+            "right": 1340,
+            "bottom": 3014.5625,
+            "left": 100
+          },
+          "scrollWidth": 1389,
+          "clientWidth": 1240,
+          "text": ""
+        },
+        {
+          "tag": "SECTION",
+          "id": "",
+          "cls": "nm-home-builder nm-home-builder-refined nm-reveal-item",
+          "rect": {
+            "x": 100,
+            "y": 3808.8125,
+            "width": 1240,
+            "height": 483.28125,
+            "top": 3808.8125,
+            "right": 1340,
+            "bottom": 4292.09375,
+            "left": 100
+          },
+          "scrollWidth": 1290,
+          "clientWidth": 1240,
+          "text": "FOR BUILDERS\nHave something worth being early to?\n\nDefine an Edition. Give early holders meaningful Advantages. Launch y"
+        }
+      ]
+    },
+    {
+      "surface": "production-discover",
+      "path": "/discover",
+      "active": "discover",
+      "title": "NexMarkets",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "documentWidth": 1440,
+      "bodyWidth": 1440,
+      "iframeCount": 21,
+      "visibleIframeCount": 21,
+      "text": "DISCOVER\nFind what is worth being early to.\n\nSee what is live, what opens next, and what each Pass gives you.\n\n1 project in this view\nAll\nLive\nOpening soon\nEnding soon\nAll categories\nAI\nMedia\nTools\nFinance\nAny price\nUnder $15\n$15-$20\n$20+\nAny Advantage\nApplied automatically\nRedeem in NexMarkets\nLIVE DEBUT\nNexMarkets V1 Test Certification Edition\n\nFinite Pass Edition · 1/3 serials issued on Robinhood.\n\nHOLDER ADVANTAGE\nCommitted utility · 0xaaaa…aaaa\n$1 per Pass\n3 Passes\n1 issued\nView Debut\n→\nNow & next\nUP TO DATE\nNo other projects match this view right now.\nOPENING SCHEDULE\nWhat opens next.\nPublic Previews · soonest first\nThere is not a public Preview scheduled in this view. Live Debuts remain available above.\nShow all →",
+      "overflows": []
+    },
+    {
+      "surface": "production-market",
+      "path": "/market",
+      "active": "market",
+      "title": "NexMarkets",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "documentWidth": 1440,
+      "bodyWidth": 1440,
+      "iframeCount": 3,
+      "visibleIframeCount": 3,
+      "text": "Editions trading\nChoose an Edition or browse everything\nAll listed Passes\nAll Editions\nAny price\nUnder $20\n$20-$30\n$30+\nAny status\nUnused\nActive\nPartly used\nRecently listed\nPrice low → high\nPrice high → low\nNo Passes are trading here.\n\nThere are no active secondary listings yet.\n\nDiscover Debuts",
+      "overflows": []
+    },
+    {
+      "surface": "production-create",
+      "path": "/create",
+      "active": "create",
+      "title": "NexMarkets",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "documentWidth": 1440,
+      "bodyWidth": 1440,
+      "iframeCount": 3,
+      "visibleIframeCount": 3,
+      "text": "CREATE A DEBUT\nTurn something real into an Edition people can be early to.\n\nSet up the Edition, the Advantage, and the Pass. Then share a Preview before the Debut opens.\n\nConnect to save draft\nStage 1 of 6\n01\nProduct information\nCurrent\n02\nPass details\nUpcoming\n03\nAdvantages\nUpcoming\n04\nPass design\nUpcoming\n05\nLaunch timing\nUpcoming\n06\nPreview and publish\nUpcoming\n01 · PRODUCT\nWhat are you launching?\n\nStart with the product itself. Help people understand what it does, who it is for, and where they can see it before they consider the Pass.\n\nHOW IT APPEARS\nUntitled Debut\n\nYour public one-line description will appear here as you write it.\n\nPreview\nIDENTITY\nThis is how people will see the project before they reach the Pass.\nPROJECT NAME\nUse the name people will actually encounter in Discover.\nBUILDER NAME\nBUILDER HANDLE\nOptional public handle.\nONE-LINE DESCRIPTION\nSay what the project does in one clear sentence. This appears in Discover and at the top of the project page.\nABOUT THE PROJECT",
+      "overflows": [
+        {
+          "tag": "MAIN",
+          "id": "",
+          "cls": "form-stage nm-create-workspace",
+          "rect": {
+            "x": 102,
+            "y": 398.71875,
+            "width": 681.96875,
+            "height": 2269.09375,
+            "top": 398.71875,
+            "right": 783.96875,
+            "bottom": 2667.8125,
+            "left": 102
+          },
+          "scrollWidth": 706,
+          "clientWidth": 682,
+          "text": "01 · PRODUCT\nWhat are you launching?\n\nStart with the product itself. Help people understand what it does, who it is for,"
+        },
+        {
+          "tag": "DIV",
+          "id": "stageMount",
+          "cls": "",
+          "rect": {
+            "x": 102,
+            "y": 452.71875,
+            "width": 681.96875,
+            "height": 2128.09375,
+            "top": 452.71875,
+            "right": 783.96875,
+            "bottom": 2580.8125,
+            "left": 102
+          },
+          "scrollWidth": 706,
+          "clientWidth": 682,
+          "text": "01 · PRODUCT\nWhat are you launching?\n\nStart with the product itself. Help people understand what it does, who it is for,"
+        },
+        {
+          "tag": "SECTION",
+          "id": "",
+          "cls": "nm-stage-section nm-project-banner-authoring nm-reveal-item",
+          "rect": {
+            "x": 102,
+            "y": 1708.0625,
+            "width": 681.96875,
+            "height": 525.75,
+            "top": 1708.0625,
+            "right": 783.96875,
+            "bottom": 2233.8125,
+            "left": 102
+          },
+          "scrollWidth": 706,
+          "clientWidth": 682,
+          "text": "PROJECT HEADER BANNER\nUsed in Discover and at the top of the public project page.\nN\nPROJECT HEADER\nUntitled Debut\n\nYour "
+        },
+        {
+          "tag": "DIV",
+          "id": "",
+          "cls": "nm-stage-fields",
+          "rect": {
+            "x": 301,
+            "y": 1736.0625,
+            "width": 482.96875,
+            "height": 470.75,
+            "top": 1736.0625,
+            "right": 783.96875,
+            "bottom": 2206.8125,
+            "left": 301
+          },
+          "scrollWidth": 507,
+          "clientWidth": 483,
+          "text": "N\nPROJECT HEADER\nUntitled Debut\n\nYour project description will appear here.\n\nUpload header banner\nOptional · 16:9 · 1600"
+        },
+        {
+          "tag": "DIV",
+          "id": "",
+          "cls": "nm-project-banner  auto-banner",
+          "rect": {
+            "x": 301,
+            "y": 1736.0625,
+            "width": 506.65625,
+            "height": 190,
+            "top": 1736.0625,
+            "right": 807.65625,
+            "bottom": 1926.0625,
+            "left": 301
+          },
+          "scrollWidth": 552,
+          "clientWidth": 507,
+          "text": "N\nPROJECT HEADER\nUntitled Debut\n\nYour project description will appear here."
+        },
+        {
+          "tag": "DIV",
+          "id": "",
+          "cls": "nm-project-banner  auto-banner",
+          "rect": {
+            "x": 925.359375,
+            "y": 580.59375,
+            "width": 412.625,
+            "height": 260,
+            "top": 580.59375,
+            "right": 1337.984375,
+            "bottom": 840.59375,
+            "left": 925.359375
+          },
+          "scrollWidth": 451,
+          "clientWidth": 413,
+          "text": "N\nPROJECT HEADER\nUntitled Debut\n\nYour project description will appear here."
+        }
+      ]
+    },
+    {
+      "surface": "production-dashboard",
+      "path": "/dashboard/holder",
+      "active": "dashboard",
+      "title": "NexMarkets",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "documentWidth": 1440,
+      "bodyWidth": 1440,
+      "iframeCount": 3,
+      "visibleIframeCount": 3,
+      "text": "NEXMARKETS ACCOUNT\nDashboard\n\nYour Passes, your Editions, and anything that needs you.\n\n--\nConnect wallet\n0 Passes\nConnect wallet\nOverview\nSettings\nActivity\nPASSES OWNED\n0\n0 Editions\nADVANTAGES READY\n0\nNothing waiting\nON THE MARKET\n0\nNothing listed\nEDITIONS LAUNCHED\n0\nHolder only\nROYALTY AVAILABLE\n$0\nNothing available\nYou’re all set to start.\n\nYou don’t own a Pass or have a published Edition yet.\n\nDiscover Passes Create a Debut",
+      "overflows": []
+    },
+    {
+      "surface": "production-docs",
+      "path": "/docs",
+      "active": "docs",
+      "title": "NexMarkets",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "documentWidth": 1440,
+      "bodyWidth": 1440,
+      "iframeCount": 3,
+      "visibleIframeCount": 3,
+      "text": "NexMarkets\nDocs\nDiscover\nTrade\nLaunch a Pass\nNEXMARKETS DOCS\nUnderstand it before you use it.\n\nPlain explanations for buying a Pass, using an Advantage, reading the Market, launching an Edition, and dealing with the wallet or network when something does not go as expected.\n\n/\nStart with what you are trying to do\nFour useful entry points\n01\nWhat NexMarkets is\nA plain explanation of the product, without assuming you already understand Passes or wallet-based buying and resale.\n02\nHow to read a Pass page before buying\nA practical checklist for deciding whether to get a Pass during a Debut.\n03\nHow to read an Exact Pass page\nThe calm trading view: ask, Edition floor, remaining Advantage, seller, listing age and real price history.\n04\nThe six Create stages\nWhat each stage asks for and why the order matters.\nSTART HERE\nWhat NexMarkets isDebut, Edition, Pass and AdvantageFrom Preview to your Dashboard\nDISCOVER AND DEBUTS\nHow Discover worksHow to read a Pass page before buyingWhat the Preview pe",
+      "overflows": []
+    },
+    {
+      "surface": "production-faq",
+      "path": "/faq",
+      "active": "faq",
+      "title": "NexMarkets",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "documentWidth": 1440,
+      "bodyWidth": 1440,
+      "iframeCount": 3,
+      "visibleIframeCount": 3,
+      "text": "NexMarkets\nFAQ\nDiscover\nTrade\nLaunch a Pass\nFAQ\nQuestions people actually ask.\n\nShorter than the Docs, but still complete enough to help you decide what to do next. If an answer needs more context, open the related Docs from the footer or product menu.\n\nThe basics\n\nThe words and rules that make everything else easier to understand.\n\nWhat is a Pass?\n+\nWhat is an Edition?\n+\nWhat is a Debut?\n+\nWhat is an Advantage?\n+\nIs a Pass an investment?\n+\nBuying and owning\n\nWhat happens before, during and after you get a Pass.\n\nHow do I buy during a Debut?\n+\nCan I choose my serial during a Debut?\n+\nWhere does my Pass appear after purchase?\n+\nCan I download the Pass?\n+\nDoes owning the Pass mean I own the Builder company or product?\n+\nAdvantages\n\nUsing the benefit, checking what remains, and understanding transfers.\n\nWhat happens when I use one redemption?\n+\nCan I use an Advantage while the Pass is listed?\n+\nWhat happens to the Advantage when I sell the Pass?\n+\nWhat is the difference between Connected ",
+      "overflows": []
+    },
+    {
+      "surface": "production-terms",
+      "path": "/terms",
+      "active": "terms",
+      "title": "NexMarkets",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "documentWidth": 1440,
+      "bodyWidth": 1440,
+      "iframeCount": 3,
+      "visibleIframeCount": 3,
+      "text": "NexMarkets\nTerms\nDiscover\nTrade\nLaunch a Pass\nTERMS OF USE\nRules written for people to read.\n\nThese Terms explain the main rules for using NexMarkets, buying and selling Passes, using Advantages, and publishing a Debut. They do not replace the specific terms of an individual Edition.\n\nCurrent working version\nUpdated 24 August 2026\nON THIS PAGE\nWhat these Terms cover\nUsing NexMarkets\nPasses, Editions and Debuts\nAdvantages\nPreviews and Edition information\nBuilder responsibilities\nHolder and buyer responsibilities\nPayment and transaction confirmation\nFees and Builder Royalty\nMarket listings and resale\nRisk and no promise of profit\nContent and intellectual property\nService availability\nChanges to these Terms\nQuestions and support\n1. What these Terms cover\n\nThese Terms apply when you use NexMarkets to browse Debuts, get or hold a Pass, use an Advantage, list or buy a Pass in the Market, create an Edition, or use the Dashboard.\n\nThey are written to be readable because the rules matter more w",
+      "overflows": []
+    }
+  ],
+  "errors": []
+}

@@ -1,12 +1,14 @@
 import { readFile, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { productionReadinessFromEnv } from '../packages/config/src/production-readiness.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const deploymentPath = resolve(root, 'deployments/robinhood-testnet.v1-deployment.json');
 const releasePath = resolve(root, 'deployments/MAINNET_RELEASE_CANDIDATE.json');
 const editionPath = resolve(root, 'artifacts/testnet-certification/edition.json');
 const outputPath = resolve(root, 'apps/web/public/config.json');
+const productionReadiness = productionReadinessFromEnv(process.env);
 
 const deployment = JSON.parse(await readFile(deploymentPath, 'utf8'));
 const release = JSON.parse(await readFile(releasePath, 'utf8'));
@@ -42,8 +44,9 @@ const config = {
   rpcUrl: 'https://rpc.testnet.chain.robinhood.com',
   explorer: 'https://explorer.testnet.chain.robinhood.com',
   settlementToken: requireAddress(deployment.mockUsdg.address, 'mockUsdg'),
-  settlementSymbol: 'USDG',
+  settlementSymbol: 'MockUSDG',
   settlementDecimals: 6,
+  settlement: { address: deployment.mockUsdg.address, symbol: 'MockUSDG', decimals: 6, mock: true, testnetOnly: true },
   seaport16: requireAddress(deployment.primitives.seaport16.address, 'seaport16'),
   protocolAdminSafe: requireAddress(deployment.protocolAdminSafe.address, 'protocolAdminSafe'),
   contracts,
@@ -61,7 +64,8 @@ const config = {
   },
   testnetOnly: true,
   runtimeReady: true,
-  productionReady: false
+  productionReadiness,
+  productionReady: productionReadiness.productionReady
 };
 
 await writeFile(outputPath, `${JSON.stringify(config, null, 2)}\n`);

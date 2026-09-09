@@ -38,9 +38,9 @@ test('wallet auth is signed, chain/domain bound, single-use, and revocable', asy
 test('mutations enforce CSRF, idempotency, owner session, and no server key custody', async (t) => {
   const { server, base } = await running(); t.after(() => server.close());
   const auth = await authenticate(base, Wallet.createRandom());
-  const missingCsrf = await fetch(`${base}/v1/builder/projects`, { method: 'POST', headers: { cookie: auth.cookie, 'content-type': 'application/json', origin: 'https://nexmarkets.fun' }, body: JSON.stringify({ slug: 'my-project', name: 'My Project' }) });
+  const missingCsrf = await fetch(`${base}/v1/builder/projects`, { method: 'POST', headers: { cookie: auth.cookie, 'content-type': 'application/json', origin: 'https://nexmarkets.fun' }, body: JSON.stringify({ slug: 'my-project', name: 'My Project', intent: 'DRAFT' }) });
   assert.equal(missingCsrf.status, 403);
-  const project = await fetch(`${base}/v1/builder/projects`, { method: 'POST', headers: { cookie: auth.cookie, 'x-csrf-token': auth.verified.csrfToken, 'content-type': 'application/json', origin: 'https://nexmarkets.fun' }, body: JSON.stringify({ slug: 'my-project', name: 'My Project' }) });
+  const project = await fetch(`${base}/v1/builder/projects`, { method: 'POST', headers: { cookie: auth.cookie, 'x-csrf-token': auth.verified.csrfToken, 'content-type': 'application/json', origin: 'https://nexmarkets.fun' }, body: JSON.stringify({ slug: 'my-project', name: 'My Project', intent: 'DRAFT' }) });
   assert.equal(project.status, 201);
   const headers = { cookie: auth.cookie, 'x-csrf-token': auth.verified.csrfToken, 'idempotency-key': 'mint-1', 'content-type': 'application/json', origin: 'https://nexmarkets.fun' };
   const to = '0x7777777777777777777777777777777777777777'; const calldata = id('mint((address,bytes32,address,uint256,bytes32,address,(bytes32,uint8,uint64,uint64,uint256,bytes32)[]))').slice(0, 10);
@@ -74,21 +74,17 @@ test('wallet reports transaction lifecycle idempotently without treating a hash 
   const tracked = await status.json(); assert.equal(tracked.data.state, 'SUBMITTED'); assert.notEqual(tracked.data.state, 'CONFIRMED');
 });
 
-test('Builder Edition creation is a Safe workflow and Terms commitments are exact', async (t) => {
-  const safe = '0x9999999999999999999999999999999999999999'; const builder = Wallet.createRandom(); const factory = '0x7777777777777777777777777777777777777777'; const edition = predictEditionAddress({ factoryAddress: factory, name: 'Safe Edition', symbol: 'SAFE', initialOwner: safe, editionId: `0x${'11'.repeat(32)}`, absoluteSupplyCap: 10, artworkCommitment: `0x${'12'.repeat(32)}`, baseTokenURI: 'https://example.test/metadata/', salt: `0x${'13'.repeat(32)}` }); const txHash = `0x${'22'.repeat(32)}`; const safeTxHash = `0x${'33'.repeat(32)}`;
-  const safeInterface = new Interface(['event ExecutionSuccess(bytes32 indexed txHash,uint256 payment)']); const factoryInterface = new Interface(['event EditionCreated(address indexed edition,bytes32 indexed editionId,address indexed publisher,bytes32 salt,address protocolAdmin,address mintController,uint32 absoluteSupplyCap,bytes32 artworkCommitment)']);
-  const safeLog = safeInterface.encodeEventLog(safeInterface.getEvent('ExecutionSuccess'), [safeTxHash, 0]); const factoryLog = factoryInterface.encodeEventLog(factoryInterface.getEvent('EditionCreated'), [edition, `0x${'11'.repeat(32)}`, builder.address, `0x${'13'.repeat(32)}`, safe, '0x8888888888888888888888888888888888888888', 10, `0x${'12'.repeat(32)}`]);
-  const chain = { async getTransactionReceipt() { return { status: '0x1', blockNumber: '0x10', blockHash: `0x${'44'.repeat(32)}`, logs: [{ address: safe, ...safeLog }, { address: factory, ...factoryLog }] }; }, async getTransactionByHash() { return { to: safe, from: builder.address, input: '0x' }; } };
-  const { server, base } = await running({ chain, orderPolicy: { protocolAdminSafe: safe, transactionTargets: { MINT: '0x8888888888888888888888888888888888888888', EDITION_CREATE: factory, TERMS_PUBLISH: '0x8888888888888888888888888888888888888888' } } }); t.after(() => server.close());
-  const auth = await authenticate(base, builder); const headers = { cookie: auth.cookie, 'x-csrf-token': auth.verified.csrfToken, 'content-type': 'application/json', origin: 'https://nexmarkets.fun' };
-  const project = await fetch(`${base}/v1/builder/projects`, { method: 'POST', headers: { ...headers, 'idempotency-key': 'project-safe' }, body: JSON.stringify({ slug: `safe-${Date.now()}`, name: 'Safe Edition' }) }); const projectRow = await project.json();
-  const requestResponse = await fetch(`${base}/v1/editions/prepare`, { method: 'POST', headers: { ...headers, 'idempotency-key': 'edition-safe' }, body: JSON.stringify({ projectId: projectRow.data.id, name: 'Safe Edition', symbol: 'SAFE', editionId: `0x${'11'.repeat(32)}`, initialOwner: safe, absoluteSupplyCap: 10, artworkCommitment: `0x${'12'.repeat(32)}`, baseTokenURI: 'https://example.test/metadata/', publisher: builder.address, salt: `0x${'13'.repeat(32)}` }) });
-  assert.equal(requestResponse.status, 201); const request = await requestResponse.json(); assert.equal(request.walletMustSign, false); assert.equal(request.safeRequired, true); assert.equal(request.request.safeStatus, 'SAFE_PENDING');
-  const submitted = await fetch(`${base}/v1/edition-requests/${request.request.id}/safe-submit`, { method: 'POST', headers, body: JSON.stringify({ txHash, safeTransactionHash: safeTxHash }) }); assert.equal(submitted.status, 200); assert.equal((await submitted.json()).data.safeStatus, 'SUBMITTED');
-  const other = await authenticate(base, Wallet.createRandom()); const crossAccount = await fetch(`${base}/v1/editions/prepare`, { method: 'POST', headers: { cookie: other.cookie, 'x-csrf-token': other.verified.csrfToken, 'content-type': 'application/json', origin: 'https://nexmarkets.fun', 'idempotency-key': 'cross-account-edition' }, body: JSON.stringify({ projectId: projectRow.data.id, name: 'Wrong Builder', symbol: 'WRONG', editionId: `0x${'55'.repeat(32)}`, initialOwner: safe, absoluteSupplyCap: 10, artworkCommitment: `0x${'56'.repeat(32)}`, baseTokenURI: 'https://example.test/metadata/', publisher: builder.address, salt: `0x${'57'.repeat(32)}` }) }); assert.equal(crossAccount.status, 400);
+test('Edition creation has no API or Safe approval workflow', async (t) => {
+  const { server, base } = await running(); t.after(() => server.close());
+  const builder = Wallet.createRandom(); const auth = await authenticate(base, builder);
+  const headers = { cookie: auth.cookie, 'x-csrf-token': auth.verified.csrfToken, 'content-type': 'application/json', origin: 'https://nexmarkets.fun', 'idempotency-key': 'permissionless-edition' };
+  const prepare = await fetch(`${base}/v1/editions/prepare`, { method: 'POST', headers, body: '{}' });
+  const evidence = await fetch(`${base}/v1/edition-requests/legacy/safe-submit`, { method: 'POST', headers, body: '{}' });
+  assert.equal(prepare.status, 404);
+  assert.equal(evidence.status, 404);
 });
 
-test('Factory Safe evidence prediction binds the complete Edition config', () => {
+test('Factory CREATE2 prediction binds the complete Edition config', () => {
   const base = { factoryAddress: '0x7777777777777777777777777777777777777777', name: 'Edition', symbol: 'ED', initialOwner: '0x9999999999999999999999999999999999999999', editionId: `0x${'11'.repeat(32)}`, absoluteSupplyCap: 10, artworkCommitment: `0x${'12'.repeat(32)}`, baseTokenURI: 'https://example.test/metadata/', salt: `0x${'13'.repeat(32)}` };
   const predicted = predictEditionAddress(base);
   assert.notEqual(predicted, predictEditionAddress({ ...base, name: 'Altered Edition' }));
@@ -128,9 +124,16 @@ test('/readyz uses Goldsky Subgraph indexed progress against the RPC head', asyn
 test('API selects Base Sepolia by network header and does not serve Robinhood projections', async (t) => {
   const networkConfigs = createNetworkConfigs({});
   assert.equal(networkConfigs['base-sepolia'].orderPolicy.usdg.toLowerCase(), '0x036cbd53842c5426634e7929541ec2318f3dcf7e');
-  assert.equal(networkConfigs['base-sepolia'].orderPolicy.transactionTargets.MINT, '0x38Ca185Bd179989bFCAa05aF61B0de837B8FcB97');
+  assert.equal(networkConfigs['base-sepolia'].orderPolicy.transactionTargets.MINT, '0xe68Fc831a441eeA79865A890a279514C8C797677');
   assert.equal(networkConfigs['base-mainnet'].orderPolicy.transactionTargets.MINT, undefined);
-  const { server, base } = await running({ chainId: 46630, networkConfigs }); t.after(() => server.close());
+  const isolatedNetworkConfigs = {
+    ...networkConfigs,
+    'base-sepolia': {
+      ...networkConfigs['base-sepolia'],
+      subgraph: { enabled: true, async discover() { return []; } }
+    }
+  };
+  const { server, base } = await running({ chainId: 46630, networkConfigs: isolatedNetworkConfigs }); t.after(() => server.close());
   const challenge = await fetch(`${base}/v1/auth/challenge`, { method: 'POST', headers: { 'content-type': 'application/json', 'x-nex-network': 'base-sepolia', origin: 'https://nexmarkets.fun' }, body: JSON.stringify({ address: Wallet.createRandom().address }) });
   assert.equal(challenge.status, 201);
   assert.equal((await challenge.json()).chainId, 84532);

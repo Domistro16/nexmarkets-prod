@@ -46,13 +46,14 @@ contract MintAdvantageIntegrationTest is Test {
         NexPassEdition.EditionConfig memory config = NexPassEdition.EditionConfig({
             name: "Integrated Pass",
             symbol: "NEXINT",
-            initialOwner: address(this),
+            initialOwner: PUBLISHER,
             editionId: keccak256("integrated:edition"),
             absoluteSupplyCap: 10,
             artworkCommitment: keccak256("integrated:art"),
             baseTokenURI: "ipfs://integrated/"
         });
-        edition = NexPassEdition(factory.createEdition(config, PUBLISHER, keccak256("integrated:salt")));
+        vm.prank(PUBLISHER);
+        edition = NexPassEdition(factory.createEdition(config, keccak256("integrated:salt")));
 
         advantageRegistry = new NexAdvantageRegistry(address(this), launchRegistry);
         initializer =
@@ -192,14 +193,14 @@ contract MintAdvantageIntegrationTest is Test {
         NexPassEdition.EditionConfig memory config = NexPassEdition.EditionConfig({
             name: "Unwired",
             symbol: "UNWIRED",
-            initialOwner: address(this),
+            initialOwner: PUBLISHER,
             editionId: keccak256("unwired"),
             absoluteSupplyCap: 1,
             artworkCommitment: keccak256("unwired:art"),
             baseTokenURI: "ipfs://unwired/"
         });
-        NexPassEdition freshEdition =
-            NexPassEdition(freshFactory.createEdition(config, PUBLISHER, keccak256("unwired:salt")));
+        vm.prank(PUBLISHER);
+        NexPassEdition freshEdition = NexPassEdition(freshFactory.createEdition(config, keccak256("unwired:salt")));
         NexAdvantageRegistry.AdvantageConfig[] memory configs = _configs("unwired", 1);
         uint64 preview = uint64(block.timestamp);
         uint64 mintStart = preview + 1 days;

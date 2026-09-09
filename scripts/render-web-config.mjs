@@ -1,9 +1,11 @@
 import { readFile, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { productionReadinessFromEnv } from '../packages/config/src/production-readiness.mjs';
 
 const root = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const outputPath = resolve(root, 'apps/web/public/config.json');
+const productionReadiness = productionReadinessFromEnv(process.env);
 
 async function readJson(path, fallback = null) {
   try { return JSON.parse(await readFile(resolve(root, path), 'utf8')); } catch { return fallback; }
@@ -35,24 +37,29 @@ function contractsFromDeployment(deployment) {
 const deployment = await readJson('deployments/robinhood-testnet.v1-deployment.json');
 const release = await readJson('deployments/MAINNET_RELEASE_CANDIDATE.json', {});
 const editionEvidence = await readJson('artifacts/testnet-certification/edition.json', {});
-const current = await readJson('apps/web/public/config.json', {});
-const { networks: _oldNetworks, defaultNetwork: _oldDefaultNetwork, availableNetworks: _oldAvailableNetworks, ...currentFlat } = current;
 const rhTestnet = {
-  ...currentFlat,
   network: 'robinhood-testnet',
   displayName: 'Robinhood',
   family: 'robinhood',
+  name: 'Robinhood Chain Testnet',
   chainId: 46630,
-  rpcUrl: current.rpcUrl || 'https://rpc.testnet.chain.robinhood.com',
-  explorer: current.explorer || 'https://explorer.testnet.chain.robinhood.com'
+  rpcUrl: 'https://rpc.testnet.chain.robinhood.com',
+  explorer: 'https://explorer.testnet.chain.robinhood.com',
+  nativeGasToken: 'ETH',
+  testnetOnly: true,
+  wethSettlementAllowed: false,
+  baseAllowed: false
 };
+rhTestnet.productionReadiness = productionReadiness;
+rhTestnet.productionReady = productionReadiness.productionReady;
 if (deployment?.network === 'robinhood-testnet') {
   const subgraph = release.goldsky?.testnetSubgraph;
   if (!subgraph?.graphqlEndpoint) throw new Error('TESTNET_CONFIG_SUBGRAPH_REQUIRED');
   rhTestnet.contracts = contractsFromDeployment(deployment);
   rhTestnet.settlementToken = requireAddress(deployment.mockUsdg?.address ?? deployment.mockUsdg, 'robinhoodTestnet.settlementToken');
-  rhTestnet.settlementSymbol = 'USDG';
+  rhTestnet.settlementSymbol = 'MockUSDG';
   rhTestnet.settlementDecimals = 6;
+  rhTestnet.settlement = { address: rhTestnet.settlementToken, symbol: 'MockUSDG', decimals: 6, mock: true, testnetOnly: true };
   rhTestnet.protocolAdminSafe = requireAddress(deployment.protocolAdminSafe?.address ?? deployment.protocolAdminSafe, 'robinhoodTestnet.protocolAdminSafe');
   rhTestnet.seaport16 = requireAddress(deployment.primitives?.seaport16?.address, 'robinhoodTestnet.seaport16');
   rhTestnet.subgraph = { name: subgraph.name, endpoint: subgraph.graphqlEndpoint, startBlock: subgraph.startBlock, deploymentHash: subgraph.deploymentHash };
@@ -67,9 +74,10 @@ if (deployment?.network === 'robinhood-testnet') {
 const baseManifest = await readJson('deployments/base-sepolia.bootstrap.json');
 const baseDeployment = await readJson('deployments/base-sepolia.v1-deployment.json');
 const baseContracts = contractsFromDeployment(baseDeployment);
+if (!baseDeployment?.subgraph?.endpoint || baseDeployment.subgraph.name !== 'nexmarkets-v1-base-sepolia/1.0.1') throw new Error('BASE_SEPOLIA_SUBGRAPH_REQUIRED');
 const base = {
   network: 'base-sepolia',
-  displayName: 'Base',
+  displayName: 'Base Sepolia',
   family: 'base',
   name: 'Base Sepolia',
   chainId: 84532,
@@ -78,20 +86,22 @@ const base = {
   settlementToken: baseManifest.primitives.usdc.address,
   settlementSymbol: 'USDC',
   settlementDecimals: 6,
+  settlement: { address: baseManifest.primitives.usdc.address, symbol: 'USDC', decimals: 6, mock: false, testnetOnly: true },
   seaport16: baseManifest.primitives.seaport16.address,
   protocolAdminSafe: baseDeployment?.protocolAdminSafe?.address ?? baseDeployment?.protocolAdminSafe ?? null,
   contracts: baseContracts,
-  subgraph: baseDeployment?.subgraph ?? null,
+  subgraph: baseDeployment.subgraph,
   certificationEdition: baseDeployment?.certificationEdition ?? null,
   testnetOnly: true,
   runtimeReady: Boolean(baseDeployment?.runtimeReady),
-  productionReady: false
+  productionReadiness,
+  productionReady: productionReadiness.productionReady
 };
 
 const config = {
-  defaultNetwork: 'robinhood-testnet',
-  availableNetworks: ['robinhood-testnet', 'base-sepolia'],
-  ...rhTestnet,
+  defaultNetwork: 'base-sepolia',
+  availableNetworks: ['base-sepolia', 'robinhood-testnet'],
+  ...base,
   networks: { 'robinhood-testnet': rhTestnet, 'base-sepolia': base }
 };
 await writeFile(outputPath, `${JSON.stringify(config, null, 2)}\n`);

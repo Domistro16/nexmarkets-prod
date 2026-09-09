@@ -4,7 +4,6 @@ import {
   Interface,
   JsonRpcProvider,
   Wallet,
-  ZeroAddress,
   getAddress,
   keccak256,
   toUtf8Bytes
@@ -21,7 +20,6 @@ const provider = new JsonRpcProvider(rpcUrl, chainId, { staticNetwork: true });
 if ((await provider.getNetwork()).chainId !== chainId) throw new Error('TESTNET_CHAIN_ID_MISMATCH');
 const signer = new Wallet(privateKey, provider);
 const publisher = await signer.getAddress();
-const safeAddress = getAddress(plan.governance.safe);
 const factoryAddress = getAddress(plan.contracts.NexPassFactory.address);
 const registryAddress = getAddress(plan.contracts.NexLaunchRegistry.address);
 const advantageAddress = getAddress(plan.contracts.NexAdvantageRegistry.address);
@@ -34,23 +32,13 @@ if (broadcast && process.env.TESTNET_CERTIFICATION_CONFIRM !== 'I_UNDERSTAND_THI
 }
 
 const factory = new Contract(factoryAddress, [
-  'function owner() view returns(address)',
   'function predictEditionAddress((string name,string symbol,address initialOwner,bytes32 editionId,uint32 absoluteSupplyCap,bytes32 artworkCommitment,string baseTokenURI),bytes32) view returns(address)',
-  'event EditionCreated(address indexed edition,bytes32 indexed editionId,address indexed publisher,bytes32 salt,address protocolAdmin,address mintController,uint32 absoluteSupplyCap,bytes32 artworkCommitment)'
+  'event EditionCreated(address indexed edition,bytes32 indexed editionId,address indexed publisher,bytes32 salt,address editionOwner,address mintController,uint32 absoluteSupplyCap,bytes32 artworkCommitment)'
 ], provider);
-const safeAbi = [
-  'function getOwners() view returns(address[])',
-  'function getThreshold() view returns(uint256)',
-  'function nonce() view returns(uint256)',
-  'function getTransactionHash(address,uint256,bytes,uint8,uint256,uint256,uint256,address,address,uint256) view returns(bytes32)',
-  'function execTransaction(address,uint256,bytes,uint8,uint256,uint256,uint256,address,address,bytes) payable returns(bool)'
-];
-const safe = new Contract(safeAddress, safeAbi, provider);
-const safeInterface = new Interface(safeAbi);
 const certification = {
   name: 'NexMarkets V1 Test Certification Edition',
   symbol: 'NEXTEST',
-  initialOwner: safeAddress,
+  initialOwner: publisher,
   editionId: keccak256(toUtf8Bytes('NEXMARKETS_TEST_CERTIFICATION_EDITION_2026_08_20')),
   absoluteSupplyCap: 3,
   artworkCommitment: keccak256(toUtf8Bytes('NEXMARKETS_TEST_CERTIFICATION_ARTWORK_V1')),
@@ -58,20 +46,16 @@ const certification = {
   salt: keccak256(toUtf8Bytes('NEXMARKETS_TEST_CERTIFICATION_EDITION_SALT_2026_08_20')),
   publisher
 };
-const factoryInterface = new Interface(['function createEdition((string name,string symbol,address initialOwner,bytes32 editionId,uint32 absoluteSupplyCap,bytes32 artworkCommitment,string baseTokenURI),address publisher,bytes32 salt) returns(address)']);
+const factoryInterface = new Interface(['function createEdition((string name,string symbol,address initialOwner,bytes32 editionId,uint32 absoluteSupplyCap,bytes32 artworkCommitment,string baseTokenURI),bytes32 salt) returns(address)']);
 
 if (phase === 'create') {
-  if (await factory.owner() !== safeAddress) throw new Error('TEST_FACTORY_OWNER_MISMATCH');
   const predicted = getAddress(await factory.predictEditionAddress(certification, certification.salt));
   const existing = await provider.getCode(predicted);
   if (existing !== '0x') throw new Error(`TEST_EDITION_ADDRESS_OCCUPIED ${predicted}`);
-  const data = factoryInterface.encodeFunctionData('createEdition', [certification, publisher, certification.salt]);
-  const nonce = BigInt(await safe.nonce());
-  const safeTxHash = await safe.getTransactionHash(factoryAddress, 0n, data, 0, 0n, 0n, 0n, ZeroAddress, ZeroAddress, nonce);
-  const record = { schemaVersion: 1, network, chainId: Number(chainId), testOnly: true, phase, publisher, safe: safeAddress, factory: factoryAddress, certification, predictedEditionAddress: predicted, safeNonce: nonce.toString(), safeTxHash, status: broadcast ? 'SUBMITTED' : 'DRY_RUN_ONLY', txHash: null, blockNumber: null, terms: null };
+  const data = factoryInterface.encodeFunctionData('createEdition', [certification, certification.salt]);
+  const record = { schemaVersion: 2, network, chainId: Number(chainId), testOnly: true, phase, creator: publisher, publisher, factory: factoryAddress, certification, predictedEditionAddress: predicted, status: broadcast ? 'SUBMITTED' : 'DRY_RUN_ONLY', txHash: null, blockNumber: null, terms: null };
   if (broadcast) {
-    const signature = signer.signingKey.sign(safeTxHash).serialized;
-    const tx = await safe.connect(signer).execTransaction(factoryAddress, 0n, data, 0, 0n, 0n, 0n, ZeroAddress, ZeroAddress, signature);
+    const tx = await signer.sendTransaction({ to: factoryAddress, data });
     const receipt = await tx.wait();
     if (!receipt || receipt.status !== 1) throw new Error(`TEST_EDITION_CREATION_REVERTED ${tx.hash}`);
     const code = await provider.getCode(predicted);

@@ -6,7 +6,7 @@ const required = [
   'listing_projection','listing_event','signed_seaport_order','royalty_claim_projection','referral_account','referral_attribution',
   'referral_settlement','notification','outbox_event','audit_log','indexer_event','indexer_checkpoint',
   'reconciliation_run','reconciliation_incident','media_asset','serial_artwork','goldsky_raw_log','goldsky_chain_watermark','seaport_fulfillment_projection','terms_advantage_commitment',
-  'builder_profile','builder_follow','project_watchlist','builder_milestone'
+  'builder_profile','builder_follow','project_watchlist','builder_milestone','builder','builder_membership','primary_sale_accounting'
 ];
 const files = (await readdir(new URL('../infra/schema/', import.meta.url))).filter((name) => name.endsWith('.sql')).sort();
 const sql = (await Promise.all(files.map((name) => readFile(new URL(`../infra/schema/${name}`, import.meta.url), 'utf8')))).join('\n');

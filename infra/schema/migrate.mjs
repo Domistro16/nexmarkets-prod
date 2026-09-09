@@ -6,8 +6,8 @@ import pg from 'pg';
 
 const schemaDir = path.dirname(fileURLToPath(import.meta.url));
 
-export async function applyMigrations({ connectionString = process.env.DATABASE_URL, pool } = {}) {
-  if (!pool && !connectionString) throw new Error('DATABASE_URL is required');
+export async function applyMigrations({ connectionString = process.env.DIRECT_URL || process.env.DATABASE_URL, pool, upTo = null } = {}) {
+  if (!pool && !connectionString) throw new Error('DIRECT_URL or DATABASE_URL is required');
   const ownedPool = pool ?? new pg.Pool({ connectionString, max: 2, application_name: 'nexmarkets-migrate' });
   const client = await ownedPool.connect();
   try {
@@ -15,7 +15,8 @@ export async function applyMigrations({ connectionString = process.env.DATABASE_
     await client.query(`CREATE TABLE IF NOT EXISTS schema_migration (
       version text PRIMARY KEY, sha256 text NOT NULL, applied_at timestamptz NOT NULL DEFAULT now()
     )`);
-    const files = (await readdir(schemaDir)).filter((name) => /^\d+.*\.sql$/.test(name)).sort();
+    const allFiles = (await readdir(schemaDir)).filter((name) => /^\d+.*\.sql$/.test(name)).sort();
+    const files = upTo ? allFiles.filter((name) => name <= upTo) : allFiles;
     for (const file of files) {
       const sql = await readFile(path.join(schemaDir, file), 'utf8');
       const sha256 = createHash('sha256').update(sql.replaceAll('\r\n', '\n')).digest('hex');

@@ -1,0 +1,136 @@
+ M .env.example
+ M .github/workflows/ci.yml
+ M README.md
+ M SHA256SUMS
+ M api-src/_server.js
+ M api/readyz.js
+ M api/v1/[...slug].js
+ M apps/api/api/readyz.js
+ M apps/api/api/v1/[...slug].js
+ M apps/api/public/app.mjs
+ M apps/api/public/config.json
+ M apps/api/public/index.html
+ M apps/api/public/v2-app.mjs
+ M apps/api/public/wallet.mjs
+ M apps/api/src/memory-store.mjs
+ M apps/api/src/server.mjs
+ M apps/web/api/readyz.js
+ M apps/web/api/v1/[...slug].js
+ M apps/web/public/app.mjs
+ M apps/web/public/config.json
+ M apps/web/public/index.html
+ M apps/web/public/v2-app.mjs
+ M apps/web/public/wallet.mjs
+ M deployments/base-mainnet.bootstrap.json
+ M deployments/base-sepolia.bootstrap.json
+ M deployments/base-sepolia.v1-deployment.json
+ M deployments/robinhood-mainnet.bootstrap.json
+ M deployments/robinhood-testnet.bootstrap.json
+ M docs/API_V1.md
+ M docs/BASE_ROLLOUT.md
+ M docs/PRIMARY_LAUNCH_TRIO.md
+ M docs/authority/product-authority.json
+ M infra/schema/migrate.mjs
+ M package.json
+ M packages/config/src/deployment-manifest.mjs
+ M packages/config/src/index.mjs
+ M packages/config/src/networks.mjs
+ M packages/contracts/README.md
+ M packages/contracts/src/NexLaunchRegistry.sol
+ M packages/contracts/src/NexPassEdition.sol
+ M packages/contracts/src/NexPassFactory.sol
+ M packages/contracts/test/MintAdvantageIntegration.t.sol
+ M packages/contracts/test/NexAdvantageRegistry.t.sol
+ M packages/contracts/test/NexListingRegistry.t.sol
+ M packages/contracts/test/NexTBAResolver.t.sol
+ M packages/contracts/test/PrimaryLaunchTrio.t.sol
+ M packages/data/src/postgres-store.mjs
+ M packages/domain/src/index.mjs
+ M packages/domain/src/launch-draft.mjs
+ M packages/domain/src/media-provenance.mjs
+ M packages/domain/src/transaction-calldata.mjs
+ M packages/subgraph-client/src/index.mjs
+ M public/app.mjs
+ M public/config.json
+ M public/index.html
+ M public/v2-app.mjs
+ M public/wallet.mjs
+ M scripts/build-v1-safe-bundles.mjs
+ M scripts/build-web.mjs
+ M scripts/execute-safe-bundle.mjs
+ M scripts/render-web-config.mjs
+ M scripts/render-web-testnet-config.mjs
+ M scripts/serve-web-testnet.mjs
+ M scripts/testnet-certification-edition.mjs
+ M scripts/verify-product-authority.mjs
+ M scripts/verify-schema.mjs
+ M services/indexer/src/run.mjs
+ M services/indexer/src/runtime.mjs
+ M services/worker/src/chain-lifecycle.mjs
+ M subgraph/abis/NexLaunchRegistry.json
+ M subgraph/abis/NexPassFactory.json
+ M subgraph/package.json
+ M subgraph/schema.graphql
+ M subgraph/src/mapping.ts
+ M subgraph/subgraph.yaml
+ M test/api-auth.test.mjs
+ M test/api-create-draft.test.mjs
+ M test/api-social.test.mjs
+ M test/browser-local.integration.test.mjs
+ M test/browser/webapp.acceptance.spec.mjs
+ M test/deployment-source.test.mjs
+ M test/playwright.config.mjs
+ M test/runtime-integration.test.mjs
+ M test/web-e2e.test.mjs
+ M test/web.test.mjs
+?? .tools/
+?? NEXMARKETS_V2_BUILDER_PROFILE_ELITE.html
+?? apps/api/public/nm-v2-data-bridge.js
+?? apps/api/src/object-storage.mjs
+?? apps/web/public/nm-v2-data-bridge.js
+?? artifacts/handoff/
+?? artifacts/subgraph/
+?? artifacts/testnet-certification/final-live-chain-negative.json
+?? artifacts/verification/
+?? deployments/base-sepolia.v1-deployment.legacy-safe.json
+?? infra/schema/0005_permissionless_editions.sql
+?? infra/schema/0006_builder_questions.sql
+?? infra/schema/0007_media_upload_verification.sql
+?? infra/schema/0008_builder_identities_and_primary_accounting.sql
+?? infra/schema/0009_multi_builder_secondary_relationships.sql
+?? packages/config/src/production-readiness.mjs
+?? packages/domain/src/pass-design.mjs
+?? packages/domain/src/pass-renderer.mjs
+?? packages/domain/src/primary-accounting.mjs
+?? public/nm-v2-data-bridge.js
+?? scratch/
+?? scripts/audit-accessibility.mjs
+?? scripts/audit-security-negative.mjs
+?? scripts/cleanup-final-live-duplicate-project.mjs
+?? scripts/configure-r2-cors.mjs
+?? scripts/finalize-base-sepolia-deployment.mjs
+?? scripts/inspect-base-sepolia-runtime.mjs
+?? scripts/inspect-final-live-state.mjs
+?? scripts/measure-performance.mjs
+?? scripts/preflight-final-live-certification.mjs
+?? scripts/render-base-sepolia-subgraph.mjs
+?? scripts/repair-local-pooler-credential.mjs
+?? scripts/run-final-live-builder-preview.mjs
+?? scripts/run-final-live-builder-profile.mjs
+?? scripts/run-final-live-chain-negative.mjs
+?? scripts/run-postgres-tests.mjs
+?? scripts/verify-database-migration.mjs
+?? scripts/verify-live-storage-roundtrip.mjs
+?? scripts/verify-payment-token-config.mjs
+?? scripts/verify-testnet-certification.mjs
+?? subgraph/subgraph.base-sepolia.yaml
+?? test/api-edition-link.test.mjs
+?? test/api-project-content-join.test.mjs
+?? test/authority-convergence.test.mjs
+?? test/multi-builder.test.mjs
+?? test/object-storage.test.mjs
+?? test/pass-design.test.mjs
+?? test/pass-renderer.test.mjs
+?? test/payment-token-config.test.mjs
+?? test/primary-accounting.test.mjs
+?? test/production-readiness.test.mjs

@@ -91,7 +91,7 @@ contract NexPassEdition is ERC721, ERC2981, Ownable, Pausable, ReentrancyGuard {
     }
 
     /// @notice Set the controller once, after the edition and controller are deployed.
-    /// @dev The Protocol Admin Safe owns this handoff in production.
+    /// @dev The Factory owns the Edition only long enough to perform this handoff atomically.
     function setMintController(address controller) external onlyOwner {
         if (controller == address(0)) revert MintControllerRequired();
         if (mintController != address(0)) revert MintControllerAlreadySet();

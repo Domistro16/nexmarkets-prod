@@ -1,0 +1,147 @@
+On branch main
+Your branch is up to date with 'origin/main'.
+
+Changes not staged for commit:
+  (use "git add <file>..." to update what will be committed)
+  (use "git restore <file>..." to discard changes in working directory)
+	modified:   .env.example
+	modified:   .github/workflows/ci.yml
+	modified:   README.md
+	modified:   SHA256SUMS
+	modified:   api-src/_server.js
+	modified:   api/readyz.js
+	modified:   api/v1/[...slug].js
+	modified:   apps/api/api/readyz.js
+	modified:   apps/api/api/v1/[...slug].js
+	modified:   apps/api/public/app.mjs
+	modified:   apps/api/public/config.json
+	modified:   apps/api/public/index.html
+	modified:   apps/api/public/v2-app.mjs
+	modified:   apps/api/public/wallet.mjs
+	modified:   apps/api/src/memory-store.mjs
+	modified:   apps/api/src/server.mjs
+	modified:   apps/web/api/readyz.js
+	modified:   apps/web/api/v1/[...slug].js
+	modified:   apps/web/public/app.mjs
+	modified:   apps/web/public/config.json
+	modified:   apps/web/public/index.html
+	modified:   apps/web/public/v2-app.mjs
+	modified:   apps/web/public/wallet.mjs
+	modified:   deployments/base-mainnet.bootstrap.json
+	modified:   deployments/base-sepolia.bootstrap.json
+	modified:   deployments/base-sepolia.v1-deployment.json
+	modified:   deployments/robinhood-mainnet.bootstrap.json
+	modified:   deployments/robinhood-testnet.bootstrap.json
+	modified:   docs/API_V1.md
+	modified:   docs/BASE_ROLLOUT.md
+	modified:   docs/PRIMARY_LAUNCH_TRIO.md
+	modified:   docs/authority/product-authority.json
+	modified:   infra/schema/migrate.mjs
+	modified:   package.json
+	modified:   packages/config/src/deployment-manifest.mjs
+	modified:   packages/config/src/index.mjs
+	modified:   packages/config/src/networks.mjs
+	modified:   packages/contracts/README.md
+	modified:   packages/contracts/src/NexLaunchRegistry.sol
+	modified:   packages/contracts/src/NexPassEdition.sol
+	modified:   packages/contracts/src/NexPassFactory.sol
+	modified:   packages/contracts/test/MintAdvantageIntegration.t.sol
+	modified:   packages/contracts/test/NexAdvantageRegistry.t.sol
+	modified:   packages/contracts/test/NexListingRegistry.t.sol
+	modified:   packages/contracts/test/NexTBAResolver.t.sol
+	modified:   packages/contracts/test/PrimaryLaunchTrio.t.sol
+	modified:   packages/data/src/postgres-store.mjs
+	modified:   packages/domain/src/index.mjs
+	modified:   packages/domain/src/launch-draft.mjs
+	modified:   packages/domain/src/media-provenance.mjs
+	modified:   packages/domain/src/transaction-calldata.mjs
+	modified:   packages/subgraph-client/src/index.mjs
+	modified:   public/app.mjs
+	modified:   public/config.json
+	modified:   public/index.html
+	modified:   public/v2-app.mjs
+	modified:   public/wallet.mjs
+	modified:   scripts/build-v1-safe-bundles.mjs
+	modified:   scripts/build-web.mjs
+	modified:   scripts/execute-safe-bundle.mjs
+	modified:   scripts/render-web-config.mjs
+	modified:   scripts/render-web-testnet-config.mjs
+	modified:   scripts/serve-web-testnet.mjs
+	modified:   scripts/testnet-certification-edition.mjs
+	modified:   scripts/verify-product-authority.mjs
+	modified:   scripts/verify-schema.mjs
+	modified:   services/indexer/src/run.mjs
+	modified:   services/indexer/src/runtime.mjs
+	modified:   services/worker/src/chain-lifecycle.mjs
+	modified:   subgraph/abis/NexLaunchRegistry.json
+	modified:   subgraph/abis/NexPassFactory.json
+	modified:   subgraph/package.json
+	modified:   subgraph/schema.graphql
+	modified:   subgraph/src/mapping.ts
+	modified:   subgraph/subgraph.yaml
+	modified:   test/api-auth.test.mjs
+	modified:   test/api-create-draft.test.mjs
+	modified:   test/api-social.test.mjs
+	modified:   test/browser-local.integration.test.mjs
+	modified:   test/browser/webapp.acceptance.spec.mjs
+	modified:   test/deployment-source.test.mjs
+	modified:   test/playwright.config.mjs
+	modified:   test/runtime-integration.test.mjs
+	modified:   test/web-e2e.test.mjs
+	modified:   test/web.test.mjs
+
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+	.tools/
+	NEXMARKETS_V2_BUILDER_PROFILE_ELITE.html
+	apps/api/public/nm-v2-data-bridge.js
+	apps/api/src/object-storage.mjs
+	apps/web/public/nm-v2-data-bridge.js
+	artifacts/handoff/
+	artifacts/subgraph/
+	artifacts/testnet-certification/final-live-chain-negative.json
+	artifacts/verification/
+	deployments/base-sepolia.v1-deployment.legacy-safe.json
+	infra/schema/0005_permissionless_editions.sql
+	infra/schema/0006_builder_questions.sql
+	infra/schema/0007_media_upload_verification.sql
+	infra/schema/0008_builder_identities_and_primary_accounting.sql
+	infra/schema/0009_multi_builder_secondary_relationships.sql
+	packages/config/src/production-readiness.mjs
+	packages/domain/src/pass-design.mjs
+	packages/domain/src/pass-renderer.mjs
+	packages/domain/src/primary-accounting.mjs
+	public/nm-v2-data-bridge.js
+	scratch/
+	scripts/audit-accessibility.mjs
+	scripts/audit-security-negative.mjs
+	scripts/cleanup-final-live-duplicate-project.mjs
+	scripts/configure-r2-cors.mjs
+	scripts/finalize-base-sepolia-deployment.mjs
+	scripts/inspect-base-sepolia-runtime.mjs
+	scripts/inspect-final-live-state.mjs
+	scripts/measure-performance.mjs
+	scripts/preflight-final-live-certification.mjs
+	scripts/render-base-sepolia-subgraph.mjs
+	scripts/repair-local-pooler-credential.mjs
+	scripts/run-final-live-builder-preview.mjs
+	scripts/run-final-live-builder-profile.mjs
+	scripts/run-final-live-chain-negative.mjs
+	scripts/run-postgres-tests.mjs
+	scripts/verify-database-migration.mjs
+	scripts/verify-live-storage-roundtrip.mjs
+	scripts/verify-payment-token-config.mjs
+	scripts/verify-testnet-certification.mjs
+	subgraph/subgraph.base-sepolia.yaml
+	test/api-edition-link.test.mjs
+	test/api-project-content-join.test.mjs
+	test/authority-convergence.test.mjs
+	test/multi-builder.test.mjs
+	test/object-storage.test.mjs
+	test/pass-design.test.mjs
+	test/pass-renderer.test.mjs
+	test/payment-token-config.test.mjs
+	test/primary-accounting.test.mjs
+	test/production-readiness.test.mjs
+
+no changes added to commit (use "git add" and/or "git commit -a")

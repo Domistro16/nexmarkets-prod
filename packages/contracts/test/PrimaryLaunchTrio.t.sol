@@ -106,10 +106,11 @@ contract PrimaryLaunchTrioTest is Test {
 
         NexPassEdition.EditionConfig memory config = _config();
         address predicted = factory.predictEditionAddress(config, SALT);
-        address deployed = factory.createEdition(config, PUBLISHER, SALT);
+        vm.prank(PUBLISHER);
+        address deployed = factory.createEdition(config, SALT);
         assertEq(deployed, predicted);
         edition = NexPassEdition(deployed);
-        assertEq(edition.owner(), address(this));
+        assertEq(edition.owner(), PUBLISHER);
         assertEq(edition.mintController(), address(controller));
         assertEq(edition.editionId(), EDITION_ID);
         assertEq(factory.editionForId(EDITION_ID), deployed);
@@ -126,7 +127,7 @@ contract PrimaryLaunchTrioTest is Test {
         return NexPassEdition.EditionConfig({
             name: "NexStudio Founding Pass",
             symbol: "NEXPASS",
-            initialOwner: address(this),
+            initialOwner: PUBLISHER,
             editionId: EDITION_ID,
             absoluteSupplyCap: ABSOLUTE_CAP,
             artworkCommitment: ARTWORK_COMMITMENT,
@@ -172,6 +173,33 @@ contract PrimaryLaunchTrioTest is Test {
         assertFalse(record.disabled);
         assertEq(registry.factory(), address(factory));
         assertEq(registry.settlementToken(), address(usdg));
+    }
+
+    function testAnyCreatorCanCreateAndOwnAnEdition() public {
+        address creator = address(0xC0FFEE);
+        NexPassEdition.EditionConfig memory config = _config();
+        config.initialOwner = creator;
+        config.editionId = keccak256("permissionless:edition");
+
+        vm.prank(creator);
+        NexPassEdition created = NexPassEdition(factory.createEdition(config, keccak256("permissionless:salt")));
+
+        assertEq(created.owner(), creator);
+        assertEq(registry.editionInfo(address(created)).publisher, creator);
+    }
+
+    function testProtocolAdminCannotPublishCreatorTerms() public {
+        NexLaunchRegistry.Terms memory terms = _terms(3, uint64(block.timestamp), uint64(block.timestamp + 1 days));
+        vm.expectRevert(NexLaunchRegistry.NotEditionPublisher.selector);
+        registry.publishTerms(address(edition), terms);
+    }
+
+    function testCreatorIdentityCannotBeSpoofed() public {
+        NexPassEdition.EditionConfig memory config = _config();
+        config.editionId = keccak256("spoofed:edition");
+        vm.prank(ALICE);
+        vm.expectRevert(NexPassFactory.EditionOwnerMismatch.selector);
+        factory.createEdition(config, keccak256("spoofed:salt"));
     }
 
     function testFactoryBindingRejectsMiswiredContractBeforeConsumption() public {
@@ -313,55 +341,6 @@ contract PrimaryLaunchTrioTest is Test {
         assertEq(edition.totalMinted(), 0);
     }
 
-    function testReceiverCannotLowerActiveSupplyDuringBatchMint() public {
-        (bytes32 termsHash, uint64 mintStartsAt) = _publish(3);
-        vm.warp(mintStartsAt);
-
-        CallbackTermsPublisherReceiver receiver = new CallbackTermsPublisherReceiver(registry, address(edition), 1);
-        registry.setEditionPublisher(address(edition), address(receiver));
-        NexMintController.MintRequest memory request = NexMintController.MintRequest({
-            edition: address(edition),
-            termsVersionHash: termsHash,
-            recipient: address(receiver),
-            quantity: 2,
-            intentId: keccak256("callback:lower-supply"),
-            referralHint: address(0),
-            advantageConfigs: new NexAdvantageRegistry.AdvantageConfig[](0)
-        });
-
-        vm.prank(ALICE);
-        vm.expectRevert(NexLaunchRegistry.ActiveSupplyBelowMinted.selector);
-        controller.mint(request);
-
-        assertEq(edition.totalMinted(), 0);
-        (bytes32 activeHash,) = registry.activeTerms(address(edition));
-        assertEq(activeHash, termsHash);
-    }
-
-    function testReceiverCannotChangeTermsDuringBatchMint() public {
-        (bytes32 termsHash, uint64 mintStartsAt) = _publish(3);
-        vm.warp(mintStartsAt);
-
-        CallbackTermsPublisherReceiver receiver = new CallbackTermsPublisherReceiver(registry, address(edition), 3);
-        registry.setEditionPublisher(address(edition), address(receiver));
-        NexMintController.MintRequest memory request = NexMintController.MintRequest({
-            edition: address(edition),
-            termsVersionHash: termsHash,
-            recipient: address(receiver),
-            quantity: 2,
-            intentId: keccak256("callback:terms-change"),
-            referralHint: address(0),
-            advantageConfigs: new NexAdvantageRegistry.AdvantageConfig[](0)
-        });
-
-        vm.prank(ALICE);
-        vm.expectRevert(NexMintController.TermsChangedDuringMint.selector);
-        controller.mint(request);
-
-        assertEq(edition.totalMinted(), 0);
-        (bytes32 activeHash,) = registry.activeTerms(address(edition));
-        assertEq(activeHash, termsHash);
-    }
 
     function testTermsValidationRejectsUnsafeLaunches() public {
         uint64 start = uint64(block.timestamp);

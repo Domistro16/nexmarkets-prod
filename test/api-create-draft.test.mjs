@@ -80,7 +80,7 @@ function fullDraftFixture(overrides = {}) {
         },
         supportUrl: 'https://debut.example/support',
         banner: {
-          src: 'data:image/svg+xml;base64,PHN2Zz48L3N2Zz4=',
+          src: 'https://assets.example.test/debut-banner.svg',
           palette: ['#5f6f50', '#30483d', '#111512'],
           logoPosition: 'tl'
         },
@@ -124,7 +124,8 @@ function fullDraftFixture(overrides = {}) {
         afterPlatformFee: 2422.5
       },
       design: {
-        passDesign: 'modern',
+        passDesign: 'pack-metal',
+        packOption: 'pack-metal',
         themeMode: 'custom',
         color: '#4a2c0a',
         customColor: '#7a3f12',
@@ -132,14 +133,14 @@ function fullDraftFixture(overrides = {}) {
         gradientA: '#4a2c0a',
         gradientB: '#0a1830',
         gradientDirection: 'diagonal',
-        frame: 'titanium',
+        frame: 'obsidian',
         frameHueCustomized: true,
         frameColor: '#74849d',
-        texture: 'grain',
+        texture: 'none',
         textureTint: '#9b9b94',
-        logoSrc: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+        logoSrc: 'https://assets.example.test/debut-logo.png',
         artMode: 'single',
-        artSrc: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+        artSrc: 'https://assets.example.test/debut-art.png',
         artEdition: [],
         artEditionView: 'serials',
         selectedSerialIndex: 2,
@@ -190,7 +191,7 @@ test('Full API round-trip test proving every Create field is persisted in projec
   assert.ok(project.id.startsWith('prj_'));
   assert.equal(project.slug, fixture.slug);
   assert.equal(project.name, 'Debut Test Project');
-  assert.equal(project.status, 'DRAFT');
+  assert.equal(project.status, 'PUBLISHED');
 
   const content = project.content;
   assert.ok(content, 'Project content must be persisted');
@@ -238,7 +239,8 @@ test('Full API round-trip test proving every Create field is persisted in projec
   assert.equal(content.economics.afterPlatformFee, 2422.5);
 
   // Verify Design atelier settings
-  assert.equal(content.design.passDesign, 'modern');
+  assert.equal(content.design.passDesign, 'pack-metal');
+  assert.equal(content.design.packOption, 'pack-metal');
   assert.equal(content.design.themeMode, 'custom');
   assert.equal(content.design.color, '#4a2c0a');
   assert.equal(content.design.customColor, '#7a3f12');
@@ -246,10 +248,10 @@ test('Full API round-trip test proving every Create field is persisted in projec
   assert.equal(content.design.gradientA, '#4a2c0a');
   assert.equal(content.design.gradientB, '#0a1830');
   assert.equal(content.design.gradientDirection, 'diagonal');
-  assert.equal(content.design.frame, 'titanium');
+  assert.equal(content.design.frame, 'obsidian');
   assert.equal(content.design.frameHueCustomized, true);
   assert.equal(content.design.frameColor, '#74849d');
-  assert.equal(content.design.texture, 'grain');
+  assert.equal(content.design.texture, 'none');
   assert.equal(content.design.artMode, 'single');
   assert.equal(content.design.artEditionView, 'serials');
   assert.equal(content.design.selectedSerialIndex, 2);
@@ -265,8 +267,8 @@ test('Full API round-trip test proving every Create field is persisted in projec
   assert.equal(content.review.advantages, true);
   assert.equal(content.review.preview, true);
 
-  // Verify draft remains DRAFT on server
-  assert.equal(content.status, 'DRAFT');
+  // The Create action publishes the off-chain presentation immediately.
+  assert.equal(content.status, 'PUBLISHED');
 
   // Verify Builder dashboard lists the saved draft
   const dashRes = await fetch(`${base}/v1/builder/dashboard`, {
@@ -276,7 +278,7 @@ test('Full API round-trip test proving every Create field is persisted in projec
   const dash = await dashRes.json();
   const listed = dash.data.projects.find((p) => p.slug === fixture.slug);
   assert.ok(listed, 'Project draft must appear in builder dashboard');
-  assert.equal(listed.status, 'DRAFT');
+  assert.equal(listed.status, 'PUBLISHED');
 });
 
 test('Create draft preserves the selected Base network in normalized content', () => {
@@ -373,7 +375,7 @@ test('Cross-account project isolation: another builder cannot overwrite an exist
       'content-type': 'application/json',
       origin: 'https://nexmarkets.fun'
     },
-    body: JSON.stringify({ slug: sharedSlug, name: 'Original Builder Project' })
+    body: JSON.stringify({ slug: sharedSlug, name: 'Original Builder Project', intent: 'DRAFT' })
   });
   assert.equal(res1.status, 201);
 
@@ -386,11 +388,40 @@ test('Cross-account project isolation: another builder cannot overwrite an exist
       'content-type': 'application/json',
       origin: 'https://nexmarkets.fun'
     },
-    body: JSON.stringify({ slug: sharedSlug, name: 'Attacker Attempt' })
+    body: JSON.stringify({ slug: sharedSlug, name: 'Attacker Attempt', intent: 'DRAFT' })
   });
   assert.equal(res2.status, 409);
   const err = await res2.json();
   assert.equal(err.error.code, 'SLUG_ALREADY_TAKEN');
+});
+
+test('server-backed Create draft autosave survives refresh and remains idempotent', async (t) => {
+  const { server, base, store } = await running();
+  t.after(() => server.close());
+  const wallet = Wallet.createRandom();
+  const auth = await authenticate(base, wallet);
+  const draftId = `draft-autosave-${Date.now()}`;
+  const first = await fetch(`${base}/v1/builder/drafts`, {
+    method: 'POST',
+    headers: { cookie: auth.cookie, 'x-csrf-token': auth.csrf, 'content-type': 'application/json', origin: 'https://nexmarkets.fun' },
+    body: JSON.stringify({ draftId, slug: '', name: '', launchDraft: { draftId, project: { name: '', desc: '' }, design: { randomPassMode: true, randomPassSeed: 'stable-seed' } } })
+  });
+  assert.equal(first.status, 200);
+  const firstProject = (await first.json()).data;
+  assert.equal(firstProject.status, 'DRAFT');
+  assert.equal(firstProject.content.draftId, draftId);
+  assert.equal(firstProject.content.design.randomPassSeed, 'stable-seed');
+
+  const second = await fetch(`${base}/v1/builder/drafts/${encodeURIComponent(draftId)}`, {
+    method: 'PUT',
+    headers: { cookie: auth.cookie, 'x-csrf-token': auth.csrf, 'content-type': 'application/json', origin: 'https://nexmarkets.fun' },
+    body: JSON.stringify({ draftId, launchDraft: { draftId, project: { name: 'Recovered draft', desc: 'A server-backed draft recovered after a browser refresh.' } } })
+  });
+  assert.equal(second.status, 200);
+  const secondProject = (await second.json()).data;
+  assert.equal(secondProject.id, firstProject.id);
+  assert.equal(secondProject.name, 'Recovered draft');
+  assert.equal((await store.builderDashboard(firstProject.builderAccountId)).projects.length, 1);
 });
 
 test('Server-side Create validation fails closed on invalid inputs', async (t) => {
@@ -466,6 +497,13 @@ test('Server-side Create validation fails closed on invalid inputs', async (t) =
   const badDesign = fullDraftFixture();
   badDesign.launchDraft.design.passDesign = 'hologram_laser';
   assert.equal((await send(badDesign)).status, 400);
+
+  for (const retired of ['modern', 'metal', 'chroma', 'chromatic']) {
+    const retiredDesign = fullDraftFixture();
+    retiredDesign.launchDraft.design.passDesign = retired;
+    delete retiredDesign.launchDraft.design.packOption;
+    assert.equal((await send(retiredDesign)).status, 400, `${retired} must not migrate to an approved option`);
+  }
 });
 
 test('Artwork metadata and serial mapping preservation', async (t) => {
@@ -483,9 +521,9 @@ test('Artwork metadata and serial mapping preservation', async (t) => {
   const shaC = 'c'.repeat(64);
 
   fixture.launchDraft.design.artEdition = [
-    { serial: 1, filename: 'pass_001.png', title: 'Cyber 01', sha256: shaA, traits: { background: 'Gold' }, assetKey: 'key-1' },
-    { serial: 2, filename: 'pass_002.png', title: 'Cyber 02', sha256: shaB, traits: { background: 'Silver' }, assetKey: 'key-2' },
-    { serial: 3, filename: 'pass_003.png', title: 'Cyber 03', sha256: shaC, traits: { background: 'Bronze' }, assetKey: 'key-3' }
+    { serial: 1, filename: 'pass_001.png', title: 'Cyber 01', sha256: shaA, traits: { background: 'Gold' }, assetKey: 'key-1', url: 'https://assets.example.test/pass-001.png' },
+    { serial: 2, filename: 'pass_002.png', title: 'Cyber 02', sha256: shaB, traits: { background: 'Silver' }, assetKey: 'key-2', url: 'https://assets.example.test/pass-002.png' },
+    { serial: 3, filename: 'pass_003.png', title: 'Cyber 03', sha256: shaC, traits: { background: 'Bronze' }, assetKey: 'key-3', url: 'https://assets.example.test/pass-003.png' }
   ];
 
   const res = await fetch(`${base}/v1/builder/projects`, {

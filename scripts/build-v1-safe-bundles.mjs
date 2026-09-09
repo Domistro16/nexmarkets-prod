@@ -4,10 +4,12 @@ import { Interface } from 'ethers';
 const root = new URL('../', import.meta.url);
 const requestedNetwork = process.argv.find((arg) => arg.startsWith('--network='))?.slice('--network='.length);
 const network = requestedNetwork ?? (process.argv.includes('--mainnet') ? 'robinhood-mainnet' : 'robinhood-testnet');
+const allowUnfrozenTestnet = process.argv.includes('--allow-unfrozen-testnet');
 if (!['robinhood-mainnet', 'robinhood-testnet', 'base-mainnet', 'base-sepolia'].includes(network)) throw new Error(`UNSUPPORTED_DEPLOYMENT_NETWORK ${network}`);
 const plan = JSON.parse(await readFile(new URL(`artifacts/deployment-plan/${network}.json`, root), 'utf8'));
-if (plan.status !== 'DRY_RUN_ONLY' || plan.mainnetDeploymentPerformed !== false) throw new Error('unsafe or malformed deployment plan');
-if (plan.sourceVerification?.mode !== 'FROZEN_SOURCE_COMMIT' || !/^[0-9a-f]{40}$/i.test(plan.sourceCommit ?? '')) {
+const unfrozenTestnet = allowUnfrozenTestnet && ['base-sepolia', 'robinhood-testnet'].includes(network) && plan.status === 'UNFROZEN_DEV_PLAN' && plan.sourceVerification?.mode === 'UNFROZEN_DEV_PLAN';
+if ((!unfrozenTestnet && plan.status !== 'DRY_RUN_ONLY') || plan.mainnetDeploymentPerformed !== false) throw new Error('unsafe or malformed deployment plan');
+if ((!unfrozenTestnet && plan.sourceVerification?.mode !== 'FROZEN_SOURCE_COMMIT') || !/^[0-9a-f]{40}$/i.test(plan.sourceCommit ?? '')) {
   throw new Error('SAFE_BUNDLE_SOURCE_COMMIT_REQUIRED');
 }
 

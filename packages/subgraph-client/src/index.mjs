@@ -95,7 +95,7 @@ export class SubgraphClient {
   }
 
   async editionByAddress(address) {
-    const data = await this.query(`query($address:Bytes!,$editionId:ID!){ editions(where:{address:$address}){ id address editionId publisher protocolAdmin mintController absoluteSupplyCap artworkCommitment totalMinted disabled currentTerms { id hash version activeSupply pricePerPass previewStartsAt mintStartsAt mintEndsAt primaryRecipient royaltyReceiver royaltyBps advantagesHash referralTermsHash blockNumber timestamp transactionHash } terms(orderBy:version,orderDirection:desc){ id hash version activeSupply pricePerPass previewStartsAt mintStartsAt mintEndsAt primaryRecipient royaltyReceiver royaltyBps advantagesHash referralTermsHash } } advantageDefinitions(where:{edition:$editionId}){ termsHash advantageId kind startsAt endsAt totalUnits definitionHash } }`, { address: lower(address), editionId: lower(address) });
+    const data = await this.query(`query($address:Bytes!,$editionId:ID!){ editions(where:{address:$address}){ id address editionId publisher mintController absoluteSupplyCap artworkCommitment totalMinted disabled currentTerms { id hash version activeSupply pricePerPass previewStartsAt mintStartsAt mintEndsAt primaryRecipient royaltyReceiver royaltyBps advantagesHash referralTermsHash blockNumber timestamp transactionHash } terms(orderBy:version,orderDirection:desc){ id hash version activeSupply pricePerPass previewStartsAt mintStartsAt mintEndsAt primaryRecipient royaltyReceiver royaltyBps advantagesHash referralTermsHash } } advantageDefinitions(where:{edition:$editionId}){ termsHash advantageId kind startsAt endsAt totalUnits definitionHash } }`, { address: lower(address), editionId: lower(address) });
     const edition = data.editions?.[0];
     if (!edition) return null;
     const normalizedAddress = lower(edition.address);
@@ -124,7 +124,6 @@ export class SubgraphClient {
       editionId: lower(edition.editionId),
       edition_id: lower(edition.editionId),
       publisher: lower(edition.publisher),
-      protocolAdmin: lower(edition.protocolAdmin),
       mintController: lower(edition.mintController),
       artworkCommitment: lower(edition.artworkCommitment),
       absolute_supply_cap: edition.absoluteSupplyCap,

@@ -12,12 +12,33 @@ const outputs = [
   new URL('./dist/', root),
   new URL('./public/', root)
 ];
+const authoritySource = new URL('./NEXMARKETS_V2_BUILDER_PROFILE_ELITE.html', root);
+const authorityBodyClose = '</body>';
+const authorityHtmlSource = await readFile(authoritySource, 'utf8');
+const fixtureMode = process.env.NEXMARKETS_FIXTURE_MODE === 'true';
+const authorityWithMode = authorityHtmlSource.replace(
+  /(<body\b[^>]*>)/i,
+  `$1<script id="nm-fixture-mode">globalThis.__NEXMARKETS_FIXTURE_MODE__=${fixtureMode ? 'true' : 'false'};</script>`
+);
+const authorityWithVerification = authorityWithMode.replace(
+  /(<head\b[^>]*>)/i,
+  `$1\n<meta name="base:app_id" content="6aa1dbf93ee3d6b47f7f0528" />`
+);
+const authorityCloseIndex = authorityWithVerification.lastIndexOf(authorityBodyClose);
+if (authorityCloseIndex < 0) throw new Error('Approved V2 authority is missing a closing body tag');
+const authorityHtml = `${authorityWithVerification.slice(0, authorityCloseIndex)}\n<link rel="stylesheet" href="/rainbowkit-bridge.css">\n<style id="nm-v2-hydration-style">html.nm-v2-loading body{visibility:hidden}html.nm-v2-ready body{visibility:visible}</style>\n<script>document.documentElement.classList.add('nm-v2-loading');</script>\n<script id="nm-v2-data-bridge" src="/nm-v2-data-bridge.js"></script>\n<script type="module" src="/v2-app.mjs"></script>\n${authorityWithVerification.slice(authorityCloseIndex)}`;
+
+// Keep the checked-in web entrypoint identical to the authority used for
+// generated deployments. This prevents local/source serving from drifting
+// back to the retired shell while dist/ is on the approved experience.
+await writeFile(new URL('index.html', source), authorityHtml, 'utf8');
 
 for (const output of outputs) {
   try {
     await rm(output, { recursive: true, force: true });
     await mkdir(output, { recursive: true });
     await cp(source, output, { recursive: true });
+    await writeFile(new URL('index.html', output), authorityHtml, 'utf8');
   } catch {}
 }
 
@@ -89,8 +110,8 @@ try {
 
 const app = await readFile(new URL('./apps/web/public/app.mjs', root), 'utf8');
 const v2App = await readFile(new URL('./apps/web/public/v2-app.mjs', root), 'utf8');
-const template = await readFile(new URL('./apps/web/public/index.html', root), 'utf8');
-const routes = ['/discover','/projects/','/editions/','/market','/create','/dashboard/holder','/dashboard/builder','/passes/','/transactions/','/edition-requests/'];
+const template = authorityHtml;
+const routes = ['/discover','/projects/','/editions/','/market','/create','/dashboard/holder','/dashboard/builder','/passes/','/transactions/'];
 for (const route of routes) if (!app.includes(route)) throw new Error(`Missing certified route: ${route}`);
 for (const forbidden of ['mockProducts','guaranteed appreciation','APY','passive yield','revenue share']) if (app.toLowerCase().includes(forbidden.toLowerCase())) throw new Error(`Forbidden production copy: ${forbidden}`);
 if (!template.includes('nm-v2-data-bridge') || !template.includes('/v2-app.mjs')) throw new Error('Missing V2 template data bridge');

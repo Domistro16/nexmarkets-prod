@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { NexWallet } from '../apps/web/public/wallet.mjs';
+import { Interface } from 'ethers';
+import { NexWallet, encodeCreateEdition, editionCreatedFromReceipt, EDITION_CREATED_TOPIC } from '../apps/web/public/wallet.mjs';
 import { transactionProgress } from '../apps/web/public/transaction.mjs';
 
 test('wallet connects only to Robinhood and submits through EIP-1193', async () => {
@@ -62,6 +63,16 @@ test('wallet encodes settlement and NFT approval transactions and waits for rece
   assert.match(calls.find((call) => call.method === 'eth_call' && call.params[0].data.startsWith('0xe985e9c5')).params[0].data, /^0xe985e9c5/);
 });
 
+test('wallet creates an Edition with canonical permissionless Factory calldata', async () => {
+  const creator = '0x1111111111111111111111111111111111111111';
+  const config = { name: 'Creator Pass', symbol: 'CREATE', initialOwner: creator, editionId: `0x${'22'.repeat(32)}`, absoluteSupplyCap: 50, artworkCommitment: `0x${'33'.repeat(32)}`, baseTokenURI: 'ipfs://creator/', salt: `0x${'44'.repeat(32)}` };
+  const abi = new Interface(['function createEdition((string name,string symbol,address initialOwner,bytes32 editionId,uint32 absoluteSupplyCap,bytes32 artworkCommitment,string baseTokenURI),bytes32 salt)']);
+  assert.equal(encodeCreateEdition(config), abi.encodeFunctionData('createEdition', [[config.name, config.symbol, config.initialOwner, config.editionId, config.absoluteSupplyCap, config.artworkCommitment, config.baseTokenURI], config.salt]));
+  const edition = '0x5555555555555555555555555555555555555555'; const factory = '0x6666666666666666666666666666666666666666';
+  const indexed = (address) => `0x${address.slice(2).padStart(64, '0')}`;
+  assert.deepEqual(editionCreatedFromReceipt({ logs: [{ address: factory, topics: [EDITION_CREATED_TOPIC, indexed(edition), config.editionId, indexed(creator)] }] }, factory, creator), { edition, editionId: config.editionId, publisher: creator });
+});
+
 test('transaction UI never treats a tx hash as finality', () => {
   assert.deepEqual(transactionProgress('SUBMITTED'), { state: 'SUBMITTED', completed: 3, terminal: false, final: false });
   assert.equal(transactionProgress('FINALIZED').final, true); assert.equal(transactionProgress('REORGED').terminal, true);
@@ -73,6 +84,8 @@ test('web implementation contains certified routes and no production mock state'
   assert.match(app, /\/v1\/me\/advantages/); assert.match(app, /\/v1\/builder\/dashboard/);
   for (const mutation of ['/v1/mints/prepare','/v1/listings/prepare','/v1/listings/buy','/v1/listings/cancel','/v1/advantages/consume','/v1/royalties/withdraw']) assert.ok(app.includes(mutation));
   assert.match(app, /erc20Allowance/); assert.match(app, /signTypedData/); assert.match(app, /WALLET_PENDING/); assert.match(app, /SUBMITTED/);
+  assert.match(app, /wallet\.createEdition/);
+  assert.doesNotMatch(app, /\/v1\/editions\/prepare|Safe proposal|request Safe deployment/);
   assert.doesNotMatch(app, /mockProducts|fakeListings|samplePasses/);
   const html = await readFile(new URL('../apps/web/public/index.html', import.meta.url), 'utf8'); assert.match(html, /viewport-fit=cover/); assert.match(html, /mobile-nav/);
 });
@@ -86,9 +99,9 @@ test('Advantage entitlement UI never submits a view-only TimeBased/Connected use
 test('V2 runtime exposes live agent launch and trading mutations', async () => {
   const app = await readFile(new URL('../apps/web/public/v2-app.mjs', import.meta.url), 'utf8');
   for (const route of ['/v1/mints/prepare', '/v1/listings/prepare', '/v1/listings/signed-order', '/v1/listings/buy', '/v1/listings/cancel', '/v1/advantages/consume', '/v1/royalties/withdraw']) assert.ok(app.includes(route));
-  for (const action of ['prepareEdition', 'submitSafeEvidence', 'publishTerms', 'liveConfirmProjectMint', 'liveMarketConfirmBuy', 'liveConfirmListing']) assert.match(app, new RegExp(action));
-  assert.match(app, /wallet\.submit/);
-  assert.match(app, /walletMustSign|Safe workflow/);
+  for (const action of ['createEditionOnchain', 'publishTerms', 'liveConfirmProjectMint', 'liveMarketConfirmBuy', 'liveConfirmListing']) assert.match(app, new RegExp(action));
+  assert.match(app, /wallet\.createEdition/);
+  assert.doesNotMatch(app, /\/v1\/editions\/prepare|submitSafeEvidence|Safe proposal/);
   assert.match(app, /eth_signTypedData_v4|signTypedData/);
   assert.match(app, /waitForReceipt/);
 });

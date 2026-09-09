@@ -31,7 +31,13 @@ function isLocalBrowser() {
 }
 
 function shouldUseInjectedFallback() {
-  return isLocalBrowser() && window.ethereum?.request && !window.__useRainbowKitInLocal;
+  // Automated browser tests can provide a deliberately minimal EIP-1193
+  // stub. Production/local users should still get RainbowKit's wallet
+  // chooser, even when an injected extension is present.
+  return isLocalBrowser()
+    && window.ethereum?.request
+    && window.__nexmarketsUseInjectedFallback === true
+    && !window.__useRainbowKitInLocal;
 }
 
 function ensureBridgeRoot() {
@@ -99,7 +105,8 @@ export async function openConnectModal() {
     await modal.openAccountModal();
     return { opened: true, address: currentAddress, chainId: currentChainId };
   }
-  return connectInjected();
+  if (shouldUseInjectedFallback() || !modal) return connectInjected();
+  throw new Error('RAINBOWKIT_CONTROLS_UNAVAILABLE');
 }
 
 export async function openAccountModal() {

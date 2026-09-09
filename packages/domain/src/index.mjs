@@ -7,3 +7,6 @@ export * from './media-provenance.mjs';
 export * from './notification.mjs';
 export * from './transaction-calldata.mjs';
 export * from './launch-draft.mjs';
+export * from './pass-design.mjs';
+export * from './primary-accounting.mjs';
+export * from './pass-renderer.mjs';

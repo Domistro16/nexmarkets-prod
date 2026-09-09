@@ -1,0 +1,352 @@
+{
+  "schemaVersion": 1,
+  "status": "PASS_EDITION_CREATED_LINKED_THROUGH_UI",
+  "baseUrl": "http://localhost:4176",
+  "wallet": "0xD83deFbA240568040b39bb2C8B4DB7dB02d40593",
+  "projectId": "prj_825d0f6b-6664-46b8-b5f9-9954315faf55",
+  "projectSlug": "ac0dbdf2-4015-4810-a1ce-c6a5def48af2",
+  "editionConfig": {
+    "name": "Final Live Certification Edition",
+    "symbol": "NMFLC",
+    "editionId": "0xe747c3f9bb8aef25b50ed64dec7c09c9efb8196c21ec709d3641573c5eed81c6",
+    "absoluteSupplyCap": 3,
+    "artworkCommitment": "0xd543e603d6beeeb4e80669aa038d3f47fdda2ab0128654e939d3a83010a001a5",
+    "baseTokenURI": "data:application/json,%7B%22name%22%3A%22NexMarkets%20Final%20Live%20Certification%20Edition%22%2C%22description%22%3A%22Immutable%20NexMarkets%20Robinhood%20testnet%20certification%20Edition.%22%2C%22image%22%3A%22https%3A%2F%2Fwww.nexmarkets.xyz%2Fv1%2Fmedia%2Fmed_493b8c74-6c4c-4604-9771-bfb628deeeab%2Fcontent%22%2C%22image_sha256%22%3A%22d543e603d6beeeb4e80669aa038d3f47fdda2ab0128654e939d3a83010a001a5%22%2C%22external_url%22%3A%22https%3A%2F%2Fwww.nexmarkets.xyz%2Fv1%2Fprojects%2Fac0dbdf2-4015-4810-a1ce-c6a5def48af2%22%7D#"
+  },
+  "requests": [
+    {
+      "method": "GET",
+      "path": "/v1/discover",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/v1/editions/0x4171D62F43B4168b07a01C04594455DBc3298437",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/v1/passes/0x4171D62F43B4168b07a01C04594455DBc3298437/1",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/v1/market/listings",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/v1/projects/0xa1a5d3e5a4b27c03b32c0439208ac964d693eff7",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/v1/projects/0x4171d62f43b4168b07a01c04594455dbc3298437",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/v1/builders/0xd83defba240568040b39bb2c8b4db7db02d40593",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/v1/builders/bld_e1ac9bff-a27d-40a0-bd49-f6d08bc8dfd6/milestones",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/v1/builders/bld_e1ac9bff-a27d-40a0-bd49-f6d08bc8dfd6/questions",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/v1/auth/challenge",
+      "status": 201
+    },
+    {
+      "method": "POST",
+      "path": "/v1/auth/verify",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/v1/discover",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/v1/editions/0x4171D62F43B4168b07a01C04594455DBc3298437",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/v1/passes/0x4171D62F43B4168b07a01C04594455DBc3298437/1",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/v1/market/listings",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/v1/projects/0xa1a5d3e5a4b27c03b32c0439208ac964d693eff7",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/v1/projects/0x4171d62f43b4168b07a01c04594455dbc3298437",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/v1/builders/0xd83defba240568040b39bb2c8b4db7db02d40593",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/v1/builders/bld_e1ac9bff-a27d-40a0-bd49-f6d08bc8dfd6/milestones",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/v1/builders/bld_e1ac9bff-a27d-40a0-bd49-f6d08bc8dfd6/questions",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/v1/builders/bld_e1ac9bff-a27d-40a0-bd49-f6d08bc8dfd6/follow-status",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/v1/me/builders",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/v1/me/passes",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/v1/me/advantages",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/v1/builder/dashboard",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/v1/builder/editions/link",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/v1/discover",
+      "status": null
+    },
+    {
+      "method": "GET",
+      "path": "/v1/editions/0x4171D62F43B4168b07a01C04594455DBc3298437",
+      "status": null
+    },
+    {
+      "method": "GET",
+      "path": "/v1/passes/0x4171D62F43B4168b07a01C04594455DBc3298437/1",
+      "status": null
+    },
+    {
+      "method": "GET",
+      "path": "/v1/market/listings",
+      "status": null
+    }
+  ],
+  "providerMethods": [
+    "eth_requestAccounts",
+    "eth_chainId",
+    "eth_requestAccounts",
+    "eth_chainId",
+    "personal_sign",
+    "eth_call",
+    "eth_call",
+    "eth_call",
+    "eth_sign",
+    "eth_sendTransaction",
+    "eth_getTransactionReceipt"
+  ],
+  "stages": [
+    {
+      "name": "11-edition-create-review",
+      "screenshot": "artifacts/verification/final-live-browser/11-edition-create-review.png"
+    },
+    {
+      "name": "12-edition-created",
+      "screenshot": "artifacts/verification/final-live-browser/12-edition-created.png"
+    }
+  ],
+  "creation": {
+    "txHash": "0x405d61e6ef42a4eadc4e822b6321397b50957af45b6a20dfc7c676a4e359bb98",
+    "receipt": {
+      "transactionHash": "0x405d61e6ef42a4eadc4e822b6321397b50957af45b6a20dfc7c676a4e359bb98",
+      "blockNumber": 116251281,
+      "blockHash": "0x9a78073f9aa98d986f5dfc0e5216fac160de6bc05d198023cd39380eef301e82",
+      "status": "0x1",
+      "logs": [
+        {
+          "address": "0xa1a5d3e5a4b27c03b32c0439208ac964d693eff7",
+          "topics": [
+            "0x8be0079c531659141344cd1fd0a4f28419497f9722a3daafe3b4186f6b6457e0",
+            "0x0000000000000000000000000000000000000000000000000000000000000000",
+            "0x000000000000000000000000957de0de07d33c9a89c791b876074657a7ffeeb6"
+          ],
+          "data": "0x",
+          "blockNumber": "0x6edda91",
+          "transactionHash": "0x405d61e6ef42a4eadc4e822b6321397b50957af45b6a20dfc7c676a4e359bb98",
+          "transactionIndex": "0x2",
+          "blockHash": "0x9a78073f9aa98d986f5dfc0e5216fac160de6bc05d198023cd39380eef301e82",
+          "blockTimestamp": "0x6aa15d1d",
+          "logIndex": "0x2",
+          "removed": false
+        },
+        {
+          "address": "0xa1a5d3e5a4b27c03b32c0439208ac964d693eff7",
+          "topics": [
+            "0x3a34ed2682da72a47ed7c5d17d81cde3e653636dd09c3f4009a8f0294b3628e5",
+            "0xe747c3f9bb8aef25b50ed64dec7c09c9efb8196c21ec709d3641573c5eed81c6",
+            "0xd543e603d6beeeb4e80669aa038d3f47fdda2ab0128654e939d3a83010a001a5"
+          ],
+          "data": "0x0000000000000000000000000000000000000000000000000000000000000003",
+          "blockNumber": "0x6edda91",
+          "transactionHash": "0x405d61e6ef42a4eadc4e822b6321397b50957af45b6a20dfc7c676a4e359bb98",
+          "transactionIndex": "0x2",
+          "blockHash": "0x9a78073f9aa98d986f5dfc0e5216fac160de6bc05d198023cd39380eef301e82",
+          "blockTimestamp": "0x6aa15d1d",
+          "logIndex": "0x3",
+          "removed": false
+        },
+        {
+          "address": "0xa1a5d3e5a4b27c03b32c0439208ac964d693eff7",
+          "topics": [
+            "0x5c8e9d6e0bf14272dcfca5b6bcb8d756af3cf4ae3d73c5ce399e0a8bcc2b5064",
+            "0x0000000000000000000000000ea6f883808447f115c7b6c037902361c365555a"
+          ],
+          "data": "0x",
+          "blockNumber": "0x6edda91",
+          "transactionHash": "0x405d61e6ef42a4eadc4e822b6321397b50957af45b6a20dfc7c676a4e359bb98",
+          "transactionIndex": "0x2",
+          "blockHash": "0x9a78073f9aa98d986f5dfc0e5216fac160de6bc05d198023cd39380eef301e82",
+          "blockTimestamp": "0x6aa15d1d",
+          "logIndex": "0x4",
+          "removed": false
+        },
+        {
+          "address": "0xa1a5d3e5a4b27c03b32c0439208ac964d693eff7",
+          "topics": [
+            "0x8be0079c531659141344cd1fd0a4f28419497f9722a3daafe3b4186f6b6457e0",
+            "0x000000000000000000000000957de0de07d33c9a89c791b876074657a7ffeeb6",
+            "0x000000000000000000000000ce54c8453ff48670781a6b908c1a3e9209fc95a0"
+          ],
+          "data": "0x",
+          "blockNumber": "0x6edda91",
+          "transactionHash": "0x405d61e6ef42a4eadc4e822b6321397b50957af45b6a20dfc7c676a4e359bb98",
+          "transactionIndex": "0x2",
+          "blockHash": "0x9a78073f9aa98d986f5dfc0e5216fac160de6bc05d198023cd39380eef301e82",
+          "blockTimestamp": "0x6aa15d1d",
+          "logIndex": "0x5",
+          "removed": false
+        },
+        {
+          "address": "0xee3c8f330c0b2738201fdb2f1720d06c0d27620d",
+          "topics": [
+            "0x2f458490123e65118602404925fd14270e2bd2696d4c88a612d023d6d99231fa",
+            "0x000000000000000000000000a1a5d3e5a4b27c03b32c0439208ac964d693eff7",
+            "0xe747c3f9bb8aef25b50ed64dec7c09c9efb8196c21ec709d3641573c5eed81c6",
+            "0x000000000000000000000000d83defba240568040b39bb2c8b4db7db02d40593"
+          ],
+          "data": "0x0000000000000000000000000000000000000000000000000000000000000003",
+          "blockNumber": "0x6edda91",
+          "transactionHash": "0x405d61e6ef42a4eadc4e822b6321397b50957af45b6a20dfc7c676a4e359bb98",
+          "transactionIndex": "0x2",
+          "blockHash": "0x9a78073f9aa98d986f5dfc0e5216fac160de6bc05d198023cd39380eef301e82",
+          "blockTimestamp": "0x6aa15d1d",
+          "logIndex": "0x6",
+          "removed": false
+        },
+        {
+          "address": "0x957de0de07d33c9a89c791b876074657a7ffeeb6",
+          "topics": [
+            "0x5a231ebeb338c6ecc26ede45355e42c2dd4c2268466e1de7742aba1f3a73d658",
+            "0x000000000000000000000000a1a5d3e5a4b27c03b32c0439208ac964d693eff7",
+            "0xe747c3f9bb8aef25b50ed64dec7c09c9efb8196c21ec709d3641573c5eed81c6",
+            "0x000000000000000000000000d83defba240568040b39bb2c8b4db7db02d40593"
+          ],
+          "data": "0x295e1c6d9553d6c1a31a4d7a05e1c3b893b704af234a7db66a6bac319f219464000000000000000000000000ce54c8453ff48670781a6b908c1a3e9209fc95a00000000000000000000000000ea6f883808447f115c7b6c037902361c365555a0000000000000000000000000000000000000000000000000000000000000003d543e603d6beeeb4e80669aa038d3f47fdda2ab0128654e939d3a83010a001a5",
+          "blockNumber": "0x6edda91",
+          "transactionHash": "0x405d61e6ef42a4eadc4e822b6321397b50957af45b6a20dfc7c676a4e359bb98",
+          "transactionIndex": "0x2",
+          "blockHash": "0x9a78073f9aa98d986f5dfc0e5216fac160de6bc05d198023cd39380eef301e82",
+          "blockTimestamp": "0x6aa15d1d",
+          "logIndex": "0x7",
+          "removed": false
+        },
+        {
+          "address": "0xce54c8453ff48670781a6b908c1a3e9209fc95a0",
+          "topics": [
+            "0x442e715f626346e8c54381002da614f62bee8d27386535b2521ec8540898556e",
+            "0x82ff5cbee5df864eb3b48e90c64aed50a9696895213bee536b809827fc1bd580"
+          ],
+          "data": "0x0000000000000000000000000000000000000000000000000000000000000000",
+          "blockNumber": "0x6edda91",
+          "transactionHash": "0x405d61e6ef42a4eadc4e822b6321397b50957af45b6a20dfc7c676a4e359bb98",
+          "transactionIndex": "0x2",
+          "blockHash": "0x9a78073f9aa98d986f5dfc0e5216fac160de6bc05d198023cd39380eef301e82",
+          "blockTimestamp": "0x6aa15d1d",
+          "logIndex": "0x8",
+          "removed": false
+        }
+      ]
+    },
+    "edition": "0xa1a5d3e5a4b27c03b32c0439208ac964d693eff7",
+    "editionId": "0xe747c3f9bb8aef25b50ed64dec7c09c9efb8196c21ec709d3641573c5eed81c6",
+    "publisher": "0xD83deFbA240568040b39bb2C8B4DB7dB02d40593",
+    "salt": "0x295e1c6d9553d6c1a31a4d7a05e1c3b893b704af234a7db66a6bac319f219464",
+    "editionOwner": "0xCE54c8453fF48670781a6b908c1A3e9209FC95A0",
+    "mintController": "0x0ea6F883808447f115C7B6C037902361C365555A",
+    "absoluteSupplyCap": 3,
+    "artworkCommitment": "0xd543e603d6beeeb4e80669aa038d3f47fdda2ab0128654e939d3a83010a001a5",
+    "linkStatus": 200,
+    "linkBody": {
+      "data": {
+        "id": "ed_9c0b21f33a40ac71dea0484d",
+        "project_id": "prj_825d0f6b-6664-46b8-b5f9-9954315faf55",
+        "chain_id": "46630",
+        "edition_address": "0xa1a5d3e5a4b27c03b32c0439208ac964d693eff7",
+        "edition_id_hash": "0xe747c3f9bb8aef25b50ed64dec7c09c9efb8196c21ec709d3641573c5eed81c6",
+        "factory_address": "0x957de0de07d33c9a89c791b876074657a7ffeeb6",
+        "publisher_address": "0xd83defba240568040b39bb2c8b4db7db02d40593",
+        "absolute_supply_cap": 3,
+        "artwork_commitment": "0xd543e603d6beeeb4e80669aa038d3f47fdda2ab0128654e939d3a83010a001a5",
+        "disabled": false,
+        "source_block_number": "116251281",
+        "source_block_hash": "0x9a78073f9aa98d986f5dfc0e5216fac160de6bc05d198023cd39380eef301e82",
+        "source_tx_hash": "0x405d61e6ef42a4eadc4e822b6321397b50957af45b6a20dfc7c676a4e359bb98",
+        "source_log_index": 7,
+        "finalized": false,
+        "orphaned_at": null,
+        "created_at": "2026-09-09T13:36:44.511Z"
+      },
+      "authority": "RPC_SAFE_EXECUTION_PLUS_FACTORY_RECEIPT_PLUS_POSTGRES_PROJECT_LINK"
+    }
+  },
+  "metadata": {
+    "baseTokenURI": "data:application/json,%7B%22name%22%3A%22NexMarkets%20Final%20Live%20Certification%20Edition%22%2C%22description%22%3A%22Immutable%20NexMarkets%20Robinhood%20testnet%20certification%20Edition.%22%2C%22image%22%3A%22https%3A%2F%2Fwww.nexmarkets.xyz%2Fv1%2Fmedia%2Fmed_493b8c74-6c4c-4604-9771-bfb628deeeab%2Fcontent%22%2C%22image_sha256%22%3A%22d543e603d6beeeb4e80669aa038d3f47fdda2ab0128654e939d3a83010a001a5%22%2C%22external_url%22%3A%22https%3A%2F%2Fwww.nexmarkets.xyz%2Fv1%2Fprojects%2Fac0dbdf2-4015-4810-a1ce-c6a5def48af2%22%7D#",
+    "expectedBaseTokenURI": "data:application/json,%7B%22name%22%3A%22NexMarkets%20Final%20Live%20Certification%20Edition%22%2C%22description%22%3A%22Immutable%20NexMarkets%20Robinhood%20testnet%20certification%20Edition.%22%2C%22image%22%3A%22https%3A%2F%2Fwww.nexmarkets.xyz%2Fv1%2Fmedia%2Fmed_493b8c74-6c4c-4604-9771-bfb628deeeab%2Fcontent%22%2C%22image_sha256%22%3A%22d543e603d6beeeb4e80669aa038d3f47fdda2ab0128654e939d3a83010a001a5%22%2C%22external_url%22%3A%22https%3A%2F%2Fwww.nexmarkets.xyz%2Fv1%2Fprojects%2Fac0dbdf2-4015-4810-a1ce-c6a5def48af2%22%7D#",
+    "baseTokenURIEqualsExpected": true,
+    "tokenURIAvailableAfterMint": true
+  },
+  "finishedAt": "2026-09-09T13:36:46.145Z"
+}

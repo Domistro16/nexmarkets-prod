@@ -2,14 +2,13 @@ import { Interface, getAddress, id } from 'ethers';
 import pg from 'pg';
 import { createHash } from 'node:crypto';
 import { JsonRpcClient } from '../../../packages/chain/src/rpc.mjs';
+import { calculatePrimarySale } from '../../../packages/domain/src/primary-accounting.mjs';
 
 const ZERO = `0x${'00'.repeat(32)}`;
 const KIND = ['TIME_BASED', 'QUANTITY_BASED', 'CONNECTED', 'REDEMPTION'];
 const EVENT_FRAGMENTS = [
-  'event EditionCreated(address indexed edition,bytes32 indexed editionId,address indexed publisher,bytes32 salt,address protocolAdmin,address mintController,uint32 absoluteSupplyCap,bytes32 artworkCommitment)',
+  'event EditionCreated(address indexed edition,bytes32 indexed editionId,address indexed publisher,bytes32 salt,address editionOwner,address mintController,uint32 absoluteSupplyCap,bytes32 artworkCommitment)',
   'event EditionRegistered(address indexed edition,bytes32 indexed editionId,address indexed publisher,uint32 absoluteSupplyCap)',
-  'event EditionPublisherSet(address indexed edition,address indexed publisher)',
-  'event EditionDisabledSet(address indexed edition,bool disabled)',
   'event TermsPublished(address indexed edition,bytes32 indexed termsVersionHash,uint64 indexed version,uint256 activeSupply,uint256 pricePerPass,uint64 previewStartsAt,uint64 mintStartsAt,uint64 mintEndsAt,address primaryRecipient,address royaltyReceiver,uint96 royaltyBps,bytes32 advantagesHash,bytes32 referralTermsHash)',
   'event PrimaryMintSettled(address indexed payer,address indexed recipient,address indexed edition,bytes32 termsVersionHash,bytes32 intentId,uint256 firstTokenId,uint256 quantity,uint256 totalPaid,uint256 protocolFee)',
   'event ReferralHintSubmitted(bytes32 indexed intentId,address indexed payer,address indexed edition,address referralHint)',
@@ -218,11 +217,13 @@ export function decodeGoldskyLog(row) {
 }
 
 export class PostgresProjectionWorker {
-  constructor({ pool, connectionString = process.env.DATABASE_URL, rpc, rpcUrl = process.env.RH_MAINNET_RPC_URL, chainId = 4663, pipeline = 'goldsky-turbo', factoryAddress = process.env.NEX_PASS_FACTORY_ADDRESS, finalityDepth = 12, batchSize = 250, logger = console } = {}) {
+  constructor({ pool, connectionString = process.env.DATABASE_URL, rpc, rpcUrl = process.env.RH_MAINNET_RPC_URL, chainId = 4663, pipeline = 'goldsky-turbo', factoryAddress = process.env.NEX_PASS_FACTORY_ADDRESS, finalityDepth = 12, batchSize = 250, network, paymentToken = process.env.USDG_ADDRESS, logger = console } = {}) {
     this.pool = pool ?? new pg.Pool({ connectionString, max: 4, application_name: 'nexmarkets-indexer' });
     this.ownsPool = !pool;
     this.rpc = rpc ?? new JsonRpcClient(rpcUrl);
     this.chainId = Number(chainId); this.pipeline = pipeline; this.factoryAddress = lower(factoryAddress); this.finalityDepth = finalityDepth; this.batchSize = batchSize; this.logger = logger;
+    this.network = network ?? ({ 4663: 'robinhood-mainnet', 46630: 'robinhood-testnet', 8453: 'base-mainnet', 84532: 'base-sepolia' })[this.chainId] ?? 'unknown';
+    this.paymentToken = lower(paymentToken ?? '');
   }
 
   async close() { if (this.ownsPool) await this.pool.end(); }
@@ -335,6 +336,11 @@ export class PostgresProjectionWorker {
         : [row.transaction_hash.toLowerCase(), row.log_index];
       await client.query(`UPDATE ${table} SET orphaned_at=COALESCE(orphaned_at,now()),finalized=false WHERE ${where}`, params);
     }
+    await client.query(
+      `UPDATE primary_sale_accounting SET status='REORGED',updated_at=now(),evidence=evidence || $4::jsonb
+       WHERE chain_id=$1 AND tx_hash=$2 AND event_index=$3 AND status='CONFIRMED'`,
+      [row.chain_id, row.transaction_hash.toLowerCase(), row.log_index, JSON.stringify({ orphanedAtLog: row.log_index })]
+    );
   }
 
   async canonicalEvents(client, row, matcher) {
@@ -476,24 +482,13 @@ export class PostgresProjectionWorker {
   async applyProjection(client, row, decoded, contextOverride = null) {
     const a = decoded.args; const source = [row.block_number, row.block_hash, row.transaction_hash.toLowerCase(), row.log_index];
     if (decoded.eventName === 'EditionCreated') {
-      const request = await client.query('SELECT * FROM edition_request WHERE chain_id=$1 AND edition_id_hash=$2', [row.chain_id, lower(a.editionId)]);
-      if (!request.rows[0]) return;
-      const requested = request.rows[0].request_payload ?? {};
-      const predicted = request.rows[0].predicted_edition_address ?? requested.predictedEditionAddress;
-      if (predicted && lower(predicted) !== lower(a.edition)) throw new Error('EDITION_REQUEST_PREDICTED_ADDRESS_MISMATCH');
-      if (requested.protocolAdmin && lower(requested.protocolAdmin) !== lower(a.protocolAdmin)) throw new Error('EDITION_REQUEST_PROTOCOL_ADMIN_MISMATCH');
-      if (requested.mintController && lower(requested.mintController) !== lower(a.mintController)) throw new Error('EDITION_REQUEST_MINT_CONTROLLER_MISMATCH');
-      if (requested.absoluteSupplyCap != null && String(requested.absoluteSupplyCap) !== String(a.absoluteSupplyCap)) throw new Error('EDITION_REQUEST_SUPPLY_MISMATCH');
-      if (requested.artworkCommitment && lower(requested.artworkCommitment) !== lower(a.artworkCommitment)) throw new Error('EDITION_REQUEST_ARTWORK_MISMATCH');
-      if (requested.salt && lower(requested.salt) !== lower(a.salt)) throw new Error('EDITION_REQUEST_SALT_MISMATCH');
       const editionId = idFor('ed', `${row.chain_id}:${lower(a.edition)}`);
       await client.query(
         `INSERT INTO edition(id,project_id,chain_id,edition_address,edition_id_hash,factory_address,publisher_address,absolute_supply_cap,artwork_commitment,source_block_number,source_block_hash,source_tx_hash,source_log_index,finalized)
          VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,false)
          ON CONFLICT(chain_id,edition_address) DO UPDATE SET publisher_address=excluded.publisher_address,absolute_supply_cap=excluded.absolute_supply_cap,artwork_commitment=excluded.artwork_commitment,orphaned_at=NULL`,
-        [editionId, request.rows[0].project_id, row.chain_id, lower(a.edition), lower(a.editionId), lower(this.factoryAddress ?? row.contract_address), lower(a.publisher), a.absoluteSupplyCap, lower(a.artworkCommitment), ...source]
+        [editionId, null, row.chain_id, lower(a.edition), lower(a.editionId), lower(this.factoryAddress ?? row.contract_address), lower(a.publisher), a.absoluteSupplyCap, lower(a.artworkCommitment), ...source]
       );
-      await client.query(`UPDATE edition_request SET predicted_edition_address=$1,safe_status=CASE WHEN safe_status IN ('CONFIRMED','FINALIZED') THEN safe_status ELSE 'SUBMITTED' END,tx_hash=$2,source_block_number=$3,source_block_hash=$4,source_log_index=$5,updated_at=now() WHERE id=$6`, [lower(a.edition), row.transaction_hash.toLowerCase(), ...source.slice(0, 2), source[3], request.rows[0].id]);
       return;
     }
     if (decoded.eventName === 'OrderFulfilled') {
@@ -513,8 +508,6 @@ export class PostgresProjectionWorker {
     const editionId = context.editionId ?? edition.rows[0]?.id;
     switch (decoded.eventName) {
       case 'EditionRegistered':
-      case 'EditionPublisherSet':
-      case 'EditionDisabledSet':
         if (editionId) await client.query('UPDATE edition SET publisher_address=COALESCE($1,publisher_address),disabled=COALESCE($2,disabled),source_block_number=$3,source_block_hash=$4,source_tx_hash=$5,source_log_index=$6 WHERE id=$7', [a.publisher ? lower(a.publisher) : null, a.disabled ?? null, ...source, editionId]);
         break;
       case 'TermsPublished': {
@@ -536,6 +529,83 @@ export class PostgresProjectionWorker {
         }
         await client.query('UPDATE terms_advantage_commitment SET status=\'PUBLISHED\',terms_hash=$1,updated_at=now() WHERE advantages_hash=$2', [lower(a.termsVersionHash), lower(a.advantagesHash)]);
         await client.query('UPDATE project SET status=\'PUBLISHED\',published_at=COALESCE(published_at,now()),updated_at=now() WHERE id=$1', [edition.rows[0].project_id]);
+        break;
+      }
+      case 'PrimaryMintSettled': {
+        if (!this.paymentToken) throw new Error('PRIMARY_PAYMENT_TOKEN_UNCONFIGURED');
+        const project = await client.query(
+          `SELECT p.builder_id,p.builder_account_id FROM project p WHERE p.id=$1 LIMIT 1`, [edition.rows[0]?.project_id]
+        );
+        const builder = project.rows[0] ?? {};
+        const expected = calculatePrimarySale({
+          chainId: row.chain_id,
+          network: this.network,
+          paymentToken: this.paymentToken,
+          txHash: row.transaction_hash,
+          blockNumber: row.block_number,
+          eventIndex: row.log_index,
+          editionId,
+          editionAddress,
+          termsHash: lower(a.termsVersionHash),
+          builderId: builder.builder_id,
+          builderAccountId: builder.builder_account_id,
+          buyerAddress: lower(a.payer),
+          recipientAddress: lower(a.recipient),
+          firstTokenId: a.firstTokenId,
+          quantity: a.quantity,
+          grossAmountUsdg: a.totalPaid,
+          evidence: { source: 'PrimaryMintSettled', intentId: lower(a.intentId), protocolFee: String(a.protocolFee), protocolFeeBps: '500' }
+        });
+        if (expected.nexmarketsFeeUsdg !== String(a.protocolFee)) throw new Error('PRIMARY_FEE_EVENT_MISMATCH');
+        const existingSale = await client.query(
+          `SELECT network,payment_token,edition_id,terms_hash,builder_id,builder_account_id,buyer_address,recipient_address,
+                  first_token_id::text AS first_token_id,quantity::text AS quantity,gross_amount_usdg::text AS gross_amount_usdg,
+                  nexmarkets_fee_usdg::text AS nexmarkets_fee_usdg,builder_proceeds_usdg::text AS builder_proceeds_usdg,
+                  referral_obligation_usdg::text AS referral_obligation_usdg
+             FROM primary_sale_accounting
+            WHERE chain_id=$1 AND tx_hash=$2 AND event_index=$3`,
+          [expected.chainId, expected.txHash, expected.eventIndex]
+        );
+        if (existingSale.rows[0]) {
+          const prior = existingSale.rows[0];
+          const conflicts = [
+            ['network', prior.network, expected.network],
+            ['payment_token', prior.payment_token, expected.paymentToken],
+            ['edition_id', prior.edition_id, expected.editionId],
+            ['terms_hash', prior.terms_hash, expected.termsHash],
+            ['builder_id', prior.builder_id, expected.builderId],
+            ['builder_account_id', prior.builder_account_id, expected.builderAccountId],
+            ['buyer_address', prior.buyer_address, expected.buyerAddress],
+            ['recipient_address', prior.recipient_address, expected.recipientAddress],
+            ['first_token_id', prior.first_token_id, expected.firstTokenId],
+            ['quantity', prior.quantity, expected.quantity],
+            ['gross_amount_usdg', prior.gross_amount_usdg, expected.grossAmountUsdg],
+            ['nexmarkets_fee_usdg', prior.nexmarkets_fee_usdg, expected.nexmarketsFeeUsdg],
+            ['builder_proceeds_usdg', prior.builder_proceeds_usdg, expected.builderProceedsUsdg],
+            ['referral_obligation_usdg', prior.referral_obligation_usdg, expected.referralObligationUsdg]
+          ].filter(([, before, after]) => String(before ?? '') !== String(after ?? ''));
+          if (conflicts.length) throw new Error(`PRIMARY_SALE_EVENT_CONFLICT:${conflicts[0][0]}`);
+          await client.query(
+            `UPDATE primary_sale_accounting SET status='CONFIRMED',block_number=$4,edition_address=$5,evidence=$6::jsonb,updated_at=now()
+              WHERE chain_id=$1 AND tx_hash=$2 AND event_index=$3`,
+            [expected.chainId, expected.txHash, expected.eventIndex, expected.blockNumber, expected.editionAddress, JSON.stringify(expected.evidence)]
+          );
+          break;
+        }
+        await client.query(
+          `INSERT INTO primary_sale_accounting(
+             id,chain_id,network,tx_hash,block_number,event_index,edition_id,edition_address,terms_hash,
+             builder_id,builder_account_id,buyer_address,recipient_address,first_token_id,quantity,
+             gross_amount_usdg,nexmarkets_fee_usdg,builder_proceeds_usdg,referral_obligation_usdg,
+             payment_token,status,evidence)
+           VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,'CONFIRMED',$21::jsonb)
+           ON CONFLICT(chain_id,tx_hash,event_index) DO NOTHING`,
+          [idFor('psa', `${row.chain_id}:${row.transaction_hash.toLowerCase()}:${row.log_index}`), expected.chainId, expected.network, expected.txHash,
+            expected.blockNumber, expected.eventIndex, expected.editionId, expected.editionAddress, expected.termsHash, expected.builderId,
+            expected.builderAccountId, expected.buyerAddress, expected.recipientAddress, expected.firstTokenId, expected.quantity,
+            expected.grossAmountUsdg, expected.nexmarketsFeeUsdg, expected.builderProceedsUsdg, expected.referralObligationUsdg,
+            expected.paymentToken, JSON.stringify(expected.evidence)]
+        );
         break;
       }
       case 'Transfer': {
@@ -622,6 +692,11 @@ export class PostgresProjectionWorker {
         if (editionId) await client.query('UPDATE pass_token_projection SET token_bound_account=$1,latest_block_number=$2,latest_block_hash=$3,latest_tx_hash=$4,latest_log_index=$5 WHERE edition_id=$6 AND token_id=$7', [lower(a.account), ...source, editionId, String(a.tokenId)]);
         break;
       case 'ReferralHintSubmitted':
+        await client.query(
+          `UPDATE primary_sale_accounting SET evidence=evidence || $4::jsonb,updated_at=now()
+           WHERE chain_id=$1 AND tx_hash=$2 AND event_index < $3 AND status='CONFIRMED' AND evidence->>'intentId'=$5`,
+          [row.chain_id, row.transaction_hash.toLowerCase(), row.log_index, JSON.stringify({ referralHint: lower(a.referralHint), referralEventIndex: row.log_index }), lower(a.intentId)]
+        );
         break;
       default: break;
     }

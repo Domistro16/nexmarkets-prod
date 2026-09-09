@@ -57,13 +57,14 @@ contract NexTBAResolverTest is Test {
         NexPassEdition.EditionConfig memory config = NexPassEdition.EditionConfig({
             name: "TBA Pass",
             symbol: "NEXTBA",
-            initialOwner: address(this),
+            initialOwner: PUBLISHER,
             editionId: keccak256("tba:edition"),
             absoluteSupplyCap: 2,
             artworkCommitment: keccak256("tba:art"),
             baseTokenURI: "ipfs://tba/"
         });
-        edition = NexPassEdition(factory.createEdition(config, PUBLISHER, keccak256("tba:salt")));
+        vm.prank(PUBLISHER);
+        edition = NexPassEdition(factory.createEdition(config, keccak256("tba:salt")));
         uint64 preview = uint64(block.timestamp);
         uint64 mintStart = preview + 1 days;
         NexLaunchRegistry.Terms memory terms = NexLaunchRegistry.Terms({

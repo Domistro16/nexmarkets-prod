@@ -1,6 +1,6 @@
 export const PRODUCT_AUTHORITY = Object.freeze({
-  file: 'NEXMARKETS_ELITE_RELEASE_CANDIDATE.html',
-  sha256: '24daa3e2afc280690db3d213f953334b10cf92309f2698552c5db543b00b90a6'
+  file: 'NEXMARKETS_V2_BUILDER_PROFILE_ELITE.html',
+  sha256: '4863df4a8829b6ced1672248e1fd0336e577d6c13c80f1dbd7fe99d73bc821d5'
 });
 
 export const PRIMITIVES = Object.freeze({
@@ -47,7 +47,10 @@ export const NETWORKS = Object.freeze({
     nativeGasToken: 'ETH',
     settlement: Object.freeze({
       symbol: 'MockUSDG',
-      address: null,
+      address: '0x6A4F8832c23C51ba626Eba9d50c8F862647C1679',
+      decimals: 6,
+      mock: true,
+      testnetOnly: true,
       allowed: true,
       productionForbidden: true,
       note: 'Use a clearly-labelled local/testnet MockUSDG until an official Robinhood testnet USDG is primary-source verified.'
@@ -76,7 +79,7 @@ export const NETWORKS = Object.freeze({
   }),
   'base-sepolia': Object.freeze({
     name: 'Base Sepolia',
-    displayName: 'Base',
+    displayName: 'Base Sepolia',
     family: 'base',
     chainId: 84532,
     rpcEnv: 'BASE_SEPOLIA_RPC_URL',

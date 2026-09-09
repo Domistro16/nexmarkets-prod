@@ -1,3 +1,5 @@
+import { PRODUCT_AUTHORITY } from './networks.mjs';
+
 const HEX_32 = /^0x[0-9a-fA-F]{64}$/;
 const ADDRESS = /^0x[0-9a-fA-F]{40}$/;
 
@@ -7,7 +9,8 @@ export function validateDeploymentManifest(m, { strict = false } = {}) {
   assert(m && typeof m === 'object', 'manifest must be an object');
   assert(Number.isInteger(m.chainId), 'manifest.chainId must be an integer');
   assert(typeof m.network === 'string' && m.network.length > 0, 'manifest.network required');
-  assert(m.productAuthority?.sha256 === '24daa3e2afc280690db3d213f953334b10cf92309f2698552c5db543b00b90a6', 'wrong certified product authority hash');
+  assert(m.productAuthority?.file === PRODUCT_AUTHORITY.file, 'wrong certified product authority file');
+  assert(m.productAuthority?.sha256 === PRODUCT_AUTHORITY.sha256, 'wrong certified product authority hash');
   assert(['USDG', 'MockUSDG', 'USDC'].includes(m.policy?.settlementAsset), 'V1 settlement must be USDG/MockUSDG/USDC');
   assert(m.policy?.wethSettlementAllowed === false, 'WETH settlement must be disabled in V1');
   assert(m.policy?.baseAllowed === (m.chainId === 8453 || m.chainId === 84532), 'Base policy flag must match the deployment chain');

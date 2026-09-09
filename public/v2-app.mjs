@@ -1,4 +1,4 @@
-import { NexWallet } from './wallet.mjs';
+import { NexWallet, editionCreatedFromReceipt } from './wallet.mjs';
 import { openConnectModal, openAccountModal, openChainModal, onAccountChange, onChainChange, waitForConnection, getWalletProvider } from './rainbow-wallet.mjs';
 
 /*
@@ -10,8 +10,9 @@ import { openConnectModal, openAccountModal, openChainModal, onAccountChange, on
  */
 const CERTIFICATION_EDITION = '0x4171D62F43B4168b07a01C04594455DBc3298437';
 const CERTIFICATION_TOKEN = '1';
-const CHAIN_ID = 46630;
-const DEFAULT_NETWORK_KEY = 'robinhood-testnet';
+const CHAIN_ID = 84532;
+const DEFAULT_NETWORK_KEY = 'base-sepolia';
+const LEGACY_ROBINHOOD_CHAIN_ID = 46630;
 const ZERO = '0x0000000000000000000000000000000000000000';
 
 const state = {
@@ -20,6 +21,10 @@ const state = {
   networkKey: DEFAULT_NETWORK_KEY,
   edition: null,
   pass: null,
+  detailEdition: null,
+  detailPass: null,
+  detailSummary: null,
+  detailProject: null,
   discover: [],
   listings: [],
   authenticated: false,
@@ -29,14 +34,22 @@ const state = {
   route: null,
   detail: null,
   templateData: null,
+  builderProfiles: new Map(),
+  builderSocial: new Map(),
+  managedBuilders: [],
+  selectedBuilderId: sessionStorage.getItem('nexmarkets_selected_builder') || null,
   builderDashboard: { projects: [], editions: [], royalties: [], referrals: [] },
   pendingMint: null,
   pendingBuy: null,
   pendingListing: null,
+  lastDraftId: null,
+  lastSavedProject: null,
+  draftSavePromise: null,
   hydrating: false
 };
 
 const wallet = new NexWallet();
+let connectWalletFromUi = null;
 
 function lower(value) { return typeof value === 'string' ? value.toLowerCase() : value; }
 function address(value) { return typeof value === 'string' && /^0x[0-9a-f]{40}$/i.test(value) ? value : null; }
@@ -142,11 +155,24 @@ function normalizeTerms(raw = {}) {
     advantages_hash: lower(raw.advantagesHash || raw.advantages_hash) || `0x${'00'.repeat(32)}`,
     referralTermsHash: lower(raw.referralTermsHash || raw.referral_terms_hash) || `0x${'00'.repeat(32)}`,
     referral_terms_hash: lower(raw.referralTermsHash || raw.referral_terms_hash) || `0x${'00'.repeat(32)}`,
-    advantageConfigs: Array.isArray(raw.advantageConfigs) ? raw.advantageConfigs : []
+    // API/read-model implementations have historically exposed both camel
+    // and snake-case field names. Keep the canonical committed definitions
+    // regardless of which transport spelling the current network returns.
+    advantageConfigs: Array.isArray(raw.advantageConfigs)
+      ? raw.advantageConfigs
+      : (Array.isArray(raw.advantage_configs) ? raw.advantage_configs : [])
   };
 }
 function statusFor(edition, summary) {
+  const authorityTag = String(edition?.statusTag ?? edition?.status_tag ?? summary?.statusTag ?? summary?.status_tag ?? '').trim().toUpperCase();
+  if (authorityTag === 'DRAFT') return 'draft';
+  if (authorityTag === 'PREVIEW') return 'preview';
+  if (authorityTag === 'DEBUT') return 'live';
+  if (authorityTag === 'CLOSED') return 'closed';
+  if (authorityTag === 'MARKET') return 'market';
   const terms = termsOf(edition).current || summary?.currentTerms || summary;
+  const termsHashValue = terms?.hash || terms?.terms_hash || terms?.termsHash || summary?.active_terms_hash;
+  if (!termsHashValue) return 'draft';
   const cap = number(edition?.absolute_supply_cap ?? edition?.absoluteSupplyCap ?? summary?.absolute_supply_cap ?? summary?.absoluteSupplyCap);
   const minted = number(edition?.totalMinted ?? edition?.total_minted ?? summary?.total_minted ?? summary?.totalMinted);
   const start = seconds(terms?.mintStartsAt ?? terms?.mint_starts_at ?? summary?.mint_starts_at);
@@ -160,20 +186,33 @@ function statusFor(edition, summary) {
 function normalizeEdition(raw, summary = null) {
   if (!raw && !summary) return null;
   const addr = editionAddress(raw?.edition_address || raw?.address || summary?.edition_address || summary?.address);
-  const terms = termsOf(raw || summary);
-  const current = normalizeTerms(terms.current || {});
-  const history = terms.history.map((term) => normalizeTerms(term));
+  const source = raw || summary;
+  const terms = termsOf(source);
+  // Discover summaries may expose the active commitment/timing without the
+  // expanded Terms object. Preserve that canonical summary as a read-only
+  // Terms snapshot so a client-side route can still render and validate the
+  // launch until the full Edition endpoint is fetched.
+  const summaryTerms = source?.active_terms_hash || source?.terms_hash
+    ? { ...source, hash: source.active_terms_hash || source.terms_hash, terms_hash: source.active_terms_hash || source.terms_hash }
+    : null;
+  const current = normalizeTerms(terms.current || summaryTerms || {});
+  const history = (terms.history.length ? terms.history : (termHash(current) ? [current] : [])).map((term) => normalizeTerms(term));
   const cap = number(raw?.absolute_supply_cap ?? raw?.absoluteSupplyCap ?? summary?.absolute_supply_cap ?? summary?.absoluteSupplyCap);
   const minted = number(raw?.totalMinted ?? raw?.total_minted ?? summary?.total_minted ?? summary?.totalMinted);
   const name = raw?.name || summary?.name || (addr.toLowerCase() === (defaultCertificationEdition() || ZERO).toLowerCase() ? 'NexMarkets V1 Test Certification Edition' : `NexPass Edition ${short(addr)}`);
   return {
+    // Preserve the published project payload when an on-chain edition row is
+    // merged with its Discover summary. That payload contains the frozen
+    // renderer configuration; dropping it here would make presentation/export
+    // fall back to an unbound legacy design.
+    ...summary,
     ...raw,
     address: addr,
     edition_address: addr,
     name,
     editionId: raw?.editionId || raw?.edition_id || summary?.edition_id || null,
-    publisher: lower(raw?.publisher || summary?.publisher) || ZERO,
-    protocolAdmin: lower(raw?.protocolAdmin || summary?.protocol_admin) || null,
+    publisher: lower(raw?.publisher || raw?.builder_account_id || raw?.builderAccountId || summary?.publisher || summary?.builder_account_id || summary?.builderAccountId) || ZERO,
+    editionOwner: lower(raw?.editionOwner || raw?.edition_owner || summary?.editionOwner || summary?.edition_owner || raw?.publisher || summary?.publisher) || ZERO,
     mintController: lower(raw?.mintController || summary?.mint_controller) || null,
     absoluteSupplyCap: cap,
     absolute_supply_cap: cap,
@@ -250,46 +289,111 @@ function normalizeListing(raw, editionMap) {
     rawOrder: raw.order_payload || raw.order || null
   };
 }
+function templateDesignFromDraft(raw = {}) {
+  const source = { ...raw };
+  const option = String(source.packOption || source.packId || '').trim();
+  let passDesign = String(source.passDesign || 'classic');
+  const retiredPassDesign = !option && !['classic', 'glass'].includes(passDesign.toLowerCase()) && !/^pack-(slab|glass|metal|ceramic|blister|carbon|paper|resin)$/.test(passDesign.toLowerCase()) ? passDesign : '';
+  let frame = String(source.frame || 'obsidian');
+  if (/^(classic|glass)-(obsidian|carbon|gilt)$/.test(option)) {
+    const [family, material] = option.split('-');
+    passDesign = family;
+    frame = material;
+  } else if (/^pack-(slab|glass|metal|ceramic|blister|carbon|paper|resin)$/.test(option)) {
+    passDesign = option;
+    frame = 'obsidian';
+  } else if (/^pack-/.test(passDesign)) {
+    frame = 'obsidian';
+  }
+  const palette = source.palette && typeof source.palette === 'object' ? source.palette : null;
+  const randomPalette = Array.isArray(source.randomPalette) && source.randomPalette.length >= 3
+    ? source.randomPalette.slice(0, 3)
+    : palette ? [palette.primary, palette.secondary, palette.accent].filter(Boolean).slice(0, 3) : [];
+  const artEdition = Array.isArray(source.artEdition)
+    ? source.artEdition.map((entry, index) => ({
+      ...entry,
+      serial: Number(entry.serial ?? index + 1),
+      src: entry.src || entry.url || entry.storageUrl || (/^(https?:|data:)/i.test(String(entry.assetKey || '')) ? entry.assetKey : '')
+    }))
+    : [];
+  return {
+    ...source,
+    passDesign,
+    retiredPassDesign,
+    frame,
+    frameColor: source.frameColor || (frame === 'gilt' ? '#c8a84e' : frame === 'carbon' ? '#313337' : '#2a2725'),
+    color: palette?.primary || source.color || randomPalette[0] || '#5f6f50',
+    randomPalette: randomPalette.length >= 3 ? randomPalette : undefined,
+    artEdition,
+    passAssignments: Array.isArray(source.passAssignments) ? source.passAssignments : []
+  };
+}
+function templateLaunchFromProject(project) {
+  const source = project?.content || project?.launchDraft || project;
+  if (!source || typeof source !== 'object' || (!source.project && !source.design && !source.edition)) return null;
+  return {
+    ...source,
+    project: { ...(source.project || {}) },
+    edition: { ...(source.edition || {}) },
+    design: templateDesignFromDraft(source.design || {})
+  };
+}
 function projectModel(edition, summary, pass) {
   const indexedTerms = termsOf(edition).current || {};
   const terms = Object.keys(indexedTerms).length ? indexedTerms : (summary || {});
   const advantages = pass?.advantages || [];
-  const title = edition?.name || summary?.name || `NexPass Edition ${short(edition?.address)}`;
+  const compiledLaunch = templateLaunchFromProject(summary) || templateLaunchFromProject(edition);
+  const launchProject = compiledLaunch?.project || {};
+  const launchEdition = compiledLaunch?.edition || {};
+  const launchDesign = compiledLaunch?.design || {};
+  const title = launchProject.name || edition?.name || summary?.name || `NexPass Edition ${short(edition?.address)}`;
+  const builderId = lower(edition?.publisher || summary?.publisher || edition?.builder_account_id || edition?.builderAccountId || summary?.builder_account_id || summary?.builderAccountId) || ZERO;
+  const builderProfile = state.builderProfiles.get(builderId) || null;
+  const profileLinks = builderProfile?.links && typeof builderProfile.links === 'object' ? builderProfile.links : {};
   const stage = statusFor(edition, summary);
   const advKind = kind(advantages[0]?.kind) === 'REDEMPTION' ? 'redemption' : 'connected';
   const experience = {
     advantageText: advantageText(advantages, edition?.advantagesHash),
     advantageShort: advantageText(advantages, edition?.advantagesHash),
     minted: edition?.totalMinted || 0,
-    builder: short(edition?.publisher),
-    builderHandle: 'Onchain publisher',
-    evidenceLabel: 'View onchain record',
-    evidenceUrl: '',
-    evidenceType: 'Onchain record',
-    about: `A permanent NexPass Edition on ${activeNetworkName()}. Ownership, serials and versioned Terms are read from the certified deployment. Edition ${short(edition?.address)} is indexed by Goldsky.`,
-    edition: 'NEXMARKETS EDITION',
-    royalty: `${number(terms.royaltyBps ?? terms.royalty_bps) / 100}%`,
-    termsVersion: terms.version == null ? 'Published Terms' : `v${terms.version}`,
-    previewStarted: iso(terms.previewStartsAt ?? terms.preview_starts_at ?? summary?.preview_starts_at),
-    opensAt: iso(terms.mintStartsAt ?? terms.mint_starts_at ?? summary?.mint_starts_at),
+    builder: launchProject.builder || builderProfile?.display_name || builderProfile?.displayName || short(builderId),
+    builderHandle: launchProject.builderHandle || profileLinks.handle || builderProfile?.handle || 'Onchain publisher',
+    builderId,
+    builderProfile,
+    evidenceLabel: launchProject.evidence?.label || 'View onchain record',
+    evidenceUrl: launchProject.evidence?.url || '',
+    evidenceType: launchProject.evidence?.type || 'Onchain record',
+    about: launchProject.about || `A permanent NexPass Edition on ${activeNetworkName()}. Ownership, serials and versioned Terms are read from the certified deployment. Edition ${short(edition?.address)} is indexed by Goldsky.`,
+    edition: launchEdition.name || 'NEXMARKETS EDITION',
+    royalty: launchEdition.royalty != null ? `${number(launchEdition.royalty)}%` : `${number(terms.royaltyBps ?? terms.royalty_bps) / 100}%`,
+    termsVersion: compiledLaunch?.preview?.termsVersion || (terms.version == null ? 'Published Terms' : `v${terms.version}`),
+    previewStarted: iso(compiledLaunch?.preview?.startsAt || terms.previewStartsAt || terms.preview_starts_at || summary?.preview_starts_at),
+    opensAt: iso(compiledLaunch?.preview?.opensAt || terms.mintStartsAt || terms.mint_starts_at || summary?.mint_starts_at),
     closesAt: iso(terms.mintEndsAt ?? terms.mint_ends_at ?? summary?.mint_ends_at),
-    visual: 'nexstudio'
+    visual: 'nexstudio',
+    productState: launchProject.productState || '',
+    supportUrl: launchProject.supportUrl || '',
+    compiledLaunch
   };
   const project = {
     name: title,
     logo: initials(title),
-    category: 'tools',
-    state: stage === 'preview' ? 'preview' : 'live',
+    category: launchProject.category || 'tools',
+    state: stage === 'preview' ? 'preview' : stage === 'live' ? 'live' : stage === 'closed' ? 'closed' : stage === 'market' ? 'market' : 'draft',
     adv: advKind,
-    price: edition?.price || usd(terms.pricePerPass ?? terms.price_usdg),
-    supply: edition?.absoluteSupplyCap || 0,
-    color: '#34483a',
+    price: launchEdition.price != null ? number(launchEdition.price) : (edition?.price || usd(terms.pricePerPass ?? terms.price_usdg)),
+    supply: edition?.absoluteSupplyCap || number(launchEdition.supply),
+    color: launchDesign.color || '#34483a',
     desc: `Finite Pass Edition · ${edition?.totalMinted || 0}/${edition?.absoluteSupplyCap || 0} serials issued on ${activeNetworkName()}.`,
-    opens: stage === 'preview' ? 'Preview' : 'Live',
+    opens: stage === 'preview' ? (compiledLaunch?.preview?.opensAt || 'Preview') : 'Live',
     network: activeNetworkFamily(),
     editionAddress: edition?.address,
-    termsHash: termHash(terms) || lower(summary?.active_terms_hash) || null
+    termsHash: termHash(terms) || lower(summary?.active_terms_hash) || null,
+    builderId,
+    builderProfile,
+    compiledLaunch
   };
+  if (launchProject.desc) project.desc = launchProject.desc;
   return { project, experience };
 }
 function ownedModel(raw, pass, edition) {
@@ -326,11 +430,701 @@ function emptyDashboard(projects) {
   };
 }
 function neutralCreateData() {
-  return { name: '', builder: '', builderHandle: '', desc: '', about: '', supply: 1, price: 0, royalty: 0, advantages: [], published: false, productState: 'Preview', opensAt: '', timezone: 'Africa/Lagos' };
+  return {
+    draftId: '', name: '', builder: '', builderHandle: '', desc: '', about: '', videoUrl: '', evidenceType: 'Product', evidenceUrl: '', supportUrl: '', category: 'tools', productState: 'Preview',
+    edition: '', series: '', supply: 1, price: 0, royalty: 0, advantages: [], referral: false, referralRate: 10,
+    color: '#5f6f50', themeMode: 'auto', customColor: '#5f6f50', colorStyle: 'solid', gradientA: '#5f6f50', gradientB: '#17241f', gradientDirection: 'diagonal',
+    passDesign: 'classic', randomPassMode: false, randomPassSeed: '', frame: 'obsidian', frameColor: '#2a2725', texture: 'none', textureTint: '#9b9b94', frameHueCustomized: false,
+    packOption: 'classic-obsidian', packFamily: 'classic', material: 'obsidian', colorwayId: 'colourway-01', palette: { primary: '#b31d2b', secondary: '#f2f0e9', accent: '#17181b' }, passAssignments: [],
+    logoSrc: '', logoAssetId: '', bannerSrc: '', bannerAssetId: '', bannerPalette: ['#5f6f50', '#30483d', '#111512'], bannerLogoPosition: 'tl', artSrc: '', artAssetId: '', artX: 50, artY: 50, artMode: 'single', artEdition: [], artEditionView: 'grid', artEditionSelected: 0,
+    previewHours: 24, opensAt: '', timezone: 'Africa/Lagos', termsVersion: 'v1.0', reviewEvidence: false, reviewAdvantages: false, reviewPreview: false, published: false
+  };
+}
+function createDataFromLaunchDraft(project) {
+  const draft = project?.content || project?.launchDraft || {};
+  const projectData = draft.project || {};
+  const edition = draft.edition || {};
+  const design = draft.design || {};
+  const preview = draft.preview || {};
+  const banner = projectData.banner || {};
+  const packOption = approvedPackOptionForDesign(design);
+  const retiredPassDesign = design.retiredPassDesign || (!packOption && !['classic', 'glass'].includes(String(design.passDesign || '').toLowerCase()) && !/^pack-(slab|glass|metal|ceramic|blister|carbon|paper|resin)$/.test(String(design.passDesign || '').toLowerCase()) ? String(design.passDesign || '') : '');
+  const passDesign = packOption ? (packOption.startsWith('classic-') ? 'classic' : packOption.startsWith('glass-') ? 'glass' : packOption) : 'classic';
+  return {
+    ...neutralCreateData(),
+    draftId: draft.draftId || project.id || '',
+    name: projectData.name || project.name || '',
+    builder: projectData.builder || '',
+    builderHandle: projectData.builderHandle || '',
+    desc: projectData.desc || project.summary || '',
+    about: projectData.about || '',
+    videoUrl: projectData.videoUrl || '',
+    evidenceType: projectData.evidence?.type || 'Product',
+    evidenceUrl: projectData.evidence?.url || '',
+    supportUrl: projectData.supportUrl || '',
+    category: projectData.category || 'tools',
+    productState: projectData.productState || 'Preview',
+    edition: edition.name || '',
+    series: edition.series || '',
+    supply: Number(edition.supply || 1),
+    price: Number(edition.price || 0),
+    royalty: Number(edition.royalty || 0),
+    advantages: Array.isArray(draft.advantages) ? draft.advantages : [],
+    referral: Boolean(draft.referral?.enabled),
+    referralRate: Number(draft.referral?.rate || 10),
+    color: design.color || '#5f6f50',
+    themeMode: design.themeMode || 'auto',
+    customColor: design.customColor || design.color || '#5f6f50',
+    colorStyle: design.colorStyle || 'solid',
+    gradientA: design.gradientA || design.color || '#5f6f50',
+    gradientB: design.gradientB || '#17241f',
+    gradientDirection: design.gradientDirection || 'diagonal',
+    passDesign,
+    retiredPassDesign,
+    randomPassMode: Boolean(design.randomPassMode),
+    randomPassSeed: design.randomPassSeed || '',
+    packOption,
+    packFamily: design.packFamily || passDesign,
+    material: design.material || design.frame || 'obsidian',
+    colorwayId: design.colorwayId || 'colourway-01',
+    palette: design.palette || null,
+    passAssignments: Array.isArray(design.passAssignments) ? design.passAssignments : [],
+    frame: design.frame || 'obsidian',
+    frameColor: design.frameColor || '#2a2725',
+    texture: design.texture || 'none',
+    textureTint: design.textureTint || '#9b9b94',
+    frameHueCustomized: Boolean(design.frameHueCustomized),
+    logoSrc: design.logoSrc || '',
+    logoAssetId: design.logoAssetId || '',
+    bannerSrc: banner.src || '',
+    bannerAssetId: banner.assetId || '',
+    bannerPalette: Array.isArray(banner.palette) ? banner.palette : ['#5f6f50', '#30483d', '#111512'],
+    bannerLogoPosition: banner.logoPosition || 'tl',
+    artSrc: design.artSrc || '',
+    artAssetId: design.artAssetId || '',
+    artX: Number(design.artX ?? 50),
+    artY: Number(design.artY ?? 50),
+    artMode: design.artMode || 'single',
+    artEdition: Array.isArray(design.artEdition) ? design.artEdition.map((entry, index) => ({
+      ...entry,
+      serial: Number(entry.serial ?? index + 1),
+      src: entry.src || entry.url || entry.storageUrl || (/^(https?:|data:)/i.test(String(entry.assetKey || '')) ? entry.assetKey : '')
+    })) : [],
+    artEditionView: design.artEditionView || 'grid',
+    artEditionSelected: Number(design.selectedSerialIndex || 0),
+    previewHours: Number(preview.hours || 24),
+    opensAt: preview.localOpensAt || preview.opensAt || '',
+    timezone: preview.timezone || 'Africa/Lagos',
+    termsVersion: preview.termsVersion || 'v1.0',
+    reviewEvidence: Boolean(draft.review?.evidence),
+    reviewAdvantages: Boolean(draft.review?.advantages),
+    reviewPreview: Boolean(draft.review?.preview),
+    published: String(project.status || draft.status || '').toUpperCase() === 'PUBLISHED'
+  };
+}
+
+let createAutosaveTimer = null;
+async function autosaveCreateDraft() {
+  if (!state.authenticated || !state.wallet || state.draftSavePromise) return state.draftSavePromise;
+  const getter = typeof window.__nmV2CompileCreateLaunch === 'function' ? window.__nmV2CompileCreateLaunch : null;
+  if (!getter) return null;
+  const compiled = compiledForActiveNetwork(getter());
+  if (!compiled) return null;
+  const cleanDraft = assertCreatePassFieldCoverage(sanitizeCompiledForApi(compiled));
+  cleanDraft.status = 'DRAFT';
+  const draftId = String(cleanDraft.draftId || state.lastDraftId || `draft-${uuid()}`).slice(0, 120);
+  cleanDraft.draftId = draftId;
+  const rawSlug = window.slugKey?.(cleanDraft.project?.name || '') || draftId.replace(/^draft-/, '');
+  const slug = String(rawSlug || `draft-${draftId.slice(-24)}`).toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 80) || `draft-${Date.now()}`;
+  const name = cleanDraft.project?.name?.trim() || 'Untitled draft';
+  const payload = { draftId, slug, name, summary: cleanDraft.project?.desc || '', status: 'DRAFT', launchDraft: cleanDraft };
+  const path = state.lastDraftId ? `/v1/builder/drafts/${encodeURIComponent(state.lastDraftId)}` : '/v1/builder/drafts';
+  state.draftSavePromise = read(path, {
+    method: state.lastDraftId ? 'PUT' : 'POST',
+    headers: { 'content-type': 'application/json', 'x-csrf-token': state.csrfToken || sessionStorage.getItem('nex_csrf') || '' },
+    body: JSON.stringify(payload)
+  }).then((project) => {
+    state.lastDraftId = project.content?.draftId || project.launchDraft?.draftId || draftId;
+    state.lastSavedProject = project;
+    return published;
+  }).finally(() => { state.draftSavePromise = null; });
+  return state.draftSavePromise;
+}
+function scheduleCreateDraftAutosave() {
+  if (!state.authenticated || !state.wallet) return;
+  clearTimeout(createAutosaveTimer);
+  createAutosaveTimer = setTimeout(() => autosaveCreateDraft().catch((error) => showRuntimeBanner(`Draft autosave failed: ${error.message}`, true)), 700);
+}
+function installCreateDraftAutosave() {
+  const notify = (event) => { if (event.target?.closest?.('#create')) scheduleCreateDraftAutosave(); };
+  document.addEventListener('input', notify, true);
+  document.addEventListener('change', notify, true);
+  window.__nmV2AutosaveCreateDraft = autosaveCreateDraft;
+  // The supplied HTML still exposes its original localStorage-backed
+  // saveCreateDraft function.  Replace that write path after the template has
+  // loaded so authenticated drafts have one authority: the API draft record.
+  window.saveCreateDraft = function serverBackedCreateDraftSave(immediate = false) {
+    const status = document.getElementById('createSaveStatus');
+    if (!state.authenticated || !state.wallet) {
+      if (status) {
+        status.textContent = 'Connect to save draft';
+        status.classList.remove('saving');
+        status.classList.add('error');
+      }
+      return null;
+    }
+    if (status) {
+      status.textContent = 'Saving to NexMarkets…';
+      status.classList.add('saving');
+      status.classList.remove('error');
+    }
+    const save = () => autosaveCreateDraft().then((result) => {
+      if (status) {
+        status.textContent = 'Draft saved';
+        status.classList.remove('saving', 'error');
+      }
+      return result;
+    }).catch((error) => {
+      if (status) {
+        status.textContent = 'Draft save failed';
+        status.classList.remove('saving');
+        status.classList.add('error');
+      }
+      showRuntimeBanner(`Draft autosave failed: ${error.message}`, true);
+      throw error;
+    });
+    if (immediate) return save();
+    scheduleCreateDraftAutosave();
+    return null;
+  };
+}
+
+const pendingArtworkFiles = new Map();
+const ALLOWED_MEDIA_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/avif']);
+
+function inferredMediaType(file) {
+  const explicit = String(file?.type || '').toLowerCase();
+  if (ALLOWED_MEDIA_TYPES.has(explicit)) return explicit;
+  const extension = String(file?.name || '').split('.').pop()?.toLowerCase();
+  return ({ jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp', avif: 'image/avif' })[extension] || '';
+}
+
+async function fileSha256(file) {
+  const digest = await crypto.subtle.digest('SHA-256', await file.arrayBuffer());
+  return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, '0')).join('');
+}
+
+async function uploadMediaFile(file) {
+  const mimeType = inferredMediaType(file);
+  if (!ALLOWED_MEDIA_TYPES.has(mimeType)) throw new Error('Choose a PNG, JPG, WebP or AVIF image');
+  if (!Number.isInteger(file.size) || file.size <= 0 || file.size > 25 * 1024 * 1024) throw new Error('Image must be between 1 byte and 25 MB');
+  await requireSession();
+  const checksum = await fileSha256(file);
+  const prepared = await read('/v1/media/uploads', {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      'x-csrf-token': state.csrfToken || sessionStorage.getItem('nex_csrf') || ''
+    },
+    body: JSON.stringify({ filename: file.name, mimeType, byteSize: file.size, sha256: checksum })
+  });
+  if (!prepared?.asset?.id) throw new Error('MEDIA_PREPARATION_INCOMPLETE');
+  if (prepared.upload) {
+    const response = await fetch(prepared.upload.url, {
+      method: prepared.upload.method || 'PUT',
+      headers: prepared.upload.headers || { 'content-type': mimeType },
+      body: file
+    });
+    if (!response.ok) throw new Error(`MEDIA_UPLOAD_${response.status}`);
+  }
+  const completed = prepared.upload
+    ? await mutation(`/v1/media/${encodeURIComponent(prepared.asset.id)}/complete`, {})
+    : prepared;
+  const asset = completed?.asset || prepared.asset;
+  if (!asset?.url || asset.safetyStatus !== 'APPROVED') throw new Error('MEDIA_VERIFICATION_INCOMPLETE');
+  return asset;
+}
+
+function createDataValue() {
+  return window.__nmV2GetCreateData?.() || {};
+}
+
+function updateCreateData(patch, render = true) {
+  return window.__nmV2UpdateCreateData?.(patch, { render });
+}
+
+async function uploadCreateAsset(file, type) {
+  const previous = createDataValue();
+  const previewUrl = URL.createObjectURL(file);
+  showRuntimeBanner(`Uploading ${file.name}â€¦`);
+  try {
+    let logoPresentation = null;
+    if (type === 'logo') {
+      logoPresentation = await Promise.allSettled([
+        window.deriveLogoColor?.(previewUrl),
+        window.nmDeriveLogoPalette?.(previewUrl)
+      ]);
+    }
+    const asset = await uploadMediaFile(file);
+    if (type === 'logo') {
+      const color = logoPresentation?.[0]?.status === 'fulfilled' ? logoPresentation[0].value : previous.color;
+      const palette = logoPresentation?.[1]?.status === 'fulfilled' ? logoPresentation[1].value : previous.bannerPalette;
+      updateCreateData({
+        logoSrc: asset.url,
+        logoAssetId: asset.id,
+        ...(previous.themeMode === 'auto' && color ? { color, customColor: color } : {}),
+        ...(!previous.bannerSrc && Array.isArray(palette) ? { bannerPalette: palette } : {})
+      });
+    } else if (type === 'banner') {
+      updateCreateData({ bannerSrc: asset.url, bannerAssetId: asset.id });
+    } else {
+      updateCreateData({ artSrc: asset.url, artAssetId: asset.id, artX: 50, artY: 50 });
+    }
+    showRuntimeBanner(`${file.name} uploaded and verified`);
+    return asset;
+  } catch (error) {
+    showRuntimeBanner(`Upload failed: ${error.message}`, true);
+    throw error;
+  } finally {
+    URL.revokeObjectURL(previewUrl);
+  }
+}
+
+function sortAndMapArtwork(entries) {
+  const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' });
+  const supply = Math.max(1, Number(createDataValue().supply || 1));
+  return entries.slice().sort((left, right) => collator.compare(left.filename || '', right.filename || '')).map((entry, index) => ({ ...entry, serial: index < supply ? index + 1 : null }));
+}
+
+function decorateArtworkUploadFailures() {
+  const mount = document.getElementById('artEditionMode');
+  if (!mount) return;
+  mount.querySelector('.nm-media-upload-failures')?.remove();
+  const failed = (createDataValue().artEdition || []).map((entry, index) => ({ entry, index })).filter(({ entry }) => entry.uploadError);
+  if (!failed.length) return;
+  const panel = document.createElement('div');
+  panel.className = 'nm-media-upload-failures';
+  panel.innerHTML = failed.map(({ entry, index }) => `<div><span><b>${escapeHtml(entry.filename)}</b><small>${escapeHtml(entry.uploadError)}</small></span><button type="button" data-retry-artwork="${index}">Retry</button></div>`).join('');
+  panel.addEventListener('click', (event) => {
+    const button = event.target.closest('[data-retry-artwork]');
+    if (button) retryArtworkUpload(Number(button.dataset.retryArtwork)).catch(() => {});
+  });
+  mount.prepend(panel);
+}
+
+async function uploadArtworkFiles(files, label = 'files') {
+  const accepted = Array.from(files || []).filter((file) => ALLOWED_MEDIA_TYPES.has(inferredMediaType(file)));
+  if (!accepted.length) {
+    window.showCreateErrors?.(['No supported PNG, JPG, WebP or AVIF artwork was found.']);
+    return [];
+  }
+  const existing = Array.isArray(createDataValue().artEdition) ? createDataValue().artEdition.slice() : [];
+  const results = new Array(accepted.length);
+  let cursor = 0;
+  let completed = 0;
+  const worker = async () => {
+    while (cursor < accepted.length) {
+      const index = cursor++;
+      const file = accepted[index];
+      const uploadToken = `upload-${uuid()}`;
+      pendingArtworkFiles.set(uploadToken, file);
+      try {
+        const asset = await uploadMediaFile(file);
+        results[index] = {
+          assetKey: asset.id,
+          assetId: asset.id,
+          filename: file.webkitRelativePath || file.name,
+          title: String(file.name).replace(/\.[^.]+$/, ''),
+          type: asset.mimeType,
+          size: asset.byteSize,
+          sha256: asset.sha256,
+          width: asset.width,
+          height: asset.height,
+          src: asset.url,
+          url: asset.url,
+          serial: null
+        };
+        pendingArtworkFiles.delete(uploadToken);
+      } catch (error) {
+        const previewUrl = URL.createObjectURL(file);
+        results[index] = { uploadToken, filename: file.webkitRelativePath || file.name, title: String(file.name).replace(/\.[^.]+$/, ''), type: inferredMediaType(file), size: file.size, src: previewUrl, serial: null, uploadError: error.message };
+      } finally {
+        completed += 1;
+        showRuntimeBanner(`Uploading ${label}: ${completed} / ${accepted.length}`);
+      }
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(3, accepted.length) }, () => worker()));
+  const all = sortAndMapArtwork([...existing, ...results.filter(Boolean)]);
+  const seen = new Map();
+  for (const entry of all) {
+    if (!entry.sha256) continue;
+    if (seen.has(entry.sha256)) entry.duplicateOf = seen.get(entry.sha256);
+    else seen.set(entry.sha256, entry.filename);
+  }
+  updateCreateData({ artMode: 'collection', artEdition: all, artEditionSelected: 0 });
+  setTimeout(decorateArtworkUploadFailures, 0);
+  const failures = all.filter((entry) => entry.uploadError);
+  const duplicates = all.filter((entry) => entry.duplicateOf);
+  if (failures.length) window.showCreateErrors?.(failures.map((entry) => `${entry.filename}: ${entry.uploadError}`));
+  else if (duplicates.length) window.showCreateErrors?.(duplicates.map((entry) => `${entry.filename} duplicates ${entry.duplicateOf}. Review this serial mapping before Publish.`));
+  else showRuntimeBanner(`${accepted.length} artworks uploaded, verified and mapped`);
+  return all;
+}
+
+async function retryArtworkUpload(index) {
+  const entries = Array.isArray(createDataValue().artEdition) ? createDataValue().artEdition.slice() : [];
+  const failed = entries[index];
+  const file = pendingArtworkFiles.get(failed?.uploadToken);
+  if (!failed || !file) throw new Error('Select this file again to retry the upload');
+  showRuntimeBanner(`Retrying ${file.name}â€¦`);
+  try {
+    const asset = await uploadMediaFile(file);
+    if (failed.src?.startsWith('blob:')) URL.revokeObjectURL(failed.src);
+    entries[index] = { assetKey: asset.id, assetId: asset.id, filename: failed.filename, title: failed.title, type: asset.mimeType, size: asset.byteSize, sha256: asset.sha256, width: asset.width, height: asset.height, src: asset.url, url: asset.url, serial: failed.serial };
+    pendingArtworkFiles.delete(failed.uploadToken);
+    updateCreateData({ artEdition: entries });
+    showRuntimeBanner(`${file.name} uploaded and verified`);
+    return asset;
+  } catch (error) {
+    entries[index] = { ...failed, uploadError: error.message };
+    updateCreateData({ artEdition: entries });
+    setTimeout(decorateArtworkUploadFailures, 0);
+    throw error;
+  }
+}
+
+function installMediaRuntime() {
+  window.__nmV2UploadCreateAsset = uploadCreateAsset;
+  window.__nmV2UploadArtworkFiles = uploadArtworkFiles;
+  window.nmRetryArtworkUpload = retryArtworkUpload;
+  window.nmElitePreviewBuilderAvatar = async (input) => {
+    const file = input?.files?.[0];
+    if (!file) return null;
+    try {
+      const asset = await uploadMediaFile(file);
+      const hidden = document.getElementById('ebdAvatar');
+      const preview = document.getElementById('ebdAvatarPreview');
+      if (hidden) hidden.value = asset.url;
+      if (preview) preview.innerHTML = `<img src="${escapeHtml(asset.url)}" alt="">`;
+      showRuntimeBanner(`${file.name} uploaded and verified`);
+      return asset;
+    } catch (error) {
+      input.value = '';
+      showRuntimeBanner(`Avatar upload failed: ${error.message}`, true);
+      return null;
+    }
+  };
+}
+function slugBuilderValue(value) { return String(value || '').toLowerCase().replace(/[^a-z0-9]+/g, ''); }
+function builderProfileForKey(key) {
+  const wanted = String(key || '').toLowerCase();
+  for (const profile of state.builderProfiles.values()) {
+    const links = profile?.links && typeof profile.links === 'object' ? profile.links : {};
+    const candidates = [profile.builder_id, profile.builderId, profile.account_id, profile.accountId, profile.id, profile.wallet_address, profile.walletAddress, profile.display_name, profile.displayName, profile.handle, links.handle];
+    if (candidates.some((value) => String(value || '').toLowerCase() === wanted || slugBuilderValue(value) === slugBuilderValue(wanted))) return profile;
+  }
+  for (const experience of Object.values(state.projectExperience || {})) {
+    if (slugBuilderValue(experience.builder) === slugBuilderValue(wanted) || slugBuilderValue(experience.builderHandle) === slugBuilderValue(wanted)) {
+      return state.builderProfiles.get(lower(experience.builderId)) || { account_id: experience.builderId, display_name: experience.builder, links: { handle: experience.builderHandle } };
+    }
+  }
+  return null;
+}
+function builderIdForKey(key) {
+  const managed = managedBuilderForKey(key);
+  if (managed) return managed.id || managed.builder_id;
+  const profile = builderProfileForKey(key);
+  return profile?.builder_id || profile?.builderId || profile?.account_id || profile?.accountId || profile?.id || profile?.wallet_address || profile?.walletAddress || null;
+}
+function managedBuilderForKey(key) {
+  const wanted = lower(key);
+  return state.managedBuilders.find((row) => lower(row.id || row.builder_id) === wanted || lower(row.profile?.id) === wanted || lower(row.profile?.builder_id) === wanted) || null;
+}
+function managedBuilderProjectViews(key) {
+  const builder = managedBuilderForKey(key);
+  if (!builder || lower(state.selectedBuilderId) !== lower(builder.id || builder.builder_id)) return [];
+  const profile = builder.profile || {};
+  const experience = {
+    builder: profile.display_name || profile.displayName || 'Builder',
+    builderHandle: profile.links?.handle || '',
+    about: profile.about || profile.bio || '',
+    builderId: builder.id || builder.builder_id,
+    compiledLaunch: null
+  };
+  return (state.builderDashboard.projects || []).map((row) => {
+    const draft = row.content || row.launchDraft || {};
+    const project = draft.project || {};
+    const edition = draft.edition || {};
+    const compiledLaunch = { ...draft, status: row.status || draft.status || 'DRAFT' };
+    const viewExperience = { ...experience, compiledLaunch, edition: edition.name || '' };
+    return {
+      __nmExperience: viewExperience,
+      __nmBuilderId: builder.id || builder.builder_id,
+      name: row.name || project.name || edition.name || 'Untitled Project',
+      desc: row.summary || project.desc || project.about || '',
+      category: project.category || '',
+      state: String(row.status || '').toUpperCase() === 'PUBLISHED' ? 'preview' : 'preview',
+      supply: number(edition.supply),
+      price: usd(edition.price),
+      color: draft.design?.color || '#34483a',
+      logo: draft.design?.logoSrc || '',
+      slug: row.slug,
+      status: row.status
+    };
+  });
+}
+function managedBuilderStats(key) {
+  const builder = managedBuilderForKey(key);
+  if (!builder) return null;
+  const selected = lower(state.selectedBuilderId) === lower(builder.id || builder.builder_id);
+  const profile = builder.profile || {};
+  const stats = profile.stats || {};
+  if (selected) {
+    const launches = state.templateData?.dashboardState?.launches || [];
+    const issued = launches.reduce((total, launch) => total + number(launch.minted), 0);
+    const activeListings = state.templateData?.dashboardState?.listings?.length || 0;
+    return { editions: launches.length, issued, primary: number(state.templateData?.dashboardState?.earnings?.primaryProceeds), activeListings };
+  }
+  return { editions: number(stats.editionsCount ?? builder.editionsCount), issued: number(stats.passesIssued ?? builder.passesIssued), primary: usd(stats.totalVolumeUsdg ?? builder.totalVolumeUsdg), activeListings: 0 };
+}
+function socialEntryForBuilder(builderId) {
+  if (!builderId) return null;
+  let entry = state.builderSocial.get(builderId);
+  if (!entry) {
+    const profile = state.builderProfiles.get(lower(builderId)) || builderProfileForKey(builderId) || {};
+    entry = { profile, updates: [], questions: [], follow: { isFollowing: false, isHolder: false, followerCount: 0 } };
+    state.builderSocial.set(builderId, entry);
+  }
+  return entry;
+}
+function installSocialRuntime() {
+  window.__nmBuilderProjectsForKey = managedBuilderProjectViews;
+  window.__nmBuilderStatsForKey = managedBuilderStats;
+  window.nmEliteBuilderProfileForKey = (key) => {
+    const profile = builderProfileForKey(key);
+    if (!profile) return { key, displayName: key || 'Builder', handle: '', tagline: '', about: '', website: '', x: '', avatar: '' };
+    const links = profile.links && typeof profile.links === 'object' ? profile.links : {};
+    return {
+      key,
+      displayName: profile.display_name || profile.displayName || key || 'Builder',
+      handle: links.handle || profile.handle || '',
+      tagline: links.positioning || profile.positioning || '',
+      about: profile.about || profile.bio || '',
+      website: links.website || '',
+      x: links.x || links.twitter || '',
+      avatar: profile.avatar_url || profile.avatarUrl || ''
+    };
+  };
+  window.nmSocialBuilderApi = {
+    updates: (key) => {
+      const entry = socialEntryForBuilder(builderIdForKey(key));
+      return (entry?.updates || []).map((row) => ({ id: row.id, text: row.content || row.text || '', ts: row.created_at || row.createdAt || row.ts }));
+    },
+    questions: (key) => {
+      const entry = socialEntryForBuilder(builderIdForKey(key));
+      return (entry?.questions || []).map((row) => ({ id: row.id, who: row.asker_account_id ? 'Holder' : row.who || 'Holder', holder: true, q: row.question || row.q || '', a: row.answer || row.a || '', ts: row.created_at || row.createdAt || row.ts }));
+    },
+    holds: (key) => Boolean(socialEntryForBuilder(builderIdForKey(key))?.follow?.isHolder),
+    isFollowing: (key) => Boolean(socialEntryForBuilder(builderIdForKey(key))?.follow?.isFollowing),
+    toggleFollow: async (key) => {
+      try {
+        await requireSession();
+        const builderId = builderIdForKey(key); if (!builderId) throw new Error('BUILDER_NOT_FOUND');
+        const entry = socialEntryForBuilder(builderId);
+        const result = await read(`/v1/builders/${encodeURIComponent(builderId)}/follow`, {
+          method: entry.follow.isFollowing ? 'DELETE' : 'POST',
+          headers: { 'x-csrf-token': state.csrfToken || sessionStorage.getItem('nex_csrf') || '' }
+        });
+        entry.follow = { ...entry.follow, ...result, isFollowing: !entry.follow.isFollowing };
+        window.nmSocialRefresh?.();
+        return result;
+      } catch (error) { showRuntimeBanner(error.message, true); return null; }
+    },
+    addUpdate: async (key, textValue) => {
+      try {
+        await requireSession();
+        const builderId = builderIdForKey(key); if (!builderId) throw new Error('BUILDER_NOT_FOUND');
+        const row = await mutation('/v1/builder/milestones', { builderId, title: 'Builder update', content: String(textValue || '').trim(), projectId: null });
+        socialEntryForBuilder(builderId)?.updates.unshift(row);
+        showToast('Update posted'); window.nmSocialRefresh?.(); return true;
+      } catch (error) { showRuntimeBanner(error.message, true); return false; }
+    },
+    ask: async (key, textValue) => {
+      try {
+        await requireSession();
+        const builderId = builderIdForKey(key); if (!builderId) throw new Error('BUILDER_NOT_FOUND');
+        const row = await mutation(`/v1/builders/${encodeURIComponent(builderId)}/questions`, { question: String(textValue || '').trim() });
+        socialEntryForBuilder(builderId)?.questions.unshift(row);
+        showToast('Question sent to the Builder'); window.nmSocialRefresh?.(); return true;
+      } catch (error) { showRuntimeBanner(error.message, true); return false; }
+    },
+    answer: async (key, questionId, textValue) => {
+      try {
+        await requireSession();
+        const builderId = builderIdForKey(key); if (!builderId) throw new Error('BUILDER_NOT_FOUND');
+        const row = await mutation(`/v1/builder/questions/${encodeURIComponent(questionId)}/answer`, { answer: String(textValue || '').trim() });
+        const entry = socialEntryForBuilder(builderId); const index = entry?.questions.findIndex((question) => question.id === questionId);
+        if (entry && index >= 0) entry.questions[index] = row;
+        showToast('Answer posted'); window.nmSocialRefresh?.(); return true;
+      } catch (error) { showRuntimeBanner(error.message, true); return false; }
+    }
+  };
+  // The older launch-page decoration calls these names directly. Point those
+  // reads at the same live API projection so project pages cannot fall back to
+  // the template's seeded social arrays.
+  window.nmSocialUpdates = (key) => window.nmSocialBuilderApi.updates(key);
+  window.nmSocialQuestions = (key) => window.nmSocialBuilderApi.questions(key);
+  window.nmHoldsBuilder = (key) => window.nmSocialBuilderApi.holds(key);
+  // Dashboard rendering is intentionally reused by responsive/layout layers.
+  // Preserve an in-progress Builder profile edit across those synchronous
+  // rerenders so a viewport capture or other harmless refresh cannot replace
+  // the user's live form with the last persisted profile.
+  const profileFieldIds = ['ebdName', 'ebdHandle', 'ebdTagline', 'ebdAbout', 'ebdWebsite', 'ebdX', 'ebdAvatar'];
+  const captureBuilderProfileDraft = () => {
+    const panel = document.getElementById('dash-builder');
+    const save = panel?.querySelector('[data-nm-builder-profile-save]');
+    if (!panel || !save) return null;
+    return { key: save.dataset.nmBuilderProfileSave || '', values: Object.fromEntries(profileFieldIds.map((id) => [id, document.getElementById(id)?.value ?? ''])) };
+  };
+  const restoreBuilderProfileDraft = (draft) => {
+    if (!draft) return;
+    const save = document.querySelector('#dash-builder [data-nm-builder-profile-save]');
+    if (!save || (draft.key && save.dataset.nmBuilderProfileSave !== draft.key)) return;
+    profileFieldIds.forEach((id) => {
+      const element = document.getElementById(id);
+      if (element && draft.values[id] != null) element.value = draft.values[id];
+    });
+  };
+  const dashboardRender = window.renderDashboard;
+  if (typeof dashboardRender === 'function' && !dashboardRender.__nmBuilderProfileDraftPreserving) {
+    const preservingDashboardRender = function preservingDashboardRender(...args) {
+      const draft = captureBuilderProfileDraft();
+      const result = dashboardRender.apply(this, args);
+      restoreBuilderProfileDraft(draft);
+      if (draft) requestAnimationFrame(() => restoreBuilderProfileDraft(draft));
+      return result;
+    };
+    preservingDashboardRender.__nmBuilderProfileDraftPreserving = true;
+    preservingDashboardRender.__nmOriginalRenderDashboard = dashboardRender;
+    window.renderDashboard = preservingDashboardRender;
+    try { renderDashboard = preservingDashboardRender; } catch { /* global binding may be unavailable */ }
+  }
+  const saveBuilderProfile = async (key) => {
+    const value = (id) => String(document.getElementById(id)?.value || '').trim();
+    const form = {
+      displayName: value('ebdName'), handle: value('ebdHandle'), positioning: value('ebdTagline'),
+      about: value('ebdAbout'), website: value('ebdWebsite'), x: value('ebdX'), avatarUrl: value('ebdAvatar')
+    };
+    try {
+      await requireSession();
+      const builderId = builderIdForKey(key);
+      if (!builderId) throw new Error('BUILDER_NOT_FOUND');
+      const profile = await read('/v1/builder/profile', {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json', 'x-csrf-token': state.csrfToken || sessionStorage.getItem('nex_csrf') || '' },
+        body: JSON.stringify({ builderId, ...form })
+      });
+      const accountId = profile.account_id || profile.accountId || state.wallet;
+      const canonicalBuilderId = lower(profile.builder_id || profile.builderId || builderId);
+      [accountId, profile.id, canonicalBuilderId].filter(Boolean).forEach((keyValue) => state.builderProfiles.set(lower(keyValue), { ...profile, builder_id: canonicalBuilderId }));
+      const managed = state.managedBuilders.find((row) => lower(row.id || row.builder_id) === canonicalBuilderId);
+      if (managed) managed.profile = { ...profile, builder_id: canonicalBuilderId };
+      state.builderSocial.set(canonicalBuilderId, { ...(state.builderSocial.get(canonicalBuilderId) || {}), profile });
+      showToast('Builder profile updated'); window.nmSocialRefresh?.(); window.renderDashboard?.(); return profile;
+    } catch (error) { showRuntimeBanner(error.message, true); return null; }
+  };
+  // The authority document intentionally installs a late wrapper so profile
+  // edits never fall back to its historical browser store. Expose the live
+  // callback under both names regardless of module/inline execution order.
+  window.__nmV2SaveBuilderProfile = saveBuilderProfile;
+  window.nmEliteSaveBuilderProfile = saveBuilderProfile;
+  if (!window.__nmV2BuilderProfileSaveWired) {
+    window.__nmV2BuilderProfileSaveWired = true;
+    document.addEventListener('click', (event) => {
+      const button = event.target?.closest?.('[data-nm-builder-profile-save]');
+      if (!button) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      saveBuilderProfile(button.dataset.nmBuilderProfileSave || state.selectedBuilderId);
+    }, true);
+  }
+  window.nmEliteSetDashboardBuilder = async (key) => {
+    try { await requireSession(); await selectBuilder(key); window.renderDashboard?.(); return true; }
+    catch (error) { showRuntimeBanner(error.message, true); return false; }
+  };
+
+  // The authority HTML predates the live API and treats these callbacks as
+  // synchronous.  Keep its visual surfaces, but make every social mutation
+  // await the server result before clearing fields or re-rendering.
+  const refreshSocialSurfaces = () => {
+    try { window.nmSocialRefresh?.(); } catch { /* surface refresh is best effort */ }
+    try { window.nmRenderBuilderPage?.(); } catch { /* surface refresh is best effort */ }
+    try { window.renderDashboard?.(); } catch { /* surface refresh is best effort */ }
+  };
+  const askWithInput = async (key, id) => {
+    const element = document.getElementById(id);
+    if (!element || !String(element.value || '').trim()) return null;
+    const result = await window.nmSocialBuilderApi.ask(key, element.value, 'You');
+    if (result) { element.value = ''; refreshSocialSurfaces(); }
+    return result;
+  };
+  const answerWithInput = async (key, id, inputId) => {
+    const element = document.getElementById(inputId);
+    if (!element || !String(element.value || '').trim()) return null;
+    const result = await window.nmSocialBuilderApi.answer(key, id, element.value);
+    if (result) { element.value = ''; refreshSocialSurfaces(); }
+    return result;
+  };
+  window.nmEliteToggleBuilderFollow = async (key) => {
+    const result = await window.nmSocialBuilderApi.toggleFollow(key);
+    if (result) refreshSocialSurfaces();
+    return result;
+  };
+  window.nmEliteAskBuilder = (key) => askWithInput(key, 'ebpQuestionInput');
+  window.nmEliteDashboardPost = async (key) => {
+    const element = document.getElementById('ebdUpdate');
+    if (!element || !String(element.value || '').trim()) return null;
+    const result = await window.nmSocialBuilderApi.addUpdate(key, element.value);
+    if (result) { element.value = ''; refreshSocialSurfaces(); }
+    return result;
+  };
+  window.nmEliteDashboardAnswer = (key, id) => answerWithInput(key, id, `ebdAns_${id}`);
+  // Keep the older launch/profile surfaces on the same API authority too.
+  window.nmToggleBuilderFollow = window.nmEliteToggleBuilderFollow;
+  window.nmSubmitBuilderUpdate = async (key) => {
+    const element = document.getElementById('nmBpUpdateText');
+    if (!element || !String(element.value || '').trim()) return null;
+    const result = await window.nmSocialBuilderApi.addUpdate(key, element.value);
+    if (result) { element.value = ''; refreshSocialSurfaces(); }
+    return result;
+  };
+  window.nmSubmitBpQuestion = (key) => askWithInput(key, 'nmBpQuestionText');
+  window.nmSubmitProjectQuestion = (key) => askWithInput(key, 'nmQaText');
+  window.nmSubmitAnswer = (key, id) => answerWithInput(key, id, `nmAns-${id}`);
 }
 function setAccountLabel(value) {
   const isConnected = Boolean(state.wallet);
   const displayLabel = isConnected ? (value || short(state.wallet)) : 'Connect wallet';
+  // The approved V2 header owns the visible account affordance.  Keep the
+  // wallet address out of the primary control; it remains available through
+  // the account/dashboard surfaces and this non-visual compatibility anchor.
+  if (window.nmJourneyState) {
+    window.nmJourneyState.walletConnected = isConnected;
+    window.nmJourneyState.signedIn = Boolean(state.authenticated);
+  }
+  if (typeof window.nmRenderAccountChip === 'function') window.nmRenderAccountChip();
+  document.querySelectorAll('#nmAccountChip, #nmMobileAccountChip').forEach((chip) => {
+    let compatibility = chip.querySelector('.account-label');
+    if (!compatibility) {
+      compatibility = document.createElement('span');
+      compatibility.className = 'account-label';
+      compatibility.setAttribute('aria-hidden', 'true');
+      compatibility.style.display = 'none';
+      chip.appendChild(compatibility);
+    }
+    compatibility.textContent = isConnected ? displayLabel : '';
+  });
   document.querySelectorAll('.account-chip').forEach((chip) => {
     const element = chip.querySelector('.account-label') || [...chip.querySelectorAll('span')].find((candidate) => !candidate.classList.contains('account-dot'));
     if (element) element.textContent = displayLabel;
@@ -412,7 +1206,7 @@ function ensureNetworkSelectors() {
   const options = networkOptions();
   if (options.length < 2) return;
   document.querySelectorAll('.site-header, .mobile-header').forEach((header) => {
-    const account = header.querySelector('.account-chip');
+    const account = header.querySelector('.account-chip, .nm-account-chip');
     const host = account?.parentElement || header;
     let wrapper = host.querySelector(':scope > .nm-network-switcher');
     if (!wrapper) {
@@ -497,6 +1291,25 @@ function injectLiveDataStyle() {
       .mobile-actions .nm-network-switcher-button svg{width:11px;height:11px;flex-basis:11px}
       .mobile-actions .account-chip{position:relative;z-index:2;flex:0 0 auto}
     }
+    @media(max-width:400px){
+      .mobile-header{overflow:hidden}
+      .mobile-actions{max-width:calc(100vw - 30px);overflow:hidden}
+      .mobile-actions .nm-network-switcher{flex:0 1 104px;max-width:104px}
+      .mobile-actions .nm-network-switcher-button{max-width:104px}
+      .mobile-actions .nm-network-switcher-value{max-width:63px}
+      .mobile-actions .nm-account-chip{max-width:78px}
+      .mobile-actions .nm-get-started{max-width:78px;padding-inline:6px;font-size:9px}
+    }
+    .nm-media-upload-failures{display:grid;gap:7px;margin:0 0 14px;padding:11px;border:1px solid rgba(255,111,103,.28);border-radius:12px;background:rgba(116,36,31,.12)}
+    .nm-media-upload-failures>div{display:flex;align-items:center;justify-content:space-between;gap:12px}.nm-media-upload-failures span{min-width:0}.nm-media-upload-failures b,.nm-media-upload-failures small{display:block;overflow-wrap:anywhere}.nm-media-upload-failures b{font-size:11px}.nm-media-upload-failures small{margin-top:3px;color:#d79690;font-size:9px}.nm-media-upload-failures button{min-height:36px;padding:0 12px;border:1px solid rgba(255,255,255,.16);border-radius:10px;background:#171b17;color:#fff;font-size:10px;cursor:pointer}
+    #discover .nm-dx-compact>span:nth-child(2){min-width:0;overflow-wrap:anywhere;word-break:break-word;white-space:normal}
+    #discover .nm-dx-compact>span:nth-child(2) small{overflow-wrap:anywhere;word-break:break-word;white-space:normal}
+    #discover .nm-p6-schedule-project{min-width:0}
+    #discover .nm-p6-schedule-project>span{min-width:0}
+    #discover .nm-p6-schedule-project small{max-width:100%!important;overflow-wrap:anywhere;word-break:break-word;white-space:normal!important}
+    #discover .nm-dx-sproject{min-width:0}
+    #discover .nm-dx-sproject>span{min-width:0}
+    #discover .nm-dx-sproject small{max-width:100%!important;overflow-wrap:anywhere;word-break:break-word;white-space:normal!important}
     #nm-v2-data-panel{margin:26px 0 0;padding:18px;border:1px solid rgba(244,241,233,.10);border-radius:18px;background:#0d110e;color:#dfe5dc}
     #nm-v2-data-panel h2{margin:0 0 14px;font-size:22px;letter-spacing:-.03em}#nm-v2-data-panel h3{margin:0;font-size:14px}
     #nm-v2-data-panel .nm-v2-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
@@ -509,7 +1322,7 @@ function renderDetailPanel(mode) {
   const mount = document.getElementById('projectPageMount');
   if (!mount) return;
   document.getElementById('nm-v2-data-panel')?.remove();
-  const edition = state.edition; const pass = state.pass;
+  const edition = state.detailEdition || state.edition; const pass = state.detailPass || state.pass;
   if (!edition && !pass) return;
   const terms = termsOf(edition);
   const selected = mode === 'pass' && pass ? pass : null;
@@ -528,39 +1341,108 @@ function renderDetailPanel(mode) {
   mount.appendChild(panel);
 }
 function escapeHtml(value) { return String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]); }
+function patchNetworkCopy() {
+  const symbol = activeSettlementSymbol();
+  if (!symbol || symbol === 'USDG') return;
+  const root = document.body; if (!root) return;
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  const nodes = []; while (walker.nextNode()) nodes.push(walker.currentNode);
+  nodes.forEach((node) => { if (node.parentElement?.closest('script,style,textarea,input,code')) return; if (/USDG/.test(node.nodeValue || '')) node.nodeValue = node.nodeValue.replace(/MockUSDG|USDG/g, symbol); });
+}
+function patchBuilderLinks() {
+  const project = state.detailProject; const experience = project && state.projectExperience?.[project.name];
+  const key = experience?.builderId || experience?.builderHandle || experience?.builder;
+  if (!key) return;
+  document.querySelectorAll('.nm-final-builder-line,.nm-market-project-builder,.nm-collection-project-builder').forEach((row) => {
+    if (row.querySelector('[data-nm-builder-route]')) return;
+    const button = document.createElement('button'); button.type = 'button'; button.className = 'btn small'; button.dataset.nmBuilderRoute = '1'; button.textContent = 'View Builder profile →'; button.addEventListener('click', () => window.openBuilder?.(key)); row.appendChild(button);
+  });
+}
 function routeInfo() {
   const path = location.pathname.replace(/\/+$/, '') || '/';
   const parts = path.split('/').filter(Boolean);
   if (parts[0] === 'passes' && parts[1] && parts[2]) return { kind: 'pass', edition: parts[1], token: parts[2] };
+  if (parts[0] === 'listings' && parts[1]) return { kind: 'listing', listing: decodeURIComponent(parts.slice(1).join('/')) };
   if (parts[0] === 'editions' && parts[1]) return { kind: 'edition', edition: parts[1] };
   if (parts[0] === 'projects' && parts[1]) return { kind: 'project', project: decodeURIComponent(parts.slice(1).join('/')) };
-  if (parts[0] === 'dashboard') return { kind: 'dashboard', tab: parts[1] || 'holder' };
+  if (parts[0] === 'builders' && parts[1]) return { kind: 'builder', handle: decodeURIComponent(parts.slice(1).join('/')) };
+  if (parts[0] === 'dashboard') {
+    const params = new URLSearchParams(location.search);
+    return { kind: 'dashboard', tab: parts[1] || 'holder', view: params.get('view') || null };
+  }
   if (parts[0] === 'market') return { kind: 'market' };
   if (parts[0] === 'discover') return { kind: 'discover' };
   if (parts[0] === 'create') return { kind: 'create' };
+  if (parts[0] === 'docs') return { kind: 'docs' };
+  if (parts[0] === 'faq') return { kind: 'faq' };
+  if (parts[0] === 'terms') return { kind: 'terms' };
   return { kind: 'home' };
+}
+async function presentRoute(route) {
+  // Client-side navigation must hydrate the requested canonical record. The
+  // initial page load already did this in hydrate(), but a pushState route
+  // otherwise reused the Discover summary and could silently drop Terms,
+  // serial or artwork data on an individual launch/Pass page.
+  if (['project', 'edition', 'pass'].includes(route?.kind)) {
+    try { await loadRequestedRouteData(route); } catch {}
+  }
+  goView(route);
 }
 function navigate(path) {
   const next = String(path || '/');
   history.pushState({}, '', next);
-  goView(routeInfo());
+  return presentRoute(routeInfo());
 }
 function goView(route) {
   state.route = route;
-  const project = state.projects?.find((item) => route.edition && lower(item.editionAddress) === lower(route.edition)) || state.projects?.find((item) => route.project && (item.name.toLowerCase() === String(route.project).toLowerCase() || lower(item.editionAddress) === lower(route.project))) || state.projects?.[0];
+  const detailRoute = ['project', 'edition', 'pass'].includes(route.kind);
+  if (route.kind === 'builder') {
+    window.go?.('builder');
+    read(`/v1/builders/${encodeURIComponent(route.handle)}`).then((profile) => {
+      const builderId = profile?.builder_id || profile?.builderId || profile?.id || route.handle;
+      const keys = [route.handle, builderId, profile?.id, profile?.account_id, profile?.wallet_address].filter(Boolean).map(lower);
+      keys.forEach((key) => state.builderProfiles.set(key, profile));
+      state.builderSocial.set(lower(builderId), state.builderSocial.get(lower(builderId)) || { profile, updates: [], questions: [], follow: { isFollowing: false, isHolder: false, followerCount: Number(profile?.follower_count || 0) } });
+      window.nmEliteBuilderKey = lower(builderId);
+      window.nmRenderBuilderPage?.();
+    }).catch(() => {});
+    return;
+  }
+  const project = state.projects?.find((item) => route.edition && lower(item.editionAddress) === lower(route.edition)) || state.projects?.find((item) => route.project && (item.name.toLowerCase() === String(route.project).toLowerCase() || lower(item.editionAddress) === lower(route.project))) || (detailRoute ? null : state.detailProject || state.projects?.[0]);
   if (project) {
     state.detailProject = project;
-    window.__nmV2SetData?.({ selectedProject: project.name });
+    window.__nmV2SetData?.({ selectedProject: project.name, ...(route.edition ? { selectedEdition: route.edition } : {}), ...(route.listing ? { selectedListing: route.listing } : {}) });
   }
+  if (route.kind === 'listing') window.__nmV2SetData?.({ selectedListing: route.listing });
   if (route.kind === 'discover') window.go?.('discover');
   else if (route.kind === 'market') window.go?.('market');
   else if (route.kind === 'create') window.go?.('create');
-  else if (route.kind === 'dashboard') window.go?.('dashboard');
-  else if (route.kind === 'project' || route.kind === 'edition' || route.kind === 'pass') {
+  else if (route.kind === 'dashboard') {
+    if (route.view === 'owned') window.go?.('owned');
+    else {
+      window.go?.('dashboard');
+      const dashboardTab = route.tab === 'builder' ? 'builder' : route.tab === 'passes' ? 'passes' : route.tab === 'advantages' ? 'advantages' : route.tab === 'listings' ? 'listings' : route.tab === 'launches' ? 'launches' : route.tab === 'earnings' ? 'earnings' : route.tab === 'activity' ? 'activity' : 'overview';
+      if (dashboardTab !== 'overview') setTimeout(() => window.dashGo?.(dashboardTab), 25);
+    }
+  } else if (route.kind === 'listing') {
+    const target = state.listings?.find((item) => String(item.orderHash || item.id || item.name || '') === String(route.listing));
+    if (target) window.__nmV2SetData?.({ selectedListing: target.orderHash || target.id });
+    window.go?.('listing');
+  } else if (route.kind === 'edition') {
+    if (project) window.go?.('collection');
+  } else if (route.kind === 'project' || route.kind === 'pass') {
     if (project) window.go?.('project');
-  } else window.go?.('home');
+  } else if (route.kind === 'docs' || route.kind === 'faq' || route.kind === 'terms') window.go?.(route.kind);
+  else window.go?.('home');
+  if (detailRoute && !project) {
+    setTimeout(() => {
+      const mount = document.getElementById('projectPageMount');
+      if (mount) mount.innerHTML = '<div class="dash-empty"><b>This NexMarkets record is unavailable.</b><p>The requested Edition, Pass, or launch was not found in the live read model.</p></div>';
+    }, 0);
+  }
   setTimeout(() => setAccountLabel(state.wallet ? short(state.wallet) : 'Connect wallet'), 35);
   setTimeout(() => { if (route.kind === 'edition' || route.kind === 'project' || route.kind === 'pass') renderDetailPanel(route.kind === 'pass' ? 'pass' : 'edition'); }, 45);
+  setTimeout(() => { patchNetworkCopy(); patchBuilderLinks(); }, 80);
 }
 async function read(path, options = {}) {
   const origin = state.config?.apiOrigin || '';
@@ -568,6 +1450,23 @@ async function read(path, options = {}) {
   let payload = null; try { payload = await response.json(); } catch { payload = {}; }
   if (!response.ok) throw new Error(payload?.error?.code || `API_${response.status}`);
   return payload?.data ?? payload;
+}
+async function loadRequestedRouteData(route) {
+  state.detailEdition = null; state.detailPass = null; state.detailSummary = null;
+  if (!route || !['project', 'edition', 'pass'].includes(route.kind)) return;
+  const requests = [];
+  if (route.kind === 'project') requests.push(read(`/v1/projects/${encodeURIComponent(route.project)}`));
+  if (route.kind === 'edition' || route.kind === 'pass') requests.push(read(`/v1/editions/${encodeURIComponent(route.edition)}`));
+  if (route.kind === 'pass') requests.push(read(`/v1/passes/${encodeURIComponent(route.edition)}/${encodeURIComponent(route.token)}`));
+  const results = await Promise.allSettled(requests);
+  const values = results.filter((result) => result.status === 'fulfilled').map((result) => result.value);
+  const project = route.kind === 'project' ? values[0] : null;
+  const linkedEdition = project?.editions?.[0] || null;
+  const editionRaw = route.kind === 'project' ? linkedEdition : values[0] || null;
+  const passRaw = route.kind === 'pass' ? values[1] || null : null;
+  state.detailSummary = project || editionRaw || null;
+  state.detailEdition = editionRaw ? normalizeEdition(editionRaw, project) : null;
+  state.detailPass = passRaw && state.detailEdition ? normalizePass(passRaw, state.detailEdition) : null;
 }
 async function loadConfig() {
   const response = await fetch('/config.json', { cache: 'no-store' });
@@ -589,6 +1488,7 @@ async function loadConfig() {
   return state.config;
 }
 async function loadChainData() {
+  const route = routeInfo();
   const certificationEdition = activeCertificationEdition();
   const [discoverResult, editionResult, passResult, listingsResult] = await Promise.allSettled([
     read('/v1/discover'),
@@ -597,23 +1497,92 @@ async function loadChainData() {
     read('/v1/market/listings')
   ]);
   const discover = discoverResult.status === 'fulfilled' ? (Array.isArray(discoverResult.value) ? discoverResult.value : discoverResult.value?.editions || []) : [];
-  const summary = discover.find((item) => certificationEdition && lower(item.edition_address || item.address) === certificationEdition.toLowerCase()) || discover[0] || null;
+  const projectDetails = await Promise.all(discover.map(async (item) => {
+    if (!item?.slug) return null;
+    try {
+      const detail = await read(`/v1/projects/${encodeURIComponent(item.slug)}`);
+      return detail && !Array.isArray(detail) ? detail : null;
+    } catch { return null; }
+  }));
+  const enrichedDiscover = discover.map((item, index) => {
+    const detail = projectDetails[index];
+    const linkedEdition = detail?.editions?.[0];
+    return detail ? { ...item, ...detail, content: detail.content || item.content, ...(linkedEdition && !item.edition_address ? linkedEdition : {}) } : item;
+  });
+  const summary = enrichedDiscover.find((item) => certificationEdition && lower(item.edition_address || item.address) === certificationEdition.toLowerCase()) || enrichedDiscover[0] || null;
   const editionRaw = editionResult.status === 'fulfilled' ? editionResult.value : null;
   state.edition = normalizeEdition(editionRaw, summary);
   state.pass = normalizePass(passResult.status === 'fulfilled' ? passResult.value : null, state.edition);
-  state.discover = discover.map((item) => normalizeEdition(null, item)).filter(Boolean);
+  state.discover = enrichedDiscover.map((item) => normalizeEdition(null, item)).filter(Boolean);
   if (state.edition && !state.discover.some((item) => item.address.toLowerCase() === state.edition.address.toLowerCase())) state.discover.unshift(state.edition);
   const map = new Map(state.discover.map((item) => [item.address.toLowerCase(), item]));
   const listingRows = listingsResult.status === 'fulfilled' ? (Array.isArray(listingsResult.value) ? listingsResult.value : []) : [];
   state.listings = listingRows.map((item) => normalizeListing(item, map)).filter(Boolean);
-  if (discoverResult.status === 'rejected' && editionResult.status === 'rejected') throw new Error('LIVE_API_UNAVAILABLE');
+  await loadRequestedRouteData(route);
+  // Discover is the public collection authority. When no configured
+  // certification Edition can provide a fallback, a failed Discover read is
+  // an explicit live-data failure rather than an apparently empty home page.
+  if (discoverResult.status === 'rejected' && (editionResult.status === 'rejected' || !certificationEdition)) throw new Error('LIVE_API_UNAVAILABLE');
 }
-async function loadAuthenticatedData() {
-  if (!state.authenticated) {
+async function loadBuilderProfiles({ authenticatedOverride = state.authenticated } = {}) {
+  const identifiers = [...new Set([
+    ...state.discover.map((edition) => lower(edition.publisher)).filter((value) => value && value !== ZERO),
+    lower(state.edition?.publisher),
+    lower(state.detailEdition?.publisher)
+  ].filter(Boolean))];
+  const profiles = await Promise.all(identifiers.map(async (identifier) => {
+    try {
+      const profile = await read(`/v1/builders/${encodeURIComponent(identifier)}`);
+      return profile && typeof profile === 'object' && !Array.isArray(profile) ? [identifier, profile] : null;
+    } catch { return null; }
+  }));
+  state.builderProfiles = new Map();
+  state.builderSocial = new Map();
+  profiles.filter(Boolean).forEach(([identifier, profile]) => {
+    const accountId = lower(profile.account_id || profile.accountId);
+    const builderId = lower(profile.builder_id || profile.builderId);
+    const profileId = lower(profile.id);
+    const walletAddress = lower(profile.wallet_address || profile.walletAddress);
+    [identifier, builderId, accountId, profileId, walletAddress].filter(Boolean).forEach((key) => state.builderProfiles.set(key, profile));
+  });
+  const socialProfiles = new Map();
+  for (const profile of state.builderProfiles.values()) {
+    const builderId = lower(profile.builder_id || profile.builderId || profile.account_id || profile.accountId || profile.id);
+    if (builderId) socialProfiles.set(builderId, profile);
+  }
+  await Promise.all([...socialProfiles.entries()].map(async ([builderId, profile]) => {
+    if (state.builderSocial.has(builderId)) return;
+    const [updates, questions, follow] = await Promise.all([
+      read(`/v1/builders/${encodeURIComponent(builderId)}/milestones`).catch(() => []),
+      read(`/v1/builders/${encodeURIComponent(builderId)}/questions`).catch(() => []),
+      authenticatedOverride ? read(`/v1/builders/${encodeURIComponent(builderId)}/follow-status`).catch(() => null) : Promise.resolve(null)
+    ]);
+    state.builderSocial.set(builderId, { profile, updates: Array.isArray(updates) ? updates : [], questions: Array.isArray(questions) ? questions : [], follow: follow || { isFollowing: false, isHolder: false, followerCount: Number(profile.follower_count || profile.followerCount || 0) } });
+  }));
+}
+async function loadAuthenticatedData(authenticatedOverride = state.authenticated) {
+  if (!authenticatedOverride) {
+    state.managedBuilders = [];
+    state.selectedBuilderId = null;
+    window.__nmManagedBuilderKeys = [];
     state.builderDashboard = { projects: [], editions: [], royalties: [], referrals: [] };
     return { owned: [], advantages: [], builder: state.builderDashboard };
   }
-  const results = await Promise.allSettled([read('/v1/me/passes'), read('/v1/me/advantages'), read('/v1/builder/dashboard')]);
+  const buildersResult = await Promise.allSettled([read('/v1/me/builders')]);
+  state.managedBuilders = buildersResult[0].status === 'fulfilled' && Array.isArray(buildersResult[0].value) ? buildersResult[0].value : [];
+  const selected = state.managedBuilders.find((row) => lower(row.id || row.builder_id) === lower(state.selectedBuilderId));
+  state.selectedBuilderId = selected?.id || state.managedBuilders[0]?.id || null;
+  if (state.selectedBuilderId) sessionStorage.setItem('nexmarkets_selected_builder', state.selectedBuilderId);
+  else sessionStorage.removeItem('nexmarkets_selected_builder');
+  window.__nmManagedBuilderKeys = state.managedBuilders.map((row) => lower(row.id || row.builder_id)).filter(Boolean);
+  state.managedBuilders.forEach((row) => {
+    const profile = row.profile;
+    if (!profile) return;
+    const keys = [row.id, row.builder_id, profile.builder_id, profile.id, profile.account_id, profile.wallet_address].filter(Boolean).map(lower);
+    keys.forEach((key) => state.builderProfiles.set(key, { ...profile, builder_id: row.id || row.builder_id }));
+  });
+  const dashboardPath = state.selectedBuilderId ? `/v1/builder/dashboard?builderId=${encodeURIComponent(state.selectedBuilderId)}` : '/v1/builder/dashboard';
+  const results = await Promise.allSettled([read('/v1/me/passes'), read('/v1/me/advantages'), read(dashboardPath)]);
   state.builderDashboard = results[2].status === 'fulfilled'
     ? (results[2].value || { projects: [], editions: [], royalties: [], referrals: [] })
     : { projects: [], editions: [], royalties: [], referrals: [] };
@@ -623,10 +1592,23 @@ async function loadAuthenticatedData() {
     builder: state.builderDashboard
   };
 }
+
+async function selectBuilder(builderIdentifier) {
+  const wanted = lower(builderIdentifier);
+  const row = state.managedBuilders.find((candidate) => lower(candidate.id || candidate.builder_id) === wanted || lower(candidate.profile?.id) === wanted);
+  if (!row) throw new Error('BUILDER_NOT_AUTHORIZED');
+  state.selectedBuilderId = row.id || row.builder_id;
+  sessionStorage.setItem('nexmarkets_selected_builder', state.selectedBuilderId);
+  window.__nmManagedBuilderKeys = state.managedBuilders.map((candidate) => lower(candidate.id || candidate.builder_id)).filter(Boolean);
+  window.nmEliteDashboardBuilderKey = lower(state.selectedBuilderId);
+  await hydrate();
+  return state.builderDashboard;
+}
 function knownEdition(value) {
   const target = lower(value);
   if (!target) return null;
   return (lower(state.edition?.address) === target ? state.edition : null)
+    || (lower(state.detailEdition?.address) === target ? state.detailEdition : null)
     || state.discover.find((item) => lower(item.address) === target)
     || null;
 }
@@ -643,6 +1625,14 @@ function buildDashboardData(accountData, owned) {
   const builder = accountData.builder || { projects: [], editions: [], royalties: [], referrals: [] };
   const projects = Array.isArray(builder.projects) ? builder.projects : [];
   const editions = Array.isArray(builder.editions) ? builder.editions : [];
+  const primarySales = Array.isArray(builder.primarySales) ? builder.primarySales : [];
+  const proceedsForEdition = (rawEdition) => {
+    const editionId = String(rawEdition?.id ?? rawEdition?.edition_id ?? '');
+    const editionAddress = lower(rawEdition?.edition_address ?? rawEdition?.editionAddress ?? rawEdition?.address);
+    return usd(primarySales
+      .filter((sale) => String(sale.edition_id ?? sale.editionId ?? '') === editionId || (editionAddress && lower(sale.edition_address ?? sale.editionAddress) === editionAddress))
+      .reduce((sum, sale) => (BigInt(sum) + BigInt(sale.builder_proceeds_usdg ?? sale.builderProceedsUsdg ?? 0)).toString(), '0'));
+  };
   const projectById = new Map(projects.map((project) => [String(project.id), project]));
   const launches = [];
   const projectHasEdition = new Set();
@@ -664,7 +1654,7 @@ function buildDashboardData(accountData, owned) {
       minted: number(rawEdition.total_minted ?? rawEdition.totalMinted),
       supply: number(rawEdition.absolute_supply_cap ?? rawEdition.absoluteSupplyCap ?? draft.edition?.supply),
       price: edition?.price ?? usd(rawEdition.price_usdg ?? draft.edition?.price),
-      primary: 0,
+      primary: proceedsForEdition(rawEdition),
       timing: edition?.mintStartsAt && edition.mintStartsAt > Math.floor(Date.now() / 1000) ? `Opens ${iso(edition.mintStartsAt)}` : edition?.status === 'live' ? 'Live now' : 'Terms pending',
       collection: initials(projectName).toLowerCase(),
       evidence: project?.content?.project?.evidence?.url || project?.launchDraft?.project?.evidence?.url || '',
@@ -681,12 +1671,12 @@ function buildDashboardData(accountData, owned) {
       id: `draft-${project.id}`,
       name: edition.name || project.name || 'Untitled Edition',
       project: project.name || edition.name || 'Untitled Project',
-      state: 'Draft',
+       state: 'Preview',
       minted: 0,
       supply: number(edition.supply, 0),
       price: number(edition.price, 0),
       primary: 0,
-      timing: 'Draft saved',
+       timing: 'Pass created · On-chain Edition pending',
       collection: initials(project.name || edition.name || 'Edition').toLowerCase(),
       evidence: draft.project?.evidence?.url || '',
       network: draft.network || draft.project?.network || activeNetworkFamily(),
@@ -756,6 +1746,20 @@ function buildDashboardData(accountData, owned) {
   });
 
   const claims = Array.isArray(builder.royalties) ? builder.royalties : [];
+  const activity = (Array.isArray(builder.activity) ? builder.activity : []).map((row, index) => {
+    const eventType = kind(row.type);
+    const type = eventType === 'SECONDARY_SALE' || eventType === 'NEW_HOLDER' ? 'market' : eventType === 'NEW_DEBUT' || eventType === 'MILESTONE' ? 'launch' : eventType === 'ADVANTAGE_USE' ? 'advantage' : 'earnings';
+    const created = row.created_at ?? row.createdAt ?? row.timestamp ?? null;
+    const when = created ? (iso(created) || String(created)) : 'Recent';
+    return {
+      id: row.id || `builder-activity-${index}`,
+      type,
+      label: row.title || row.label || eventType || 'Builder activity',
+      value: row.value || row.content || row.description || '',
+      context: row.context || (type === 'market' ? 'Market' : type === 'launch' ? 'Edition' : type === 'advantage' ? 'Advantage' : 'Earnings'),
+      when
+    };
+  });
   let royaltyAvailable = 0; let royaltyLocked = 0;
   claims.forEach((claim) => {
     const amount = usd(claim.amount_usdg ?? claim.amountUsdg ?? claim.amount ?? 0);
@@ -769,20 +1773,21 @@ function buildDashboardData(accountData, owned) {
     listings: dashboardListings,
     launches,
     earnings: {
-      primaryProceeds: 0,
+      primaryProceeds: usd(builder.earnings?.builderProceedsUsdg ?? builder.earnings?.builder_proceeds_usdg ?? builder.primaryProceedsUsdg ?? 0),
       royaltyAvailable,
       royaltyLocked,
       royaltyUnlock: royaltyLocked ? 'when the claim releases' : 'No claims',
-      referralTracked: (builder.referrals || []).reduce((total, row) => total + usd(row.amount_usdg ?? row.amountUsdg ?? row.amount ?? 0), 0)
+      referralTracked: usd(builder.earnings?.referralObligationUsdg ?? builder.earnings?.referral_obligation_usdg ?? (builder.referrals || []).reduce((total, row) => (BigInt(total) + BigInt(row.amount_usdg ?? row.amountUsdg ?? row.amount ?? 0)).toString(), '0'))
     },
     royaltyClaims: claims,
-    activity: []
+    activity
   };
 }
-async function hydrate() {
+async function hydrate({ authenticatedOverride = null } = {}) {
   state.hydrating = true;
   try {
-    await loadConfig(); await loadChainData();
+    const hasAuthenticatedSession = authenticatedOverride == null ? state.authenticated : authenticatedOverride;
+    await loadConfig(); await loadChainData(); await loadBuilderProfiles({ authenticatedOverride: hasAuthenticatedSession });
     const first = state.discover[0] || state.edition;
     const editions = state.discover.length ? state.discover : (state.edition ? [state.edition] : []);
     const mappedProjects = editions.map((item) => {
@@ -793,7 +1798,18 @@ async function hydrate() {
     if (!mappedProjects.length && (state.edition || first)) mappedProjects.push(projectModel(state.edition || first, null, state.pass));
     state.projects = mappedProjects.map((item) => item.project);
     state.projectExperience = Object.fromEntries(mappedProjects.map((item) => [item.project.name, item.experience]));
-    const accountData = await loadAuthenticatedData();
+    const requestedRoute = routeInfo();
+    const requestedModel = state.detailSummary || state.detailEdition
+      ? projectModel(state.detailEdition, state.detailSummary, state.detailPass)
+      : null;
+    if (requestedModel?.project && ['project', 'edition', 'pass'].includes(requestedRoute.kind)) {
+      state.detailProject = requestedModel.project;
+      const existingIndex = state.projects.findIndex((item) => item.name === requestedModel.project.name);
+      if (existingIndex >= 0) state.projects[existingIndex] = requestedModel.project;
+      else state.projects.unshift(requestedModel.project);
+      state.projectExperience[requestedModel.project.name] = requestedModel.experience;
+    }
+    const accountData = await loadAuthenticatedData(hasAuthenticatedSession);
     const owned = accountData.owned.map((row) => {
       const rowEditionAddress = row.edition_address || row.editionAddress || row.edition?.address;
       const edition = knownEdition(rowEditionAddress) || normalizeEdition({ ...row, address: rowEditionAddress, edition_address: rowEditionAddress, name: row.project_name || row.name }, null);
@@ -801,15 +1817,44 @@ async function hydrate() {
       const pass = normalizePass({ ...row, advantages }, edition || state.edition);
       return ownedModel({ ...row, advantages }, pass, edition || state.edition);
     });
-    const collections = state.discover.map((edition) => ({ name: edition.name, key: initials(edition.name).toLowerCase(), color: '#34483a', mechanism: 'Connected', floor: 0, last: 0, listed: state.listings.filter((item) => lower(item.edition_address) === lower(edition.address)).length }));
+    const collections = state.discover.map((edition) => {
+      const relatedListings = state.listings.filter((item) => lower(item.edition_address) === lower(edition.address));
+      const prices = relatedListings.map((item) => Number(item.price)).filter((value) => Number.isFinite(value) && value > 0);
+      const rawMechanisms = edition.advantages || edition.advantageConfigs || edition.advantage_configs || [];
+      const mechanism = Array.isArray(rawMechanisms) && rawMechanisms.some((item) => kind(item.kind) === 'REDEMPTION') ? 'Redemption' : 'Connected';
+      const floor = Number(edition.floor ?? edition.floor_price ?? edition.floorPrice);
+      const last = Number(edition.last ?? edition.last_price ?? edition.lastPrice ?? edition.last_sale_price ?? edition.lastSalePrice);
+      return {
+        name: edition.name,
+        key: initials(edition.name).toLowerCase(),
+        color: edition.color || '#34483a',
+        mechanism,
+        floor: Number.isFinite(floor) && floor > 0 ? floor : (prices.length ? Math.min(...prices) : 0),
+        last: Number.isFinite(last) && last > 0 ? last : 0,
+        listed: relatedListings.length
+      };
+    });
     const dashboard = buildDashboardData(accountData, owned);
-    publishTemplateData({ projects: state.projects, projectExperience: state.projectExperience, collections, listings: state.listings, ownedPasses: owned, dashboardState: dashboard, selectedProject: state.projects[0]?.name || '' });
+    const draftProject = (accountData.builder?.projects || []).find((project) => String(project.status || '').toUpperCase() === 'DRAFT') || null;
+    state.lastDraftId = draftProject?.content?.draftId || draftProject?.launchDraft?.draftId || null;
+    publishTemplateData({
+      projects: state.projects,
+      projectExperience: state.projectExperience,
+      collections,
+      listings: state.listings,
+      ownedPasses: owned,
+      dashboardState: dashboard,
+      createData: draftProject ? createDataFromLaunchDraft(draftProject) : neutralCreateData(),
+      selectedProject: state.detailProject?.name || state.projects[0]?.name || ''
+    });
+    patchNetworkCopy(); patchBuilderLinks();
     setAccountLabel(state.wallet ? short(state.wallet) : 'Connect wallet');
     state.error = null;
   } catch (error) {
     state.error = error;
     state.projects = []; state.projectExperience = {};
-    publishTemplateData({ projects: [], projectExperience: {}, collections: [], listings: [], ownedPasses: [], dashboardState: emptyDashboard([]) });
+    state.lastDraftId = null;
+    publishTemplateData({ projects: [], projectExperience: {}, collections: [], listings: [], ownedPasses: [], dashboardState: emptyDashboard([]), createData: neutralCreateData() });
     setAccountLabel(state.wallet ? short(state.wallet) : 'Connect wallet');
     showRuntimeBanner(`Live NexMarkets data is unavailable: ${error.message}`, true);
   }
@@ -830,8 +1875,13 @@ async function authenticateWallet() {
   const challenge = await read('/v1/auth/challenge', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ address: identity.address }) });
   const signature = await wallet.signMessage(challenge.message);
   const verified = await read('/v1/auth/verify', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ nonce: challenge.nonce, signature }) });
-  state.csrfToken = verified.csrfToken; state.authenticated = true; sessionStorage.setItem('nex_csrf', verified.csrfToken);
-  await hydrate(); showRuntimeBanner(`Wallet verified on ${activeNetworkName()}`);
+  state.csrfToken = verified.csrfToken; sessionStorage.setItem('nex_csrf', verified.csrfToken);
+  // Keep the public session flag false until the first authenticated snapshot
+  // has reached the template. Otherwise callers can observe `authenticated`
+  // while hydrate is still able to overwrite freshly uploaded draft state.
+  await hydrate({ authenticatedOverride: true });
+  state.authenticated = true;
+  showRuntimeBanner(`Wallet verified on ${activeNetworkName()}`);
   return identity;
 }
 async function authenticate({ throwOnError = false } = {}) {
@@ -849,7 +1899,28 @@ function authenticateOnce() {
 }
 function sanitizeCompiledForApi(compiled) {
   const clone = JSON.parse(JSON.stringify(compiled));
+  clone.referral = {
+    enabled: Boolean(clone.referral?.enabled),
+    rate: clone.referral?.enabled ? Number(clone.referral?.rate || 10) : 0,
+    settlement: clone.referral?.settlement || 'Builder Settled'
+  };
+  clone.review = {
+    evidence: Boolean(clone.review?.evidence),
+    advantages: Boolean(clone.review?.advantages),
+    preview: Boolean(clone.review?.preview)
+  };
   if (clone.design) {
+    if (clone.design.retiredPassDesign) throw new Error(`RETIRED_PASS_DESIGN:${clone.design.retiredPassDesign}`);
+    const packOption = approvedPackOptionForDesign(clone.design);
+    if (!packOption) throw new Error('APPROVED_PASS_OPTION_REQUIRED');
+    clone.design.packOption = packOption;
+    clone.design.passFamily = packOption.startsWith('classic-') ? 'classic' : packOption.startsWith('glass-') ? 'glass' : packOption;
+    clone.design.packFamily = clone.design.passFamily;
+    clone.design.material = packOption.startsWith('classic-') || packOption.startsWith('glass-') ? packOption.split('-')[1] : 'approved-native-material';
+    clone.design.colorwayId = clone.design.colorwayId || 'colourway-01';
+    clone.design.customColor = clone.design.customColor || clone.design.color || '#5f6f50';
+    clone.design.frameHueCustomized = Boolean(clone.design.frameHueCustomized);
+    clone.design.artEditionView = clone.design.artEditionView || 'grid';
     if (clone.design.logoSrc?.startsWith('data:')) {
       if (clone.design.logoSrc.length > 2048) clone.design.logoSrc = '';
     }
@@ -864,6 +1935,7 @@ function sanitizeCompiledForApi(compiled) {
         type: item.type || item.mimeType || 'image/png',
         size: Number(item.size || item.byteSize || 0),
         sha256: item.sha256 || null,
+        url: /^(https?:|\/)/i.test(String(item.url || item.src || '')) ? String(item.url || item.src) : '',
         serial: item.serial != null ? Number(item.serial) : idx + 1,
         traits: item.traits && typeof item.traits === 'object' ? item.traits : {}
       }));
@@ -875,17 +1947,38 @@ function sanitizeCompiledForApi(compiled) {
   return clone;
 }
 
-const CREATE_DRAFT_FIELD_PATHS = Object.freeze([
+function compiledForActiveNetwork(compiled) {
+  const network = activeNetworkFamily();
+  return {
+    ...(compiled || {}),
+    network,
+    project: { ...(compiled?.project || {}), network },
+    edition: { ...(compiled?.edition || {}), network }
+  };
+}
+
+function approvedPackOptionForDesign(design = {}) {
+  const explicit = String(design.packOption || design.packId || '').trim().toLowerCase();
+  if (/^(classic|glass)-(obsidian|carbon|gilt)$/.test(explicit) && !(explicit.startsWith('glass-') && explicit.endsWith('-gilt'))) return explicit;
+  if (/^pack-(slab|glass|metal|ceramic|blister|carbon|paper|resin)$/.test(explicit)) return explicit;
+  const family = String(design.passDesign || '').trim().toLowerCase();
+  if (family === 'classic') return `classic-${['obsidian', 'carbon', 'gilt'].includes(String(design.frame || '').toLowerCase()) ? String(design.frame).toLowerCase() : 'obsidian'}`;
+  if (family === 'glass') return `glass-${['obsidian', 'carbon'].includes(String(design.frame || '').toLowerCase()) ? String(design.frame).toLowerCase() : 'obsidian'}`;
+  if (/^pack-(slab|glass|metal|ceramic|blister|carbon|paper|resin)$/.test(family)) return family;
+  return '';
+}
+
+const CREATE_PASS_FIELD_PATHS = Object.freeze([
   'network', 'draftId',
   'project.name', 'project.builder', 'project.builderHandle', 'project.desc', 'project.about', 'project.videoUrl',
   'project.category', 'project.productState', 'project.evidence.type', 'project.evidence.url', 'project.evidence.label',
-  'project.supportUrl', 'project.banner.src', 'project.banner.palette', 'project.banner.logoPosition', 'project.network',
+  'project.supportUrl', 'project.banner.src', 'project.banner.assetId', 'project.banner.palette', 'project.banner.logoPosition', 'project.network',
   'edition.name', 'edition.series', 'edition.supply', 'edition.price', 'edition.royalty', 'edition.network',
   'advantages', 'referral.enabled', 'referral.rate', 'referral.settlement',
   'economics.maxPrimary', 'economics.nexMarketsFeeRate', 'economics.nexMarketsFee', 'economics.afterPlatformFee',
-  'design.passDesign', 'design.themeMode', 'design.color', 'design.customColor', 'design.colorStyle',
+  'design.passDesign', 'design.packOption', 'design.packFamily', 'design.material', 'design.colorwayId', 'design.themeMode', 'design.color', 'design.customColor', 'design.colorStyle',
   'design.gradientA', 'design.gradientB', 'design.gradientDirection', 'design.frame', 'design.frameHueCustomized',
-  'design.frameColor', 'design.texture', 'design.textureTint', 'design.logoSrc', 'design.artMode', 'design.artSrc',
+  'design.frameColor', 'design.texture', 'design.textureTint', 'design.logoSrc', 'design.logoAssetId', 'design.artMode', 'design.artSrc', 'design.artAssetId',
   'design.artEdition', 'design.artEditionView', 'design.selectedSerialIndex', 'design.artX', 'design.artY',
   'preview.hours', 'preview.opensAt', 'preview.localOpensAt', 'preview.timezone', 'preview.termsVersion',
   'review.evidence', 'review.advantages', 'review.preview'
@@ -897,23 +1990,45 @@ function hasOwnPath(value, path) {
   ), value) !== undefined;
 }
 
-function assertCreateDraftFieldCoverage(draft) {
-  const missing = CREATE_DRAFT_FIELD_PATHS.filter((path) => !hasOwnPath(draft, path));
+function assertCreatePassFieldCoverage(draft) {
+  const missing = CREATE_PASS_FIELD_PATHS.filter((path) => !hasOwnPath(draft, path));
   if (missing.length) throw new Error(`CREATE_FIELDS_MISSING:${missing.join(',')}`);
   return draft;
 }
 
-window.__nmV2CreateDraftFieldPaths = CREATE_DRAFT_FIELD_PATHS;
+function buildCreateEditionInput(compiled, projectId) {
+  const edition = compiled.edition || {};
+  const rawName = String(edition.name || compiled.project?.name || 'NexMarkets Edition').trim();
+  const symbol = (String(edition.series || rawName).replace(/[^a-z0-9]/gi, '').toUpperCase().slice(0, 12) || 'NEX');
+  const art = compiled.design?.artEdition?.[0] || compiled.design?.artEditionView || {};
+  const hash = String(art.sha256 || '').trim();
+  return { projectId, builderId: state.selectedBuilderId, name: rawName, symbol, editionId: randomBytes32(), absoluteSupplyCap: Number(edition.supply || 1), artworkCommitment: /^0x[0-9a-f]{64}$/i.test(hash) ? hash : randomBytes32(), baseTokenURI: String(compiled.design?.artSrc || compiled.project?.banner?.src || 'https://www.nexmarkets.xyz/v1/metadata/') };
+}
 
-async function submitCreateDraft() {
+async function buildCreateTermsInput(compiled, editionAddress) {
+  const now = Math.floor(Date.now() / 1000);
+  const previewStartsAt = now + 60;
+  const mintStartsAt = previewStartsAt + 86400 + 60;
+  const configs = finalLiveTermsConfigs(previewStartsAt, mintStartsAt + 30 * 86400);
+  const hashResponse = await mutation('/v1/terms/hash', { configs });
+  const advantagesHash = hashResponse?.advantagesHash || hashResponse?.data?.advantagesHash;
+  if (!/^0x[0-9a-f]{64}$/i.test(String(advantagesHash || ''))) throw new Error('ADVANTAGES_COMMITMENT_UNAVAILABLE');
+  return { builderId: state.selectedBuilderId, edition: editionAddress, advantageConfigs: configs, terms: { activeSupply: Number(compiled.edition?.supply || 1), pricePerPass: String(Math.max(1, Math.round(Number(compiled.edition?.price || 1) * 1_000_000))), previewStartsAt, mintStartsAt, mintEndsAt: mintStartsAt + 30 * 86400, primaryRecipient: state.wallet, royaltyReceiver: state.wallet, royaltyBps: Math.max(0, Math.min(1000, Math.round(Number(compiled.edition?.royalty || 0) * 100))), advantagesHash, referralTermsHash: `0x${'00'.repeat(32)}` } };
+}
+
+// Keep the old diagnostic alias for integrations that used the draft name.
+window.__nmV2CreatePassFieldPaths = CREATE_PASS_FIELD_PATHS;
+window.__nmV2CreateDraftFieldPaths = CREATE_PASS_FIELD_PATHS;
+
+async function submitCreatePass() {
   const mount = document.getElementById('projectActionMount');
   try {
     const getter = typeof window.__nmV2CompileCreateLaunch === 'function' ? window.__nmV2CompileCreateLaunch : (typeof window.compileCreateLaunch === 'function' ? window.compileCreateLaunch : null);
     if (!getter) throw new Error('CREATE_WIZARD_UNAVAILABLE');
-    const compiled = getter();
+    const compiled = compiledForActiveNetwork(getter());
     if (!compiled) throw new Error('COMPILED_LAUNCH_UNAVAILABLE');
-    const cleanDraft = assertCreateDraftFieldCoverage(sanitizeCompiledForApi(compiled));
-    cleanDraft.status = 'DRAFT';
+    const cleanDraft = assertCreatePassFieldCoverage(sanitizeCompiledForApi(compiled));
+    cleanDraft.status = 'PUBLISHED';
     const slug = (window.slugKey ? window.slugKey(compiled.project?.name || '') : compiled.id?.replace(/^launch-/, '')) || 'launch-draft';
     const name = compiled.project?.name || compiled.edition?.name || 'Untitled';
     const summary = compiled.project?.desc || compiled.project?.about?.slice(0, 500) || '';
@@ -924,13 +2039,19 @@ async function submitCreateDraft() {
     }
 
     if (mount) {
-      mount.innerHTML = `<div class="project-action-state"><div class="market-tx-spinner"></div><h3>Saving draft</h3><p>Saving launch draft to NexMarkets server.</p></div>`;
+      mount.innerHTML = `<div class="project-action-state"><div class="market-tx-spinner"></div><h3>Creating Pass</h3><p>Saving your published Pass to NexMarkets.</p></div>`;
     }
 
+    // Keep the Product private while the wallet completes the on-chain half
+    // of publication. It becomes public only after the Edition receipt and
+    // Terms v1 receipt have both been verified below.
     const payload = {
       slug,
       name,
       summary,
+      builderId: state.selectedBuilderId,
+      status: 'DRAFT',
+      intent: 'DRAFT',
       launchDraft: cleanDraft
     };
 
@@ -944,71 +2065,138 @@ async function submitCreateDraft() {
     });
 
     state.lastSavedProject = project;
+    const editionInput = buildCreateEditionInput(compiled, project.id);
+    if (mount) mount.innerHTML = `<div class="project-action-state"><div class="market-tx-spinner"></div><h3>Creating Edition</h3><p>Confirm the ${escapeHtml(activeNetworkName())} Factory transaction.</p></div>`;
+    const created = await createEditionOnchain(editionInput);
+    if (mount) mount.innerHTML = `<div class="project-action-state"><div class="market-tx-spinner"></div><h3>Publishing Terms</h3><p>Confirm the launch Terms transaction.</p></div>`;
+    const termsResult = await publishTerms(await buildCreateTermsInput(compiled, created.edition));
+    await wallet.waitForReceipt(termsResult.txHash);
+    // Promotion is a normal idempotent project write, but it is intentionally
+    // unreachable until both receipt-bound operations above have succeeded.
+    // This prevents a failed Factory/Terms transaction from leaving a public
+    // Terms-less launch behind.
+    const published = await read('/v1/builder/projects', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-csrf-token': state.csrfToken || sessionStorage.getItem('nex_csrf') || ''
+      },
+      body: JSON.stringify({ ...payload, status: 'PUBLISHED', publicationMode: 'ONCHAIN', launchDraft: { ...cleanDraft, editionAddress: created.edition, editionTxHash: created.txHash, termsTxHash: termsResult.txHash } })
+    });
+    state.lastSavedProject = published;
+    sessionStorage.setItem(`nexmarkets_terms_published:${lower(created.edition)}`, '1');
 
     const launchRow = {
       id: project.id || `launch-${slug}`,
       name: `${name} ${compiled.edition?.name || 'Edition'}`,
       project: name,
-      state: 'Draft',
+      state: 'Preview',
       network: compiled.network || activeNetworkFamily(),
       minted: 0,
       supply: compiled.edition?.supply || 1,
       price: compiled.edition?.price || 0,
       primary: 0,
-      timing: 'Draft saved',
+      timing: 'Pass created · Preview pending',
       collection: slug,
-      evidence: compiled.project?.evidence?.url || ''
+      evidence: compiled.project?.evidence?.url || '',
+      editionAddress: created.edition,
+      txHash: created.txHash,
+      termsTxHash: termsResult.txHash,
+      termsPublished: true
     };
 
-    if (window.dashboardState) {
+    // This legacy object is intentionally never written to the template. The
+    // authenticated dashboard is rebuilt from the API projection.
+    if (false && window.dashboardState) {
       window.dashboardState.launches = window.dashboardState.launches || [];
       const oldIdx = window.dashboardState.launches.findIndex((x) => x.id === launchRow.id || x.project === name);
       if (oldIdx >= 0) window.dashboardState.launches[oldIdx] = launchRow;
       else window.dashboardState.launches.unshift(launchRow);
       if (typeof window.dashAddActivity === 'function') {
-        window.dashAddActivity('launch', `${name} draft saved`, 'Safe workflow pending', 'Draft');
+        window.dashAddActivity('launch', `${name} Pass created`, 'No approval required', 'Created');
       }
     }
 
-    if (window.createData) {
-      window.createData.published = false;
+    if (false && window.createData) {
+      window.createData.published = true;
     }
     if (typeof window.clearCreateDraft === 'function') {
       window.clearCreateDraft();
     }
-    if (typeof window.renderDashboard === 'function') {
-      window.renderDashboard();
-    }
+    await hydrate();
 
     if (mount) {
       mount.innerHTML = `
         <div class="create-publish-success">
           <div class="create-publish-mark">✓</div>
-          <h3>Draft saved</h3>
-          <p><strong>${escapeHtml(name)}</strong> draft has been securely saved to the server. Safe workflow is pending protocol admin execution on ${escapeHtml(activeNetworkName())}.</p>
+          <h3>Pass created</h3>
+          <p><strong>${escapeHtml(name)}</strong> is published on ${escapeHtml(activeNetworkName())}. Edition creation and Terms v1 publication are complete.</p>
           <div class="project-action-buttons" style="justify-content:center">
             <button class="btn" onclick="closeProjectAction();go('dashboard');setTimeout(()=>dashGo('launches'),30)">Dashboard</button>
-            <button class="btn primary" onclick="closeProjectAction();go('create')">Edit draft</button>
+            <button class="btn primary" onclick="closeProjectAction();go('dashboard');setTimeout(()=>dashGo('launches'),30)">Manage Pass</button>
           </div>
         </div>
       `;
     }
-    showRuntimeBanner('Draft saved · Safe workflow pending');
-    return project;
+    showRuntimeBanner('Pass created');
+    return published;
   } catch (error) {
     if (mount) {
       mount.innerHTML = `
         <div class="create-publish-error" style="text-align:center;padding:24px">
-          <h3 style="color:#e05252;margin-bottom:8px">Draft save failed</h3>
+          <h3 style="color:#e05252;margin-bottom:8px">Pass creation failed</h3>
           <p style="color:#c5cec4;margin-bottom:16px">${escapeHtml(error.message)}</p>
           <div class="project-action-buttons" style="justify-content:center">
             <button class="btn" onclick="closeProjectAction()">Close</button>
-            <button class="btn primary" onclick="window.__nmV2SubmitCreateDraft?.()">Try again</button>
+            <button class="btn primary" onclick="window.__nmV2SubmitCreatePass?.()">Try again</button>
           </div>
         </div>
       `;
     }
-    showRuntimeBanner(`Failed to save draft: ${error.message}`, true);
+    showRuntimeBanner(`Pass creation failed: ${error.message}`, true);
+    throw error;
+  }
+}
+
+async function submitCreateDraft() {
+  const mount = document.getElementById('projectActionMount');
+  try {
+    const getter = typeof window.__nmV2CompileCreateLaunch === 'function' ? window.__nmV2CompileCreateLaunch : (typeof window.compileCreateLaunch === 'function' ? window.compileCreateLaunch : null);
+    if (!getter) throw new Error('CREATE_WIZARD_UNAVAILABLE');
+    const compiled = compiledForActiveNetwork(getter());
+    if (!compiled) throw new Error('COMPILED_LAUNCH_UNAVAILABLE');
+    const cleanDraft = assertCreatePassFieldCoverage(sanitizeCompiledForApi(compiled));
+    cleanDraft.status = 'DRAFT';
+    const draftId = String(cleanDraft.draftId || state.lastDraftId || `draft-${uuid()}`).slice(0, 120);
+    cleanDraft.draftId = draftId;
+    const slug = (window.slugKey ? window.slugKey(cleanDraft.project?.name || '') : draftId.replace(/^draft-/, '')) || `draft-${Date.now()}`;
+    const name = cleanDraft.project?.name || cleanDraft.edition?.name || 'Untitled draft';
+    const summary = cleanDraft.project?.desc || cleanDraft.project?.about?.slice(0, 500) || '';
+
+    if (!state.authenticated || !state.wallet) {
+      if (mount) mount.innerHTML = `<div class="project-action-state"><div class="market-tx-spinner"></div><h3>Connecting wallet</h3><p>Connecting your Builder wallet on ${escapeHtml(activeNetworkName())}.</p></div>`;
+      await authenticate({ throwOnError: true });
+    }
+    if (mount) mount.innerHTML = `<div class="project-action-state"><div class="market-tx-spinner"></div><h3>Saving draft</h3><p>Saving this Create workflow to your NexMarkets workspace.</p></div>`;
+    const project = await read('/v1/builder/projects', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-csrf-token': state.csrfToken || sessionStorage.getItem('nex_csrf') || '',
+        'idempotency-key': draftId
+      },
+      body: JSON.stringify({ slug, name, summary, builderId: state.selectedBuilderId, status: 'DRAFT', intent: 'DRAFT', launchDraft: cleanDraft })
+    });
+    state.lastDraftId = project.content?.draftId || project.launchDraft?.draftId || draftId;
+    state.lastSavedProject = project;
+    if (mount) {
+      mount.innerHTML = `<div class="create-publish-success"><div class="create-publish-mark">✓</div><h3>Draft saved</h3><p><strong>${escapeHtml(name)}</strong> is saved to your NexMarkets workspace. On-chain Edition deployment is a separate next step.</p><div class="project-action-buttons" style="justify-content:center"><button class="btn primary" onclick="closeProjectAction();go('dashboard');setTimeout(()=>dashGo('launches'),30)">Dashboard</button></div></div>`;
+    }
+    showRuntimeBanner('Draft saved');
+    return project;
+  } catch (error) {
+    if (mount) mount.innerHTML = `<div class="create-publish-error" style="text-align:center;padding:24px"><h3 style="color:#e05252;margin-bottom:8px">Draft save failed</h3><p style="color:#c5cec4;margin-bottom:16px">${escapeHtml(error.message)}</p><div class="project-action-buttons" style="justify-content:center"><button class="btn" onclick="closeProjectAction()">Close</button><button class="btn primary" onclick="window.__nmV2SubmitCreateDraft?.()">Try again</button></div></div>`;
+    showRuntimeBanner(`Draft save failed: ${error.message}`, true);
     throw error;
   }
 }
@@ -1063,6 +2251,19 @@ async function requireSession() {
   if (!state.wallet || !state.authenticated || Number(wallet.chainId) !== requiredChain) await authenticate({ throwOnError: true });
   if (!state.wallet || !state.authenticated) throw new Error('CONNECT_WALLET_FIRST');
   if (Number(wallet.chainId) !== requiredChain) throw new Error(`SWITCH_TO_${activeNetworkFamily() === 'base' ? 'BASE' : 'ROBINHOOD'}_${requiredChain}`);
+  return state.wallet;
+}
+async function requireConnectedWallet() {
+  if (!state.config) await loadConfig();
+  const requiredChain = Number(state.config?.chainId);
+  if (!state.wallet || Number(wallet.chainId) !== requiredChain) {
+    const provider = await getWalletProvider();
+    if (provider) wallet.setProvider(provider);
+    const identity = await wallet.connect(requiredChain);
+    state.wallet = identity.address;
+    setAccountLabel(short(identity.address));
+  }
+  if (!state.wallet) throw new Error('CONNECT_WALLET_FIRST');
   return state.wallet;
 }
 async function recordTransactionEvent(transactionId, nextState, txHash = null) {
@@ -1165,12 +2366,19 @@ function actionError(surface, error) {
 async function resolveEditionByAddress(value) {
   const target = address(value);
   if (!target) throw new Error('EDITION_ADDRESS_REQUIRED');
+  // Always ask the canonical Edition endpoint first. Discover is intentionally
+  // a compact public summary and may omit the committed Advantage definitions
+  // needed by mint/listing flows; returning that summary here silently turned
+  // a real Terms snapshot into an empty config set. A cached row remains a
+  // safe fallback for a transient read-model miss.
+  try {
+    const raw = await read(`/v1/editions/${target}`);
+    const edition = normalizeEdition(raw, null);
+    if (edition) return edition;
+  } catch { /* fall through to the already hydrated canonical cache */ }
   const known = knownEdition(target);
   if (known) return known;
-  const raw = await read(`/v1/editions/${target}`);
-  const edition = normalizeEdition(raw, null);
-  if (!edition) throw new Error('EDITION_NOT_FOUND');
-  return edition;
+  throw new Error('EDITION_NOT_FOUND');
 }
 async function resolveEditionForProject(name) {
   const project = state.projects.find((item) => String(item.name).toLowerCase() === String(name || '').toLowerCase());
@@ -1217,7 +2425,13 @@ function wireWallet() {
       showRuntimeBanner(error.message, true);
     }
   };
-  document.querySelectorAll('.account-chip, #dashboard .p10-connected, #dashboard .p10-account, #dashboard .dash-person').forEach((chip) => {
+  connectWalletFromUi = connectFromButton;
+  document.querySelectorAll('.account-chip, #nmAccountChip .nm-get-started, #nmMobileAccountChip .nm-get-started, #nmAccountChip .nm-account-trigger, #nmMobileAccountChip .nm-account-trigger, #dashboard .p10-connected, #dashboard .p10-account, #dashboard .dash-person').forEach((chip) => {
+    // The approved template has legacy inline wallet callbacks. Remove them
+    // from the live DOM so the real RainbowKit flow is the single click path;
+    // the immutable authority file itself is never changed.
+    if (chip.matches('[onclick]')) chip.removeAttribute('onclick');
+    chip.querySelectorAll('[onclick]').forEach((element) => element.removeAttribute('onclick'));
     chip.addEventListener('click', async () => {
       if (!state.wallet) {
         await connectFromButton();
@@ -1406,7 +2620,19 @@ async function liveDashCancelListing(id) {
 async function liveDashChangePrice(id) {
   const record = dashboardListingRecord(id);
   if (!record) return;
-  window.openDashModal?.(`Change price · ${record.name}`, '<p class="dash-modal-copy">Seaport order prices are immutable. Changing the ask requires cancelling this order and signing a new order after the cancellation confirms.</p>', 'Cancel and relist later', () => { actionState('dashboard', 'Cancelling old listing', 'The old order must be cancelled before a new price can be signed.'); liveCancelListingRecord(record).catch((error) => actionError('dashboard', error)); });
+  window.openDashModal?.(`Change price · ${record.name}`, `<p class="dash-modal-copy">The old Seaport order will be cancelled and replaced immediately.</p><div class="dash-modal-field"><label>New ask (${escapeHtml(activeSettlementSymbol())})</label><input id="nmLiveReplacementPrice" type="number" min="0.000001" step="0.000001" value="${escapeHtml(formatUnits(record.price_usdg ?? record.priceUsdg ?? record.price ?? 0))}"></div><div class="dash-modal-field"><label>Listing duration (days)</label><input id="nmLiveReplacementDays" type="number" min="1" max="180" value="30"></div>`, 'Replace listing', async () => {
+    try {
+      const price = document.getElementById('nmLiveReplacementPrice')?.value;
+      const days = Number(document.getElementById('nmLiveReplacementDays')?.value || 30);
+      if (!(parseUnits(price) > 0n) || !Number.isInteger(days) || days < 1 || days > 180) throw new Error('INVALID_REPLACEMENT_ASK');
+      actionState('dashboard', 'Cancelling old listing', 'Waiting for cancellation before signing the replacement.');
+      const cancelled = await liveCancelListingRecord(record);
+      await wallet.waitForReceipt(cancelled.txHash);
+      await hydrate();
+      state.pendingListing = await resolveOwnedPass(record.passKey);
+      window.openDashModal?.(`Sign replacement · ${record.name}`, `<div class="dash-modal-field"><label>New ask (${escapeHtml(activeSettlementSymbol())})</label><input id="nmLiveListingPrice" type="number" value="${escapeHtml(price)}"></div><div class="dash-modal-field"><label>Listing duration (days)</label><input id="nmLiveListingDays" type="number" value="${days}"></div><p class="dash-modal-copy">Old order ${escapeHtml(record.orderHash || '')} is cancelled. Sign the new authoritative order.</p>`, 'Sign replacement order', () => liveConfirmListing().catch((error) => actionError('dashboard', error)));
+    } catch (error) { actionError('dashboard', error); }
+  });
 }
 async function liveDashUseAdvantage(id) {
   try {
@@ -1447,22 +2673,48 @@ async function liveDashWithdrawRoyalty() {
     window.openDashModal?.(`Withdraw ${formatUnits(claim.amount_usdg ?? claim.amountUsdg ?? claim.amount ?? 0)} ${activeSettlementSymbol()}`, '<p class="dash-modal-copy">Your wallet will sign a withdrawal for this released Royalty Vault claim.</p>', 'Withdraw', () => { actionState('dashboard', 'Preparing withdrawal', 'The API is checking the claim release and builder ownership.'); requireSession().then(() => mutation('/v1/royalties/withdraw', { orderHash })).then((response) => submitPrepared(response, { label: 'Royalty withdrawal' })).then((result) => actionSuccess('dashboard', 'Royalty withdrawal', result)).catch((error) => actionError('dashboard', error)); });
   } catch (error) { actionError('dashboard', error); }
 }
-async function prepareEdition(input = {}) {
-  await requireSession();
-  const contracts = activeContracts();
-  if (!address(contracts.protocolAdminSafe)) throw new Error('PROTOCOL_ADMIN_SAFE_CONFIGURATION_REQUIRED');
-  return mutation('/v1/editions/prepare', {
+async function createEditionOnchain(input = {}) {
+  await requireConnectedWallet();
+  const factory = address(activeContracts().passFactory);
+  if (!factory) throw new Error('PASS_FACTORY_CONFIGURATION_REQUIRED');
+  const config = {
     ...input,
-    publisher: state.wallet,
-    initialOwner: contracts.protocolAdminSafe,
+    initialOwner: state.wallet,
     absoluteSupplyCap: Number(input.absoluteSupplyCap),
     salt: input.salt || randomBytes32()
-  });
-}
-async function submitSafeEvidence(requestId, input = {}) {
-  await requireSession();
-  if (!requestId) throw new Error('EDITION_REQUEST_REQUIRED');
-  return mutation(`/v1/edition-requests/${encodeURIComponent(requestId)}/safe-submit`, input);
+  };
+  // The deployed Robinhood testnet Factory predates the permissionless ABI and
+  // is owned by the configured Protocol Admin Safe. Detect that live wiring
+  // read-only and execute the legacy Factory call through the Safe owner wallet;
+  // newer deployments continue to use the direct permissionless path.
+  const factoryOwner = await wallet.call(factory, '0x8da5cb5b').catch(() => null);
+  const safe = address(activeContracts().protocolAdminSafe);
+  let execution = { executionMode: 'DIRECT_PERMISSIONLESS_FACTORY' };
+  let txHash;
+  if (activeNetworkKey() !== 'base-sepolia' && safe && factoryOwner && lower(factoryOwner).endsWith(lower(safe).slice(2)) && lower(state.wallet) !== lower(factoryOwner)) {
+    execution = await wallet.createEditionViaSafe(safe, factory, config);
+    txHash = execution.txHash;
+  } else {
+    txHash = await wallet.createEdition(factory, config);
+  }
+  showRuntimeBanner(`Edition creation submitted · ${short(txHash)}`);
+  const receipt = await wallet.waitForReceipt(txHash);
+  const created = editionCreatedFromReceipt(receipt, factory, state.wallet);
+  let linked = null;
+  if (input.projectId) {
+    // The chain receipt is the immutable source of the Edition identity. The
+    // API verifies that same receipt through RPC before writing the optional
+    // Product presentation link; browser memory is never the authority.
+    await requireSession();
+    linked = await mutation('/v1/builder/editions/link', {
+      projectId: input.projectId,
+      builderId: input.builderId || state.selectedBuilderId || null,
+      editionAddress: created.edition,
+      txHash
+    });
+    if (!linked?.project_id || String(linked.project_id) !== String(input.projectId) || lower(linked.edition_address) !== lower(created.edition)) throw new Error('EDITION_PROJECT_LINK_INCOMPLETE');
+  }
+  return { txHash, receipt, ...created, linked, salt: config.salt, ...execution };
 }
 async function publishTerms(input = {}) {
   await requireSession();
@@ -1473,21 +2725,81 @@ async function publishTerms(input = {}) {
 function builderLaunchRecord(id) {
   return (state.templateData?.dashboardState?.launches || []).find((launch) => launch.id === id) || null;
 }
-function safeProposalText(proposal) {
-  return proposal ? `<div class="dash-modal-field"><label>Safe target</label><code>${escapeHtml(proposal.to || '')}</code></div><div class="dash-modal-field"><label>Safe calldata</label><code>${escapeHtml(proposal.data || '')}</code></div>${proposal.predictedEditionAddress ? `<div class="dash-modal-field"><label>Predicted Edition</label><code>${escapeHtml(proposal.predictedEditionAddress)}</code></div>` : ''}` : '';
+function launchEditionRecord(editionAddress) {
+  const wanted = lower(editionAddress);
+  return (state.builderDashboard?.editions || []).find((row) => lower(row.edition_address || row.editionAddress || row.address) === wanted) || null;
 }
-function liveManageLaunch(id) {
+function finalLiveTermsConfigs(startsAt = null, endsAt = null) {
+  // These definitions are the approved certification Advantage set. Their
+  // windows deliberately match the retained Product's Preview/debut clock so
+  // the same committed utility can be exercised after a funded mint.
+  startsAt = startsAt ?? 1789107360;
+  endsAt = endsAt ?? 1789798560;
+  return [
+    { advantageId: '0x486954742eaa12f46892b40db863e92e801942ac10059ee8c0973c9b0a45d51b', kind: 0, startsAt, endsAt, totalUnits: 0, definitionHash: '0x0aa84398c1a0f09af2b117be5149fd3cb4cd7cc7671aa7a66b8a6b24624b7c20' },
+    { advantageId: '0xc43411f0ee25192c70e3b600262e3e769630445d1355888ab7543634d86677f1', kind: 1, startsAt, endsAt, totalUnits: 2, definitionHash: '0xf2d4a9938aa00234fd7d876d24ec94af42ff9587e954cd602834387c6d657e4e' },
+    { advantageId: '0xfd7496e537361dbc193db9957c2a02a6ba6974da487f955d6e57f3c0d57e4b24', kind: 2, startsAt, endsAt, totalUnits: 0, definitionHash: '0x54aa32d970048e7ad581ebda0b5d4aa755ed194a329f2d9f45570094913f5ab6' }
+  ];
+}
+function finalLiveMetadataBaseURI() {
+  // A data URI is immutable once stored in the Edition constructor. The
+  // trailing fragment absorbs the ERC-721 serial suffix appended by tokenURI.
+  // The image points at the verified media API object; its checksum is also
+  // included so the public record cannot be mistaken for a mutable draft.
+  return 'data:application/json,%7B%22name%22%3A%22NexMarkets%20Final%20Live%20Certification%20Edition%22%2C%22description%22%3A%22Immutable%20NexMarkets%20Robinhood%20testnet%20certification%20Edition.%22%2C%22image%22%3A%22https%3A%2F%2Fwww.nexmarkets.xyz%2Fv1%2Fmedia%2Fmed_493b8c74-6c4c-4604-9771-bfb628deeeab%2Fcontent%22%2C%22image_sha256%22%3A%22d543e603d6beeeb4e80669aa038d3f47fdda2ab0128654e939d3a83010a001a5%22%2C%22external_url%22%3A%22https%3A%2F%2Fwww.nexmarkets.xyz%2Fv1%2Fprojects%2Fac0dbdf2-4015-4810-a1ce-c6a5def48af2%22%7D#';
+}
+async function liveManageLaunch(id) {
   const launch = builderLaunchRecord(id);
   if (!launch) return;
   const project = (state.builderDashboard.projects || []).find((row) => String(row.id) === String(launch.projectId));
   const draft = launch.draft || project?.content || project?.launchDraft || {};
-  if (launch.requestId || launch.safeStatus) {
-    const requestId = launch.requestId;
-    const status = launch.safeStatus || 'SAFE_PENDING';
-    window.openDashModal?.(`Manage ${launch.project}`, `<p class="dash-modal-copy">Factory deployment is controlled by the Protocol Admin Safe. This Builder wallet never signs the Factory transaction.</p><div class="dash-modal-field"><label>Safe request</label><strong>${escapeHtml(requestId || 'Indexed edition')}</strong></div><div class="dash-modal-field"><label>Status</label><strong>${escapeHtml(status)}</strong></div>${launch.predictedEditionAddress ? `<div class="dash-modal-field"><label>Predicted Edition</label><code>${escapeHtml(launch.predictedEditionAddress)}</code></div>` : ''}${requestId && status !== 'SUBMITTED' ? '<div class="dash-modal-field"><label>Safe execution tx hash</label><input id="nmSafeTxHash" placeholder="0x…" maxlength="66"></div><div class="dash-modal-field"><label>Safe transaction hash</label><input id="nmSafeTransactionHash" placeholder="0x…" maxlength="66"></div><p class="dash-modal-copy">Submit evidence only after the Safe execution is confirmed on the active network.</p>' : '<p class="dash-modal-copy">After the Edition is indexed, publish Builder-signed Terms with <code>window.nexmarketsV2.publishTerms(...)</code> using the exact committed Advantage config.</p>'}`, status !== 'SUBMITTED' && requestId ? 'Submit Safe evidence' : 'Close', status !== 'SUBMITTED' && requestId ? () => { actionState('dashboard', 'Verifying Safe execution', 'The server will verify the Safe receipt, factory event, Edition ID, and predicted address.'); submitSafeEvidence(requestId, { txHash: document.getElementById('nmSafeTxHash')?.value, safeTransactionHash: document.getElementById('nmSafeTransactionHash')?.value }).then(() => { showRuntimeBanner('Safe deployment evidence submitted'); hydrate(); }).catch((error) => actionError('dashboard', error)); } : () => window.closeDashModal?.());
+  if (launch.editionAddress || launch.txHash) {
+    const editionAddress = launch.editionAddress;
+    let indexed = null;
+    if (editionAddress) {
+      try { indexed = await read(`/v1/editions/${encodeURIComponent(editionAddress)}`); } catch { /* indexing may still be catching up */ }
+    }
+    const indexedTerms = indexed?.currentTerms || indexed?.current_terms || indexed?.termsHistory?.[0] || indexed?.terms?.[0] || launch.currentTerms || launch.current_terms;
+    const remembered = editionAddress && sessionStorage.getItem(`nexmarkets_terms_published:${lower(editionAddress)}`) === '1';
+    if (indexedTerms || remembered || launch.termsPublished) {
+      window.openDashModal?.(`Manage ${launch.project}`, `<p class="dash-modal-copy">Your wallet created and owns this Edition. Its versioned Terms are published by the Edition publisher.</p>${editionAddress ? `<div class="dash-modal-field"><label>Edition</label><code>${escapeHtml(editionAddress)}</code></div>` : ''}${launch.txHash ? `<div class="dash-modal-field"><label>Creation transaction</label><code>${escapeHtml(launch.txHash)}</code></div>` : ''}${indexedTerms?.terms_hash || indexedTerms?.termsHash ? `<div class="dash-modal-field"><label>Active Terms</label><code>${escapeHtml(indexedTerms.terms_hash || indexedTerms.termsHash)}</code></div>` : ''}<p class="dash-modal-copy">The API and Goldsky read models will expose the joined Product after indexing.</p>`, 'Close', () => window.closeDashModal?.());
+      return;
+    }
+    const configs = finalLiveTermsConfigs();
+    const termsHash = '0x3655775befc0701235416d80b8276e7f4f80a67482b3d16424706cc5a35b51b3';
+    window.openDashModal?.(`Publish Terms · ${launch.project}`, `<p class="dash-modal-copy">The Edition is registered onchain. Publish its immutable Terms through the Registry using this Builder wallet. Preview starts 2026-09-11T06:16:00Z and mint opens after the required 24-hour Preview.</p><div class="dash-modal-field"><label>Edition</label><code>${escapeHtml(editionAddress || '')}</code></div><div class="dash-modal-field"><label>Active supply</label><input id="nmTermsActiveSupply" type="number" min="1" value="3"></div><div class="dash-modal-field"><label>Price (MockUSDG base units)</label><input id="nmTermsPrice" type="number" min="1" value="1000000"></div><div class="dash-modal-field"><label>Preview starts (UTC seconds)</label><input id="nmTermsPreview" type="number" value="1789107360"></div><div class="dash-modal-field"><label>Mint starts (UTC seconds)</label><input id="nmTermsMint" type="number" value="1789193760"></div><div class="dash-modal-field"><label>Mint ends (UTC seconds)</label><input id="nmTermsEnd" type="number" value="1789798560"></div><div class="dash-modal-field"><label>Primary recipient</label><input id="nmTermsPrimary" value="${escapeHtml(state.wallet || '')}"></div><div class="dash-modal-field"><label>Royalty receiver</label><input id="nmTermsRoyaltyReceiver" value="${escapeHtml(state.wallet || '')}"></div><div class="dash-modal-field"><label>Royalty (basis points)</label><input id="nmTermsRoyaltyBps" type="number" min="0" max="500" value="300"></div><div class="dash-modal-field"><label>Advantages commitment</label><input id="nmTermsAdvantagesHash" value="${termsHash}" readonly></div><div class="dash-modal-field"><label>Advantage configs (canonical JSON)</label><textarea id="nmTermsConfigs" rows="7">${escapeHtml(JSON.stringify(configs))}</textarea></div>`, 'Publish Terms with wallet', () => {
+      let advantageConfigs;
+      try { advantageConfigs = JSON.parse(document.getElementById('nmTermsConfigs')?.value || '[]'); } catch { actionError('dashboard', new Error('INVALID_ADVANTAGE_CONFIG_JSON')); return; }
+      const input = {
+        builderId: state.selectedBuilderId,
+        edition: editionAddress,
+        advantageConfigs,
+        terms: {
+          activeSupply: Number(document.getElementById('nmTermsActiveSupply')?.value),
+          pricePerPass: String(document.getElementById('nmTermsPrice')?.value || ''),
+          previewStartsAt: Number(document.getElementById('nmTermsPreview')?.value),
+          mintStartsAt: Number(document.getElementById('nmTermsMint')?.value),
+          mintEndsAt: Number(document.getElementById('nmTermsEnd')?.value),
+          primaryRecipient: document.getElementById('nmTermsPrimary')?.value?.trim(),
+          royaltyReceiver: document.getElementById('nmTermsRoyaltyReceiver')?.value?.trim(),
+          royaltyBps: Number(document.getElementById('nmTermsRoyaltyBps')?.value),
+          advantagesHash: document.getElementById('nmTermsAdvantagesHash')?.value?.trim(),
+          referralTermsHash: `0x${'00'.repeat(32)}`
+        }
+      };
+      actionState('dashboard', 'Publishing Terms', 'Confirm the exact Registry transaction in your wallet.');
+      publishTerms(input).then(async (result) => {
+        const receipt = await wallet.waitForReceipt(result.txHash);
+        if (editionAddress) sessionStorage.setItem(`nexmarkets_terms_published:${lower(editionAddress)}`, '1');
+        launch.termsPublished = true;
+        window.openDashModal?.(`Terms published · ${launch.project}`, `<p class="dash-modal-copy">The Registry accepted the immutable Terms snapshot. Preview timing is now enforced by the chain.</p><div class="dash-modal-field"><label>Edition</label><code>${escapeHtml(editionAddress || '')}</code></div><div class="dash-modal-field"><label>Transaction</label><code>${escapeHtml(result.txHash)}</code></div><div class="dash-modal-field"><label>Block</label><code>${escapeHtml(String(Number.parseInt(receipt.blockNumber, 16) || receipt.blockNumber || ''))}</code></div>`, 'Close', () => window.closeDashModal?.());
+        showRuntimeBanner('Terms published onchain');
+        hydrate().catch(() => {});
+      }).catch((error) => actionError('dashboard', error));
+    });
     return;
   }
-  window.openDashModal?.(`Launch ${launch.project}`, `<p class="dash-modal-copy">Prepare the deterministic Factory call for the Protocol Admin Safe. Review every value in Safe before execution.</p><div class="dash-modal-field"><label>Edition name</label><input id="nmLaunchEditionName" value="${escapeHtml(draft.edition?.name || launch.name || '')}" maxlength="120"></div><div class="dash-modal-field"><label>Symbol</label><input id="nmLaunchSymbol" placeholder="NEX" maxlength="12"></div><div class="dash-modal-field"><label>Edition ID (bytes32)</label><input id="nmLaunchEditionId" placeholder="0x…" maxlength="66"></div><div class="dash-modal-field"><label>Absolute supply cap</label><input id="nmLaunchSupply" type="number" min="1" value="${escapeHtml(draft.edition?.supply || '')}"></div><div class="dash-modal-field"><label>Artwork commitment (bytes32)</label><input id="nmLaunchArtworkCommitment" placeholder="0x…" maxlength="66"></div><div class="dash-modal-field"><label>Committed metadata base URI</label><input id="nmLaunchBaseTokenURI" type="url" placeholder="https://…"></div>`, 'Prepare Safe proposal', () => {
+  window.openDashModal?.(`Create ${launch.project} onchain`, `<p class="dash-modal-copy">Your wallet will submit the permissionless Factory transaction. You will own the Edition and be its only Terms publisher.</p><div class="dash-modal-field"><label>Edition name</label><input id="nmLaunchEditionName" value="${escapeHtml(draft.edition?.name || launch.name || '')}" maxlength="120"></div><div class="dash-modal-field"><label>Symbol</label><input id="nmLaunchSymbol" placeholder="NEX" maxlength="12"></div><div class="dash-modal-field"><label>Edition ID (bytes32)</label><input id="nmLaunchEditionId" placeholder="0x…" maxlength="66"></div><div class="dash-modal-field"><label>Absolute supply cap</label><input id="nmLaunchSupply" type="number" min="1" value="${escapeHtml(draft.edition?.supply || '')}"></div><div class="dash-modal-field"><label>Artwork commitment (bytes32)</label><input id="nmLaunchArtworkCommitment" placeholder="0x…" maxlength="66"></div><div class="dash-modal-field"><label>Committed metadata base URI</label><input id="nmLaunchBaseTokenURI" type="url" placeholder="https://…"></div>`, 'Create with wallet', () => {
     const input = {
       projectId: launch.projectId,
       name: document.getElementById('nmLaunchEditionName')?.value?.trim(),
@@ -1497,13 +2809,18 @@ function liveManageLaunch(id) {
       artworkCommitment: document.getElementById('nmLaunchArtworkCommitment')?.value?.trim(),
       baseTokenURI: document.getElementById('nmLaunchBaseTokenURI')?.value?.trim()
     };
-    actionState('dashboard', 'Preparing Safe proposal', 'The API is validating the Builder project and predicting the CREATE2 Edition address.');
-    prepareEdition(input).then((result) => {
-      launch.requestId = result.request?.id || null;
-      launch.safeStatus = result.request?.safeStatus || result.request?.safe_status || 'SAFE_PENDING';
-      launch.predictedEditionAddress = result.safeProposal?.predictedEditionAddress || result.request?.predictedEditionAddress || null;
-      window.openDashModal?.(`Safe proposal · ${launch.project}`, `<p class="dash-modal-copy">Review and execute this proposal from the Protocol Admin Safe.</p>${safeProposalText(result.safeProposal)}<div class="dash-modal-field"><label>Request</label><code>${escapeHtml(launch.requestId || '')}</code></div><p class="dash-modal-copy">After Safe execution, return here with both hashes so the server can verify the factory event.</p>`, 'Close', () => window.closeDashModal?.());
-      showRuntimeBanner('Safe proposal prepared');
+    actionState('dashboard', 'Creating your Edition', 'Confirm the permissionless Factory transaction in your wallet.');
+    createEditionOnchain(input).then((result) => {
+      launch.txHash = result.txHash;
+      launch.editionAddress = result.edition;
+      launch.state = 'Preview';
+      launch.timing = 'Onchain · indexing';
+      const ownershipCopy = result.executionMode === 'SAFE_LEGACY_FACTORY'
+        ? 'The Protocol Admin Safe executed the deployed Factory call. Your Builder wallet is the recorded Edition publisher; the Safe remains the onchain Edition owner.'
+        : 'Your wallet created and owns this Edition and is its only Terms publisher.';
+      window.openDashModal?.(`Edition created · ${launch.project}`, `<p class="dash-modal-copy">${ownershipCopy}</p><div class="dash-modal-field"><label>Edition</label><code>${escapeHtml(result.edition)}</code></div><div class="dash-modal-field"><label>Transaction</label><code>${escapeHtml(result.txHash)}</code></div>`, 'Close', () => window.closeDashModal?.());
+      showRuntimeBanner('Edition created onchain');
+      hydrate().catch(() => {});
     }).catch((error) => actionError('dashboard', error));
   });
 }
@@ -1531,6 +2848,97 @@ function installLiveActions() {
   window.nmMintSignIn = window.openProjectMint;
   window.nmMintConnectWallet = window.openProjectMint;
 }
+
+function installLifecycleAuthority() {
+  const previousState = window.nmLifecycleState;
+  const previousLabel = window.nmLifecycleLabel;
+  if (typeof previousState !== 'function' || previousState.__nmCanonicalAuthority) return;
+  const canonicalState = function canonicalLifecycleState(project) {
+    if (!project) return 'draft';
+    const termsHash = lower(project.termsHash || project.terms_hash || project.active_terms_hash || project.activeTermsHash);
+    const statusTag = String(project.statusTag || project.status_tag || '').trim().toLowerCase();
+    // A public Product row without an active Terms commitment is still a
+    // private draft. Never let the template's legacy `live` fallback turn it
+    // into a Debut just because it was saved before on-chain publication.
+    if (!termsHash || statusTag === 'draft') return 'draft';
+    const stateValue = previousState(project);
+    return stateValue === 'debut' && !termsHash ? 'draft' : stateValue;
+  };
+  canonicalState.__nmCanonicalAuthority = true;
+  window.nmLifecycleState = canonicalState;
+  window.nmLifecycleLabel = function canonicalLifecycleLabel(value) {
+    const stateValue = typeof value === 'string' ? value.toLowerCase() : canonicalState(value);
+    return stateValue === 'draft' ? 'Draft' : (typeof previousLabel === 'function' ? previousLabel(stateValue) : stateValue);
+  };
+}
+function canonicalPassAssignmentFor(project, serialNo) {
+  const experience = state.projectExperience?.[project?.name] || {};
+  const design = experience.compiledLaunch?.design;
+  if (!design || !Array.isArray(design.passAssignments) || !design.passAssignments.length) return null;
+  const serial = Math.max(1, Number(serialNo) || Number(design.selectedSerialIndex || 0) + 1);
+  return design.passAssignments.find((assignment) => Number(assignment.serial) === serial) || design.passAssignments[serial - 1] || null;
+}
+function applyCanonicalPassAssignment(compiled, project, serialNo) {
+  const assignment = canonicalPassAssignmentFor(project, serialNo);
+  if (!assignment || !compiled?.design) return compiled;
+  const design = compiled.design;
+  const optionId = String(assignment.optionId || '');
+  if (/^(classic|glass)-(obsidian|carbon|gilt)$/.test(optionId)) {
+    const [family, material] = optionId.split('-');
+    design.passDesign = family;
+    design.frame = material;
+  } else if (/^pack-(slab|glass|metal|ceramic|blister|carbon|paper|resin)$/.test(optionId)) {
+    design.passDesign = optionId;
+    design.frame = 'obsidian';
+  }
+  const palette = assignment.palette && typeof assignment.palette === 'object' ? assignment.palette : {};
+  const paletteArray = [palette.primary, palette.secondary, palette.accent].filter(Boolean).slice(0, 3);
+  if (paletteArray.length === 3) {
+    design.color = paletteArray[0];
+    design.gradientA = paletteArray[0];
+    design.gradientB = paletteArray[1];
+    design.randomPalette = paletteArray;
+    design.colorStyle = 'solid';
+  }
+  design.frameColor = design.frame === 'gilt' ? '#c8a84e' : design.frame === 'carbon' ? '#313337' : '#2a2725';
+  design.colorwayId = assignment.colorwayId || design.colorwayId;
+  design.rendererVersion = assignment.rendererVersion || design.rendererVersion;
+  design.randomAssignment = {
+    ...(design.randomAssignment || {}),
+    ...assignment.randomAssignment,
+    optionId,
+    packId: optionId,
+    palette: paletteArray.length === 3 ? paletteArray : design.randomPalette,
+    frozen: Boolean(assignment.frozen || assignment.randomAssignment?.frozen)
+  };
+  const artwork = assignment.artwork || {};
+  const artworkUrl = artwork.url || artwork.src || (/^(https?:|data:)/i.test(String(artwork.assetKey || '')) ? artwork.assetKey : '');
+  if (artworkUrl) design.artSrc = artworkUrl;
+  if (artwork.x != null) design.artX = Number(artwork.x);
+  if (artwork.y != null) design.artY = Number(artwork.y);
+  design.selectedSerialIndex = Math.max(0, Number(serialNo || 1) - 1);
+  return compiled;
+}
+function installCanonicalPassRuntime() {
+  const base = window.nmFinalProjectCompiled || window.finalProjectCompiled;
+  if (typeof base !== 'function' || base.__nmCanonicalPassRuntime) return;
+  const wrapped = function canonicalPassRuntime(project, serialNo = 0, ownedPass = null) {
+    const compiled = base(project, serialNo, ownedPass);
+    return applyCanonicalPassAssignment(compiled, project, serialNo || 1);
+  };
+  wrapped.__nmCanonicalPassRuntime = true;
+  wrapped.__nmCanonicalBase = base;
+  window.nmFinalProjectCompiled = wrapped;
+  window.finalProjectCompiled = wrapped;
+  try { finalProjectCompiled = wrapped; } catch { /* classic template binding may be immutable */ }
+  try { nmFinalProjectCompiled = wrapped; } catch { /* classic template binding may be immutable */ }
+  window.nmCanonicalPassAssignment = canonicalPassAssignmentFor;
+  window.nmCanonicalPassAudit = (name, serial = 1) => {
+    const project = state.projects?.find((item) => item.name === name) || state.projects?.[0];
+    const assignment = canonicalPassAssignmentFor(project, serial);
+    return assignment ? { ...assignment, palette: { ...(assignment.palette || {}) } } : null;
+  };
+}
 function guardMutations() {}
 
 // The V2 template uses a single static document and renders its surfaces in
@@ -1548,22 +2956,40 @@ function installHistoryRouting() {
       case 'discover': return '/discover';
       case 'market': return '/market';
       case 'create': return '/create';
-      case 'dashboard': return '/dashboard/holder';
+      case 'dashboard': {
+        const tab = state.route?.kind === 'dashboard' ? (state.route.tab || 'holder') : 'holder';
+        return `/dashboard/${encodeURIComponent(tab)}`;
+      }
       case 'project': {
+        if (state.route?.kind === 'project' && state.route.project) return `/projects/${encodeURIComponent(state.route.project)}`;
+        if (state.route?.kind === 'pass' && state.route.edition && state.route.token) return `/passes/${encodeURIComponent(state.route.edition)}/${encodeURIComponent(state.route.token)}`;
         const name = selections().project || state.detailProject?.name || '';
         return name ? `/projects/${encodeURIComponent(name)}` : '/discover';
       }
+      case 'builder': {
+        const key = window.nmEliteBuilderKey || state.route?.handle || '';
+        const profile = builderProfileForKey(key) || state.builderProfiles.get(lower(key));
+        const handle = profile?.handle || profile?.links?.handle || state.route?.handle || key;
+        return handle ? `/builders/${encodeURIComponent(String(handle).replace(/^@/, ''))}` : '/discover';
+      }
       case 'collection': {
+        if (state.route?.kind === 'edition' && state.route.edition) return `/editions/${encodeURIComponent(state.route.edition)}`;
+        if (state.route?.kind === 'pass' && state.route.edition && state.route.token) return `/passes/${encodeURIComponent(state.route.edition)}/${encodeURIComponent(state.route.token)}`;
         const edition = selections().edition || state.edition?.address || '';
         return /^0x[0-9a-f]{40}$/i.test(edition)
           ? `/editions/${encodeURIComponent(edition)}`
           : (selections().project ? `/projects/${encodeURIComponent(selections().project)}` : '/discover');
       }
       case 'listing': {
-        return '/market';
+        if (state.route?.kind === 'listing' && state.route.listing) return `/listings/${encodeURIComponent(state.route.listing)}`;
+        const listing = selections().listing || '';
+        return listing ? `/listings/${encodeURIComponent(listing)}` : '/market';
       }
       case 'owned': return '/dashboard/holder?view=owned';
       case 'launch': return '/projects/nexstudio';
+      case 'docs': return '/docs';
+      case 'faq': return '/faq';
+      case 'terms': return '/terms';
       default: return null;
     }
   };
@@ -1579,18 +3005,56 @@ function installHistoryRouting() {
   wrappedGo.__nmHistoryWrapped = true;
   wrappedGo.__nmOriginalGo = originalGo;
   window.go = wrappedGo;
+  const originalDashGo = window.dashGo;
+  if (typeof originalDashGo === 'function' && !originalDashGo.__nmHistoryWrapped) {
+    const wrappedDashGo = function wrappedDashGo(tab) {
+      const normalized = String(tab || 'overview') === 'overview' ? 'holder' : String(tab || 'overview');
+      const nextPath = `/dashboard/${encodeURIComponent(normalized)}`;
+      const current = `${window.location.pathname}${window.location.search}`;
+      if (current !== nextPath) window.history.pushState({ nexmarketsRoute: 'dashboard', tab: normalized }, '', nextPath);
+      return originalDashGo.call(this, tab);
+    };
+    wrappedDashGo.__nmHistoryWrapped = true;
+    wrappedDashGo.__nmOriginalGo = originalDashGo;
+    window.dashGo = wrappedDashGo;
+  }
 }
 function exposeRuntime() {
+  window.__nmV2SubmitCreatePass = submitCreatePass;
+  // Backwards-compatible aliases for existing integrations and browser tests.
   window.__nmV2SubmitCreateDraft = submitCreateDraft;
-  window.completeCreatePublish = submitCreateDraft;
+  window.completeCreatePublish = submitCreatePass;
+  // Replace the prototype's demo account callbacks with the real wallet
+  // session boundary.  The visual header remains owned by the approved HTML.
+  window.nmOpenGetStarted = () => connectWalletFromUi ? connectWalletFromUi() : authenticateOnce();
+  window.nmAccountTap = () => state.wallet ? openAccountModal() : (connectWalletFromUi ? connectWalletFromUi() : authenticateOnce());
+  const priorOpenBuilder = window.openBuilder;
+  window.openBuilder = (key) => {
+    window.nmEliteBuilderKey = String(key || '').toLowerCase();
+    const profile = builderProfileForKey(key) || state.builderProfiles.get(lower(key));
+    const handle = profile?.handle || profile?.links?.handle || key;
+    if (handle) navigate(`/builders/${encodeURIComponent(String(handle).replace(/^@/, ''))}`);
+    else if (priorOpenBuilder) priorOpenBuilder(key);
+    return true;
+  };
+  window.nmSignOut = async () => {
+    try {
+      if (state.authenticated) await mutation('/v1/auth/logout', {});
+    } catch { /* a local disconnect still clears the client session */ }
+    state.authenticated = false; state.wallet = null; state.csrfToken = null;
+    sessionStorage.removeItem('nex_csrf'); setAccountLabel('Connect wallet');
+    if (typeof go === 'function' && typeof currentRoute !== 'undefined' && currentRoute === 'dashboard') go('home');
+  };
   window.nexmarketsV2 = {
     state,
     refresh: hydrate,
     connect: authenticate,
+    selectBuilder,
     navigate,
+    submitCreatePass,
     submitCreateDraft,
-    prepareEdition,
-    submitSafeEvidence,
+    autosaveCreateDraft: autosaveCreateDraft,
+    createEditionOnchain,
     publishTerms,
     mint: liveConfirmProjectMint,
     buy: liveMarketConfirmBuy,
@@ -1602,6 +3066,6 @@ function exposeRuntime() {
   };
 }
 
-installHistoryRouting(); wireWallet(); installLiveActions(); guardMutations(); exposeRuntime();
-addEventListener('popstate', () => goView(routeInfo()));
+installHistoryRouting(); wireWallet(); installLiveActions(); installLifecycleAuthority(); installCanonicalPassRuntime(); guardMutations(); exposeRuntime(); installCreateDraftAutosave(); installSocialRuntime(); installMediaRuntime();
+addEventListener('popstate', () => { presentRoute(routeInfo()).catch(() => goView(routeInfo())); });
 hydrate();

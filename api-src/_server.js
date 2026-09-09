@@ -7,8 +7,9 @@ export async function getApiListener() {
   if (requestListener) return requestListener;
 
   const networkConfigs = createNetworkConfigs(process.env);
-  const chainId = Number(process.env.ROBINHOOD_CHAIN_ID ?? 46630);
-  const defaultNetwork = networkConfigs[networkKeyForChainId(chainId) ?? 'robinhood-testnet'];
+  const defaultKey = process.env.NEXMARKETS_DEFAULT_NETWORK || 'base-sepolia';
+  const defaultNetwork = networkConfigs[defaultKey] || networkConfigs.baseSepolia || networkConfigs['base-sepolia'];
+  const chainId = Number(defaultNetwork.chainId);
 
   let store = null;
   if (process.env.DATABASE_URL) {

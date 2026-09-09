@@ -1,0 +1,32 @@
+NexMarkets UI authority handoff
+
+IMPORTANT: the repository copy of
+NEXMARKETS_V2_BUILDER_PROFILE_ELITE.html was modified during the Codex
+implementation and is NOT the approved UI authority. The actual approved
+authority is external to this repository and must be supplied separately by
+the user. The repository copy is preserved only for forensic comparison.
+
+Repository copy (MODIFIED_BY_CODEX — NOT AUTHORITATIVE):
+C:\Users\USER\NEXMARKETS\nexmarkets-production\NEXMARKETS_V2_BUILDER_PROFILE_ELITE.html
+
+SHA-256: 34bac0e30e66e2d0f675d71d2a22033e6b176b3351320bc1e5b97212d41d8308
+File size: 4,010,788 bytes
+
+Preserved forensic copy:
+C:\Users\USER\NEXMARKETS\nexmarkets-production\artifacts\handoff\NEXMARKETS_V2_BUILDER_PROFILE_ELITE_CODEX_MODIFIED.html
+
+Preserved-copy SHA-256: 34bac0e30e66e2d0f675d71d2a22033e6b176b3351320bc1e5b97212d41d8308
+Preserved-copy size: 4,010,788 bytes
+
+Copies found: one repository source copy and the identical preserved handoff
+copy. No external approved copy is present in this repository scan.
+
+Build derivation (descriptive only): scripts/build-web.mjs currently reads the
+repository copy as authoritySource, injects runtime bridge/module tags, and
+writes generated index.html outputs. This does not establish authority: the
+source HTML and generated outputs are all contaminated by the modified copy.
+
+Codex modification status: MODIFIED_BY_CODEX. The source is untracked in Git,
+so there is no Git preimage for a content diff. The contamination details and
+available historical hashes are in
+artifacts/handoff/ui-authority-contamination-report.md.

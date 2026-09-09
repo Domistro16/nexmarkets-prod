@@ -1,4 +1,14 @@
 import { createHash } from 'node:crypto';
+import {
+  PASS_RENDERER_VERSION,
+  PASS_DESIGN_OPTIONS,
+  PASS_ASSIGNMENT_POOL,
+  createPassRenderConfig,
+  freezePassAssignments,
+  resolvePassAssignment,
+  isApprovedPassOption,
+  isApprovedColorway
+} from './pass-design.mjs';
 
 export const ALLOWED_CATEGORIES = Object.freeze([
   'tools', 'ai', 'media', 'finance', 'community', 'gaming', 'physical', 'infrastructure'
@@ -12,15 +22,29 @@ export const ALLOWED_NETWORKS = Object.freeze([
   'robinhood', 'base'
 ]);
 
+export const ALLOWED_PROJECT_STATUSES = Object.freeze([
+  'DRAFT', 'PUBLISHED', 'ARCHIVED'
+]);
+
 export const ALLOWED_ADVANTAGE_MECHANISMS = Object.freeze([
   'TimeBased', 'QuantityBased', 'Connected', 'Redemption'
 ]);
 
 export const ALLOWED_REFERRAL_RATES = Object.freeze([5, 10, 15, 20]);
 
+// `classic` and `glass` are the two approved UI families.  The server still
+// accepts those family names as input because the Create UI submits the
+// selected material separately; every persisted/issued design is resolved to
+// one of the 13 canonical option IDs below.  Retired prototype names are not
+// migration fallbacks and must fail closed.
 export const ALLOWED_PASS_DESIGNS = Object.freeze([
-  'classic', 'modern', 'glass', 'metal', 'chroma', 'chromatic'
+  'classic', 'glass', ...PASS_DESIGN_OPTIONS.map((option) => option.id)
 ]);
+
+// Legacy fields remain accepted for backwards-compatible project records. New
+// Create drafts use the canonical option IDs below and never expose the old
+// frame/texture lottery as a product selector.
+export const ALLOWED_PACK_OPTIONS = Object.freeze(PASS_DESIGN_OPTIONS.map((option) => option.id));
 
 export const ALLOWED_THEME_MODES = Object.freeze([
   'auto', 'custom', 'amber', 'steel', 'onyx'
@@ -80,17 +104,21 @@ function sanitizeMediaUrl(src, maxChars = 2048) {
   return trimmed.slice(0, maxChars);
 }
 
-export function validateAndNormalizeProjectPayload(input = {}) {
+export function validateAndNormalizeProjectPayload(input = {}, options = {}) {
   if (!input || typeof input !== 'object') {
     throw Object.assign(new Error('INVALID_PROJECT'), { status: 400 });
   }
 
-  const rawSlug = String(input.slug ?? input.launchDraft?.id?.replace(/^launch-/, '') ?? '').trim().toLowerCase();
+  const allowIncomplete = Boolean(options.allowIncomplete);
+  const draftHint = input.launchDraft ?? {};
+  const fallbackSlug = String(input.draftId ?? draftHint.draftId ?? draftHint.id?.replace(/^launch-/, '') ?? `draft-${Date.now()}`)
+    .trim().toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 80);
+  const rawSlug = String(input.slug || draftHint.id?.replace(/^launch-/, '') || (allowIncomplete ? fallbackSlug : '')).trim().toLowerCase();
   if (!SLUG_REGEX.test(rawSlug)) {
     throw Object.assign(new Error('INVALID_PROJECT_SLUG'), { status: 400 });
   }
 
-  const rawName = String(input.name ?? input.launchDraft?.project?.name ?? '').trim();
+  const rawName = String(input.name || draftHint.project?.name || (allowIncomplete ? 'Untitled draft' : '')).trim();
   if (rawName.length < 2 || rawName.length > 120) {
     throw Object.assign(new Error('INVALID_PROJECT_NAME'), { status: 400 });
   }
@@ -102,25 +130,36 @@ export function validateAndNormalizeProjectPayload(input = {}) {
     ''
   ).trim().slice(0, 500);
 
+  const status = String(options.status ?? input.status ?? input.launchDraft?.status ?? 'DRAFT').trim().toUpperCase();
+  if (!ALLOWED_PROJECT_STATUSES.includes(status)) {
+    throw Object.assign(new Error('INVALID_PROJECT_STATUS'), { status: 400 });
+  }
+
   const launchDraft = normalizeLaunchDraft(input.launchDraft ?? {}, {
     slug: rawSlug,
     name: rawName,
     summary,
     topSupply: input.supply,
-    topPrice: input.price
+    topPrice: input.price,
+    status,
+    allowIncomplete,
+    draftId: input.draftId ?? draftHint.draftId,
+    freezeAssignments: Boolean(options.freezeAssignments)
   });
 
   return {
     slug: rawSlug,
     name: rawName,
     summary,
+    status,
     launchDraft
   };
 }
 
 export function normalizeLaunchDraft(draft = {}, defaults = {}) {
-  const isFullDraft = draft && (draft.project || draft.edition || draft.advantages || draft.design || draft.preview);
-  const name = String(draft.project?.name ?? defaults.name ?? '').trim();
+  const allowIncomplete = Boolean(defaults.allowIncomplete);
+  const isFullDraft = !allowIncomplete && draft && (draft.project || draft.edition || draft.advantages || draft.design || draft.preview);
+  const name = String(draft.project?.name || defaults.name || (allowIncomplete ? 'Untitled draft' : '')).trim();
   if (name.length < 2 || name.length > 120) {
     throw Object.assign(new Error('INVALID_PROJECT_NAME'), { status: 400 });
   }
@@ -134,7 +173,7 @@ export function normalizeLaunchDraft(draft = {}, defaults = {}) {
 
   // Project section
   const projectInput = draft.project ?? {};
-  const builder = String(projectInput.builder ?? name).trim();
+  const builder = String(projectInput.builder || name).trim();
   if (builder.length < 2 || builder.length > 120) {
     throw Object.assign(new Error('INVALID_BUILDER_NAME'), { status: 400 });
   }
@@ -188,6 +227,7 @@ export function normalizeLaunchDraft(draft = {}, defaults = {}) {
     : ['#5f6f50', '#30483d', '#111512'];
   const bannerLogoPosition = bannerInput.logoPosition === 'tr' ? 'tr' : 'tl';
   const bannerSrc = sanitizeMediaUrl(bannerInput.src);
+  const bannerAssetId = String(bannerInput.assetId ?? '').slice(0, 120);
 
   // Edition section
   const editionInput = draft.edition ?? {};
@@ -266,10 +306,13 @@ export function normalizeLaunchDraft(draft = {}, defaults = {}) {
 
   // Design section
   const designInput = draft.design ?? {};
-  const passDesign = String(designInput.passDesign ?? 'classic').toLowerCase();
-  if (!ALLOWED_PASS_DESIGNS.includes(passDesign)) {
+  const rawPassDesign = String(designInput.passDesign ?? 'classic').toLowerCase();
+  if (!ALLOWED_PASS_DESIGNS.includes(rawPassDesign) && !isApprovedPassOption(rawPassDesign)) {
     throw Object.assign(new Error('INVALID_PASS_DESIGN'), { status: 400 });
   }
+  const passDesign = isApprovedPassOption(rawPassDesign)
+    ? (rawPassDesign.startsWith('classic-') ? 'classic' : rawPassDesign.startsWith('glass-') ? 'glass' : rawPassDesign)
+    : rawPassDesign;
 
   const themeMode = String(designInput.themeMode ?? 'auto').toLowerCase();
   if (!ALLOWED_THEME_MODES.includes(themeMode)) {
@@ -307,13 +350,79 @@ export function normalizeLaunchDraft(draft = {}, defaults = {}) {
       size: Number(entry.size ?? entry.byteSize ?? 0),
       sha256: typeof entry.sha256 === 'string' && /^[0-9a-f]{64}$/i.test(entry.sha256) ? entry.sha256.toLowerCase() : null,
       serial,
-      traits: entry.traits && typeof entry.traits === 'object' ? { ...entry.traits } : {}
+      traits: entry.traits && typeof entry.traits === 'object' ? { ...entry.traits } : {},
+      url: sanitizeMediaUrl(entry.url ?? entry.src)
     };
   });
 
   if (artMode === 'collection' && artEdition.length > 0 && artEdition.length !== supply) {
     throw Object.assign(new Error('COLLECTION_ARTWORK_SUPPLY_MISMATCH'), { status: 400 });
   }
+
+  const requestedPackOption = String(designInput.packOption ?? designInput.packId ?? (isApprovedPassOption(rawPassDesign) ? rawPassDesign : '')).trim().toLowerCase();
+  const familyMaterial = passDesign === 'glass'
+    ? (['obsidian', 'carbon'].includes(String(designInput.frame).toLowerCase()) ? String(designInput.frame).toLowerCase() : 'obsidian')
+    : (['obsidian', 'carbon', 'gilt'].includes(String(designInput.frame).toLowerCase()) ? String(designInput.frame).toLowerCase() : 'obsidian');
+  const packOption = isApprovedPassOption(requestedPackOption)
+    ? requestedPackOption
+    : (['classic', 'glass'].includes(passDesign) ? `${passDesign}-${familyMaterial}` : null);
+  if (!packOption || !isApprovedPassOption(packOption)) {
+    throw Object.assign(new Error('INVALID_PASS_DESIGN'), { status: 400 });
+  }
+  const selectedPack = PASS_DESIGN_OPTIONS.find((option) => option.id === packOption) || PASS_DESIGN_OPTIONS[0];
+  const colorwayId = isApprovedColorway(designInput.colorwayId) ? String(designInput.colorwayId) : 'colourway-01';
+  const poolEntry = PASS_ASSIGNMENT_POOL.find((entry) => entry.optionId === packOption && entry.colorwayId === colorwayId) || PASS_ASSIGNMENT_POOL[0];
+  const randomPassMode = Boolean(designInput.randomPassMode);
+  const randomPassSeed = String(designInput.randomPassSeed ?? draftId).trim().slice(0, 160) || draftId;
+  const editionId = String(draft.editionId ?? draft.id ?? `launch-${slug}`).slice(0, 160);
+
+  const artworkBySerial = {};
+  if (artMode === 'collection') {
+    for (const entry of artEdition) artworkBySerial[entry.serial] = { ...entry, x: artX, y: artY };
+  } else if (designInput.artSrc) {
+    for (let serial = 1; serial <= supply; serial += 1) artworkBySerial[serial] = { url: sanitizeMediaUrl(designInput.artSrc), x: artX, y: artY };
+  }
+  const assignmentRows = Array.from({ length: supply }, (_, index) => {
+    const serial = index + 1;
+    if (randomPassMode) return resolvePassAssignment({ seed: randomPassSeed, serial, artworkId: artworkBySerial[serial]?.assetId ?? artworkBySerial[serial]?.assetKey ?? null });
+    return {
+      rendererVersion: PASS_RENDERER_VERSION,
+      serial,
+      optionId: packOption,
+      family: selectedPack.family,
+      material: selectedPack.material,
+      colorwayId: poolEntry.colorwayId,
+      colorwayName: poolEntry.colorwayName,
+      palette: { ...poolEntry.palette },
+      artworkId: artworkBySerial[serial]?.assetId ?? artworkBySerial[serial]?.assetKey ?? null,
+      frozen: false
+    };
+  });
+  const draftAssignments = assignmentRows.map((assignment) => {
+    const config = createPassRenderConfig({
+      editionId,
+      serial: assignment.serial,
+      supply,
+      projectName: name,
+      editionName,
+      seriesName: series,
+      assignment,
+      artwork: artworkBySerial[assignment.serial]
+    });
+    return { ...config, randomAssignment: { ...config.randomAssignment, enabled: randomPassMode } };
+  });
+  const canonicalAssignments = defaults.freezeAssignments
+    ? (randomPassMode ? freezePassAssignments({
+      editionId,
+      supply,
+      seed: randomPassSeed,
+      artworkBySerial,
+      projectName: name,
+      editionName,
+      seriesName: series,
+      rendererVersion: PASS_RENDERER_VERSION
+    }) : draftAssignments.map((assignment) => ({ ...assignment, randomAssignment: { ...assignment.randomAssignment, enabled: false, frozen: true }, frozen: true, frozenAt: new Date().toISOString() })))
+    : draftAssignments;
 
   const design = {
     passDesign,
@@ -330,13 +439,25 @@ export function normalizeLaunchDraft(draft = {}, defaults = {}) {
     texture,
     textureTint,
     logoSrc: sanitizeMediaUrl(designInput.logoSrc),
+    logoAssetId: String(designInput.logoAssetId ?? '').slice(0, 120),
     artMode,
     artSrc: sanitizeMediaUrl(designInput.artSrc),
+    artAssetId: String(designInput.artAssetId ?? '').slice(0, 120),
     artEdition,
     artEditionView,
     selectedSerialIndex,
     artX,
-    artY
+    artY,
+    rendererVersion: PASS_RENDERER_VERSION,
+    randomPassMode,
+    randomPassSeed,
+    randomPoolVersion: 'v1',
+    packOption,
+    packFamily: selectedPack.family,
+    material: selectedPack.material,
+    colorwayId,
+    palette: { ...poolEntry.palette },
+    passAssignments: canonicalAssignments
   };
 
   // Preview section
@@ -358,6 +479,8 @@ export function normalizeLaunchDraft(draft = {}, defaults = {}) {
   const preview = {
     hours: rawHours,
     opensAt: openDate.toISOString(),
+    startsAt: previewInput.startsAt ? new Date(previewInput.startsAt).toISOString() : null,
+    debutAt: openDate.toISOString(),
     localOpensAt: String(previewInput.localOpensAt ?? rawOpensAt),
     timezone,
     termsVersion
@@ -370,6 +493,11 @@ export function normalizeLaunchDraft(draft = {}, defaults = {}) {
     advantages: Boolean(reviewInput.advantages ?? draft.reviewAdvantages),
     preview: Boolean(reviewInput.preview ?? draft.reviewPreview)
   };
+
+  const status = String(defaults.status ?? draft.status ?? 'DRAFT').trim().toUpperCase();
+  if (!ALLOWED_PROJECT_STATUSES.includes(status)) {
+    throw Object.assign(new Error('INVALID_PROJECT_STATUS'), { status: 400 });
+  }
 
   return {
     id: `launch-${slug}`,
@@ -392,6 +520,7 @@ export function normalizeLaunchDraft(draft = {}, defaults = {}) {
       supportUrl,
       banner: {
         src: bannerSrc,
+        assetId: bannerAssetId,
         palette: bannerPalette,
         logoPosition: bannerLogoPosition
       },
@@ -411,6 +540,6 @@ export function normalizeLaunchDraft(draft = {}, defaults = {}) {
     design,
     preview,
     review,
-    status: 'DRAFT'
+    status
   };
 }

@@ -1,0 +1,12 @@
+NexMarkets forensic handoff baseline
+
+Previous branch: main
+Current branch: main
+Current HEAD SHA: 7bb4d1f71c53520c9c6dd03c420c81d2a8d4a7e4
+Likely pre-Codex/base SHA: 7bb4d1f71c53520c9c6dd03c420c81d2a8d4a7e4
+
+Determination: HEAD remained unchanged during the implementation/remediation
+run. `git reflog` shows the latest commit as 7bb4d1f (`feat: use RainbowKit
+chain selector`) and all observed implementation changes are uncommitted
+working-tree changes. No newer commit was created during this run. Therefore
+the branch HEAD is the likely pre-run baseline; no checkout or reset was done.

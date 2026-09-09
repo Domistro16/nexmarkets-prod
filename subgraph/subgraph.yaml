@@ -46,10 +46,6 @@ dataSources:
       eventHandlers:
         - event: EditionRegistered(indexed address,indexed bytes32,indexed address,uint32)
           handler: handleEditionRegistered
-        - event: EditionPublisherSet(indexed address,indexed address)
-          handler: handleEditionPublisherSet
-        - event: EditionDisabledSet(indexed address,bool)
-          handler: handleEditionDisabledSet
         - event: TermsPublished(indexed address,indexed bytes32,indexed uint64,uint256,uint256,uint64,uint64,uint64,address,address,uint96,bytes32,bytes32)
           handler: handleTermsPublished
   - kind: ethereum

@@ -15,7 +15,6 @@ interface INexPassFactoryWiring {
     function launchRegistry() external view returns (address);
     function mintController() external view returns (address);
     function protocolAdmin() external view returns (address);
-    function owner() external view returns (address);
 }
 
 interface INexMintControllerWiring {
@@ -83,8 +82,6 @@ contract NexLaunchRegistry is Ownable, Pausable {
     event EditionRegistered(
         address indexed edition, bytes32 indexed editionId, address indexed publisher, uint32 absoluteSupplyCap
     );
-    event EditionPublisherSet(address indexed edition, address indexed publisher);
-    event EditionDisabledSet(address indexed edition, bool disabled);
     /// @notice Carries the complete immutable Terms snapshot so an indexer can
     ///         reconstruct history from event data alone.
     event TermsPublished(
@@ -112,7 +109,7 @@ contract NexLaunchRegistry is Ownable, Pausable {
         EditionRecord storage record = _editions[edition];
         if (!record.registered) revert EditionNotRegistered();
         if (record.disabled) revert EditionDisabled();
-        if (msg.sender != record.publisher && msg.sender != owner()) revert NotEditionPublisher();
+        if (msg.sender != record.publisher) revert NotEditionPublisher();
         _;
     }
 
@@ -140,7 +137,7 @@ contract NexLaunchRegistry is Ownable, Pausable {
         INexPassEditionLaunchView deployedEdition = INexPassEditionLaunchView(edition);
         bytes32 editionId = deployedEdition.editionId();
         uint32 absoluteSupplyCap = deployedEdition.absoluteSupplyCap();
-        if (editionId == bytes32(0) || absoluteSupplyCap == 0 || deployedEdition.owner() != owner()) {
+        if (editionId == bytes32(0) || absoluteSupplyCap == 0 || deployedEdition.owner() != publisher) {
             revert InvalidSupply();
         }
 
@@ -149,21 +146,6 @@ contract NexLaunchRegistry is Ownable, Pausable {
         record.publisher = publisher;
         record.registered = true;
         emit EditionRegistered(edition, editionId, publisher, absoluteSupplyCap);
-    }
-
-    function setEditionPublisher(address edition, address publisher) external onlyOwner {
-        if (publisher == address(0)) revert AddressRequired();
-        EditionRecord storage record = _editions[edition];
-        if (!record.registered) revert EditionNotRegistered();
-        record.publisher = publisher;
-        emit EditionPublisherSet(edition, publisher);
-    }
-
-    function setEditionDisabled(address edition, bool disabled) external onlyOwner {
-        EditionRecord storage record = _editions[edition];
-        if (!record.registered) revert EditionNotRegistered();
-        record.disabled = disabled;
-        emit EditionDisabledSet(edition, disabled);
     }
 
     /// @notice Publish a new immutable Terms version and restart Preview.
@@ -299,12 +281,6 @@ contract NexLaunchRegistry is Ownable, Pausable {
 
         try INexPassFactoryWiring(factory_).protocolAdmin() returns (address protocolAdmin_) {
             if (protocolAdmin_ != owner()) revert FactoryWiringMismatch();
-        } catch {
-            revert FactoryWiringMismatch();
-        }
-
-        try INexPassFactoryWiring(factory_).owner() returns (address factoryOwner_) {
-            if (factoryOwner_ != owner()) revert FactoryWiringMismatch();
         } catch {
             revert FactoryWiringMismatch();
         }

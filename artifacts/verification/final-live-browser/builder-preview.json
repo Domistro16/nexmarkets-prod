@@ -1,0 +1,316 @@
+{
+  "schemaVersion": 1,
+  "status": "PASS_PRODUCT_PUBLISHED_THROUGH_UI",
+  "runId": "2026-09-09-a",
+  "baseUrl": "http://localhost:4176",
+  "wallet": "0xD83deFbA240568040b39bb2C8B4DB7dB02d40593",
+  "projectName": "NexMarkets Final Live 2026-09-09-a",
+  "stages": [
+    {
+      "name": "01-builder-connected",
+      "screenshot": "artifacts/verification/final-live-browser/01-builder-connected.png"
+    },
+    {
+      "name": "02-create-phase-1",
+      "screenshot": "artifacts/verification/final-live-browser/02-create-phase-1.png"
+    },
+    {
+      "name": "03-create-phase-2",
+      "screenshot": "artifacts/verification/final-live-browser/03-create-phase-2.png"
+    },
+    {
+      "name": "04-create-phase-3-advantages",
+      "screenshot": "artifacts/verification/final-live-browser/04-create-phase-3-advantages.png"
+    },
+    {
+      "name": "05-create-phase-4-artwork-random",
+      "screenshot": "artifacts/verification/final-live-browser/05-create-phase-4-artwork-random.png"
+    },
+    {
+      "name": "06-create-phase-5-timing",
+      "screenshot": "artifacts/verification/final-live-browser/06-create-phase-5-timing.png"
+    },
+    {
+      "name": "07-create-phase-6-review",
+      "screenshot": "artifacts/verification/final-live-browser/07-create-phase-6-review.png"
+    },
+    {
+      "name": "08-product-published",
+      "screenshot": "artifacts/verification/final-live-browser/08-product-published.png"
+    }
+  ],
+  "providerMethods": [
+    "eth_requestAccounts",
+    "eth_chainId",
+    "eth_requestAccounts",
+    "eth_chainId",
+    "personal_sign"
+  ],
+  "consoleErrors": [
+    "Failed to load resource: the server responded with a status of 500 (Internal Server Error)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 500 (Internal Server Error)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 500 (Internal Server Error)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)"
+  ],
+  "pageErrors": [],
+  "project": {
+    "id": "prj_825d0f6b-6664-46b8-b5f9-9954315faf55",
+    "builder_account_id": "acct_d09f77745c0aa9cb3df14c37",
+    "slug": "ac0dbdf2-4015-4810-a1ce-c6a5def48af2",
+    "name": "NexMarkets Final Live 2026-09-09-a",
+    "summary": "A fresh end-to-end testnet product proving the complete NexMarkets Pass lifecycle.",
+    "content": {
+      "id": "launch-nexmarketsfinallive20260909a",
+      "design": {
+        "artX": 50,
+        "artY": 50,
+        "color": "#5f6f50",
+        "frame": "obsidian",
+        "artSrc": "/v1/media/med_493b8c74-6c4c-4604-9771-bfb628deeeab/content",
+        "artMode": "single",
+        "logoSrc": "",
+        "palette": {
+          "accent": "#17181b",
+          "primary": "#b31d2b",
+          "secondary": "#f2f0e9"
+        },
+        "texture": "none",
+        "material": "obsidian",
+        "gradientA": "#5f6f50",
+        "gradientB": "#17241f",
+        "themeMode": "auto",
+        "artAssetId": "med_493b8c74-6c4c-4604-9771-bfb628deeeab",
+        "artEdition": [],
+        "colorStyle": "solid",
+        "colorwayId": "colourway-01",
+        "frameColor": "#2a2725",
+        "packFamily": "classic",
+        "packOption": "classic-obsidian",
+        "passDesign": "classic",
+        "customColor": "#5f6f50",
+        "logoAssetId": "",
+        "textureTint": "#9b9b94",
+        "artEditionView": "grid",
+        "randomPassMode": true,
+        "randomPassSeed": "nexmarkets-random-v1",
+        "passAssignments": [
+          {
+            "logo": {
+              "url": null,
+              "assetId": null
+            },
+            "family": "classic",
+            "passId": null,
+            "serial": 1,
+            "supply": 3,
+            "artwork": {
+              "x": 50,
+              "y": 50,
+              "url": "/v1/media/med_493b8c74-6c4c-4604-9771-bfb628deeeab/content",
+              "scale": 1,
+              "assetId": null
+            },
+            "palette": {
+              "accent": "#161916",
+              "primary": "#2d5d49",
+              "secondary": "#f4ebd1"
+            },
+            "material": "carbon",
+            "optionId": "classic-carbon",
+            "editionId": "launch-nexmarketsfinallive20260909a",
+            "colorwayId": "colourway-04",
+            "seriesName": "CERT-2026",
+            "editionName": "Final Live Certification Edition",
+            "holderState": null,
+            "projectName": "NexMarkets Final Live 2026-09-09-a",
+            "colorwayName": "Ochre Study",
+            "rendererVersion": "pass-renderer-v1",
+            "randomAssignment": {
+              "seed": "nexmarkets-random-v1",
+              "frozen": true,
+              "enabled": true,
+              "combinationIndex": 8
+            }
+          },
+          {
+            "logo": {
+              "url": null,
+              "assetId": null
+            },
+            "family": "cast-resin-display-block",
+            "passId": null,
+            "serial": 2,
+            "supply": 3,
+            "artwork": {
+              "x": 50,
+              "y": 50,
+              "url": "/v1/media/med_493b8c74-6c4c-4604-9771-bfb628deeeab/content",
+              "scale": 1,
+              "assetId": null
+            },
+            "palette": {
+              "accent": "#93a9c2",
+              "primary": "#313b49",
+              "secondary": "#e4e9ef"
+            },
+            "material": "tinted-cast-resin",
+            "optionId": "pack-resin",
+            "editionId": "launch-nexmarketsfinallive20260909a",
+            "colorwayId": "colourway-05",
+            "seriesName": "CERT-2026",
+            "editionName": "Final Live Certification Edition",
+            "holderState": null,
+            "projectName": "NexMarkets Final Live 2026-09-09-a",
+            "colorwayName": "Violet Register",
+            "rendererVersion": "pass-renderer-v1",
+            "randomAssignment": {
+              "seed": "nexmarkets-random-v1",
+              "frozen": true,
+              "enabled": true,
+              "combinationIndex": 64
+            }
+          },
+          {
+            "logo": {
+              "url": null,
+              "assetId": null
+            },
+            "family": "museum-glass-archive",
+            "passId": null,
+            "serial": 3,
+            "supply": 3,
+            "artwork": {
+              "x": 50,
+              "y": 50,
+              "url": "/v1/media/med_493b8c74-6c4c-4604-9771-bfb628deeeab/content",
+              "scale": 1,
+              "assetId": null
+            },
+            "palette": {
+              "accent": "#241d18",
+              "primary": "#73553c",
+              "secondary": "#e7dccc"
+            },
+            "material": "glass-vitrine",
+            "optionId": "pack-glass",
+            "editionId": "launch-nexmarketsfinallive20260909a",
+            "colorwayId": "colourway-04",
+            "seriesName": "CERT-2026",
+            "editionName": "Final Live Certification Edition",
+            "holderState": null,
+            "projectName": "NexMarkets Final Live 2026-09-09-a",
+            "colorwayName": "Ochre Study",
+            "rendererVersion": "pass-renderer-v1",
+            "randomAssignment": {
+              "seed": "nexmarkets-random-v1",
+              "frozen": true,
+              "enabled": true,
+              "combinationIndex": 33
+            }
+          }
+        ],
+        "rendererVersion": "pass-renderer-v1",
+        "gradientDirection": "diagonal",
+        "randomPoolVersion": "v1",
+        "frameHueCustomized": false,
+        "selectedSerialIndex": 0
+      },
+      "review": {
+        "preview": true,
+        "evidence": true,
+        "advantages": true
+      },
+      "status": "PUBLISHED",
+      "draftId": "draft-ac0dbdf2-4015-4810-a1ce-c6a5def48af2",
+      "edition": {
+        "name": "Final Live Certification Edition",
+        "price": 1,
+        "series": "CERT-2026",
+        "supply": 3,
+        "network": "robinhood",
+        "royalty": 3
+      },
+      "network": "robinhood",
+      "preview": {
+        "hours": 48,
+        "debutAt": "2026-09-11T06:16:00.000Z",
+        "opensAt": "2026-09-11T06:16:00.000Z",
+        "startsAt": "2026-09-09T06:10:26.122Z",
+        "timezone": "Africa/Lagos",
+        "publishedAt": "2026-09-09T06:10:26.122Z",
+        "localOpensAt": "2026-09-11T07:16",
+        "termsVersion": "v1.0"
+      },
+      "project": {
+        "desc": "A fresh end-to-end testnet product proving the complete NexMarkets Pass lifecycle.",
+        "name": "NexMarkets Final Live 2026-09-09-a",
+        "about": "This certification-only product verifies the real Builder, Preview, Debut, primary acquisition, immutable Pass artwork, Advantage, listing, replacement-order, secondary purchase, royalty, and public social flows using Robinhood testnet infrastructure.",
+        "banner": {
+          "src": "",
+          "assetId": "",
+          "palette": [
+            "#5f6f50",
+            "#30483d",
+            "#111512"
+          ],
+          "logoPosition": "tl"
+        },
+        "builder": "NexMarkets Certification Builder",
+        "network": "robinhood",
+        "category": "tools",
+        "evidence": {
+          "url": "https://docs.nexmarkets.fun/",
+          "type": "Docs",
+          "label": "View docs"
+        },
+        "videoUrl": "",
+        "supportUrl": "https://nexmarkets.fun/",
+        "productState": "Beta",
+        "builderHandle": "@nexmarkets-cert"
+      },
+      "referral": {
+        "rate": 0,
+        "enabled": false,
+        "settlement": "Builder Settled"
+      },
+      "economics": {
+        "maxPrimary": 3,
+        "nexMarketsFee": 0.15,
+        "afterPlatformFee": 2.85,
+        "nexMarketsFeeRate": 0.05
+      },
+      "advantages": [
+        {
+          "id": "adv-discount",
+          "benefit": "10% off Pass vault",
+          "covered": "Pass vault",
+          "summary": "10% off Pass vault · Ongoing",
+          "duration": "Ongoing",
+          "mechanism": "Connected"
+        },
+        {
+          "id": "adv-basket",
+          "benefit": "Pass Vault enabled. The builder can send tokens, rewards, or future drops directly into each pass. Whatever is inside tr",
+          "covered": "Pass vault",
+          "summary": "Pass Vault enabled. The builder can send tokens, rewards, or future drops directly into each pass. Whatever is inside travels with the pass if it is sold. · Ongoing",
+          "duration": "Ongoing",
+          "mechanism": "Connected"
+        }
+      ]
+    },
+    "status": "PUBLISHED",
+    "published_at": "2026-09-09T06:10:26.890Z",
+    "created_at": "2026-09-09T06:00:18.548Z",
+    "updated_at": "2026-09-09T06:10:26.890Z",
+    "builder_id": "bld_e1ac9bff-a27d-40a0-bd49-f6d08bc8dfd6"
+  },
+  "artwork": {
+    "assetId": "med_493b8c74-6c4c-4604-9771-bfb628deeeab",
+    "url": "/v1/media/med_493b8c74-6c4c-4604-9771-bfb628deeeab/content",
+    "randomPassMode": true,
+    "randomPassSeed": "nexmarkets-random-v1"
+  },
+  "finishedAt": "2026-09-09T06:10:31.381Z"
+}

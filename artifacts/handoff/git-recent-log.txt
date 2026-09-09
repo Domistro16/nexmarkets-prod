@@ -1,0 +1,20 @@
+7bb4d1f (HEAD -> main, origin/main, origin/HEAD) feat: use RainbowKit chain selector
+16fea1f fix: include wallet UI dependencies in API build
+65515cb feat: use RainbowKit wallet UI
+9b74901 Add live Base agent workflows
+372b453 Fix Vercel workspace build dependency
+d9d424a Add Base network support and deployment setup
+5ce656e Fix Vercel SPA rewrites
+a05219f Correct Vercel route matchers
+2818401 Make Vercel root routing explicit
+7aab08b Fix Vercel SPA entrypoint and clean route history
+2cf5a99 fix(api): redirect root requests to web shell
+c6e021c fix(vercel): guard SPA root in serverless fallback
+e6d1515 fix(vercel): redirect homepage to static entrypoint
+7fc792f chore: refresh checksums after deployment fixes
+910c26f test: seed postgres draft account fixture
+99f06e2 test: pin Playwright and stabilize browser harness
+87693a4 fix(vercel): restore explicit static build and function routing
+5d87167 (origin/release/nexmarkets-v1-testnet-deployment, origin/release/nexmarkets-v1-deployment, origin/master) fix(api): handle root API path and route root requests to index.html
+256b502 fix(vercel): configure SPA root and navigation rewrite to index.html
+7b491aa fix(serverless): eliminate external pg import from compiled serverless bundles

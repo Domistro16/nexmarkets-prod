@@ -70,7 +70,14 @@ function RainbowBridge({ controls, onAccount, onChain, onProvider }) {
     controls.openAccountModal = accountModal.openAccountModal || null;
     controls.openChainModal = chainModal.openChainModal || null;
     controls.disconnect = disconnect.disconnect || null;
-    controls.ready = true;
+    // RainbowKit initially renders while wagmi is resolving its connection
+    // status. Do not let the adapter fall through to the injected-wallet
+    // error path until the actual modal control is available.
+    controls.ready = Boolean(
+      connectModal.openConnectModal
+      || accountModal.openAccountModal
+      || chainModal.openChainModal
+    );
   }, [connectModal.openConnectModal, accountModal.openAccountModal, chainModal.openChainModal, disconnect.disconnect, controls]);
 
   // RainbowKit owns the modal UI. The product keeps its existing visual

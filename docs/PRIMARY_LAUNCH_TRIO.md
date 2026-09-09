@@ -6,9 +6,9 @@ The primary mint path is one security boundary:
 
 ## Responsibilities
 
-- `NexPassFactory` is controlled by the Protocol Admin Safe. It creates one
+- `NexPassFactory` is callable by anyone. It creates one
   permanent Edition with CREATE2, sets the one-time MintController, registers
-  the Edition, and transfers Edition ownership to the Protocol Admin Safe.
+  the caller as publisher, and transfers Edition ownership to that creator.
 - `NexLaunchRegistry` owns the versioned Terms and Preview lifecycle. A
   material change creates a new Terms hash and restarts Preview without
   deploying a second ERC-721. Active supply may never be below already minted
@@ -52,7 +52,7 @@ The primary mint path is one security boundary:
 4. Deploy and cross-bind `NexAdvantageRegistry` and
    `NexAdvantageInitializer`, then have the Protocol Admin Safe bind the
    Factory and initializer one-time slots only after wiring verification.
-5. Use the Factory to create and wire an Edition, then publish its first Terms
-   version from the authorized publisher.
-6. Independently review the full trio and Safe-controlled deployment record
+5. Any creator wallet calls the Factory directly to create and own an Edition,
+   then publishes its first Terms version as its immutable publisher.
+6. Independently review the shared protocol deployment record
    before opening production minting.

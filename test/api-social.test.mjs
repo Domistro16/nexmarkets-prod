@@ -155,6 +155,40 @@ test('Builder profile management and public lookup', async (t) => {
   assert.equal(notFound.status, 404);
 });
 
+test('Builder questions persist publicly and only the Builder owner can answer', async (t) => {
+  const { server, base } = await running();
+  t.after(() => server.close());
+  const builder = await authenticate(base, Wallet.createRandom());
+  const asker = await authenticate(base, Wallet.createRandom());
+  const profileRes = await fetch(`${base}/v1/builder/profile`, {
+    method: 'PUT',
+    headers: { cookie: builder.cookie, 'x-csrf-token': builder.verified.csrfToken, 'content-type': 'application/json', origin: 'https://nexmarkets.fun' },
+    body: JSON.stringify({ displayName: 'Question Builder' })
+  });
+  assert.equal(profileRes.status, 200);
+  const questionRes = await fetch(`${base}/v1/builders/${builder.verified.accountId}/questions`, {
+    method: 'POST',
+    headers: { cookie: asker.cookie, 'x-csrf-token': asker.verified.csrfToken, 'content-type': 'application/json', origin: 'https://nexmarkets.fun' },
+    body: JSON.stringify({ question: 'When does the Advantage begin?' })
+  });
+  assert.equal(questionRes.status, 201);
+  const question = (await questionRes.json()).data;
+  const publicRes = await fetch(`${base}/v1/builders/${builder.verified.accountId}/questions`, { headers: { origin: 'https://nexmarkets.fun' } });
+  assert.equal((await publicRes.json()).data[0].question, 'When does the Advantage begin?');
+  const answerRes = await fetch(`${base}/v1/builder/questions/${question.id}/answer`, {
+    method: 'POST',
+    headers: { cookie: builder.cookie, 'x-csrf-token': builder.verified.csrfToken, 'content-type': 'application/json', origin: 'https://nexmarkets.fun' },
+    body: JSON.stringify({ answer: 'It begins at the published Debut.' })
+  });
+  assert.equal(answerRes.status, 200);
+  const unauthorized = await fetch(`${base}/v1/builder/questions/${question.id}/answer`, {
+    method: 'POST',
+    headers: { cookie: asker.cookie, 'x-csrf-token': asker.verified.csrfToken, 'content-type': 'application/json', origin: 'https://nexmarkets.fun' },
+    body: JSON.stringify({ answer: 'Not the Builder.' })
+  });
+  assert.equal(unauthorized.status, 404);
+});
+
 test('Builder following mechanics: follow, status, unfollow, self-follow rejection', async (t) => {
   const { server, base } = await running();
   t.after(() => server.close());
@@ -337,6 +371,18 @@ test('Builder milestones, weekly cadence limit, and social feed', async (t) => {
   const created = await createRes.json();
   assert.equal(created.data.title, 'Mainnet Alpha Released');
 
+  // Builder dashboard must expose the same persisted social activity that the
+  // public profile/feed expose; the frontend cannot reconstruct this from a
+  // local fixture or silently discard it.
+  const dashboardRes = await fetch(`${base}/v1/builder/dashboard`, {
+    headers: { cookie: builderAuth.cookie, origin: 'https://nexmarkets.fun' }
+  });
+  assert.equal(dashboardRes.status, 200);
+  const dashboard = await dashboardRes.json();
+  assert.equal(dashboard.data.activity.length, 1);
+  assert.equal(dashboard.data.activity[0].type, 'MILESTONE');
+  assert.equal(dashboard.data.activity[0].title, 'Mainnet Alpha Released');
+
   // Second milestone in same week should be rate limited (429)
   const duplicateRes = await fetch(`${base}/v1/builder/milestones`, {
     method: 'POST',
@@ -406,6 +452,7 @@ test('Discover page returns statusTag, direct links row, and watchlistCount', as
     status: 'PUBLISHED',
     mintStartsAt: new Date(Date.now() - 3600_000).toISOString(),
     mintEndsAt: new Date(Date.now() + 86400_000 * 5).toISOString(),
+    currentTerms: { hash: `0x${'11'.repeat(32)}` },
     content: {
       links: {
         demo: 'https://demo.example.com',
@@ -424,7 +471,7 @@ test('Discover page returns statusTag, direct links row, and watchlistCount', as
   assert.equal(res.status, 200);
   const { data } = await res.json();
   assert.equal(data.length, 1);
-  assert.equal(data[0].statusTag, 'LIVE_DEBUT');
+  assert.equal(data[0].statusTag, 'DEBUT');
   assert.equal(data[0].watcherCount, 2);
   assert.equal(data[0].links.demo, 'https://demo.example.com');
   assert.equal(data[0].links.docs, 'https://docs.example.com');

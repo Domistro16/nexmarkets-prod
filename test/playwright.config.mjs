@@ -1,7 +1,11 @@
 import { defineConfig, devices } from '@playwright/test';
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const repoRoot = fileURLToPath(new URL('../', import.meta.url));
+const testOutputDir = process.env.NEXMARKETS_TEST_OUTPUT_DIR
+  || (process.platform === 'win32' && existsSync('E:\\') ? 'E:\\NEXMARKETS\\test-results' : join(repoRoot, 'test-results'));
 
 export default defineConfig({
   testDir: fileURLToPath(new URL('./browser', import.meta.url)),
@@ -11,7 +15,8 @@ export default defineConfig({
   timeout: 60_000,
   expect: { timeout: 10_000 },
   fullyParallel: false,
-  reporter: process.env.CI ? [['dot'], ['json', { outputFile: 'artifacts/browser-acceptance.json' }]] : [['list']],
+  outputDir: testOutputDir,
+  reporter: process.env.CI ? [['dot'], ['json', { outputFile: join(testOutputDir, 'browser-acceptance.json') }]] : [['list']],
   use: {
     baseURL: process.env.NEXMARKETS_WEB_URL ?? 'http://localhost:4173',
     // Playwright 1.62's default headless-shell artifact is not present on

@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "status": "PASS_REVERTED_ONCHAIN",
+  "network": "robinhood-testnet",
+  "chainId": 46630,
+  "wallet": "0xD83deFbA240568040b39bb2C8B4DB7dB02d40593",
+  "input": {
+    "controller": "0x0ea6f883808447f115c7b6c037902361c365555a",
+    "wrongEdition": "0x000000000000000000000000000000000000dead",
+    "recipient": "0xD83deFbA240568040b39bb2C8B4DB7dB02d40593",
+    "quantity": "1",
+    "termsVersionHash": "0xb4e6ca56e86bbd701556c78c398dac356fe72eda5f08d077413a34f9434695fe",
+    "intentId": "0x6642514d1e1e9325b191c50d434dd3e83b14084bb0ac57b2c9d0443bbd7cc749"
+  },
+  "expected": "MintClosed/TermsNotActive rejection; no unauthorized Pass minted",
+  "staticCall": {
+    "code": "CALL_EXCEPTION",
+    "reason": "execution reverted (unknown custom error)",
+    "data": "0x589ed34b",
+    "decodedError": "MintClosed()"
+  },
+  "transaction": {
+    "hash": "0x997e831054b4894a01ef90214d5c19392c0453254f9b5443c1b33b2de92536f2",
+    "blockNumber": 115919109,
+    "status": 0,
+    "gasUsed": "51658"
+  },
+  "resultingState": {
+    "knownEdition": "0x4171d62f43b4168b07a01c04594455dbc3298437",
+    "totalMintedBefore": "1",
+    "totalMintedAfter": "1"
+  }
+}

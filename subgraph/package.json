@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "codegen": "graph codegen",
-    "build": "graph build",
+    "build": "graph build --skip-migrations",
     "clean": "node -e \"for (const p of ['generated','build']) { try { require('node:fs').rmSync(p,{recursive:true,force:true}); } catch {} }\"",
     "test": "node --test test/*.test.mjs"
   },

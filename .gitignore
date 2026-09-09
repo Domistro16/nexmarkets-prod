@@ -24,4 +24,8 @@ artifacts/goldsky/
 !artifacts/deployment-plan/robinhood-mainnet.deploy.safe.json
 !artifacts/deployment-plan/robinhood-mainnet.wire.safe.json
 test-results/
+.tools/
+scratch/
+NEXMARKETS_CURRENT_HANDOFF_*.tar.gz
+NEXMARKETS_CURRENT_REPOSITORY.bundle
 .playwright/

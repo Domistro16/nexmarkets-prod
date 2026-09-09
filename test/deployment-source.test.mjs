@@ -12,12 +12,13 @@ import { assertNoMainnetMock } from '../packages/config/src/env.mjs';
 
 const root = new URL('../', import.meta.url);
 
-test('frozen deployment source matches current deployable inputs despite evidence commits', () => {
+test('permissionless contracts require a fresh deployment and cannot reuse frozen V1 addresses', () => {
   const current = currentGitCommit(root);
   assert.notEqual(current, FROZEN_V1_DEPLOYMENT_SOURCE);
-  const verification = assertDeploymentSourceMatches(FROZEN_V1_DEPLOYMENT_SOURCE, { repoRoot: root });
-  assert.deepEqual(verification.differences, []);
-  assert.ok(verification.inputHash.match(/^[0-9a-f]{64}$/));
+  const comparison = compareDeploymentSource(FROZEN_V1_DEPLOYMENT_SOURCE, { repoRoot: root });
+  assert.ok(comparison.differences.some((difference) => difference.path === 'packages/contracts/src/NexPassFactory.sol'));
+  assert.ok(comparison.differences.some((difference) => difference.path === 'packages/contracts/src/NexLaunchRegistry.sol'));
+  assert.throws(() => assertDeploymentSourceMatches(FROZEN_V1_DEPLOYMENT_SOURCE, { repoRoot: root }), /DEPLOYMENT_SOURCE_MISMATCH/);
 });
 
 test('a deployable Solidity source change fails with DEPLOYMENT_SOURCE_MISMATCH', () => {
@@ -27,8 +28,7 @@ test('a deployable Solidity source change fails with DEPLOYMENT_SOURCE_MISMATCH'
     repoRoot: root,
     currentOverrides: { [path]: `${current}\n// simulated deployable change\n` }
   });
-  assert.equal(comparison.differences.length, 1);
-  assert.equal(comparison.differences[0].path, path);
+  assert.ok(comparison.differences.some((difference) => difference.path === path));
   assert.throws(
     () => assertDeploymentSourceMatches(FROZEN_V1_DEPLOYMENT_SOURCE, {
       repoRoot: root,
@@ -72,4 +72,3 @@ test('frozen mainnet plan reproduces the reviewed address set and forbids MockUS
     primitives: { usdg: { mock: true } }
   }), /refuses/);
 });
-

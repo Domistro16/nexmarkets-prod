@@ -1,0 +1,47 @@
+{
+  "network": "base-sepolia",
+  "chainId": 84532,
+  "renderedAt": "2026-09-09T14:57:19.588Z",
+  "dataSources": {
+    "NexPassFactory": {
+      "address": "0xc5Cdfcc91719379A778C16b2ab9190c004186E0C",
+      "startBlock": 46598685
+    },
+    "NexLaunchRegistry": {
+      "address": "0x707278D3a69e27bde2A14Ee70602d4A293C8C2aF",
+      "startBlock": 46598681
+    },
+    "NexMintController": {
+      "address": "0xe68Fc831a441eeA79865A890a279514C8C797677",
+      "startBlock": 46598683
+    },
+    "NexAdvantageRegistry": {
+      "address": "0xddf778F46b1A91f7B80B24fdB185372C633Acb15",
+      "startBlock": 46598687
+    },
+    "NexAdvantageInitializer": {
+      "address": "0xc9F984509Eca22D9D4FbF4f607EE1A3C4EeE3A40",
+      "startBlock": 46598689
+    },
+    "NexListingRegistry": {
+      "address": "0xdB57a21e01d85E67d75111534e3A99508e1e9187",
+      "startBlock": 46598693
+    },
+    "NexRoyaltyVault": {
+      "address": "0x1C7fBa2bEfdCB18E316e1713fc22EaC78434DBF3",
+      "startBlock": 46598691
+    },
+    "NexTBAResolver": {
+      "address": "0xbe6B893d99D53F44Bd67Ac1775fdbc74039B8C99",
+      "startBlock": 46598699
+    },
+    "ERC6551Registry": {
+      "address": "0x000000006551c19487814612e58FE06813775758",
+      "startBlock": 46598685
+    },
+    "Seaport16": {
+      "address": "0x0000000000000068F116a894984e2DB1123eB395",
+      "startBlock": 46598693
+    }
+  }
+}

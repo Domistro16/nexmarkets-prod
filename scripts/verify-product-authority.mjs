@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { PRODUCT_AUTHORITY } from '../packages/config/src/networks.mjs';
 
-const candidate = process.argv[2] || '../product-authority/NEXMARKETS_ELITE_RELEASE_CANDIDATE.html';
+const candidate = process.argv[2] || '../NEXMARKETS_V2_BUILDER_PROFILE_ELITE.html';
 try {
   const target = candidate.startsWith('/') ? new URL('file://' + candidate) : new URL(candidate, import.meta.url);
   const bytes = await readFile(target);

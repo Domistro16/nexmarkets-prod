@@ -1,4 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto';
+import { aggregatePrimarySales, calculatePrimarySale, primarySaleEventKey } from '../../domain/src/primary-accounting.mjs';
 let pgModule = null;
 async function getPg() {
   if (!pgModule) {
@@ -12,6 +13,7 @@ async function getPg() {
 }
 
 function sha256(value) { return createHash('sha256').update(value).digest('hex'); }
+function builderError(code, status = 403) { return Object.assign(new Error(code), { status }); }
 function projectedAdvantageRemaining(row, now = Math.floor(Date.now() / 1000)) {
   const kind = String(row.kind ?? '').toUpperCase();
   const starts = row.starts_at ? Math.floor(new Date(row.starts_at).getTime() / 1000) : 0;
@@ -184,18 +186,18 @@ export class PostgresStore {
 
   async discover() {
     const { rows } = await (await this._getPool()).query(
-      `SELECT p.slug,p.name,p.summary,e.edition_address,e.absolute_supply_cap,t.price_usdg,t.mint_starts_at,t.mint_ends_at
-       FROM project p JOIN edition e ON e.project_id=p.id
+      `SELECT p.slug,p.builder_account_id,p.content,p.status,p.published_at,COALESCE(p.name,e.edition_id_hash) AS name,COALESCE(p.summary,'Permissionless on-chain Edition') AS summary,e.edition_address,e.absolute_supply_cap,t.price_usdg,t.mint_starts_at,t.mint_ends_at
+       FROM edition e LEFT JOIN project p ON e.project_id=p.id
        LEFT JOIN LATERAL (SELECT * FROM terms_version tv WHERE tv.edition_id=e.id AND tv.orphaned_at IS NULL ORDER BY version DESC LIMIT 1) t ON true
-       WHERE p.status='PUBLISHED' AND e.orphaned_at IS NULL ORDER BY p.published_at DESC NULLS LAST LIMIT 100`
+       WHERE (p.status='PUBLISHED' OR p.id IS NULL) AND e.orphaned_at IS NULL ORDER BY p.published_at DESC NULLS LAST,e.created_at DESC LIMIT 100`
     );
     return rows;
   }
 
   async ownedPasses(address) {
     const { rows } = await (await this._getPool()).query(
-      `SELECT pt.*,e.edition_address,p.name project_name FROM pass_token_projection pt
-       JOIN edition e ON e.id=pt.edition_id JOIN project p ON p.id=e.project_id
+      `SELECT pt.*,e.edition_address,COALESCE(p.name,e.edition_id_hash) project_name FROM pass_token_projection pt
+       JOIN edition e ON e.id=pt.edition_id LEFT JOIN project p ON p.id=e.project_id
        WHERE pt.owner_address=$1 AND pt.orphaned_at IS NULL`, [address.toLowerCase()]
     );
     return rows;
@@ -212,9 +214,24 @@ export class PostgresStore {
     return { ...rows[0], editions: editions.rows };
   }
 
+  async projectByEditionAddress(address) {
+    const { rows } = await (await this._getPool()).query(
+      `SELECT p.* FROM project p JOIN edition e ON e.project_id=p.id
+       WHERE e.edition_address=$1 AND p.status='PUBLISHED' AND e.orphaned_at IS NULL
+       ORDER BY p.updated_at DESC LIMIT 1`, [address.toLowerCase()]
+    );
+    if (!rows[0]) return null;
+    const editions = await (await this._getPool()).query(
+      `SELECT e.*,t.version active_terms_version,t.terms_hash active_terms_hash,t.price_usdg,t.preview_starts_at,t.mint_starts_at,t.mint_ends_at
+       FROM edition e LEFT JOIN LATERAL (SELECT * FROM terms_version tv WHERE tv.edition_id=e.id AND tv.orphaned_at IS NULL ORDER BY version DESC LIMIT 1) t ON true
+       WHERE e.project_id=$1 AND e.orphaned_at IS NULL ORDER BY e.created_at`, [rows[0].id]
+    );
+    return { ...rows[0], editions: editions.rows };
+  }
+
   async editionByAddress(address) {
     const { rows } = await (await this._getPool()).query(
-      `SELECT e.*,p.slug,p.name FROM edition e JOIN project p ON p.id=e.project_id
+      `SELECT e.*,p.slug,COALESCE(p.name,e.edition_id_hash) AS name FROM edition e LEFT JOIN project p ON p.id=e.project_id
        WHERE e.edition_address=$1 AND e.orphaned_at IS NULL`, [address.toLowerCase()]
     );
     if (!rows[0]) return null;
@@ -228,8 +245,8 @@ export class PostgresStore {
 
   async pass(editionAddress, tokenId) {
     const { rows } = await (await this._getPool()).query(
-      `SELECT pt.*,e.edition_address,p.slug,p.name,t.royalty_receiver,t.royalty_bps FROM pass_token_projection pt
-       JOIN edition e ON e.id=pt.edition_id JOIN project p ON p.id=e.project_id
+      `SELECT pt.*,e.edition_address,p.slug,COALESCE(p.name,e.edition_id_hash) AS name,t.royalty_receiver,t.royalty_bps FROM pass_token_projection pt
+       JOIN edition e ON e.id=pt.edition_id LEFT JOIN project p ON p.id=e.project_id
        LEFT JOIN terms_version t ON t.edition_id=pt.edition_id AND t.terms_hash=pt.terms_hash AND t.orphaned_at IS NULL
        WHERE e.edition_address=$1 AND pt.token_id=$2 AND pt.orphaned_at IS NULL`,
       [editionAddress.toLowerCase(), tokenId]
@@ -284,27 +301,157 @@ export class PostgresStore {
     return rows[0] ?? null;
   }
 
-  async createProject({ accountId, body }) {
+  async _builderForAccount(accountId, requestedBuilderId = null, { create = false } = {}) {
+    const pool = await this._getPool();
+    const requested = requestedBuilderId == null ? null : String(requestedBuilderId);
+    const { rows } = await pool.query(
+      `SELECT b.id,b.owner_account_id,b.created_at,b.updated_at
+       FROM builder b JOIN builder_membership bm ON bm.builder_id=b.id
+       LEFT JOIN builder_profile bp ON bp.builder_id=b.id
+       WHERE bm.account_id=$1 AND ($2::text IS NULL OR b.id=$2 OR bp.id=$2)
+       ORDER BY b.created_at ASC LIMIT 1`, [accountId, requested]
+    );
+    if (rows[0]) return rows[0];
+    if (requested || !create) {
+      if (requested) throw builderError('BUILDER_NOT_AUTHORIZED');
+      return null;
+    }
+    const id = `bld_${randomUUID()}`;
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const existing = await client.query(
+        `SELECT b.id,b.owner_account_id,b.created_at,b.updated_at FROM builder b
+         JOIN builder_membership bm ON bm.builder_id=b.id WHERE bm.account_id=$1
+         ORDER BY b.created_at ASC LIMIT 1`, [accountId]
+      );
+      if (existing.rows[0]) { await client.query('COMMIT'); return existing.rows[0]; }
+      const inserted = await client.query(
+        `INSERT INTO builder(id,owner_account_id) VALUES($1,$2) RETURNING id,owner_account_id,created_at,updated_at`, [id, accountId]
+      );
+      await client.query(`INSERT INTO builder_membership(builder_id,account_id,role) VALUES($1,$2,'OWNER')`, [id, accountId]);
+      await client.query('COMMIT');
+      return inserted.rows[0];
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally { client.release(); }
+  }
+
+  async _builderForIdentifier(identifier) {
+    const { rows } = await (await this._getPool()).query(
+      `SELECT DISTINCT b.id,b.owner_account_id,b.created_at,b.updated_at
+       FROM builder b
+       LEFT JOIN builder_profile bp ON bp.builder_id=b.id
+       LEFT JOIN wallet w ON w.account_id=b.owner_account_id
+       WHERE b.id=$1 OR bp.id=$1 OR b.owner_account_id=$1 OR LOWER(w.address)=LOWER($1)
+       ORDER BY b.created_at ASC LIMIT 1`, [String(identifier ?? '')]
+    );
+    return rows[0] ?? null;
+  }
+
+  async listBuildersForAccount(accountId) {
+    const { rows } = await (await this._getPool()).query(
+      `SELECT b.id,b.owner_account_id,b.created_at,b.updated_at,bm.role,
+              bp.id AS profile_id,bp.display_name,bp.bio,bp.about,bp.avatar_url,bp.category,bp.links,bp.featured
+       FROM builder_membership bm JOIN builder b ON b.id=bm.builder_id
+       LEFT JOIN builder_profile bp ON bp.builder_id=b.id
+       WHERE bm.account_id=$1 ORDER BY b.created_at ASC`, [accountId]
+    );
+    return rows.map((row) => ({
+      id: row.id,
+      builder_id: row.id,
+      owner_account_id: row.owner_account_id,
+      role: row.role,
+      profile: row.profile_id ? { id: row.profile_id, builder_id: row.id, account_id: row.owner_account_id, display_name: row.display_name, bio: row.bio, about: row.about, avatar_url: row.avatar_url, category: row.category, links: row.links, featured: row.featured } : null
+    }));
+  }
+
+  async createBuilderIdentity(accountId, data = {}) {
+    const id = `bld_${randomUUID()}`;
+    const client = await (await this._getPool()).connect();
+    try {
+      await client.query('BEGIN');
+      const { rows } = await client.query(`INSERT INTO builder(id,owner_account_id) VALUES($1,$2) RETURNING id,owner_account_id,created_at,updated_at`, [id, accountId]);
+      await client.query(`INSERT INTO builder_membership(builder_id,account_id,role) VALUES($1,$2,'OWNER')`, [id, accountId]);
+      await client.query('COMMIT');
+      const builder = rows[0];
+      if (data.displayName || data.display_name || data.bio || data.about || data.links) builder.profile = await this.upsertBuilderProfile(accountId, data, { builderId: id });
+      else builder.profile = null;
+      return builder;
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally { client.release(); }
+  }
+
+  async recordPrimarySale(input) {
+    let sale = calculatePrimarySale(input);
+    if (!sale.builderId && sale.builderAccountId) {
+      const builder = await this._builderForIdentifier(sale.builderAccountId);
+      if (builder) sale = { ...sale, builderId: builder.id };
+    }
+    const key = primarySaleEventKey(sale);
+    const id = `psa_${sha256(key).slice(0, 24)}`;
+    const pool = await this._getPool();
+    const { rows } = await pool.query(
+      `INSERT INTO primary_sale_accounting(
+         id,chain_id,network,tx_hash,block_number,event_index,edition_id,edition_address,terms_hash,
+         builder_id,builder_account_id,buyer_address,recipient_address,first_token_id,quantity,
+         gross_amount_usdg,nexmarkets_fee_usdg,builder_proceeds_usdg,referral_obligation_usdg,
+         payment_token,status,evidence)
+       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22::jsonb)
+        ON CONFLICT(chain_id,tx_hash,event_index) DO NOTHING
+       RETURNING *`, [id, sale.chainId, sale.network, sale.txHash, sale.blockNumber, sale.eventIndex, sale.editionId,
+        sale.editionAddress, sale.termsHash, sale.builderId, sale.builderAccountId, sale.buyerAddress,
+        sale.recipientAddress, sale.firstTokenId, sale.quantity, sale.grossAmountUsdg, sale.nexmarketsFeeUsdg,
+        sale.builderProceedsUsdg, sale.referralObligationUsdg, sale.paymentToken, sale.status, JSON.stringify(sale.evidence)]
+    );
+    if (rows[0]) return rows[0];
+    const existing = await pool.query('SELECT * FROM primary_sale_accounting WHERE chain_id=$1 AND tx_hash=$2 AND event_index=$3', [sale.chainId, sale.txHash, sale.eventIndex]);
+    if (!existing.rows[0]) throw new Error('PRIMARY_SALE_INSERT_RACE');
+    const row = existing.rows[0];
+    if (String(row.gross_amount_usdg) !== sale.grossAmountUsdg || Number(row.quantity) !== sale.quantity || String(row.edition_id ?? '') !== String(sale.editionId ?? '')) throw new Error('PRIMARY_SALE_EVENT_CONFLICT');
+    return row;
+  }
+
+  async primarySalesForBuilder(builderIdentifier) {
+    const builder = await this._builderForIdentifier(builderIdentifier);
+    if (!builder) return [];
+    const { rows } = await (await this._getPool()).query(
+      `SELECT * FROM primary_sale_accounting WHERE builder_id=$1 ORDER BY block_number,event_index`, [builder.id]
+    );
+    return rows;
+  }
+
+  async createProject({ accountId, builderId = null, body }) {
+    const builder = await this._builderForAccount(accountId, builderId, { create: true });
+    const canonicalBuilderId = builder.id;
     const draftId = body.launchDraft?.draftId ?? body.draftId ?? null;
+    const status = body.status ?? body.launchDraft?.status ?? 'DRAFT';
     if (draftId) {
       const existing = await (await this._getPool()).query(
-        `SELECT * FROM project WHERE builder_account_id=$1 AND (content->>'draftId'=$2 OR slug=$3) LIMIT 1`,
-        [accountId, draftId, body.slug]
+        `SELECT * FROM project WHERE (builder_id=$1 OR (builder_id IS NULL AND builder_account_id=$2)) AND (content->>'draftId'=$3 OR slug=$4) LIMIT 1`,
+        [canonicalBuilderId, accountId, draftId, body.slug]
       );
       if (existing.rows[0]) {
         const updated = await (await this._getPool()).query(
-          `UPDATE project SET name=$2, summary=$3, content=$4::jsonb, updated_at=now() WHERE id=$1 AND builder_account_id=$5 RETURNING *`,
-          [existing.rows[0].id, body.name, body.summary ?? '', JSON.stringify(body.launchDraft ?? {}), accountId]
+          `UPDATE project SET name=$2, summary=$3, content=$4::jsonb, status=$5,
+             published_at=CASE WHEN $5='PUBLISHED' THEN COALESCE(project.published_at,now()) ELSE project.published_at END,
+             builder_id=$6, updated_at=now() WHERE id=$1 AND (builder_id=$7 OR (builder_id IS NULL AND builder_account_id=$8)) RETURNING *`,
+          [existing.rows[0].id, body.name, body.summary ?? '', JSON.stringify(body.launchDraft ?? {}), status, canonicalBuilderId, canonicalBuilderId, accountId]
         );
         return updated.rows[0];
       }
     }
-    const slugCheck = await (await this._getPool()).query('SELECT id, builder_account_id FROM project WHERE slug=$1', [body.slug]);
+    const slugCheck = await (await this._getPool()).query('SELECT id, builder_id, builder_account_id FROM project WHERE slug=$1', [body.slug]);
     if (slugCheck.rows[0]) {
-      if (slugCheck.rows[0].builder_account_id === accountId) {
+      if (slugCheck.rows[0].builder_id === canonicalBuilderId || (slugCheck.rows[0].builder_id == null && slugCheck.rows[0].builder_account_id === accountId)) {
         const updated = await (await this._getPool()).query(
-          `UPDATE project SET name=$2, summary=$3, content=$4::jsonb, updated_at=now() WHERE id=$1 AND builder_account_id=$5 RETURNING *`,
-          [slugCheck.rows[0].id, body.name, body.summary ?? '', JSON.stringify(body.launchDraft ?? {}), accountId]
+          `UPDATE project SET name=$2, summary=$3, content=$4::jsonb, status=$5,
+             published_at=CASE WHEN $5='PUBLISHED' THEN COALESCE(project.published_at,now()) ELSE project.published_at END,
+             builder_id=$6, updated_at=now() WHERE id=$1 AND (builder_id=$7 OR (builder_id IS NULL AND builder_account_id=$8)) RETURNING *`,
+          [slugCheck.rows[0].id, body.name, body.summary ?? '', JSON.stringify(body.launchDraft ?? {}), status, canonicalBuilderId, canonicalBuilderId, accountId]
         );
         return updated.rows[0];
       }
@@ -312,72 +459,128 @@ export class PostgresStore {
     }
     const id = `prj_${randomUUID()}`;
     const { rows } = await (await this._getPool()).query(
-      `INSERT INTO project(id,builder_account_id,slug,name,summary,content) VALUES($1,$2,$3,$4,$5,$6::jsonb) RETURNING *`,
-      [id, accountId, body.slug, body.name, body.summary ?? '', JSON.stringify(body.launchDraft ?? {})]
+      `INSERT INTO project(id,builder_id,builder_account_id,slug,name,summary,content,status,published_at)
+       VALUES($1,$2,$3,$4,$5,$6,$7::jsonb,$8,CASE WHEN $8='PUBLISHED' THEN now() ELSE NULL END) RETURNING *`,
+      [id, canonicalBuilderId, accountId, body.slug, body.name, body.summary ?? '', JSON.stringify(body.launchDraft ?? {}), status]
     );
     return rows[0];
   }
 
-  async createEditionRequest({ projectId, builderAccountId, chainId, payload, transactionId = null }) {
-    const id = `edreq_${randomUUID()}`;
+  // Link a receipt-proven Edition to the Builder's published Product. The
+  // caller must have already verified the Factory event through RPC; this
+  // method enforces the off-chain ownership boundary and keeps the link
+  // idempotent when the indexer lands the same Edition later.
+  async linkEditionToProject({ accountId, builderId = null, projectId, edition }) {
+    const builder = await this._builderForAccount(accountId, builderId, { create: false });
+    if (!builder) throw builderError('BUILDER_NOT_AUTHORIZED');
+    const projectKey = String(projectId ?? '').trim();
+    if (!projectKey) throw Object.assign(new Error('PROJECT_ID_REQUIRED'), { status: 400 });
+    const address = String(edition?.edition ?? edition?.editionAddress ?? '').toLowerCase();
+    if (!/^0x[0-9a-f]{40}$/.test(address)) throw Object.assign(new Error('EDITION_ADDRESS_REQUIRED'), { status: 400 });
+    const pool = await this._getPool();
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const project = await client.query(
+        `SELECT id,builder_id,builder_account_id,status FROM project
+         WHERE id=$1 AND (builder_id=$2 OR (builder_id IS NULL AND builder_account_id=$3)) FOR UPDATE`,
+        [projectKey, builder.id, accountId]
+      );
+      if (!project.rows[0]) throw builderError('PROJECT_BUILDER_MISMATCH', 403);
+      // Edition creation is the first half of the permissionless publish
+      // workflow. The UI persists a complete draft before asking the wallet to
+      // create the Edition and only promotes that same row to PUBLISHED after
+      // Terms v1 has confirmed. Permit the authenticated owner to attach a
+      // receipt-proven Edition while the row is still DRAFT; projectBySlug /
+      // projectByEditionAddress continue to expose only PUBLISHED rows.
+      if (!['DRAFT', 'PUBLISHED'].includes(String(project.rows[0].status).toUpperCase())) throw Object.assign(new Error('PROJECT_NOT_PUBLISHABLE'), { status: 409 });
+      const existing = await client.query(
+        'SELECT id,project_id FROM edition WHERE chain_id=$1 AND edition_address=$2 AND orphaned_at IS NULL FOR UPDATE',
+        [Number(edition.chainId), address]
+      );
+      if (existing.rows[0]?.project_id && existing.rows[0].project_id !== projectKey) throw Object.assign(new Error('EDITION_ALREADY_LINKED'), { status: 409 });
+      const rowId = existing.rows[0]?.id ?? `ed_${sha256(`${Number(edition.chainId)}:${address}`).slice(0, 24)}`;
+      const values = [
+        rowId, projectKey, Number(edition.chainId), address, String(edition.editionId).toLowerCase(), String(edition.factoryAddress).toLowerCase(),
+        String(edition.publisherAddress ?? edition.publisher).toLowerCase(), Number(edition.absoluteSupplyCap), String(edition.artworkCommitment).toLowerCase(),
+        Number(edition.blockNumber), String(edition.blockHash).toLowerCase(), String(edition.txHash).toLowerCase(), Number(edition.logIndex)
+      ];
+      const linked = await client.query(
+        `INSERT INTO edition(id,project_id,chain_id,edition_address,edition_id_hash,factory_address,publisher_address,absolute_supply_cap,artwork_commitment,source_block_number,source_block_hash,source_tx_hash,source_log_index,finalized)
+         VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,false)
+         ON CONFLICT(chain_id,edition_address) DO UPDATE SET project_id=COALESCE(edition.project_id,EXCLUDED.project_id),orphaned_at=NULL
+         RETURNING *`, values
+      );
+      await client.query('COMMIT');
+      return linked.rows[0];
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally { client.release(); }
+  }
+
+  async saveTermsCommitment({ builderAccountId, builderId = null, editionAddress, advantagesHash, termsPayload, configs }) {
+    const builder = await this._builderForAccount(builderAccountId, builderId, { create: true });
     const { rows } = await (await this._getPool()).query(
-      `INSERT INTO edition_request(id,project_id,builder_account_id,chain_id,edition_id_hash,request_payload,predicted_edition_address,safe_status,transaction_id)
-       SELECT $1,p.id,$3,$4,$5,$6::jsonb,$8,'REQUESTED',$7 FROM project p
-       WHERE p.id=$2 AND p.builder_account_id=$3
-       ON CONFLICT(chain_id,edition_id_hash) DO UPDATE SET updated_at=now()
-       WHERE edition_request.builder_account_id=EXCLUDED.builder_account_id AND edition_request.project_id=EXCLUDED.project_id
+      `INSERT INTO terms_advantage_commitment(advantages_hash,builder_account_id,builder_id,edition_address,terms_payload,configs)
+       VALUES($1,$2,$3,$4,$5::jsonb,$6::jsonb)
+       ON CONFLICT(advantages_hash) DO UPDATE SET builder_account_id=excluded.builder_account_id,builder_id=excluded.builder_id,terms_payload=excluded.terms_payload,configs=excluded.configs,status='PREPARED',updated_at=now()
        RETURNING *`,
-      [id, projectId, builderAccountId, chainId, String(payload.editionId).toLowerCase(), JSON.stringify(payload), transactionId, payload.predictedEditionAddress?.toLowerCase() ?? null]
+      [advantagesHash.toLowerCase(), builderAccountId, builder.id, editionAddress.toLowerCase(), JSON.stringify(termsPayload), JSON.stringify(configs ?? [])]
     );
-    if (!rows[0]) throw new Error('PROJECT_BUILDER_MISMATCH');
     return rows[0];
   }
 
-  async markEditionRequestSafePending(id, builderAccountId) {
-    const { rows } = await (await this._getPool()).query(`UPDATE edition_request SET safe_status='SAFE_PENDING',updated_at=now() WHERE id=$1 AND builder_account_id=$2 AND safe_status='REQUESTED' RETURNING *`, [id, builderAccountId]);
-    if (rows[0]) return rows[0];
-    const existing = await (await this._getPool()).query('SELECT * FROM edition_request WHERE id=$1 AND builder_account_id=$2 AND safe_status NOT IN (\'REJECTED\')', [id, builderAccountId]);
-    if (!existing.rows[0]) throw new Error('EDITION_REQUEST_STATE_CONFLICT');
-    return existing.rows[0];
-  }
-
-  async saveTermsCommitment({ builderAccountId, editionAddress, advantagesHash, termsPayload, configs }) {
+  async termsCommitmentsForEdition(editionAddress) {
     const { rows } = await (await this._getPool()).query(
-      `INSERT INTO terms_advantage_commitment(advantages_hash,builder_account_id,edition_address,terms_payload,configs)
-       VALUES($1,$2,$3,$4::jsonb,$5::jsonb)
-       ON CONFLICT(advantages_hash) DO UPDATE SET terms_payload=excluded.terms_payload,configs=excluded.configs,status='PREPARED',updated_at=now()
-       RETURNING *`,
-      [advantagesHash.toLowerCase(), builderAccountId, editionAddress.toLowerCase(), JSON.stringify(termsPayload), JSON.stringify(configs ?? [])]
+      `SELECT advantages_hash, terms_payload, configs, created_at, updated_at
+       FROM terms_advantage_commitment WHERE LOWER(edition_address)=LOWER($1)
+       ORDER BY created_at ASC`, [String(editionAddress ?? '')]
     );
-    return rows[0];
-  }
-
-  async editionRequestById(id, builderAccountId, chainId = null) {
-    const { rows } = await (await this._getPool()).query('SELECT * FROM edition_request WHERE id=$1 AND builder_account_id=$2 AND ($3::bigint IS NULL OR chain_id=$3)', [id, builderAccountId, chainId]);
-    return rows[0] ?? null;
-  }
-
-  async submitEditionRequest({ id, safeTransactionHash, txHash, evidence = null }) {
-    const { rows } = await (await this._getPool()).query(
-      `UPDATE edition_request SET safe_status='SUBMITTED',safe_transaction_hash=$2,tx_hash=$3,safe_execution_evidence=$4::jsonb,updated_at=now()
-       WHERE id=$1 AND safe_status IN ('SAFE_PENDING','REQUESTED') RETURNING *`, [id, safeTransactionHash, txHash, JSON.stringify(evidence ?? {})]
-    );
-    if (!rows[0]) {
-      const existing = await (await this._getPool()).query('SELECT * FROM edition_request WHERE id=$1', [id]);
-      if (existing.rows[0]?.safe_status === 'SUBMITTED' && existing.rows[0].tx_hash === txHash) return existing.rows[0];
-      throw new Error('EDITION_REQUEST_STATE_CONFLICT');
-    }
-    return rows[0];
+    return rows.map((row) => ({
+      advantagesHash: row.advantages_hash,
+      advantages_hash: row.advantages_hash,
+      termsPayload: row.terms_payload,
+      configs: row.configs ?? [],
+      createdAt: row.created_at,
+      updatedAt: row.updated_at
+    }));
   }
 
   async createMedia({ accountId, metadata }) {
     const id = `med_${randomUUID()}`;
     const { rows } = await (await this._getPool()).query(
       `INSERT INTO media_asset(id,owner_account_id,storage_key,original_filename,mime_type,byte_size,sha256,safety_status)
-       VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
+       VALUES($1,$2,$3,$4,$5,$6,$7,$8)
+       ON CONFLICT(owner_account_id,sha256) DO UPDATE SET
+         original_filename=excluded.original_filename,
+         mime_type=excluded.mime_type,
+         byte_size=excluded.byte_size,
+         deleted_at=NULL
+       RETURNING *`,
       [id, accountId, metadata.storageKey, metadata.filename, metadata.mimeType, metadata.byteSize, metadata.sha256, 'PENDING']
     );
     return rows[0];
+  }
+
+  async mediaById(id) {
+    const { rows } = await (await this._getPool()).query('SELECT * FROM media_asset WHERE id=$1 AND deleted_at IS NULL', [id]);
+    return rows[0] ?? null;
+  }
+
+  async mediaByIds(ids) {
+    if (!Array.isArray(ids) || ids.length === 0) return [];
+    const { rows } = await (await this._getPool()).query('SELECT * FROM media_asset WHERE id=ANY($1::text[]) AND deleted_at IS NULL', [ids]);
+    return rows;
+  }
+
+  async approveMedia({ id, accountId, publicUrl, width, height, mimeType, byteSize, sha256 }) {
+    const { rows } = await (await this._getPool()).query(
+      `UPDATE media_asset SET safety_status='APPROVED',upload_status='UPLOADED',public_url=$3,width=$4,height=$5,mime_type=$6,byte_size=$7,sha256=$8,uploaded_at=now(),verified_at=now()
+       WHERE id=$1 AND owner_account_id=$2 AND deleted_at IS NULL RETURNING *`,
+      [id, accountId, publicUrl, width, height, mimeType, byteSize, sha256]
+    );
+    return rows[0] ?? null;
   }
 
   async advantagesForOwner(address) {
@@ -392,14 +595,23 @@ export class PostgresStore {
     return rows.map((row) => { const remaining = projectedAdvantageRemaining(row); return { ...row, remaining, userFacingRemaining: remaining, consumesOnchain: ['QUANTITY_BASED', 'REDEMPTION'].includes(String(row.kind).toUpperCase()) }; });
   }
 
-  async builderDashboard(accountId) {
-    const [projects, editions, royalties, referrals] = await Promise.all([
-      (await this._getPool()).query('SELECT * FROM project WHERE builder_account_id=$1 ORDER BY updated_at DESC', [accountId]),
-      (await this._getPool()).query(`SELECT e.* FROM edition e JOIN project p ON p.id=e.project_id WHERE p.builder_account_id=$1 AND e.orphaned_at IS NULL`, [accountId]),
-      (await this._getPool()).query(`SELECT r.* FROM royalty_claim_projection r JOIN edition e ON e.id=r.edition_id JOIN project p ON p.id=e.project_id WHERE p.builder_account_id=$1 AND r.orphaned_at IS NULL`, [accountId]),
-      (await this._getPool()).query(`SELECT s.* FROM referral_settlement s WHERE s.builder_account_id=$1 ORDER BY s.created_at DESC`, [accountId])
+  async builderDashboard(accountId, { builderId = null } = {}) {
+    const builder = await this._builderForAccount(accountId, builderId, { create: false });
+    const canonicalBuilderId = builder?.id ?? null;
+    if (!canonicalBuilderId) return { builder: null, projects: [], editions: [], royalties: [], referrals: [], primarySales: [], earnings: aggregatePrimarySales([]), activity: [] };
+    const pool = await this._getPool();
+    const builderFilter = `(p.builder_id=$1 OR (p.builder_id IS NULL AND p.builder_account_id=$2))`;
+    const [projects, editions, royalties, referrals, sales, activity, profile] = await Promise.all([
+      pool.query(`SELECT * FROM project p WHERE p.builder_id=$1 OR (p.builder_id IS NULL AND p.builder_account_id=$2) ORDER BY p.updated_at DESC`, [canonicalBuilderId, accountId]),
+      pool.query(`SELECT DISTINCT e.* FROM edition e JOIN project p ON p.id=e.project_id WHERE ${builderFilter} AND e.orphaned_at IS NULL`, [canonicalBuilderId, accountId]),
+      pool.query(`SELECT r.* FROM royalty_claim_projection r JOIN edition e ON e.id=r.edition_id JOIN project p ON p.id=e.project_id WHERE ${builderFilter} AND r.orphaned_at IS NULL`, [canonicalBuilderId, accountId]),
+      pool.query(`SELECT s.* FROM referral_settlement s WHERE (s.builder_id=$1 OR (s.builder_id IS NULL AND s.builder_account_id=$2)) ORDER BY s.created_at DESC`, [canonicalBuilderId, accountId]),
+      pool.query(`SELECT * FROM primary_sale_accounting WHERE builder_id=$1 ORDER BY block_number,event_index`, [canonicalBuilderId]),
+      this.getActivityByBuilder(canonicalBuilderId, { limit: 50 }),
+      pool.query(`SELECT * FROM builder_profile WHERE builder_id=$1 LIMIT 1`, [canonicalBuilderId])
     ]);
-    return { projects: projects.rows, editions: editions.rows, royalties: royalties.rows, referrals: referrals.rows };
+    const earnings = aggregatePrimarySales(sales.rows);
+    return { builder: { ...builder, profile: profile.rows[0] ?? null }, projects: projects.rows, editions: editions.rows, royalties: royalties.rows, referrals: referrals.rows, primarySales: sales.rows, earnings, activity };
   }
 
   async claimOutbox(limit = 50) {
@@ -477,15 +689,17 @@ export class PostgresStore {
 
   async getBuilderProfile(identifier) {
     const { rows } = await (await this._getPool()).query(
-      `SELECT bp.*, w.address AS wallet_address, a.created_at AS joined_at,
-       (SELECT count(*)::int FROM builder_follow bf WHERE bf.builder_account_id=bp.account_id) AS follower_count,
-       (SELECT count(*)::int FROM edition e JOIN project p ON p.id=e.project_id WHERE p.builder_account_id=bp.account_id AND e.orphaned_at IS NULL) AS editions_count,
-       (SELECT count(*)::int FROM pass_token_projection pt JOIN edition e ON e.id=pt.edition_id JOIN project p ON p.id=e.project_id WHERE p.builder_account_id=bp.account_id AND pt.orphaned_at IS NULL) AS passes_issued,
-       (SELECT count(DISTINCT pt.owner_address)::int FROM pass_token_projection pt JOIN edition e ON e.id=pt.edition_id JOIN project p ON p.id=e.project_id WHERE p.builder_account_id=bp.account_id AND pt.orphaned_at IS NULL) AS active_holders
+      `SELECT bp.*, b.owner_account_id, b.created_at AS builder_created_at, w.address AS wallet_address, a.created_at AS joined_at,
+       (SELECT count(*)::int FROM builder_follow bf WHERE bf.builder_id=bp.builder_id OR (bf.builder_id IS NULL AND bf.builder_account_id=bp.account_id)) AS follower_count,
+       (SELECT count(*)::int FROM edition e JOIN project p ON p.id=e.project_id WHERE (p.builder_id=bp.builder_id OR (p.builder_id IS NULL AND p.builder_account_id=bp.account_id)) AND e.orphaned_at IS NULL) AS editions_count,
+       (SELECT count(*)::int FROM pass_token_projection pt JOIN edition e ON e.id=pt.edition_id JOIN project p ON p.id=e.project_id WHERE (p.builder_id=bp.builder_id OR (p.builder_id IS NULL AND p.builder_account_id=bp.account_id)) AND pt.orphaned_at IS NULL) AS passes_issued,
+       (SELECT count(DISTINCT pt.owner_address)::int FROM pass_token_projection pt JOIN edition e ON e.id=pt.edition_id JOIN project p ON p.id=e.project_id WHERE (p.builder_id=bp.builder_id OR (p.builder_id IS NULL AND p.builder_account_id=bp.account_id)) AND pt.orphaned_at IS NULL) AS active_holders,
+       (SELECT COALESCE(sum(ps.gross_amount_usdg),0)::text FROM primary_sale_accounting ps WHERE ps.builder_id=bp.builder_id AND ps.status='CONFIRMED') AS total_volume_usdg
        FROM builder_profile bp
-       JOIN account a ON a.id=bp.account_id
-       LEFT JOIN LATERAL (SELECT address FROM wallet WHERE account_id=bp.account_id ORDER BY created_at ASC LIMIT 1) w ON true
-       WHERE bp.account_id=$1 OR bp.id=$1 OR LOWER(w.address)=LOWER($1)`, [identifier.toLowerCase()]
+       JOIN builder b ON b.id=bp.builder_id
+       JOIN account a ON a.id=b.owner_account_id
+       LEFT JOIN LATERAL (SELECT address FROM wallet WHERE account_id=b.owner_account_id ORDER BY created_at ASC LIMIT 1) w ON true
+       WHERE bp.builder_id=$1 OR bp.id=$1 OR b.owner_account_id=$1 OR LOWER(w.address)=LOWER($1) OR LOWER(COALESCE(bp.links->>'handle',''))=LOWER($1)`, [String(identifier ?? '')]
     );
     if (!rows[0]) return null;
     const r = rows[0];
@@ -495,64 +709,73 @@ export class PostgresStore {
         editionsCount: r.editions_count,
         passesIssued: r.passes_issued,
         activeHolders: r.active_holders,
-        totalVolumeUsdg: '0'
+        totalVolumeUsdg: r.total_volume_usdg ?? '0'
       }
     };
   }
 
-  async upsertBuilderProfile(accountId, data) {
+  async upsertBuilderProfile(accountId, data, { builderId = null } = {}) {
+    const builder = await this._builderForAccount(accountId, builderId, { create: true });
     const id = `bprf_${randomUUID()}`;
     const { rows } = await (await this._getPool()).query(
-      `INSERT INTO builder_profile(id,account_id,display_name,bio,about,avatar_url,category,links)
-       VALUES($1,$2,$3,$4,$5,$6,$7,$8::jsonb)
-       ON CONFLICT(account_id) DO UPDATE SET
-         display_name=COALESCE(NULLIF($3,''),builder_profile.display_name),
-         bio=COALESCE(NULLIF($4,''),builder_profile.bio),
-         about=COALESCE(NULLIF($5,''),builder_profile.about),
-         avatar_url=COALESCE(NULLIF($6,''),builder_profile.avatar_url),
-         category=COALESCE(NULLIF($7,''),builder_profile.category),
-         links=CASE WHEN $8::jsonb='{}'::jsonb THEN builder_profile.links ELSE $8::jsonb END,
+      `INSERT INTO builder_profile(id,builder_id,account_id,display_name,bio,about,avatar_url,category,links)
+       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb)
+       ON CONFLICT (builder_id) DO UPDATE SET
+         display_name=COALESCE(NULLIF($4,''),builder_profile.display_name),
+         bio=COALESCE(NULLIF($5,''),builder_profile.bio),
+         about=COALESCE(NULLIF($6,''),builder_profile.about),
+         avatar_url=COALESCE(NULLIF($7,''),builder_profile.avatar_url),
+         category=COALESCE(NULLIF($8,''),builder_profile.category),
+         links=CASE WHEN $9::jsonb='{}'::jsonb THEN builder_profile.links ELSE $9::jsonb END,
+         account_id=EXCLUDED.account_id,
          updated_at=now()
        RETURNING *`,
-      [id, accountId, data.displayName ?? '', data.bio ?? '', data.about ?? '', data.avatarUrl ?? '', data.category ?? '', JSON.stringify(data.links ?? {})]
+      [id, builder.id, accountId, data.displayName ?? '', data.bio ?? '', data.about ?? '', data.avatarUrl ?? '', data.category ?? '', JSON.stringify(data.links ?? {})]
     );
     return rows[0];
   }
 
   async followBuilder(followerAccountId, builderAccountId) {
+    const builder = await this._builderForIdentifier(builderAccountId);
+    if (!builder) throw Object.assign(new Error('BUILDER_NOT_FOUND'), { status: 404 });
+    if (builder.owner_account_id === followerAccountId) throw Object.assign(new Error('SELF_FOLLOW_REJECTED'), { status: 400 });
     const id = `bfl_${randomUUID()}`;
     await (await this._getPool()).query(
-      `INSERT INTO builder_follow(id,follower_account_id,builder_account_id) VALUES($1,$2,$3) ON CONFLICT(follower_account_id,builder_account_id) DO NOTHING`,
-      [id, followerAccountId, builderAccountId]
+      `INSERT INTO builder_follow(id,follower_account_id,builder_account_id,builder_id) VALUES($1,$2,$3,$4) ON CONFLICT(follower_account_id,builder_id) DO NOTHING`,
+      [id, followerAccountId, builder.owner_account_id, builder.id]
     );
     const { rows } = await (await this._getPool()).query(
-      `SELECT count(*)::int AS cnt FROM builder_follow WHERE builder_account_id=$1`, [builderAccountId]
+      `SELECT count(*)::int AS cnt FROM builder_follow WHERE builder_id=$1 OR (builder_id IS NULL AND builder_account_id=$2)`, [builder.id, builder.owner_account_id]
     );
     return { followed: true, followerCount: rows[0].cnt };
   }
 
   async unfollowBuilder(followerAccountId, builderAccountId) {
+    const builder = await this._builderForIdentifier(builderAccountId);
+    if (!builder) return { unfollowed: true, followerCount: 0 };
     await (await this._getPool()).query(
-      `DELETE FROM builder_follow WHERE follower_account_id=$1 AND builder_account_id=$2`,
-      [followerAccountId, builderAccountId]
+      `DELETE FROM builder_follow WHERE follower_account_id=$1 AND (builder_id=$2 OR (builder_id IS NULL AND builder_account_id=$3))`,
+      [followerAccountId, builder.id, builder.owner_account_id]
     );
     const { rows } = await (await this._getPool()).query(
-      `SELECT count(*)::int AS cnt FROM builder_follow WHERE builder_account_id=$1`, [builderAccountId]
+      `SELECT count(*)::int AS cnt FROM builder_follow WHERE builder_id=$1 OR (builder_id IS NULL AND builder_account_id=$2)`, [builder.id, builder.owner_account_id]
     );
     return { unfollowed: true, followerCount: rows[0].cnt };
   }
 
   async getFollowStatus(followerAccountId, builderAccountId) {
+    const builder = await this._builderForIdentifier(builderAccountId);
+    if (!builder) return { isFollowing: false, followerCount: 0, isHolder: false };
     const pool = await this._getPool();
     const [followRow, countRow, holderRow] = await Promise.all([
-      pool.query(`SELECT 1 FROM builder_follow WHERE follower_account_id=$1 AND builder_account_id=$2 LIMIT 1`, [followerAccountId, builderAccountId]),
-      pool.query(`SELECT count(*)::int AS cnt FROM builder_follow WHERE builder_account_id=$1`, [builderAccountId]),
+      pool.query(`SELECT 1 FROM builder_follow WHERE follower_account_id=$1 AND (builder_id=$2 OR (builder_id IS NULL AND builder_account_id=$3)) LIMIT 1`, [followerAccountId, builder.id, builder.owner_account_id]),
+      pool.query(`SELECT count(*)::int AS cnt FROM builder_follow WHERE builder_id=$1 OR (builder_id IS NULL AND builder_account_id=$2)`, [builder.id, builder.owner_account_id]),
       pool.query(
         `SELECT 1 FROM pass_token_projection pt
          JOIN edition e ON e.id=pt.edition_id JOIN project p ON p.id=e.project_id
          WHERE pt.owner_address IN (SELECT w.address FROM wallet w WHERE w.account_id=$1)
-         AND p.builder_account_id=$2 AND pt.orphaned_at IS NULL LIMIT 1`,
-        [followerAccountId, builderAccountId]
+         AND (p.builder_id=$2 OR (p.builder_id IS NULL AND p.builder_account_id=$3)) AND pt.orphaned_at IS NULL LIMIT 1`,
+        [followerAccountId, builder.id, builder.owner_account_id]
       )
     ]);
     return { isFollowing: followRow.rows.length > 0, followerCount: countRow.rows[0].cnt, isHolder: holderRow.rows.length > 0 };
@@ -560,8 +783,8 @@ export class PostgresStore {
 
   async getFollowedBuilders(accountId) {
     const { rows } = await (await this._getPool()).query(
-      `SELECT bf.builder_account_id, bf.created_at AS followed_at, bp.id AS profile_id, bp.display_name, bp.bio, bp.avatar_url, bp.category
-       FROM builder_follow bf LEFT JOIN builder_profile bp ON bp.account_id=bf.builder_account_id
+      `SELECT bf.builder_id, bf.builder_account_id, bf.created_at AS followed_at, bp.id AS profile_id, bp.display_name, bp.bio, bp.avatar_url, bp.category
+       FROM builder_follow bf LEFT JOIN builder_profile bp ON bp.builder_id=bf.builder_id
        WHERE bf.follower_account_id=$1 ORDER BY bf.created_at DESC`, [accountId]
     );
     return rows;
@@ -600,38 +823,84 @@ export class PostgresStore {
   }
 
   async createMilestone(builderAccountId, payload) {
+    const builder = await this._builderForIdentifier(builderAccountId);
+    if (!builder) throw Object.assign(new Error('BUILDER_NOT_FOUND'), { status: 404 });
     if (!payload.title?.trim()) throw Object.assign(new Error('MILESTONE_TITLE_REQUIRED'), { status: 400 });
     if (!payload.content?.trim()) throw Object.assign(new Error('MILESTONE_CONTENT_REQUIRED'), { status: 400 });
     const cadence = await (await this._getPool()).query(
-      `SELECT 1 FROM builder_milestone WHERE builder_account_id=$1
-       AND (project_id=$2 OR ($2::text IS NULL AND project_id IS NULL))
+      `SELECT 1 FROM builder_milestone WHERE (builder_id=$1 OR (builder_id IS NULL AND builder_account_id=$2))
+       AND (project_id=$3 OR ($3::text IS NULL AND project_id IS NULL))
        AND created_at > now() - interval '7 days' LIMIT 1`,
-      [builderAccountId, payload.projectId ?? null]
+      [builder.id, builder.owner_account_id, payload.projectId ?? null]
     );
     if (cadence.rows[0]) throw Object.assign(new Error('MILESTONE_CADENCE_EXCEEDED'), { status: 429 });
     const id = `bms_${randomUUID()}`;
     const { rows } = await (await this._getPool()).query(
-      `INSERT INTO builder_milestone(id,builder_account_id,project_id,title,content,links) VALUES($1,$2,$3,$4,$5,$6::jsonb) RETURNING *`,
-      [id, builderAccountId, payload.projectId ?? null, payload.title.trim(), payload.content.trim(), JSON.stringify(payload.links ?? [])]
+      `INSERT INTO builder_milestone(id,builder_account_id,builder_id,project_id,title,content,links) VALUES($1,$2,$3,$4,$5,$6,$7::jsonb) RETURNING *`,
+      [id, builder.owner_account_id, builder.id, payload.projectId ?? null, payload.title.trim(), payload.content.trim(), JSON.stringify(payload.links ?? [])]
     );
     return rows[0];
   }
 
   async getMilestonesByBuilder(builderAccountId, { limit = 20 } = {}) {
+    const builder = await this._builderForIdentifier(builderAccountId);
+    if (!builder) return [];
     const { rows } = await (await this._getPool()).query(
-      `SELECT * FROM builder_milestone WHERE builder_account_id=$1 ORDER BY created_at DESC LIMIT $2`,
-      [builderAccountId, limit]
+      `SELECT * FROM builder_milestone WHERE builder_id=$1 OR (builder_id IS NULL AND builder_account_id=$2) ORDER BY created_at DESC LIMIT $3`,
+      [builder.id, builder.owner_account_id, limit]
+    );
+    return rows;
+  }
+
+  async createQuestion(askerAccountId, builderAccountId, payload) {
+    const builder = await this._builderForIdentifier(builderAccountId);
+    if (!builder) throw Object.assign(new Error('BUILDER_NOT_FOUND'), { status: 404 });
+    const question = String(payload.question ?? payload.content ?? '').trim().slice(0, 800);
+    if (question.length < 3) throw Object.assign(new Error('QUESTION_REQUIRED'), { status: 400 });
+    const id = `bq_${randomUUID()}`;
+    const { rows } = await (await this._getPool()).query(
+      `INSERT INTO builder_question(id,builder_account_id,builder_id,asker_account_id,question) VALUES($1,$2,$3,$4,$5) RETURNING *`,
+      [id, builder.owner_account_id, builder.id, askerAccountId, question]
+    );
+    return rows[0];
+  }
+
+  async answerQuestion(builderAccountId, questionId, payload) {
+    const answer = String(payload.answer ?? payload.content ?? '').trim().slice(0, 1200);
+    if (!answer) throw Object.assign(new Error('ANSWER_REQUIRED'), { status: 400 });
+    const owner = await (await this._getPool()).query(
+      `SELECT b.owner_account_id FROM builder_question q LEFT JOIN builder b ON b.id=q.builder_id WHERE q.id=$1`, [questionId]
+    );
+    if (!owner.rows[0] || owner.rows[0].owner_account_id !== builderAccountId) throw Object.assign(new Error('QUESTION_NOT_FOUND'), { status: 404 });
+    const { rows } = await (await this._getPool()).query(
+      `UPDATE builder_question SET answer=$2,answered_at=now() WHERE id=$1 RETURNING *`,
+      [questionId, answer]
+    );
+    if (!rows[0]) throw Object.assign(new Error('QUESTION_NOT_FOUND'), { status: 404 });
+    return rows[0];
+  }
+
+  async getQuestionsByBuilder(builderAccountId, { limit = 50 } = {}) {
+    const builder = await this._builderForIdentifier(builderAccountId);
+    if (!builder) return [];
+    const { rows } = await (await this._getPool()).query(
+      `SELECT * FROM builder_question WHERE builder_id=$1 OR (builder_id IS NULL AND builder_account_id=$2) ORDER BY created_at DESC LIMIT $3`,
+      [builder.id, builder.owner_account_id, limit]
     );
     return rows;
   }
 
   async getActivityByBuilder(builderAccountId, { limit = 20 } = {}) {
+    const builder = await this._builderForIdentifier(builderAccountId);
+    if (!builder) return [];
+    const canonicalBuilderId = builder.id;
+    const ownerAccountId = builder.owner_account_id;
     const pool = await this._getPool();
     const [milestones, debuts, sales, holders] = await Promise.all([
-      pool.query(`SELECT id, 'MILESTONE' AS type, title, content, links, created_at FROM builder_milestone WHERE builder_account_id=$1 ORDER BY created_at DESC LIMIT $2`, [builderAccountId, limit]),
-      pool.query(`SELECT e.id, 'NEW_DEBUT' AS type, p.name AS title, p.summary AS content, '[]'::jsonb AS links, e.created_at FROM edition e JOIN project p ON p.id=e.project_id WHERE p.builder_account_id=$1 AND e.orphaned_at IS NULL ORDER BY e.created_at DESC LIMIT $2`, [builderAccountId, limit]),
-      pool.query(`SELECT l.order_hash AS id, 'SECONDARY_SALE' AS type, ('Pass #' || l.token_id || ' Sold') AS title, (l.price_usdg || ' USDG') AS content, '[]'::jsonb AS links, l.updated_at AS created_at FROM listing_projection l JOIN edition e ON e.id=l.edition_id JOIN project p ON p.id=e.project_id WHERE p.builder_account_id=$1 AND l.status='FILLED' AND l.orphaned_at IS NULL ORDER BY l.updated_at DESC LIMIT $2`, [builderAccountId, limit]),
-      pool.query(`SELECT (pt.edition_id || '_' || pt.token_id) AS id, 'NEW_HOLDER' AS type, ('New Holder for #' || pt.token_id) AS title, pt.owner_address AS content, '[]'::jsonb AS links, pt.updated_at AS created_at FROM pass_token_projection pt JOIN edition e ON e.id=pt.edition_id JOIN project p ON p.id=e.project_id WHERE p.builder_account_id=$1 AND pt.orphaned_at IS NULL ORDER BY pt.updated_at DESC LIMIT $2`, [builderAccountId, limit])
+      pool.query(`SELECT id, 'MILESTONE' AS type, title, content, links, created_at FROM builder_milestone WHERE builder_id=$1 OR (builder_id IS NULL AND builder_account_id=$2) ORDER BY created_at DESC LIMIT $3`, [canonicalBuilderId, ownerAccountId, limit]),
+      pool.query(`SELECT e.id, 'NEW_DEBUT' AS type, p.name AS title, p.summary AS content, '[]'::jsonb AS links, e.created_at FROM edition e JOIN project p ON p.id=e.project_id WHERE (p.builder_id=$1 OR (p.builder_id IS NULL AND p.builder_account_id=$2)) AND e.orphaned_at IS NULL ORDER BY e.created_at DESC LIMIT $3`, [canonicalBuilderId, ownerAccountId, limit]),
+      pool.query(`SELECT l.order_hash AS id, 'SECONDARY_SALE' AS type, ('Pass #' || l.token_id || ' Sold') AS title, (l.price_usdg || ' USDG') AS content, '[]'::jsonb AS links, l.updated_at AS created_at FROM listing_projection l JOIN edition e ON e.id=l.edition_id JOIN project p ON p.id=e.project_id WHERE (p.builder_id=$1 OR (p.builder_id IS NULL AND p.builder_account_id=$2)) AND l.status='FILLED' AND l.orphaned_at IS NULL ORDER BY l.updated_at DESC LIMIT $3`, [canonicalBuilderId, ownerAccountId, limit]),
+      pool.query(`SELECT (pt.edition_id || '_' || pt.token_id) AS id, 'NEW_HOLDER' AS type, ('New Holder for #' || pt.token_id) AS title, pt.owner_address AS content, '[]'::jsonb AS links, pt.updated_at AS created_at FROM pass_token_projection pt JOIN edition e ON e.id=pt.edition_id JOIN project p ON p.id=e.project_id WHERE (p.builder_id=$1 OR (p.builder_id IS NULL AND p.builder_account_id=$2)) AND pt.orphaned_at IS NULL ORDER BY pt.updated_at DESC LIMIT $3`, [canonicalBuilderId, ownerAccountId, limit])
     ]);
     const combined = [...milestones.rows, ...debuts.rows, ...sales.rows, ...holders.rows].sort((a, b) => new Date(b.created_at) - new Date(a.created_at)).slice(0, limit);
     return combined;
@@ -690,13 +959,14 @@ export class PostgresStore {
 
   async getFeaturedBuilders({ limit = 4 } = {}) {
     const { rows } = await (await this._getPool()).query(
-      `SELECT bp.*,
-       (SELECT count(*)::int FROM edition e JOIN project p ON p.id=e.project_id WHERE p.builder_account_id=bp.account_id AND e.orphaned_at IS NULL) AS editions_count,
-       (SELECT count(*)::int FROM pass_token_projection pt JOIN edition e ON e.id=pt.edition_id JOIN project p ON p.id=e.project_id WHERE p.builder_account_id=bp.account_id AND pt.orphaned_at IS NULL) AS passes_issued,
-       (SELECT e.absolute_supply_cap FROM edition e JOIN project p ON p.id=e.project_id WHERE p.builder_account_id=bp.account_id AND e.orphaned_at IS NULL ORDER BY e.created_at DESC LIMIT 1) AS supply_cap,
-       (SELECT t.price_usdg::text FROM edition e JOIN project p ON p.id=e.project_id LEFT JOIN terms_version t ON t.edition_id=e.id AND t.orphaned_at IS NULL WHERE p.builder_account_id=bp.account_id AND e.orphaned_at IS NULL ORDER BY e.created_at DESC LIMIT 1) AS price_usdg,
-       (SELECT p.slug FROM project p WHERE p.builder_account_id=bp.account_id ORDER BY p.updated_at DESC LIMIT 1) AS project_slug
-       FROM builder_profile bp WHERE bp.featured=true LIMIT $1`,
+      `SELECT bp.*,b.owner_account_id,
+       (SELECT count(*)::int FROM edition e JOIN project p ON p.id=e.project_id WHERE (p.builder_id=bp.builder_id OR (p.builder_id IS NULL AND p.builder_account_id=bp.account_id)) AND e.orphaned_at IS NULL) AS editions_count,
+       (SELECT count(*)::int FROM pass_token_projection pt JOIN edition e ON e.id=pt.edition_id JOIN project p ON p.id=e.project_id WHERE (p.builder_id=bp.builder_id OR (p.builder_id IS NULL AND p.builder_account_id=bp.account_id)) AND pt.orphaned_at IS NULL) AS passes_issued,
+       (SELECT e.absolute_supply_cap FROM edition e JOIN project p ON p.id=e.project_id WHERE (p.builder_id=bp.builder_id OR (p.builder_id IS NULL AND p.builder_account_id=bp.account_id)) AND e.orphaned_at IS NULL ORDER BY e.created_at DESC LIMIT 1) AS supply_cap,
+       (SELECT t.price_usdg::text FROM edition e JOIN project p ON p.id=e.project_id LEFT JOIN LATERAL (SELECT * FROM terms_version tv WHERE tv.edition_id=e.id AND tv.orphaned_at IS NULL ORDER BY version DESC LIMIT 1) t ON true WHERE (p.builder_id=bp.builder_id OR (p.builder_id IS NULL AND p.builder_account_id=bp.account_id)) AND e.orphaned_at IS NULL ORDER BY e.created_at DESC LIMIT 1) AS price_usdg,
+       (SELECT p.slug FROM project p WHERE p.builder_id=bp.builder_id OR (p.builder_id IS NULL AND p.builder_account_id=bp.account_id) ORDER BY p.updated_at DESC LIMIT 1) AS project_slug,
+       (SELECT COALESCE(sum(ps.gross_amount_usdg),0)::text FROM primary_sale_accounting ps WHERE ps.builder_id=bp.builder_id AND ps.status='CONFIRMED') AS total_volume_usdg
+       FROM builder_profile bp JOIN builder b ON b.id=bp.builder_id WHERE bp.featured=true LIMIT $1`,
       [limit]
     );
     return rows;

@@ -35,8 +35,11 @@ jobs:
       - run: npm run verify:schema
       - run: npm run verify:goldsky
       - run: npm run verify:production
+      - run: npm run verify:payment-token
       - run: npm run db:migrate
+      - run: npm run verify:database:migration
       - run: npm test
+      - run: npm run verify:security
       - run: npm run web:build
       - run: npm run verify:checksums
       - run: node --check scripts/deploy-safe.mjs

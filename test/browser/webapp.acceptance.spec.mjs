@@ -35,7 +35,29 @@ function fixture() {
   };
   const summary = {
     edition_address: EDITION, name: edition.name, absolute_supply_cap: '3', total_minted: '1', publisher: OWNER,
-    price_usdg: '1000000', active_terms_hash: TERMS, mint_starts_at: '2026-08-21T21:42:30Z', mint_ends_at: '2026-09-20T21:42:30Z'
+    price_usdg: '1000000', active_terms_hash: TERMS, mint_starts_at: '2026-08-21T21:42:30Z', mint_ends_at: '2026-09-20T21:42:30Z',
+    // Published API records carry the frozen launch configuration used by
+    // presentation and export renderers. Keep the browser fixture aligned
+    // with that production contract instead of relying on template defaults.
+    content: {
+      project: {
+        name: edition.name,
+        builder: 'Certification Builder',
+        builderHandle: '@certificationbuilder',
+        desc: 'A certified testnet Pass used by the browser acceptance journey.',
+        about: 'A certified testnet Pass used by the browser acceptance journey.',
+        category: 'tools',
+        productState: 'Live'
+      },
+      edition: { name: edition.name, series: 'SERIES 01', supply: 3, price: 1, royalty: 3 },
+      design: {
+        rendererVersion: 'pass-renderer-v1', passDesign: 'classic', frame: 'obsidian', frameColor: '#2a2725',
+        color: '#34483a', colorStyle: 'solid', artMode: 'single', artSrc: '', artX: 50, artY: 50,
+        selectedSerialIndex: 0, passAssignments: []
+      },
+      advantages: terms.advantageConfigs,
+      referral: { enabled: false, rate: 0, settlement: 'Builder Settled' }
+    }
   };
   return { terms, edition, pass, summary };
 }
@@ -64,6 +86,9 @@ async function installFixtureApi(page, { delayDiscover = 0, failDiscover = false
 }
 
 async function goto(page, path) {
+  // Keep deterministic provider stubs on the direct EIP-1193 path. The
+  // production/local path exercises RainbowKit by default.
+  await page.addInitScript(() => { window.__nexmarketsUseInjectedFallback = true; });
   await page.goto(path, { waitUntil: 'commit' });
   await expect.poll(() => page.evaluate(() => Boolean(window.nexmarketsV2)), { timeout: 20_000 }).toBe(true);
   await expect(page.locator('html')).toHaveClass(/nm-v2-ready/, { timeout: 20_000 });
@@ -101,20 +126,23 @@ test('V2 template renders certified API/Subgraph data across public routes witho
   await goto(page, '/discover');
   const networkSelector = page.locator('.nm-network-switcher-button:visible').first();
   await expect(networkSelector).toHaveAttribute('data-rainbowkit-chain-selector', 'true');
-  await expect(networkSelector).toHaveAttribute('data-network', 'robinhood-testnet');
-  await expect(networkSelector).toContainText('Robinhood Testnet');
+  await expect(networkSelector).toHaveAttribute('data-network', 'base-sepolia');
+  await expect(networkSelector).toContainText('Base Sepolia');
   await expect(page.locator('.nm-network-switcher select')).toHaveCount(0);
   await expect(page.getByRole('heading', { name: 'Find what is worth being early to.' })).toBeVisible();
   await expect(page.locator('#discover').getByText('NexMarkets V1 Test Certification Edition', { exact: true }).first()).toBeVisible();
   await expect(page.locator('#discover').getByText('1/3 serials issued').first()).toBeVisible();
 
   await navigate(page, `/editions/${EDITION}`);
+  await expect.poll(() => page.evaluate(() => location.pathname)).toBe(`/editions/${EDITION}`);
   await expect(page.locator('#nm-v2-data-panel')).toContainText(TERMS);
-  await expect(page.locator('#nm-v2-data-panel')).toContainText('1.000000 USDG');
+  await expect(page.locator('#nm-v2-data-panel')).toContainText('1.000000 USDC');
   await navigate(page, `/projects/${EDITION}`);
+  await expect.poll(() => page.evaluate(() => location.pathname)).toBe(`/projects/${EDITION}`);
   await expect(page.locator('#project')).toContainText('NexMarkets V1 Test Certification Edition');
 
   await navigate(page, `/passes/${EDITION}/1`);
+  await expect.poll(() => page.evaluate(() => location.pathname)).toBe(`/passes/${EDITION}/1`);
   await expect(page.locator('#nm-v2-data-panel')).toContainText('#001 / 3');
   await expect(page.locator('#nm-v2-data-panel')).toContainText(TERMS);
   await expect(page.locator('#nm-v2-data-panel')).toContainText(TBA);
@@ -126,6 +154,7 @@ test('V2 template renders certified API/Subgraph data across public routes witho
   await navigate(page, '/dashboard/holder');
   await expect(page.locator('#dashboard')).toContainText('Connect wallet');
   await navigate(page, '/dashboard/builder');
+  await expect.poll(() => page.evaluate(() => location.pathname)).toBe('/dashboard/builder');
   await expect(page.locator('#dashboard')).toContainText('0 Passes');
   await expect(page.locator('#create')).toHaveCount(1);
   await assertNoMutationRequests(page, async () => {
@@ -155,7 +184,19 @@ test('wallet disconnected and wrong-network states are explicit', async ({ page 
   }, { owner: OWNER });
   await goto(page, '/dashboard/holder');
   await page.getByRole('button', { name: 'Connect wallet' }).first().click();
-  await expect(page.locator('#nm-v2-runtime-banner')).toContainText('SWITCH_TO_ROBINHOOD_46630');
+  await expect(page.locator('#nm-v2-runtime-banner')).toContainText('SWITCH_TO_BASE_84532');
+});
+
+test('disconnected connect opens RainbowKit instead of requiring an injected wallet', async ({ page }) => {
+  await installFixtureApi(page);
+  await page.goto('/', { waitUntil: 'commit' });
+  await expect.poll(() => page.evaluate(() => Boolean(window.nexmarketsV2)), { timeout: 20_000 }).toBe(true);
+  await expect(page.locator('html')).toHaveClass(/nm-v2-ready/, { timeout: 20_000 });
+  await page.getByRole('button', { name: 'Log in / Connect' }).first().click();
+  const dialog = page.locator('[role="dialog"]:visible').filter({ hasText: 'Connect a Wallet' });
+  await expect(dialog).toBeVisible({ timeout: 10_000 });
+  const bannerText = await page.evaluate(() => document.querySelector('#nm-v2-runtime-banner')?.textContent ?? '');
+  expect(bannerText).not.toContain('EVM_WALLET_REQUIRED');
 });
 
 test('wallet challenge/session works without submitting a chain transaction', async ({ page }) => {
@@ -167,7 +208,7 @@ test('wallet challenge/session works without submitting a chain transaction', as
     window.ethereum = { request: async ({ method, params }) => {
       window.__nexmarketsProviderMethods.push(method);
       if (method === 'eth_requestAccounts') return [address];
-      if (method === 'eth_chainId') return '0xb626';
+      if (method === 'eth_chainId') return '0x14a34';
       if (method === 'personal_sign') return window.__nexmarketsSignPersonalMessage(params[0]);
       return '0x0';
     } };
@@ -232,7 +273,7 @@ test('Create wizard submits full draft to API with CSRF, retains DRAFT status, a
     window.ethereum = { request: async ({ method, params }) => {
       window.__nexmarketsProviderMethods.push(method);
       if (method === 'eth_requestAccounts') return [address];
-      if (method === 'eth_chainId') return '0xb626';
+      if (method === 'eth_chainId') return '0x14a34';
       if (method === 'personal_sign') return window.__nexmarketsSignPersonalMessage(params[0]);
       return '0x0';
     } };
@@ -269,6 +310,8 @@ test('Create wizard submits full draft to API with CSRF, retains DRAFT status, a
   expect(submittedPayload.launchDraft).toBeTruthy();
   expect(submittedPayload.launchDraft.edition).toBeTruthy();
   expect(submittedPayload.launchDraft.advantages.length).toBeGreaterThan(0);
+  expect(submittedPayload.launchDraft.advantages.every((item) => ['Connected', 'Redemption'].includes(item.mechanism))).toBe(true);
+  expect(submittedPayload.launchDraft.review).toEqual({ advantages: false, evidence: false, preview: false });
   expect(submittedPayload.launchDraft.preview).toBeTruthy();
   expect(submittedPayload.launchDraft.design).toBeTruthy();
   expect(submittedPayload.launchDraft.status).toBe('DRAFT');
@@ -279,7 +322,7 @@ test('Create wizard submits full draft to API with CSRF, retains DRAFT status, a
   for (const path of expectedPaths) {
     expect(valueAtPath(submittedPayload.launchDraft, path), `missing create field ${path}`).not.toBeUndefined();
   }
-  expect(submittedPayload.launchDraft.network).toBe('robinhood');
+  expect(submittedPayload.launchDraft.network).toBe('base');
   expect(submittedPayload.launchDraft.project).toMatchObject({
     name: 'Payload Complete Project',
     builder: 'Payload Builder',
@@ -287,12 +330,12 @@ test('Create wizard submits full draft to API with CSRF, retains DRAFT status, a
     category: 'finance',
     productState: 'Beta',
     videoUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
-    network: 'robinhood'
+    network: 'base'
   });
   expect(submittedPayload.launchDraft.project.evidence).toMatchObject({ type: 'Demo', url: 'https://payload.example/demo' });
   expect(submittedPayload.launchDraft.project.supportUrl).toBe('https://payload.example/support');
   expect(submittedPayload.launchDraft.project.banner.logoPosition).toBe('tr');
-  expect(submittedPayload.launchDraft.edition.network).toBe('robinhood');
+  expect(submittedPayload.launchDraft.edition.network).toBe('base');
   expect(submittedPayload.launchDraft.referral).toEqual({ enabled: false, rate: 0, settlement: 'Builder Settled' });
   expect(submittedPayload.launchDraft.design).toMatchObject({
     customColor: '#5f6f50',
@@ -303,13 +346,121 @@ test('Create wizard submits full draft to API with CSRF, retains DRAFT status, a
   expect(submittedPayload.launchDraft.review).toEqual({ evidence: false, advantages: false, preview: false });
 
   await expect(page.locator('#projectActionMount')).toContainText('Draft saved');
-  await expect(page.locator('#projectActionMount')).toContainText('Safe workflow is pending protocol admin execution');
+  await expect(page.locator('#projectActionMount')).toContainText('On-chain Edition deployment is a separate next step');
 
   const providerMethods = await page.evaluate(() => window.__nexmarketsProviderMethods);
   expect(providerMethods.filter((m) => ['eth_sendTransaction', 'eth_sendRawTransaction'].includes(m))).toEqual([]);
 
   await navigate(page, '/discover');
   await expect(page.locator('#discover').getByText(submittedPayload.name, { exact: true })).toHaveCount(0);
+});
+
+test('browser media upload prepares, uploads, verifies, and binds a stable artwork URL', async ({ page }) => {
+  const signer = Wallet.createRandom();
+  let preparePayload = null;
+  let completePayload = null;
+  let uploadHeaders = null;
+  const mediaId = 'med_browser_art_01';
+  const stableUrl = `/v1/media/${mediaId}/content`;
+
+  await installFixtureApi(page);
+  await page.route('**/v1/media/uploads', async (route) => {
+    preparePayload = JSON.parse(route.request().postData() || '{}');
+    return route.fulfill({
+      status: 201,
+      json: {
+        data: {
+          asset: { id: mediaId, filename: preparePayload.filename, mimeType: preparePayload.mimeType, byteSize: preparePayload.byteSize, sha256: preparePayload.sha256, safetyStatus: 'PENDING', url: null },
+          upload: { method: 'PUT', url: 'https://upload.example/signed-artwork', headers: { 'content-type': preparePayload.mimeType, 'x-amz-meta-sha256': preparePayload.sha256 }, expiresInSeconds: 900 }
+        }
+      }
+    });
+  });
+  await page.route('https://upload.example/**', async (route) => {
+    uploadHeaders = route.request().headers();
+    if (route.request().method() === 'OPTIONS') return route.fulfill({ status: 204, headers: { 'access-control-allow-origin': '*', 'access-control-allow-methods': 'PUT,OPTIONS', 'access-control-allow-headers': '*' } });
+    return route.fulfill({ status: 200, headers: { 'access-control-allow-origin': '*' }, body: '' });
+  });
+  await page.route(`**/v1/media/${mediaId}/complete`, async (route) => {
+    completePayload = JSON.parse(route.request().postData() || '{}');
+    return route.fulfill({
+      status: 200,
+      json: {
+        data: {
+          asset: { id: mediaId, filename: preparePayload.filename, mimeType: 'image/png', byteSize: preparePayload.byteSize, sha256: preparePayload.sha256, width: 1, height: 1, uploadStatus: 'UPLOADED', safetyStatus: 'APPROVED', url: stableUrl }
+        }
+      }
+    });
+  });
+  await page.exposeFunction('__nexmarketsSignPersonalMessage', (message) => signer.signMessage(getBytes(message)));
+  await page.addInitScript(({ address }) => {
+    window.__nexmarketsProviderMethods = [];
+    window.ethereum = { request: async ({ method, params }) => {
+      window.__nexmarketsProviderMethods.push(method);
+      if (method === 'eth_requestAccounts') return [address];
+      if (method === 'eth_chainId') return '0x14a34';
+      if (method === 'personal_sign') return window.__nexmarketsSignPersonalMessage(params[0]);
+      return '0x0';
+    } };
+  }, { address: signer.address });
+
+  await goto(page, '/create');
+  await page.getByRole('button', { name: 'Connect wallet' }).first().click();
+  await expect.poll(() => page.evaluate(() => window.nexmarketsV2.state.authenticated)).toBe(true);
+
+  const asset = await page.evaluate(async () => {
+    const encoded = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+    const binary = atob(encoded);
+    const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));
+    return window.__nmV2UploadCreateAsset(new File([bytes], 'verified-artwork.png', { type: 'image/png' }), 'art');
+  });
+  expect(asset).toMatchObject({ id: mediaId, safetyStatus: 'APPROVED', url: stableUrl, width: 1, height: 1 });
+  expect(preparePayload).toMatchObject({ filename: 'verified-artwork.png', mimeType: 'image/png' });
+  expect(preparePayload.byteSize).toBeGreaterThan(0);
+  expect(preparePayload.sha256).toMatch(/^[0-9a-f]{64}$/);
+  expect(uploadHeaders).toMatchObject({ 'content-type': 'image/png', 'x-amz-meta-sha256': preparePayload.sha256 });
+  expect(completePayload).toEqual({});
+  const createData = await page.evaluate(() => window.__nmV2GetCreateData());
+  expect(createData.artAssetId).toBe(mediaId);
+  expect(createData.artSrc).toBe(stableUrl);
+});
+
+test('Owned Pass download produces a 2048 by 2048 PNG from the rendered Pass', async ({ page }) => {
+  const signer = Wallet.createRandom();
+  const data = await installFixtureApi(page);
+  const ownedPass = { ...data.pass, name: data.edition.name, owner_address: signer.address, owner: signer.address, royalty_receiver: OWNER, royalty_bps: 300 };
+  await page.route('**/v1/me/passes', (route) => route.fulfill({ json: { data: [ownedPass] } }));
+  await page.exposeFunction('__nexmarketsSignPersonalMessage', (message) => signer.signMessage(getBytes(message)));
+  await page.addInitScript(({ address }) => {
+    window.ethereum = { request: async ({ method, params }) => {
+      if (method === 'eth_requestAccounts') return [address];
+      if (method === 'eth_chainId') return '0x14a34';
+      if (method === 'personal_sign') return window.__nexmarketsSignPersonalMessage(params[0]);
+      return '0x0';
+    } };
+  }, { address: signer.address });
+  await goto(page, '/dashboard/holder');
+  await page.getByRole('button', { name: 'Connect wallet' }).first().click();
+  await expect.poll(() => page.evaluate(() => window.nexmarketsV2.state.authenticated)).toBe(true);
+  await expect.poll(() => page.evaluate(() => window.nexmarketsV2.state.hydrating)).toBe(false);
+  await expect.poll(() => page.evaluate(() => window.nexmarketsV2.state.templateData?.ownedPasses?.length || 0)).toBe(1);
+
+  const ownedKey = `${EDITION.toLowerCase()}-1`;
+  const [download, result] = await Promise.all([
+    page.waitForEvent('download', { timeout: 30_000 }),
+    page.evaluate((key) => window.downloadOwnedPass(key), ownedKey)
+  ]);
+  expect(result).toBe(true);
+  expect(download.suggestedFilename()).toMatch(/\.png$/i);
+  const stream = await download.createReadStream();
+  const chunks = [];
+  for await (const chunk of stream) chunks.push(chunk);
+  const bytes = Buffer.concat(chunks);
+  expect(bytes.length).toBeGreaterThan(24);
+  expect(bytes.subarray(0, 8)).toEqual(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
+  expect(bytes.toString('ascii', 12, 16)).toBe('IHDR');
+  expect(bytes.readUInt32BE(16)).toBe(2048);
+  expect(bytes.readUInt32BE(20)).toBe(2048);
 });
 
 test('live mint flow sends committed Terms and broadcasts the prepared transaction', async ({ page }) => {
@@ -338,7 +489,7 @@ test('live mint flow sends committed Terms and broadcasts the prepared transacti
     window.ethereum = { request: async ({ method, params }) => {
       window.__nexmarketsProviderMethods.push(method);
       if (method === 'eth_requestAccounts') return [address];
-      if (method === 'eth_chainId') return '0xb626';
+      if (method === 'eth_chainId') return '0x14a34';
       if (method === 'personal_sign') return window.__nexmarketsSignPersonalMessage(params[0]);
       if (method === 'eth_call') return `0x${'f'.repeat(64)}`;
       if (method === 'eth_sendTransaction') {
@@ -396,7 +547,7 @@ test('live listing flow reads the exact owned Pass, signs Seaport data, and regi
       transaction: { id: 'tx_browser_listing', state: 'PREPARED' },
       prepared: {
         orderHash, order,
-        typedData: { domain: { name: 'Seaport', version: '1.6', chainId: 46630, verifyingContract: data.edition.address }, types: { OrderComponents: [] }, value: order },
+        typedData: { domain: { name: 'Seaport', version: '1.6', chainId: 84532, verifyingContract: data.edition.address }, types: { OrderComponents: [] }, value: order },
         registryTransaction: { to: listingRegistry, data: '0x87654321', value: '0x0' }
       },
       walletMustSign: true, serverCustodiesKey: false
@@ -413,7 +564,7 @@ test('live listing flow reads the exact owned Pass, signs Seaport data, and regi
     window.ethereum = { request: async ({ method, params }) => {
       window.__nexmarketsProviderMethods.push(method);
       if (method === 'eth_requestAccounts') return [address];
-      if (method === 'eth_chainId') return '0xb626';
+      if (method === 'eth_chainId') return '0x14a34';
       if (method === 'personal_sign') return window.__nexmarketsSignPersonalMessage(params[0]);
       if (method === 'eth_call') return `0x${'f'.repeat(64)}`;
       if (method === 'eth_signTypedData_v4') return `0x${'a'.repeat(130)}`;
@@ -484,7 +635,7 @@ test('live buy flow requires the signed listing and broadcasts Seaport fulfillme
     window.ethereum = { request: async ({ method, params }) => {
       window.__nexmarketsProviderMethods.push(method);
       if (method === 'eth_requestAccounts') return [address];
-      if (method === 'eth_chainId') return '0xb626';
+      if (method === 'eth_chainId') return '0x14a34';
       if (method === 'personal_sign') return `0x${'c'.repeat(130)}`;
       if (method === 'eth_call') return `0x${'f'.repeat(64)}`;
       if (method === 'eth_sendTransaction') {
@@ -508,4 +659,25 @@ test('live buy flow requires the signed listing and broadcasts Seaport fulfillme
   const providerState = await page.evaluate(() => ({ methods: window.__nexmarketsProviderMethods, transaction: window.__nexmarketsSubmittedTransaction }));
   expect(providerState.methods).toContain('eth_sendTransaction');
   expect(providerState.transaction).toMatchObject({ to: seaport, data: '0xfedcba98', value: '0x0' });
+});
+
+test('approved public surfaces do not introduce document overflow at supported widths', async ({ page }) => {
+  await installFixtureApi(page);
+  await goto(page, '/');
+  const widths = [1440, 1180, 1024, 900, 860, 768, 600, 390, 320];
+  const routes = ['/', '/discover', '/market', '/create', '/dashboard/holder'];
+  for (const width of widths) {
+    await page.setViewportSize({ width, height: 900 });
+    for (const route of routes) {
+      await page.evaluate((path) => window.nexmarketsV2.navigate(path), route);
+      await page.waitForTimeout(100);
+      const metrics = await page.evaluate(() => ({
+        viewport: window.innerWidth,
+        documentWidth: document.documentElement.scrollWidth,
+        bodyWidth: document.body.scrollWidth
+      }));
+      expect(metrics.documentWidth, `${route} overflow at ${width}px`).toBeLessThanOrEqual(metrics.viewport + 1);
+      expect(metrics.bodyWidth, `${route} body overflow at ${width}px`).toBeLessThanOrEqual(metrics.viewport + 1);
+    }
+  }
 });

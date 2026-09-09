@@ -1,9 +1,11 @@
 # NexMarkets V1 production implementation
 
 NexMarkets V1 is an exact-serial Pass market for Robinhood Chain and Base.
-The active network is selected in the web navbar. Robinhood uses USDG (or the
-isolated testnet MockUSDG); Base uses canonical USDC and ETH is gas only. The
-certified product authority is `product-authority/NEXMARKETS_ELITE_RELEASE_CANDIDATE.html` with SHA-256 `24daa3e2afc280690db3d213f953334b10cf92309f2698552c5db543b00b90a6`.
+Base Sepolia (chain `84532`) is the default current testnet and uses canonical
+USDC; Robinhood testnet remains selectable and uses isolated MockUSDG. ETH is
+gas only. The certified product authority is
+`NEXMARKETS_V2_BUILDER_PROFILE_ELITE.html` with SHA-256
+`4863df4a8829b6ced1672248e1fd0336e577d6c13c80f1dbd7fe99d73bc821d5`.
 
 ## Implemented boundaries
 
@@ -16,7 +18,7 @@ certified product authority is `product-authority/NEXMARKETS_ELITE_RELEASE_CANDI
 - A chain-aware Subgraph client feeds API read paths while separate RPC receipt, lifecycle and reconciliation workers select the active network. PostgreSQL remains application state, not the raw-chain store.
 - PostgreSQL V1 migrations for product, indexed, transaction, referral, outbox, audit, media and reconciliation data.
 - Wallet-signed authentication, opaque sessions, CSRF/origin/rate controls, transaction/order preparation and a no-custody API.
-- Builder Edition creation is a durable project-linked Protocol Admin Safe request; the Builder wallet never submits the Safe-owned Factory call. Exact Advantage configs are persisted by their canonical commitment before Terms calldata is prepared.
+- Builder Edition creation is permissionless on the current Base Sepolia Factory; the authenticated Builder wallet creates the Edition and publishes its Terms. Robinhood's retained Safe-mediated Factory path remains supported. Exact Advantage configs are persisted by their canonical commitment before Terms calldata is prepared.
 - Responsive real-data web flows for Home, Discover, Pass, Market, Create, holder/builder dashboards and transaction finality.
 - Deterministic deployment planning, one-time wiring order, runtime verification and Safe policy checks.
 

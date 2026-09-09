@@ -113,14 +113,14 @@ contract NexListingRegistryTest is Test {
         NexPassEdition.EditionConfig memory editionConfig = NexPassEdition.EditionConfig({
             name: "NexListing Pass",
             symbol: "NEXLIST",
-            initialOwner: OWNER,
+            initialOwner: PUBLISHER,
             editionId: EDITION_ID,
             absoluteSupplyCap: 5,
             artworkCommitment: ARTWORK_COMMITMENT,
             baseTokenURI: "ipfs://nexlisting/"
         });
-        vm.prank(OWNER);
-        edition = NexPassEdition(factory.createEdition(editionConfig, PUBLISHER, SALT));
+        vm.prank(PUBLISHER);
+        edition = NexPassEdition(factory.createEdition(editionConfig, SALT));
 
         advantageRegistry = new NexAdvantageRegistry(OWNER, launchRegistry);
         initializer = new NexAdvantageInitializer(OWNER, launchRegistry, advantageRegistry, address(mintController));

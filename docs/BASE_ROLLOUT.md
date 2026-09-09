@@ -4,8 +4,8 @@ NexMarkets supports Robinhood and Base as separate network contexts. The web
 navbar selector changes the active network, persists it locally, switches an
 injected wallet when possible, and sends `x-nex-network` on API requests. The
 API keeps chain-specific sessions, settlement assets, contracts and read
-models isolated; Base reads remain empty until a Base Subgraph endpoint is
-configured.
+models isolated. Base Sepolia is the default current testnet and its Goldsky
+read model is configured and health-checked.
 
 ## Networks
 
@@ -19,6 +19,16 @@ configured.
 Base testnet and mainnet use Circle's canonical USDC addresses recorded in
 the corresponding deployment manifests. Testnet USDC is not a production
 settlement asset.
+
+The current browser default is **Base Sepolia + USDC**. Robinhood testnet is
+an explicitly selected historical/testnet context and retains its isolated
+MockUSDG settlement token.
+
+Market **Change price** is a complete Seaport replacement flow: NexMarkets
+invalidates the old signed order, asks the seller to sign a replacement order,
+and only then exposes the new ask. The old order hash and replacement order
+hash are retained in the listing projection; there is no fabricated transaction
+hash for the off-chain signature step.
 
 ## Base Sepolia evidence
 
@@ -38,9 +48,10 @@ records:
 cmd /c npm run web:config:testnet
 ```
 
-The generated configuration currently exposes Robinhood testnet and Base
-Sepolia. It intentionally does not expose Base mainnet as an active browser
-network until the mainnet release gate is approved.
+The generated configuration exposes Base Sepolia first (the default) and
+Robinhood testnet as an explicitly selectable historical/testnet context. It
+does not expose Base mainnet as an active browser network until the mainnet
+release gate is approved.
 
 ## Base deployment commands
 
@@ -75,7 +86,8 @@ mainnet transaction is authorized by the current preparation record.
 
 ## Operations
 
-For Base workers, set `ROBINHOOD_CHAIN_ID=84532` or `8453` and provide the
+For Base workers, set `NEXMARKETS_DEFAULT_NETWORK=base-sepolia` (or explicitly
+select `base-mainnet`) and provide the
 matching `BASE_*_NEX_*_ADDRESS` values from the verified deployment record.
 Indexer, lifecycle-worker and reconciliation entry points select the matching
 Base RPC and address namespace. A Base Subgraph must be built from a
