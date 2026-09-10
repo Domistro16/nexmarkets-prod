@@ -1,5 +1,15 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": null,
+  "installCommand": "cd ../.. && npm ci",
+  "buildCommand": "cd ../.. && npm run web:build",
+  "outputDirectory": "public",
+  "functions": {
+    "api/**/*.js": {
+      "runtime": "nodejs20.x",
+      "maxDuration": 15
+    }
+  },
   "rewrites": [
     { "source": "/", "destination": "/index.html" },
     { "source": "/healthz", "destination": "/api/healthz" },
