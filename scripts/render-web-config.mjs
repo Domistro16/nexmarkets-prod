@@ -98,9 +98,19 @@ const base = {
   productionReady: productionReadiness.productionReady
 };
 
+const auth = {
+  cdp: {
+    projectId: String(process.env.CDP_PROJECT_ID || '').trim() || null,
+    authMethods: ['oauth:google', 'oauth:apple', 'oauth:x'],
+    network: 'base-sepolia',
+    ethereum: { createOnLogin: 'eoa' }
+  }
+};
+
 const config = {
   defaultNetwork: 'base-sepolia',
   availableNetworks: ['base-sepolia', 'robinhood-testnet'],
+  auth,
   ...base,
   networks: { 'robinhood-testnet': rhTestnet, 'base-sepolia': base }
 };

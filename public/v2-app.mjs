@@ -50,6 +50,11 @@ const state = {
 
 const wallet = new NexWallet();
 let connectWalletFromUi = null;
+let walletMode = null;
+let cdpControls = null;
+let cdpInitPromise = null;
+let cdpSession = null;
+const cdpConnectionWaiters = new Set();
 
 function lower(value) { return typeof value === 'string' ? value.toLowerCase() : value; }
 function address(value) { return typeof value === 'string' && /^0x[0-9a-f]{40}$/i.test(value) ? value : null; }
@@ -1174,6 +1179,129 @@ function showRuntimeBanner(message, error = false) {
   banner.dataset.error = error ? 'true' : 'false'; banner.textContent = message;
   if (!error) setTimeout(() => banner.remove(), 2600);
 }
+function cdpSettings() {
+  const settings = state.runtimeConfig?.auth?.cdp || state.config?.auth?.cdp;
+  return settings && typeof settings === 'object' ? settings : null;
+}
+function cdpLoginAvailable() {
+  const settings = cdpSettings();
+  return Boolean(String(settings?.projectId || '').trim())
+    && activeNetworkFamily() === 'base'
+    && Number(state.config?.chainId || CHAIN_ID) === CHAIN_ID
+    && (!settings.network || settings.network === DEFAULT_NETWORK_KEY);
+}
+function ensureCdpRoot() {
+  if (typeof document === 'undefined') return null;
+  let root = document.getElementById('nm-cdp-auth-root');
+  if (!root) {
+    root = document.createElement('div');
+    root.id = 'nm-cdp-auth-root';
+    root.style.display = 'contents';
+    document.body.appendChild(root);
+  }
+  return root;
+}
+function settleCdpWaiters(method, value) {
+  [...cdpConnectionWaiters].forEach((waiter) => waiter[method](value));
+}
+function handleCdpState(next) {
+  if (next?.error) {
+    settleCdpWaiters('reject', next.error);
+    return;
+  }
+  const connected = Boolean(next?.isSignedIn && address(next.address) && next.provider?.request);
+  if (connected) {
+    cdpSession = { address: address(next.address), chainId: CHAIN_ID, provider: next.provider };
+    settleCdpWaiters('resolve', cdpSession);
+    return;
+  }
+  if (walletMode === 'cdp' && cdpSession) {
+    cdpSession = null;
+    walletMode = null;
+    state.wallet = null;
+    state.authenticated = false;
+    state.csrfToken = null;
+    sessionStorage.removeItem('nex_csrf');
+    setAccountLabel('Connect wallet');
+    ensureNetworkSelectors();
+    void hydrate();
+  }
+}
+async function initCdpAuth() {
+  if (!cdpLoginAvailable()) {
+    if (!String(cdpSettings()?.projectId || '').trim()) throw new Error('CDP_PROJECT_ID_REQUIRED');
+    throw new Error('CDP_BASE_SEPOLIA_ONLY');
+  }
+  if (cdpControls) return cdpControls;
+  if (cdpInitPromise) return cdpInitPromise;
+  const settings = cdpSettings();
+  cdpInitPromise = (async () => {
+    const { mountCdpAuth } = await import('./cdp-auth-bridge.mjs');
+    const controls = await mountCdpAuth({
+      root: ensureCdpRoot(),
+      projectId: settings.projectId,
+      chainId: Number(state.config.chainId),
+      rpcUrl: state.config.rpcUrl,
+      onState: handleCdpState,
+      onError: (error) => { showRuntimeBanner(error.message, true); }
+    });
+    controls.onModalClosed = () => {
+      if (!cdpSession && !controls.signInCompleted) settleCdpWaiters('reject', new Error('CDP_AUTH_CANCELLED'));
+    };
+    cdpControls = controls;
+    return controls;
+  })();
+  try { return await cdpInitPromise; }
+  catch (error) { cdpInitPromise = null; throw error; }
+}
+function waitForCdpConnection({ timeoutMs = 120_000 } = {}) {
+  if (cdpSession?.address && cdpSession.provider?.request) return Promise.resolve(cdpSession);
+  let waiter;
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      cdpConnectionWaiters.delete(waiter);
+      reject(new Error('CDP_AUTH_TIMEOUT'));
+    }, timeoutMs);
+    waiter = {
+      resolve: (value) => { clearTimeout(timer); cdpConnectionWaiters.delete(waiter); resolve(value); },
+      reject: (error) => { clearTimeout(timer); cdpConnectionWaiters.delete(waiter); reject(error); }
+    };
+    cdpConnectionWaiters.add(waiter);
+  });
+}
+async function connectCdpFromUi() {
+  const controls = await initCdpAuth();
+  if (!cdpSession) await controls.openSignInModal();
+  try {
+    const session = await waitForCdpConnection();
+    cdpSession = session;
+    walletMode = 'cdp';
+    wallet.setProvider(session.provider);
+    return authenticateOnce();
+  } catch (error) {
+    if (error.message === 'CDP_AUTH_CANCELLED') return null;
+    throw error;
+  }
+}
+function chooseAuthMethod() {
+  if (!cdpLoginAvailable()) return Promise.resolve('wallet');
+  return new Promise((resolve) => {
+    const overlay = document.createElement('div');
+    overlay.id = 'nm-auth-choice';
+    overlay.setAttribute('role', 'dialog');
+    overlay.setAttribute('aria-modal', 'true');
+    overlay.innerHTML = `<div data-auth-choice-panel style="width:min(420px,calc(100vw - 32px));padding:24px;border:1px solid rgba(255,255,255,.12);border-radius:18px;background:#151916;box-shadow:0 24px 80px rgba(0,0,0,.58);color:#f1f3ee;font:14px/1.45 system-ui,sans-serif"><div style="font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:#aeb9aa">NexMarkets access</div><h2 style="margin:8px 0 6px;font:600 24px/1.1 Georgia,serif">Choose how to continue</h2><p style="margin:0 0 18px;color:#aeb9aa">Use an external wallet or sign in with a social account.</p><div style="display:grid;gap:10px"><button type="button" data-auth-choice="wallet" style="padding:12px 14px;border:1px solid rgba(255,255,255,.16);border-radius:10px;background:#f2efe6;color:#151713;font-weight:650;cursor:pointer">Connect external wallet</button><button type="button" data-auth-choice="cdp" style="padding:12px 14px;border:1px solid rgba(255,176,0,.48);border-radius:10px;background:#ffb000;color:#151713;font-weight:650;cursor:pointer">Sign in with Google, Apple or X</button><button type="button" data-auth-choice="cancel" style="padding:10px 14px;border:0;background:transparent;color:#aeb9aa;cursor:pointer">Cancel</button></div></div>`;
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:10000;display:grid;place-items:center;padding:16px;background:rgba(4,6,5,.72);backdrop-filter:blur(8px)';
+    document.body.appendChild(overlay);
+    const finish = (choice) => { cleanup(); overlay.remove(); resolve(choice); };
+    const onKey = (event) => { if (event.key === 'Escape') finish('cancel'); };
+    const cleanup = () => { removeEventListener('keydown', onKey); };
+    overlay.querySelectorAll('[data-auth-choice]').forEach((button) => button.addEventListener('click', () => finish(button.dataset.authChoice)));
+    overlay.addEventListener('click', (event) => { if (event.target === overlay) finish('cancel'); });
+    addEventListener('keydown', onKey);
+    setTimeout(() => overlay.querySelector('[data-auth-choice="wallet"]')?.focus(), 0);
+  });
+}
 function configuredNetworks() {
   const networks = state.runtimeConfig?.networks;
   if (networks && typeof networks === 'object') return networks;
@@ -1868,7 +1996,7 @@ async function hydrate({ authenticatedOverride = null } = {}) {
   if (state.error) return;
 }
 async function authenticateWallet() {
-  const provider = await getWalletProvider();
+  const provider = cdpSession?.provider || await getWalletProvider();
   if (provider) wallet.setProvider(provider);
   const identity = await wallet.connect(Number(state.config?.chainId || CHAIN_ID));
   state.wallet = identity.address; setAccountLabel(short(identity.address));
@@ -2418,6 +2546,13 @@ function selectedAdvantage(id, passKey = null) {
 function wireWallet() {
   const connectFromButton = async () => {
     try {
+      const method = await chooseAuthMethod();
+      if (method === 'cancel') return;
+      if (method === 'cdp') {
+        await connectCdpFromUi();
+        return;
+      }
+      walletMode = 'rainbow';
       const opened = await openConnectModal({ chainId: Number(state.config?.chainId || CHAIN_ID) });
       if (!opened?.address) await waitForConnection();
       await authenticateOnce();
@@ -2436,7 +2571,8 @@ function wireWallet() {
       if (!state.wallet) {
         await connectFromButton();
       } else {
-        openAccountModal();
+        if (walletMode === 'cdp') await window.nmSignOut?.();
+        else openAccountModal();
       }
     });
     chip.addEventListener('keydown', async (event) => {
@@ -2445,19 +2581,25 @@ function wireWallet() {
         if (!state.wallet) {
           await connectFromButton();
         } else {
-          openAccountModal();
+          if (walletMode === 'cdp') await window.nmSignOut?.();
+          else openAccountModal();
         }
       }
     });
   });
 
   onAccountChange(async (newAddress) => {
+    if (walletMode === 'cdp') return;
     if (newAddress && newAddress.toLowerCase() !== (state.wallet || '').toLowerCase()) {
+      walletMode = 'rainbow';
+      cdpSession = null;
       state.wallet = newAddress;
       setAccountLabel(short(newAddress));
       ensureNetworkSelectors();
       try { await authenticateOnce(); } catch {}
     } else if (!newAddress && state.wallet) {
+      walletMode = null;
+      cdpSession = null;
       state.wallet = null;
       state.authenticated = false;
       setAccountLabel('Connect wallet');
@@ -3027,7 +3169,9 @@ function exposeRuntime() {
   // Replace the prototype's demo account callbacks with the real wallet
   // session boundary.  The visual header remains owned by the approved HTML.
   window.nmOpenGetStarted = () => connectWalletFromUi ? connectWalletFromUi() : authenticateOnce();
-  window.nmAccountTap = () => state.wallet ? openAccountModal() : (connectWalletFromUi ? connectWalletFromUi() : authenticateOnce());
+  window.nmAccountTap = () => state.wallet
+    ? (walletMode === 'cdp' ? window.nmSignOut?.() : openAccountModal())
+    : (connectWalletFromUi ? connectWalletFromUi() : authenticateOnce());
   const priorOpenBuilder = window.openBuilder;
   window.openBuilder = (key) => {
     window.nmEliteBuilderKey = String(key || '').toLowerCase();
@@ -3041,6 +3185,11 @@ function exposeRuntime() {
     try {
       if (state.authenticated) await mutation('/v1/auth/logout', {});
     } catch { /* a local disconnect still clears the client session */ }
+    if (walletMode === 'cdp') {
+      try { await cdpControls?.signOut?.(); } catch { /* local state still clears the CDP session */ }
+    }
+    walletMode = null;
+    cdpSession = null;
     state.authenticated = false; state.wallet = null; state.csrfToken = null;
     sessionStorage.removeItem('nex_csrf'); setAccountLabel('Connect wallet');
     if (typeof go === 'function' && typeof currentRoute !== 'undefined' && currentRoute === 'dashboard') go('home');

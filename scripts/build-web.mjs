@@ -26,7 +26,7 @@ const authorityWithVerification = authorityWithMode.replace(
 );
 const authorityCloseIndex = authorityWithVerification.lastIndexOf(authorityBodyClose);
 if (authorityCloseIndex < 0) throw new Error('Approved V2 authority is missing a closing body tag');
-const authorityHtml = `${authorityWithVerification.slice(0, authorityCloseIndex)}\n<link rel="stylesheet" href="/rainbowkit-bridge.css">\n<style id="nm-v2-hydration-style">html.nm-v2-loading body{visibility:hidden}html.nm-v2-ready body{visibility:visible}</style>\n<script>document.documentElement.classList.add('nm-v2-loading');</script>\n<script id="nm-v2-data-bridge" src="/nm-v2-data-bridge.js"></script>\n<script type="module" src="/v2-app.mjs"></script>\n${authorityWithVerification.slice(authorityCloseIndex)}`;
+const authorityHtml = `${authorityWithVerification.slice(0, authorityCloseIndex)}\n<link rel="stylesheet" href="/rainbowkit-bridge.css">\n<link rel="stylesheet" href="/cdp-auth-bridge.css">\n<style id="nm-v2-hydration-style">html.nm-v2-loading body{visibility:hidden}html.nm-v2-ready body{visibility:visible}</style>\n<script>document.documentElement.classList.add('nm-v2-loading');</script>\n<script id="nm-v2-data-bridge" src="/nm-v2-data-bridge.js"></script>\n<script type="module" src="/v2-app.mjs"></script>\n${authorityWithVerification.slice(authorityCloseIndex)}`;
 
 // Keep the checked-in web entrypoint identical to the authority used for
 // generated deployments. This prevents local/source serving from drifting
@@ -39,6 +39,27 @@ for (const output of outputs) {
     await mkdir(output, { recursive: true });
     await cp(source, output, { recursive: true });
     await writeFile(new URL('index.html', output), authorityHtml, 'utf8');
+  } catch {}
+}
+
+// CDP's project identifier is public client configuration, but it must come
+// from the deployment environment rather than being invented or copied from
+// a secret. A missing value deliberately leaves social auth disabled while
+// preserving the external-wallet flow.
+const cdpProjectId = String(process.env.CDP_PROJECT_ID || '').trim();
+const cdpAuthConfig = {
+  projectId: cdpProjectId || null,
+  authMethods: ['oauth:google', 'oauth:apple', 'oauth:x'],
+  network: 'base-sepolia',
+  ethereum: { createOnLogin: 'eoa' }
+};
+for (const output of outputs) {
+  const configPath = join(fileURLToPath(output), 'config.json');
+  try {
+    const config = JSON.parse(await readFile(configPath, 'utf8'));
+    const existing = config.auth?.cdp || {};
+    config.auth = { ...(config.auth || {}), cdp: { ...existing, ...cdpAuthConfig, projectId: cdpProjectId || existing.projectId || null } };
+    await writeFile(configPath, `${JSON.stringify(config, null, 2)}\n`, 'utf8');
   } catch {}
 }
 
@@ -100,6 +121,21 @@ try {
       minify: true,
       legalComments: 'none',
       outfile: join(fileURLToPath(output), 'rainbowkit-bridge.mjs'),
+      allowOverwrite: true
+    });
+  }
+
+  const cdpEntry = join(rootPath, 'apps/web/public/cdp-auth-bridge.mjs');
+  for (const output of outputs) {
+    await build({
+      entryPoints: [cdpEntry],
+      bundle: true,
+      platform: 'browser',
+      format: 'esm',
+      target: 'es2020',
+      minify: true,
+      legalComments: 'none',
+      outfile: join(fileURLToPath(output), 'cdp-auth-bridge.mjs'),
       allowOverwrite: true
     });
   }

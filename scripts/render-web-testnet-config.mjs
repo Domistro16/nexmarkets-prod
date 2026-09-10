@@ -68,5 +68,14 @@ const config = {
   productionReady: productionReadiness.productionReady
 };
 
+config.auth = {
+  cdp: {
+    projectId: String(process.env.CDP_PROJECT_ID || '').trim() || null,
+    authMethods: ['oauth:google', 'oauth:apple', 'oauth:x'],
+    network: 'base-sepolia',
+    ethereum: { createOnLogin: 'eoa' }
+  }
+};
+
 await writeFile(outputPath, `${JSON.stringify(config, null, 2)}\n`);
 console.log(JSON.stringify({ status: 'PASS', output: 'apps/web/public/config.json', network: config.network, chainId: config.chainId, subgraph: config.subgraph.name, contractCount: Object.keys(contracts).length }));
