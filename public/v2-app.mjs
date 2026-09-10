@@ -31,6 +31,7 @@ const state = {
   wallet: null,
   csrfToken: sessionStorage.getItem('nex_csrf') || null,
   connecting: false,
+  connectingMessage: null,
   error: null,
   route: null,
   detail: null,
@@ -1213,12 +1214,19 @@ function syncDashboardAccount() {
     const span = el.querySelector('span');
     const dot = el.querySelector('i');
     let desiredText = 'Connect wallet';
-    if (isConnecting) desiredText = 'Connecting...';
+    if (isConnecting) desiredText = state.connectingMessage || 'Connecting...';
     else if (isConnected) desiredText = state.authenticated ? 'Wallet connected' : 'Sign in with wallet';
     if (span && span.textContent !== desiredText) span.textContent = desiredText;
     if (dot) {
-      dot.style.background = isConnecting ? '#ffb000' : (isConnected ? (state.authenticated ? '#74b27d' : '#ffb000') : '#6f766d');
-      dot.style.boxShadow = isConnecting ? '0 0 0 4px rgba(255,176,0,.18)' : (isConnected ? (state.authenticated ? '0 0 0 4px rgba(116,178,125,.18)' : '0 0 0 4px rgba(255,176,0,.18)') : 'none');
+      if (isConnecting) {
+        dot.className = 'nm-spinner';
+        dot.style.background = 'transparent';
+        dot.style.boxShadow = 'none';
+      } else {
+        dot.className = '';
+        dot.style.background = isConnected ? (state.authenticated ? '#74b27d' : '#ffb000') : '#6f766d';
+        dot.style.boxShadow = isConnected ? (state.authenticated ? '0 0 0 4px rgba(116,178,125,.18)' : '0 0 0 4px rgba(255,176,0,.18)') : 'none';
+      }
     }
     el.setAttribute('aria-label', desiredText);
   });
@@ -1581,6 +1589,17 @@ function injectLiveDataStyle() {
     #nm-v2-data-panel code{font-size:10px;color:#cfd8cc;word-break:break-all}@media(max-width:720px){#nm-v2-data-panel .nm-v2-grid{grid-template-columns:1fr}}
     .nm-account-dot-pulse{width:7px;height:7px;border-radius:50%;background:var(--amber,#ffb000);box-shadow:0 0 0 0 rgba(255,176,0,.7);animation:nm-dot-pulse 1.4s infinite ease-in-out;display:inline-block;flex-shrink:0}
     @keyframes nm-dot-pulse{0%{transform:scale(.95);box-shadow:0 0 0 0 rgba(255,176,0,.7)}70%{transform:scale(1);box-shadow:0 0 0 6px rgba(255,176,0,0)}100%{transform:scale(.95);box-shadow:0 0 0 0 rgba(255,176,0,0)}}
+    .nm-spinner{width:13px;height:13px;border:2px solid rgba(255,255,255,.25);border-top-color:var(--amber,#ffb000);border-radius:50%;animation:nm-spin .7s linear infinite;display:inline-block;flex-shrink:0;box-sizing:border-box}
+    @keyframes nm-spin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}
+    .nm-connecting{pointer-events:none;opacity:.92!important}
+    @media(max-width:540px){
+      .nm-connecting .nm-connecting-long{display:none}
+      .nm-connecting .nm-connecting-short{display:inline}
+    }
+    @media(min-width:541px){
+      .nm-connecting .nm-connecting-long{display:inline}
+      .nm-connecting .nm-connecting-short{display:none}
+    }
     .nm-account-menu{min-width:176px!important;z-index:1000!important}
     .nm-account-menu button{text-align:left!important;padding:9px 12px!important;font-size:11.5px!important;display:block!important;width:100%!important;background:transparent!important;border:0!important;color:#cfd8cc!important;cursor:pointer!important;box-sizing:border-box!important}
     .nm-account-menu button:hover{background:rgba(255,255,255,.08)!important;color:#fff!important}
@@ -2136,24 +2155,33 @@ async function hydrate({ authenticatedOverride = null } = {}) {
   if (state.error) return;
 }
 async function authenticateWallet() {
-  const provider = cdpSession?.provider || await getWalletProvider();
-  if (provider) wallet.setProvider(provider);
-  const identity = await wallet.connect(Number(state.config?.chainId || CHAIN_ID));
-  state.wallet = identity.address; setAccountLabel(short(identity.address));
-  const challenge = await read('/v1/auth/challenge', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ address: identity.address }) });
-  const signature = await wallet.signMessage(challenge.message);
-  const verified = await read('/v1/auth/verify', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ nonce: challenge.nonce, signature }) });
-  state.csrfToken = verified.csrfToken; sessionStorage.setItem('nex_csrf', verified.csrfToken);
-  // Keep the public session flag false until the first authenticated snapshot
-  // has reached the template. Otherwise callers can observe `authenticated`
-  // while hydrate is still able to overwrite freshly uploaded draft state.
-  await hydrate({ authenticatedOverride: true });
-  state.authenticated = true;
-  // hydrate publishes authenticated data while the public session flag is
-  // intentionally still false. Render once more after committing that flag.
-  setAccountLabel(short(identity.address));
-  showRuntimeBanner(`Wallet verified on ${activeNetworkName()}`);
-  return identity;
+  state.connecting = true;
+  state.connectingMessage = state.wallet ? 'Waiting for signature...' : 'Connecting...';
+  setAccountLabel(state.connectingMessage);
+  try {
+    const provider = cdpSession?.provider || await getWalletProvider();
+    if (provider) wallet.setProvider(provider);
+    const identity = await wallet.connect(Number(state.config?.chainId || CHAIN_ID));
+    state.wallet = identity.address;
+    state.connectingMessage = 'Waiting for signature...';
+    setAccountLabel('Waiting for signature...');
+    const challenge = await read('/v1/auth/challenge', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ address: identity.address }) });
+    const signature = await wallet.signMessage(challenge.message);
+    state.connectingMessage = 'Verifying signature...';
+    setAccountLabel('Verifying signature...');
+    const verified = await read('/v1/auth/verify', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ nonce: challenge.nonce, signature }) });
+    state.csrfToken = verified.csrfToken; sessionStorage.setItem('nex_csrf', verified.csrfToken);
+    state.connectingMessage = 'Establishing session...';
+    setAccountLabel('Establishing session...');
+    await hydrate({ authenticatedOverride: true });
+    state.authenticated = true;
+    showRuntimeBanner(`Wallet verified on ${activeNetworkName()}`);
+    return identity;
+  } finally {
+    state.connecting = false;
+    state.connectingMessage = null;
+    setAccountLabel(state.wallet ? short(state.wallet) : 'Connect wallet');
+  }
 }
 async function authenticate({ throwOnError = false } = {}) {
   try { return await authenticateWallet(); }
@@ -2165,7 +2193,17 @@ async function authenticate({ throwOnError = false } = {}) {
 }
 let authenticationPromise = null;
 function authenticateOnce() {
-  if (!authenticationPromise) authenticationPromise = authenticate().finally(() => { authenticationPromise = null; });
+  if (!authenticationPromise) {
+    state.connecting = true;
+    state.connectingMessage = state.wallet ? 'Waiting for signature...' : 'Connecting...';
+    setAccountLabel(state.connectingMessage);
+    authenticationPromise = authenticate().finally(() => {
+      authenticationPromise = null;
+      state.connecting = false;
+      state.connectingMessage = null;
+      setAccountLabel(state.wallet ? short(state.wallet) : 'Connect wallet');
+    });
+  }
   return authenticationPromise;
 }
 
@@ -2891,6 +2929,9 @@ function wireWallet() {
       }
       const method = await chooseAuthMethod();
       if (method === 'cancel') return;
+      state.connecting = true;
+      state.connectingMessage = 'Connecting...';
+      setAccountLabel('Connecting...');
       if (method === 'cdp') {
         await connectCdpFromUi();
         return;
@@ -2898,6 +2939,9 @@ function wireWallet() {
       walletMode = 'rainbow';
       const opened = await openConnectModal({ chainId: Number(state.config?.chainId || CHAIN_ID), chainIds: availableChainIds() });
       if (opened?.isAccountModal) {
+        state.connecting = false;
+        state.connectingMessage = null;
+        setAccountLabel(state.wallet ? short(state.wallet) : 'Connect wallet');
         return;
       }
       if (!opened?.address) await waitForConnection();
@@ -2905,7 +2949,10 @@ function wireWallet() {
     } catch (error) {
       showRuntimeBanner(error.message, true);
     } finally {
+      state.connecting = false;
+      state.connectingMessage = null;
       isConnectingFromUi = false;
+      setAccountLabel(state.wallet ? short(state.wallet) : 'Connect wallet');
     }
   };
   connectWalletFromUi = connectFromButton;
@@ -3644,7 +3691,9 @@ function exposeRuntime() {
 
     let html = '';
     if (isConnecting) {
-      html = '<button class="btn primary nm-get-started nm-connecting" disabled style="opacity:0.85;cursor:wait;display:inline-flex;align-items:center;gap:7px"><span class="nm-account-dot-pulse" aria-hidden="true"></span><span>Connecting...</span><span class="account-label" aria-hidden="true" style="display:none"></span></button>';
+      const msg = state.connectingMessage || 'Connecting...';
+      const shortMsg = msg.includes('signature') ? (msg.includes('Verifying') ? 'Verifying...' : 'Signing...') : (msg.includes('session') ? 'Loading...' : 'Connecting...');
+      html = `<button class="btn primary nm-get-started nm-connecting" disabled style="opacity:0.92;cursor:wait;display:inline-flex;align-items:center;gap:7px"><span class="nm-spinner" aria-hidden="true"></span><span class="nm-connecting-long">${escapeHtml(msg)}</span><span class="nm-connecting-short">${escapeHtml(shortMsg)}</span><span class="account-label" aria-hidden="true" style="display:none"></span></button>`;
     } else if (!isConnected) {
       html = '<button class="btn primary nm-get-started" onclick="nmOpenGetStarted()">Log in / Connect</button><span class="account-label" aria-hidden="true" style="display:none"></span>';
     } else if (!isAuthenticated) {

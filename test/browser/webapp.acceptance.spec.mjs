@@ -822,3 +822,50 @@ test('dashboard displays connected wallet address and account data instead of du
   expect(settingsText).not.toContain('0x21B…7A19');
 });
 
+test('login and signing flows show loading animation and progress message while connecting and verifying', async ({ page }) => {
+  const signer = Wallet.createRandom();
+  let releaseSign = null;
+  const signPromise = new Promise((resolve) => { releaseSign = resolve; });
+
+  await installFixtureApi(page);
+  await page.exposeFunction('__nexmarketsSignPersonalMessage', async (message) => {
+    // Hold the signature prompt so we can assert the visual loading state
+    await signPromise;
+    return signer.signMessage(getBytes(message));
+  });
+  await page.addInitScript(({ address }) => {
+    window.ethereum = { request: async ({ method, params }) => {
+      if (method === 'eth_requestAccounts') return [address];
+      if (method === 'eth_chainId') return '0x14a34';
+      if (method === 'personal_sign') return window.__nexmarketsSignPersonalMessage(params[0]);
+      return '0x0';
+    } };
+  }, { address: signer.address });
+
+  await goto(page, '/discover');
+  const connectBtn = page.getByRole('button', { name: 'Log in / Connect' }).first();
+  await expect(connectBtn).toBeVisible();
+
+  // Click connect and verify loading spinner and progress message appear while waiting for signature
+  await connectBtn.click();
+  await expect.poll(() => page.evaluate(() => window.nexmarketsV2.state.connecting)).toBe(true);
+
+  // Assert button is in connecting/loading state with spinner
+  const connectingBtn = page.locator('#nmAccountChip button.nm-connecting, #nmMobileAccountChip button.nm-connecting').filter({ visible: true }).first();
+  await expect(connectingBtn).toBeVisible();
+  await expect(connectingBtn).toBeDisabled();
+  await expect(connectingBtn.locator('.nm-spinner')).toBeVisible();
+  const connectingText = await connectingBtn.innerText();
+  expect(connectingText).toMatch(/waiting|signing|connecting/i);
+
+  // Now release the signature and assert successful transition to authenticated state
+  releaseSign();
+  await expect.poll(() => page.evaluate(() => window.nexmarketsV2.state.authenticated)).toBe(true);
+  await expect.poll(() => page.evaluate(() => window.nexmarketsV2.state.connecting)).toBe(false);
+
+  // Assert account button is visible and loading button is gone
+  await expect(page.getByRole('button', { name: 'Account' }).first()).toBeVisible();
+  await expect(page.locator('.nm-connecting')).toHaveCount(0);
+});
+
+
