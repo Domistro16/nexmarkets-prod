@@ -1312,6 +1312,9 @@ function networkOptions() {
   const allowed = state.runtimeConfig?.availableNetworks || Object.keys(networks);
   return allowed.map((key) => ({ key, config: networks[key] })).filter((item) => item.config);
 }
+function availableChainIds() {
+  return networkOptions().map(({ config }) => Number(config.chainId)).filter(Number.isInteger);
+}
 function networkSelectorLabel(config, key) {
   const name = config?.displayName || config?.name || key || 'Network';
   return `${name}${config?.testnetOnly || /testnet|sepolia/i.test(key || '') ? ' Testnet' : ''}`;
@@ -1322,10 +1325,10 @@ async function openNetworkSelector() {
     // the navbar control useful while disconnected by taking the user to the
     // same RainbowKit connect flow first; a second click opens ChainModal.
     if (!state.wallet) {
-      await openConnectModal({ chainId: Number(state.config?.chainId || CHAIN_ID) });
+      await openConnectModal({ chainId: Number(state.config?.chainId || CHAIN_ID), chainIds: availableChainIds() });
       return;
     }
-    await openChainModal();
+    await openChainModal({ chainIds: availableChainIds() });
   } catch (error) {
     showRuntimeBanner(error.message, true);
   }
@@ -2009,6 +2012,9 @@ async function authenticateWallet() {
   // while hydrate is still able to overwrite freshly uploaded draft state.
   await hydrate({ authenticatedOverride: true });
   state.authenticated = true;
+  // hydrate publishes authenticated data while the public session flag is
+  // intentionally still false. Render once more after committing that flag.
+  setAccountLabel(short(identity.address));
   showRuntimeBanner(`Wallet verified on ${activeNetworkName()}`);
   return identity;
 }
@@ -2553,7 +2559,7 @@ function wireWallet() {
         return;
       }
       walletMode = 'rainbow';
-      const opened = await openConnectModal({ chainId: Number(state.config?.chainId || CHAIN_ID) });
+      const opened = await openConnectModal({ chainId: Number(state.config?.chainId || CHAIN_ID), chainIds: availableChainIds() });
       if (!opened?.address) await waitForConnection();
       await authenticateOnce();
     } catch (error) {

@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { Interface } from 'ethers';
 import { NexWallet, encodeCreateEdition, editionCreatedFromReceipt, EDITION_CREATED_TOPIC } from '../apps/web/public/wallet.mjs';
+import { chainsForIds } from '../apps/web/public/chains.mjs';
 import { transactionProgress } from '../apps/web/public/transaction.mjs';
 
 test('wallet connects only to Robinhood and submits through EIP-1193', async () => {
@@ -35,6 +36,10 @@ test('wallet supports Base Sepolia and can add a missing network', async () => {
   assert.equal(identity.chainId, 84532);
   await wallet.switchChain({ chainId: 84532, name: 'Base Sepolia', rpcUrl: 'https://sepolia.base.org', explorer: 'https://sepolia.basescan.org' });
   assert.equal(calls.find((call) => call.method === 'wallet_addEthereumChain').params[0].chainId, '0x14a34');
+});
+
+test('wallet chooser exposes only runtime-configured testnets', () => {
+  assert.deepEqual(chainsForIds([84532, 46630]).map(({ id }) => id), [84532, 46630]);
 });
 
 test('wallet encodes settlement and NFT approval transactions and waits for receipts', async () => {

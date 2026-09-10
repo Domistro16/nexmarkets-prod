@@ -14,7 +14,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createConfig, WagmiProvider, useAccount, useDisconnect, useWalletClient } from 'wagmi';
 import { http } from 'viem';
 import { mainnet as viemMainnet } from 'viem/chains';
-import { robinhoodTestnet, robinhoodMainnet, baseSepolia, baseMainnet, chains } from './chains.mjs';
+import { baseSepolia, baseMainnet, chainsForIds } from './chains.mjs';
 import '@rainbow-me/rainbowkit/styles.css';
 
 const PROJECT_ID = 'c4f79cc821944d9680842e34466bfb00';
@@ -89,8 +89,9 @@ function RainbowBridge({ controls, onAccount, onChain, onProvider }) {
   );
 }
 
-export async function mountRainbowKit({ root, initialChainId = baseSepolia.id, onAccount, onChain, onProvider }) {
-  const initialChain = chains.find((chain) => chain.id === Number(initialChainId)) || baseSepolia;
+export async function mountRainbowKit({ root, initialChainId = baseSepolia.id, allowedChainIds = [], onAccount, onChain, onProvider }) {
+  const selectableChains = chainsForIds(allowedChainIds);
+  const initialChain = selectableChains.find((chain) => chain.id === Number(initialChainId)) || selectableChains[0] || baseSepolia;
   const isBaseNetwork = initialChain.id === baseSepolia.id || initialChain.id === baseMainnet.id;
   const connectors = connectorsForWallets(
     [{ groupName: 'Recommended', wallets: [
@@ -101,15 +102,10 @@ export async function mountRainbowKit({ root, initialChainId = baseSepolia.id, o
     { appName: 'NexMarkets', projectId: PROJECT_ID }
   );
   const wagmiConfig = createConfig({
-    chains,
+    chains: selectableChains,
     connectors,
     ssr: false,
-    transports: {
-      [robinhoodTestnet.id]: http(robinhoodTestnet.rpcUrls.default.http[0]),
-      [robinhoodMainnet.id]: http(robinhoodMainnet.rpcUrls.default.http[0]),
-      [baseSepolia.id]: http(baseSepolia.rpcUrls.default.http[0]),
-      [baseMainnet.id]: http(baseMainnet.rpcUrls.default.http[0])
-    }
+    transports: Object.fromEntries(selectableChains.map((chain) => [chain.id, http(chain.rpcUrls.default.http[0])]))
   });
   const queryClient = new QueryClient();
   const controls = {

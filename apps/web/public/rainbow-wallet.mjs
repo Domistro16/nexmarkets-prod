@@ -54,7 +54,7 @@ function ensureBridgeRoot() {
   return root;
 }
 
-async function initModal({ initialChainId = 84532 } = {}) {
+async function initModal({ initialChainId = 84532, chainIds = [] } = {}) {
   if (modalInstance) return modalInstance;
   if (shouldUseInjectedFallback()) return null;
   if (initPromise) return initPromise;
@@ -67,6 +67,7 @@ async function initModal({ initialChainId = 84532 } = {}) {
       const controls = await mountRainbowKit({
         root,
         initialChainId,
+        allowedChainIds: chainIds,
         onAccount: notifyAccount,
         onChain: notifyChain,
         onProvider: (provider) => { currentProvider = provider; }
@@ -96,8 +97,8 @@ async function connectInjected() {
   return { address, chainId };
 }
 
-export async function openConnectModal({ chainId = 84532 } = {}) {
-  const modal = await initModal({ initialChainId: chainId });
+export async function openConnectModal({ chainId = 84532, chainIds = [] } = {}) {
+  const modal = await initModal({ initialChainId: chainId, chainIds });
   if (modal?.openConnectModal) {
     await modal.openConnectModal();
     return { opened: true };
@@ -116,8 +117,8 @@ export async function openAccountModal() {
   return null;
 }
 
-export async function openChainModal() {
-  const modal = await initModal();
+export async function openChainModal({ chainIds = [] } = {}) {
+  const modal = await initModal({ chainIds });
   if (modal?.openChainModal) return modal.openChainModal();
   return null;
 }

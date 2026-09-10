@@ -55,3 +55,10 @@ export const baseMainnet = Object.freeze({
 });
 
 export const chains = [robinhoodTestnet, robinhoodMainnet, baseSepolia, baseMainnet];
+
+export function chainsForIds(chainIds = []) {
+  const requested = [...new Set(chainIds.map(Number).filter(Number.isInteger))];
+  if (!requested.length) return chains;
+  const byId = new Map(chains.map((chain) => [chain.id, chain]));
+  return requested.map((chainId) => byId.get(chainId)).filter(Boolean);
+}

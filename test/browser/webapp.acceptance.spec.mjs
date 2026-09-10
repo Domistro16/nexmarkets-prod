@@ -218,6 +218,9 @@ test('wallet challenge/session works without submitting a chain transaction', as
   await goto(page, '/dashboard/holder');
   await page.getByRole('button', { name: 'Connect wallet' }).first().click();
   await expect(page.locator('#dashboard')).toContainText('0 Passes');
+  await expect(page.getByRole('button', { name: 'Account' }).first()).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Log in / Connect' })).toHaveCount(0);
+  await expect.poll(() => page.evaluate(() => window.nmJourneyState?.signedIn)).toBe(true);
   await expect(page.locator('.account-label').first()).toContainText('0x');
   expect(mutations.filter((path) => !['/v1/auth/challenge', '/v1/auth/verify'].includes(path))).toEqual([]);
   const providerMethods = await page.evaluate(() => window.__nexmarketsProviderMethods);
