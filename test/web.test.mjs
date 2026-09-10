@@ -5,6 +5,7 @@ import { Interface } from 'ethers';
 import { NexWallet, encodeCreateEdition, editionCreatedFromReceipt, EDITION_CREATED_TOPIC } from '../apps/web/public/wallet.mjs';
 import { chainsForIds } from '../apps/web/public/chains.mjs';
 import { transactionProgress } from '../apps/web/public/transaction.mjs';
+import { disconnectAllConnectors } from '../apps/web/public/wallet-disconnect.mjs';
 
 test('wallet connects only to Robinhood and submits through EIP-1193', async () => {
   const calls = [];
@@ -40,6 +41,18 @@ test('wallet supports Base Sepolia and can add a missing network', async () => {
 
 test('wallet chooser exposes only runtime-configured testnets', () => {
   assert.deepEqual(chainsForIds([84532, 46630]).map(({ id }) => id), [84532, 46630]);
+});
+
+test('RainbowKit sign out disconnects every retained Wagmi connector', async () => {
+  const first = { uid: 'first', id: 'injected' };
+  const second = { uid: 'second', id: 'walletConnect' };
+  const calls = [];
+  await disconnectAllConnectors({
+    activeConnector: second,
+    connectors: [first, second, first],
+    disconnectAsync: async ({ connector }) => { calls.push(connector.uid); }
+  });
+  assert.deepEqual(calls, ['second', 'first']);
 });
 
 test('wallet encodes settlement and NFT approval transactions and waits for receipts', async () => {

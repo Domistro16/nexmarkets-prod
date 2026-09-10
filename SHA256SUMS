@@ -31,10 +31,11 @@ d36cf8f8afde3c1f8898f82bc02ed53134dd2113bd6fcd56f2a17bcc2307119e  ./apps/api/pub
 bfad2c01d3fd6963237a4b2eae113a2a24d561f0a97f3d2c49cd89abfa5dd6e7  ./apps/api/public/nm-v2-data-bridge.js
 454986b97b2eef107dd36249958886cf4fab84655694cc8ebbca4c3df15a6e9f  ./apps/api/public/rainbow-wallet.mjs
 96b168806577143b6d3dbad4a2e739d8835e41437b2df88d1a6213c4ada14bdf  ./apps/api/public/rainbowkit-bridge.css
-ce52a2fde32ebab465d7a7dd20a3f2097ce41c1c88ffa95647404027cdd8d056  ./apps/api/public/rainbowkit-bridge.mjs
+2908c6a47b486342f64f71d1e5262ca61ecb2145e7c1bb87da9f4ac5edd484a9  ./apps/api/public/rainbowkit-bridge.mjs
 cc0e87a6cfdd7679a1a2113d75288db8cffb9335c6e0b7d522de74fb5d3a12a7  ./apps/api/public/styles.css
 8a561c290fccd6d13b6c95e92db64aa7bf8567378afbcbc76b5735d640d6d97a  ./apps/api/public/transaction.mjs
-390eb20853bc4564428986ffca92de0cedbe06832e7c29520cc80f51acce0b7d  ./apps/api/public/v2-app.mjs
+4af088c7fd56e6bc86136f8dd108965b3c1727bf937d0575e3f3a96e1536d503  ./apps/api/public/v2-app.mjs
+0d94e69eb9c8f0791670e5c6bf36aec546f1d0f49b926e6e48a71cbc1e8b6a55  ./apps/api/public/wallet-disconnect.mjs
 797fe26b47b289fbbeb8fa78dae489e398b4e0299dc1f80193f05c63123904c6  ./apps/api/public/wallet.mjs
 83801d1546f4802277969c7403826858d2f70e61ce0077a0e9ac88050bc46eaf  ./apps/api/scripts/build-web.mjs
 e84b0831f39f6ff2a1f1fdbf47b2792df01f4e6d6bf3594774863b751b05211a  ./apps/api/src/memory-store.mjs
@@ -55,10 +56,11 @@ d36cf8f8afde3c1f8898f82bc02ed53134dd2113bd6fcd56f2a17bcc2307119e  ./apps/web/pub
 09069a7008e9065baa2bebbd77b69cd057e52ee2e3cc4d36f9da93d4715ad9a4  ./apps/web/public/index.html
 bfad2c01d3fd6963237a4b2eae113a2a24d561f0a97f3d2c49cd89abfa5dd6e7  ./apps/web/public/nm-v2-data-bridge.js
 454986b97b2eef107dd36249958886cf4fab84655694cc8ebbca4c3df15a6e9f  ./apps/web/public/rainbow-wallet.mjs
-9faf48770808ba92c829b7d798fa0fa52551b45b43a92a935b8a429f3e6a19c1  ./apps/web/public/rainbowkit-bridge.mjs
+9a7b9f0a2cc6aa51596d7d90ae2d77733b48a19ef0594f9ea9881ca7a0582afe  ./apps/web/public/rainbowkit-bridge.mjs
 cc0e87a6cfdd7679a1a2113d75288db8cffb9335c6e0b7d522de74fb5d3a12a7  ./apps/web/public/styles.css
 8a561c290fccd6d13b6c95e92db64aa7bf8567378afbcbc76b5735d640d6d97a  ./apps/web/public/transaction.mjs
-390eb20853bc4564428986ffca92de0cedbe06832e7c29520cc80f51acce0b7d  ./apps/web/public/v2-app.mjs
+4af088c7fd56e6bc86136f8dd108965b3c1727bf937d0575e3f3a96e1536d503  ./apps/web/public/v2-app.mjs
+0d94e69eb9c8f0791670e5c6bf36aec546f1d0f49b926e6e48a71cbc1e8b6a55  ./apps/web/public/wallet-disconnect.mjs
 797fe26b47b289fbbeb8fa78dae489e398b4e0299dc1f80193f05c63123904c6  ./apps/web/public/wallet.mjs
 83801d1546f4802277969c7403826858d2f70e61ce0077a0e9ac88050bc46eaf  ./apps/web/scripts/build-web.mjs
 a1a162cbaea0b6d3f6bb89920e5800aae9a6400ff184bd21f736f0d3ca9ff82f  ./apps/web/vercel.json
@@ -373,10 +375,11 @@ d36cf8f8afde3c1f8898f82bc02ed53134dd2113bd6fcd56f2a17bcc2307119e  ./public/confi
 bfad2c01d3fd6963237a4b2eae113a2a24d561f0a97f3d2c49cd89abfa5dd6e7  ./public/nm-v2-data-bridge.js
 454986b97b2eef107dd36249958886cf4fab84655694cc8ebbca4c3df15a6e9f  ./public/rainbow-wallet.mjs
 96b168806577143b6d3dbad4a2e739d8835e41437b2df88d1a6213c4ada14bdf  ./public/rainbowkit-bridge.css
-ce52a2fde32ebab465d7a7dd20a3f2097ce41c1c88ffa95647404027cdd8d056  ./public/rainbowkit-bridge.mjs
+2908c6a47b486342f64f71d1e5262ca61ecb2145e7c1bb87da9f4ac5edd484a9  ./public/rainbowkit-bridge.mjs
 cc0e87a6cfdd7679a1a2113d75288db8cffb9335c6e0b7d522de74fb5d3a12a7  ./public/styles.css
 8a561c290fccd6d13b6c95e92db64aa7bf8567378afbcbc76b5735d640d6d97a  ./public/transaction.mjs
-390eb20853bc4564428986ffca92de0cedbe06832e7c29520cc80f51acce0b7d  ./public/v2-app.mjs
+4af088c7fd56e6bc86136f8dd108965b3c1727bf937d0575e3f3a96e1536d503  ./public/v2-app.mjs
+0d94e69eb9c8f0791670e5c6bf36aec546f1d0f49b926e6e48a71cbc1e8b6a55  ./public/wallet-disconnect.mjs
 797fe26b47b289fbbeb8fa78dae489e398b4e0299dc1f80193f05c63123904c6  ./public/wallet.mjs
 33c0b0e9c3502e67e32f1b263969877e9e532dec2cb773c4622f741847c6e184  ./scripts/audit-accessibility.mjs
 0a3d171c82f086bbd31b67d1ac64e4e62c4fbc884f32090c31ce1901e6a88317  ./scripts/audit-security-negative.mjs
@@ -479,7 +482,7 @@ fb20cb208aafda8433014a8569520322ce074c206ef46d485c33dab3d6e554df  ./test/api-soc
 11327f902156ec6e373f31f4b6d029ed25bdc864ec744178d548b8a60112c3b6  ./test/auth.test.mjs
 0540cf491cb4cf15e97d5bd47b1bf4315a4a6d5eeaa7b4729a4a76f1a5507bf4  ./test/authority-convergence.test.mjs
 6ffae18be2fa78b345a9ae0d1bc24c56465fd9075a9eeae098aedbb5bcfcf5f5  ./test/browser-local.integration.test.mjs
-3bdbc9f2c1a0f7462a0c9264250f2d3a1dff01c9e4c824a42a1c0a2019dd3574  ./test/browser/webapp.acceptance.spec.mjs
+3a277c50ac657ef7a768088c9e1e3a0ee896e0e35fd01b7779b2f9e00cc17382  ./test/browser/webapp.acceptance.spec.mjs
 c37e87075ed4ddac4ca8ba6e56e362e861bde554ce61ba3b353f36845496e0b9  ./test/chain-worker-integration.test.mjs
 7a7d70da696cf8153ce3c78db2125dcb6e19aa51256b31ca7978f7c33674f524  ./test/config.test.mjs
 76568ee8a72baa8bb8942d49534b8997d6e775a8cf426123d1875d15f52f9abd  ./test/deployment-source.test.mjs
@@ -511,5 +514,5 @@ eca56464653fa1da5e38939a81ae1b2583301a9f089c880051a4009824ce1c21  ./test/transac
 2b1ea408827bda81647c95b793a3c19da322ea414f106cfdad62c94fbcf7f0aa  ./test/transaction-lifecycle.test.mjs
 45442b72212e7eb5879b5b90dd79f3a4c8045d27b05e0b42e5585a4cce4b8c53  ./test/vercel-routing.test.mjs
 d6e2c113bfe142ea595129378f5ec5da7ff2b36b4a6daec25c8d560394de2294  ./test/web-e2e.test.mjs
-1e5113259f7c2f5f0414ef622af9b172bd3ff02e0d2c023c71b0ace696133b55  ./test/web.test.mjs
+b46dc16761cb20754619171095a000acf2e622d98ed15d051402f800eabec02f  ./test/web.test.mjs
 36a133494958a79811cb1d78f000fbb966a3ce3f2e955ea2f823ebe95af7b75b  ./vercel.json

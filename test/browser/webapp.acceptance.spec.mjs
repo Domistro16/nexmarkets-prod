@@ -773,3 +773,52 @@ test('switching wallet cleanly disconnects and opens wallet modal', async ({ pag
   await expect.poll(() => page.evaluate(() => window.nexmarketsV2.state.wallet)).toBe(null);
   await expect(page.getByRole('button', { name: 'Log in / Connect' }).first()).toBeVisible();
 });
+
+test('dashboard displays connected wallet address and account data instead of dummy address', async ({ page }) => {
+  const signer = Wallet.createRandom();
+  await installFixtureApi(page);
+  await page.exposeFunction('__nexmarketsSignPersonalMessage', (message) => signer.signMessage(getBytes(message)));
+  await page.addInitScript(({ address }) => {
+    window.ethereum = { request: async ({ method, params }) => {
+      if (method === 'eth_requestAccounts') return [address];
+      if (method === 'eth_chainId') return '0x14a34';
+      if (method === 'personal_sign') return window.__nexmarketsSignPersonalMessage(params[0]);
+      return '0x0';
+    } };
+  }, { address: signer.address });
+
+  await goto(page, '/dashboard/holder');
+  await page.getByRole('button', { name: 'Connect wallet' }).first().click();
+  await expect.poll(() => page.evaluate(() => window.nexmarketsV2.state.authenticated)).toBe(true);
+
+  // Assert dashboard header reflects connected signer address, not dummy 0x21B…7A19 or CM avatar
+  const expectedShort = `${signer.address.slice(0, 6)}…${signer.address.slice(-4)}`;
+  const expectedAvatar = signer.address.slice(2, 4).toUpperCase();
+
+  await expect.poll(() => page.evaluate(() => {
+    const walletEl = document.querySelector('#dashboard .p10-wallet b') || document.querySelector('#dashboard .dash-person b');
+    return walletEl?.textContent?.trim();
+  })).toBe(expectedShort);
+
+  await expect.poll(() => page.evaluate(() => {
+    const avatarEl = document.querySelector('#dashboard .p10-avatar') || document.querySelector('#dashboard .dash-person .avatar');
+    return avatarEl?.textContent?.trim();
+  })).toBe(expectedAvatar);
+
+  const dashText = await page.locator('#dashboard').innerText();
+  expect(dashText).not.toContain('0x21B…7A19');
+
+  // Navigate to settings tab and verify settings displays the connected address
+  await page.evaluate(() => window.dashGo('settings'));
+  await page.waitForTimeout(100);
+
+  await expect.poll(() => page.evaluate(() => {
+    const walletEl = document.querySelector('#dashboard .p10-wallet b');
+    return walletEl?.textContent?.trim();
+  })).toBe(expectedShort);
+
+  const settingsText = await page.locator('#dash-settings').innerText();
+  expect(settingsText).toContain(expectedShort);
+  expect(settingsText).not.toContain('0x21B…7A19');
+});
+

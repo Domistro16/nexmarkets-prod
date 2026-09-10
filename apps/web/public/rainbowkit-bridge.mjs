@@ -15,6 +15,7 @@ import { createConfig, WagmiProvider, useAccount, useDisconnect, useWalletClient
 import { http } from 'viem';
 import { mainnet as viemMainnet } from 'viem/chains';
 import { baseSepolia, baseMainnet, chainsForIds } from './chains.mjs';
+import { disconnectAllConnectors } from './wallet-disconnect.mjs';
 import '@rainbow-me/rainbowkit/styles.css';
 
 const PROJECT_ID = 'c4f79cc821944d9680842e34466bfb00';
@@ -59,6 +60,11 @@ function RainbowBridge({ controls, onAccount, onChain, onProvider }) {
     // connection waiter from resolving.
     onChain(connected ? account.chainId : null);
     onAccount(connected ? account.address : null);
+    if (!connected) {
+      controls.provider = null;
+      onProvider(null);
+      return () => { active = false; };
+    }
     connectorProvider(account.connector, walletClient.data).then((provider) => {
       if (!active) return;
       if (provider) {
@@ -73,19 +79,16 @@ function RainbowBridge({ controls, onAccount, onChain, onProvider }) {
     controls.openConnectModal = connectModal.openConnectModal || null;
     controls.openAccountModal = accountModal.openAccountModal || null;
     controls.openChainModal = chainModal.openChainModal || null;
-    controls.disconnect = async () => {
-      try {
-        if (disconnect.disconnectAsync) await disconnect.disconnectAsync();
-        else if (disconnect.disconnect) disconnect.disconnect();
-      } catch (e) {
-        console.warn('Wagmi disconnect error:', e);
-      }
-    };
+    controls.disconnect = () => disconnectAllConnectors({
+      connectors: disconnect.connectors,
+      activeConnector: account.connector,
+      disconnectAsync: disconnect.disconnectAsync
+    });
     // RainbowKit initially renders while wagmi is resolving its connection
     // status. Do not let the adapter fall through to the injected-wallet
     // error path until the actual modal control is available.
     controls.ready = Boolean(connectModal.openConnectModal || accountModal.openAccountModal);
-  }, [connectModal.openConnectModal, accountModal.openAccountModal, chainModal.openChainModal, disconnect.disconnect, controls]);
+  }, [connectModal.openConnectModal, accountModal.openAccountModal, chainModal.openChainModal, disconnect.connectors, disconnect.disconnectAsync, account.connector, controls]);
 
   // RainbowKit owns the modal UI. The product keeps its existing visual
   // account chip; this inert instance supplies RainbowKit's modal host.

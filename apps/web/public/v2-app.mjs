@@ -1034,6 +1034,8 @@ function installSocialRuntime() {
       const result = dashboardRender.apply(this, args);
       restoreBuilderProfileDraft(draft);
       if (draft) requestAnimationFrame(() => restoreBuilderProfileDraft(draft));
+      syncDashboardAccount();
+      requestAnimationFrame(syncDashboardAccount);
       return result;
     };
     preservingDashboardRender.__nmBuilderProfileDraftPreserving = true;
@@ -1163,20 +1165,93 @@ function setAccountLabel(value) {
     chip.setAttribute('role', 'button'); chip.setAttribute('tabindex', '0');
     chip.setAttribute('aria-label', isConnected ? `Connected wallet ${displayLabel}` : 'Connect wallet');
   });
-  document.querySelectorAll('#dashboard .dash-person b, #dashboard .p10-wallet b').forEach((element) => { element.textContent = displayLabel; });
-  document.querySelectorAll('#dashboard .dash-person .avatar, #dashboard .p10-avatar').forEach((element) => {
-    element.textContent = isConnected ? state.wallet.slice(2, 4).toUpperCase() : '--';
+  syncDashboardAccount();
+}
+
+let dashboardObserver = null;
+function ensureDashboardObserver() {
+  if (dashboardObserver || typeof document === 'undefined') return;
+  const dash = document.getElementById('dashboard');
+  if (!dash) return;
+  dashboardObserver = new MutationObserver(() => {
+    syncDashboardAccount();
   });
-  document.querySelectorAll('#dashboard .p10-connected span').forEach((element) => { element.textContent = isConnected ? 'Wallet connected' : 'Connect wallet'; });
-  document.querySelectorAll('#dashboard .p10-connected').forEach((element) => {
-    element.dataset.connected = isConnected ? 'true' : 'false';
-    element.setAttribute('role', 'button');
-    element.setAttribute('tabindex', '0');
-    element.setAttribute('aria-label', isConnected ? 'Wallet connected' : 'Connect wallet');
+  dashboardObserver.observe(dash, { childList: true, subtree: true });
+}
+
+function syncDashboardAccount() {
+  ensureDashboardObserver();
+  const isConnecting = Boolean(state.connecting);
+  const isConnected = Boolean(state.wallet);
+  const shortAddr = isConnected ? short(state.wallet) : (isConnecting ? 'Connecting...' : 'Connect wallet');
+  const avatarText = isConnected ? state.wallet.slice(2, 4).toUpperCase() : (isConnecting ? '..' : '--');
+  const passCount = state.templateData?.ownedPasses?.length || 0;
+  const launchCount = state.templateData?.dashboardState?.launches?.length || 0;
+
+  // 1. Dashboard workspace wallet text and legacy dash-person
+  document.querySelectorAll('#dashboard .dash-person b, #dashboard .p10-wallet b').forEach((el) => {
+    const desired = isConnected ? shortAddr : (isConnecting ? 'Connecting...' : 'Connect wallet');
+    if (el.textContent !== desired) el.textContent = desired;
+    if (isConnected) el.title = state.wallet;
+    else el.removeAttribute('title');
   });
-  document.querySelectorAll('#dashboard #dashAccountMeta').forEach((element) => {
-    if (!isConnected) element.textContent = `${state.templateData?.ownedPasses?.length || 0} Passes`;
+
+  // 2. Dashboard avatar
+  document.querySelectorAll('#dashboard .dash-person .avatar, #dashboard .p10-avatar').forEach((el) => {
+    const desired = isConnected ? avatarText : (isConnecting ? '..' : '--');
+    if (el.textContent !== desired) el.textContent = desired;
+    if (isConnected) el.title = state.wallet;
+    else el.removeAttribute('title');
   });
+
+  // 3. Connected button in dashboard header
+  document.querySelectorAll('#dashboard .p10-connected').forEach((el) => {
+    const desiredConnected = isConnected ? 'true' : 'false';
+    if (el.dataset.connected !== desiredConnected) el.dataset.connected = desiredConnected;
+    el.setAttribute('role', 'button');
+    el.setAttribute('tabindex', '0');
+    const span = el.querySelector('span');
+    const dot = el.querySelector('i');
+    let desiredText = 'Connect wallet';
+    if (isConnecting) desiredText = 'Connecting...';
+    else if (isConnected) desiredText = state.authenticated ? 'Wallet connected' : 'Sign in with wallet';
+    if (span && span.textContent !== desiredText) span.textContent = desiredText;
+    if (dot) {
+      dot.style.background = isConnecting ? '#ffb000' : (isConnected ? (state.authenticated ? '#74b27d' : '#ffb000') : '#6f766d');
+      dot.style.boxShadow = isConnecting ? '0 0 0 4px rgba(255,176,0,.18)' : (isConnected ? (state.authenticated ? '0 0 0 4px rgba(116,178,125,.18)' : '0 0 0 4px rgba(255,176,0,.18)') : 'none');
+    }
+    el.setAttribute('aria-label', desiredText);
+  });
+
+  // 4. Meta line (Passes / Debuts)
+  document.querySelectorAll('#dashboard #dashAccountMeta').forEach((el) => {
+    if (!isConnected) {
+      if (el.textContent !== '0 Passes') el.textContent = '0 Passes';
+    } else {
+      const desired = `${passCount} Pass${passCount === 1 ? '' : 'es'}${launchCount ? ` · ${launchCount} Debut${launchCount === 1 ? '' : 's'}` : ''}`;
+      if (el.textContent !== desired) el.textContent = desired;
+    }
+  });
+
+  // 5. Settings tab rows
+  document.querySelectorAll('#dash-settings .nm-set-row').forEach((row) => {
+    const span = row.querySelector('span');
+    const b = row.querySelector('b');
+    if (!span || !b) return;
+    if (span.textContent.includes('Connected wallet for this account')) {
+      const desired = isConnected ? shortAddr : 'Not connected';
+      if (b.textContent !== desired) b.textContent = desired;
+    } else if (span.textContent.includes('Sign out returns you to the public site')) {
+      const desired = isConnected ? `Signed in as ${shortAddr}` : 'Not signed in';
+      if (b.textContent !== desired) b.textContent = desired;
+    }
+  });
+
+  // 6. Global template wallet variables
+  if (typeof window !== 'undefined') {
+    window.nmWalletShort = isConnected ? shortAddr : 'Connect wallet';
+    window.CURRENT_WALLET = isConnected ? shortAddr : '0x21B…7A19';
+  }
 }
 function publishTemplateData(data) {
   state.templateData = data;
@@ -3521,7 +3596,12 @@ function installHistoryRouting() {
       const current = `${window.location.pathname}${window.location.search}`;
       if (current !== nextPath) window.history.pushState({ nexmarketsRoute: route }, '', nextPath);
     }
-    return originalGo.call(this, route);
+    const result = originalGo.call(this, route);
+    if (route === 'dashboard') {
+      syncDashboardAccount();
+      requestAnimationFrame(syncDashboardAccount);
+    }
+    return result;
   };
   wrappedGo.__nmHistoryWrapped = true;
   wrappedGo.__nmOriginalGo = originalGo;
@@ -3533,7 +3613,10 @@ function installHistoryRouting() {
       const nextPath = `/dashboard/${encodeURIComponent(normalized)}`;
       const current = `${window.location.pathname}${window.location.search}`;
       if (current !== nextPath) window.history.pushState({ nexmarketsRoute: 'dashboard', tab: normalized }, '', nextPath);
-      return originalDashGo.call(this, tab);
+      const result = originalDashGo.call(this, tab);
+      syncDashboardAccount();
+      requestAnimationFrame(syncDashboardAccount);
+      return result;
     };
     wrappedDashGo.__nmHistoryWrapped = true;
     wrappedDashGo.__nmOriginalGo = originalDashGo;
