@@ -1194,7 +1194,7 @@ async function openNetworkSelector() {
     // the navbar control useful while disconnected by taking the user to the
     // same RainbowKit connect flow first; a second click opens ChainModal.
     if (!state.wallet) {
-      await openConnectModal();
+      await openConnectModal({ chainId: Number(state.config?.chainId || CHAIN_ID) });
       return;
     }
     await openChainModal();
@@ -2418,7 +2418,7 @@ function selectedAdvantage(id, passKey = null) {
 function wireWallet() {
   const connectFromButton = async () => {
     try {
-      const opened = await openConnectModal();
+      const opened = await openConnectModal({ chainId: Number(state.config?.chainId || CHAIN_ID) });
       if (!opened?.address) await waitForConnection();
       await authenticateOnce();
     } catch (error) {

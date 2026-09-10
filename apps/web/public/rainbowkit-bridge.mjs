@@ -9,7 +9,7 @@ import {
   useChainModal,
   useConnectModal
 } from '@rainbow-me/rainbowkit';
-import { injectedWallet, walletConnectWallet } from '@rainbow-me/rainbowkit/wallets';
+import { base, injectedWallet, walletConnectWallet } from '@rainbow-me/rainbowkit/wallets';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createConfig, WagmiProvider, useAccount, useDisconnect, useWalletClient } from 'wagmi';
 import { http } from 'viem';
@@ -53,14 +53,18 @@ function RainbowBridge({ controls, onAccount, onChain, onProvider }) {
 
   React.useEffect(() => {
     let active = true;
+    const connected = Boolean(account.isConnected && account.address);
+    // Publish wagmi's account state immediately. Provider discovery can be
+    // asynchronous for WalletConnect/Base Account and must not block the
+    // connection waiter from resolving.
+    onChain(connected ? account.chainId : null);
+    onAccount(connected ? account.address : null);
     connectorProvider(account.connector, walletClient.data).then((provider) => {
       if (!active) return;
       if (provider) {
         controls.provider = provider;
         onProvider(provider);
       }
-      onAccount(account.isConnected ? account.address : null);
-      onChain(account.isConnected ? account.chainId : null);
     });
     return () => { active = false; };
   }, [account.connector, account.address, account.chainId, account.isConnected, walletClient.data, controls, onAccount, onChain, onProvider]);
@@ -73,11 +77,7 @@ function RainbowBridge({ controls, onAccount, onChain, onProvider }) {
     // RainbowKit initially renders while wagmi is resolving its connection
     // status. Do not let the adapter fall through to the injected-wallet
     // error path until the actual modal control is available.
-    controls.ready = Boolean(
-      connectModal.openConnectModal
-      || accountModal.openAccountModal
-      || chainModal.openChainModal
-    );
+    controls.ready = Boolean(connectModal.openConnectModal || accountModal.openAccountModal);
   }, [connectModal.openConnectModal, accountModal.openAccountModal, chainModal.openChainModal, disconnect.disconnect, controls]);
 
   // RainbowKit owns the modal UI. The product keeps its existing visual
@@ -89,9 +89,15 @@ function RainbowBridge({ controls, onAccount, onChain, onProvider }) {
   );
 }
 
-export async function mountRainbowKit({ root, onAccount, onChain, onProvider }) {
+export async function mountRainbowKit({ root, initialChainId = baseSepolia.id, onAccount, onChain, onProvider }) {
+  const initialChain = chains.find((chain) => chain.id === Number(initialChainId)) || baseSepolia;
+  const isBaseNetwork = initialChain.id === baseSepolia.id || initialChain.id === baseMainnet.id;
   const connectors = connectorsForWallets(
-    [{ groupName: 'Recommended', wallets: [injectedWallet, walletConnectWallet] }],
+    [{ groupName: 'Recommended', wallets: [
+      ...(isBaseNetwork ? [base] : []),
+      injectedWallet,
+      walletConnectWallet
+    ] }],
     { appName: 'NexMarkets', projectId: PROJECT_ID }
   );
   const wagmiConfig = createConfig({
@@ -122,7 +128,7 @@ export async function mountRainbowKit({ root, onAccount, onChain, onProvider }) 
       { client: queryClient },
       React.createElement(
       RainbowKitProvider,
-        { theme: NEXMARKETS_THEME, initialChain: robinhoodTestnet },
+        { theme: NEXMARKETS_THEME, initialChain },
         React.createElement(RainbowBridge, { controls, onAccount, onChain, onProvider })
       )
     )
