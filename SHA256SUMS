@@ -12,13 +12,13 @@ aa00ec1159235cd75270b679c56333e2cea22d924224e34a3294497b1748cc36  ./.github/work
 684346d2751a34d0ace24dd8dab529290285fdff27c365eb4957b9dd4bc215f5  ./api-src/_server.js
 45f7a4e0935ea215bcdb40a88df9f83cd2561b6f898613430e796c1be45b8cbc  ./api-src/healthz.js
 5694f3e3cb0c0c01b244795ee18ab4374bfbee2a8d30231c4992dfc7f885a298  ./api-src/readyz.js
-c3a1bf7873204f0492f25216eb95661a19abebefa26deed3ce4a5da6376fa31f  ./api-src/v1/[...slug].js
+a2e89747a0d4382da28531577db9a03fe5e3cddf13a9f50fc38b22c333f3a41f  ./api-src/v1.js
 4e93483cd5d6c29f77fdbc4760eb4da2ecbedb435f21f9275d4f5331ec2b3f04  ./api/healthz.js
 c31a889f1b264a488910d2bb2f2828e64c9b45c89e6908f82e606e9a862ed592  ./api/readyz.js
-4a4661c567729dcae30c81a10a73db9df946cbd753561a72b484c23fe0fe2701  ./api/v1/[...slug].js
+0f8cca6b6421695a7147a299a4bf44afa9d9cb185cb3240771a59e975d889611  ./api/v1.js
 4e93483cd5d6c29f77fdbc4760eb4da2ecbedb435f21f9275d4f5331ec2b3f04  ./apps/api/api/healthz.js
 c31a889f1b264a488910d2bb2f2828e64c9b45c89e6908f82e606e9a862ed592  ./apps/api/api/readyz.js
-4a4661c567729dcae30c81a10a73db9df946cbd753561a72b484c23fe0fe2701  ./apps/api/api/v1/[...slug].js
+0f8cca6b6421695a7147a299a4bf44afa9d9cb185cb3240771a59e975d889611  ./apps/api/api/v1.js
 eb24e39e67d7217ddec98ad1126fa5d02cfa654b70b201689561c54018f2493e  ./apps/api/package.json
 f1d35093ad867b84d21f56c9ca27d1fcea219a60ea15993fb00783a9436e6ff0  ./apps/api/public/app.mjs
 741a74dca34229a1ec8eb21bbda1472df992415a37086a7bc5cfb00bdad990d0  ./apps/api/public/cdp-auth-bridge.css
@@ -44,7 +44,7 @@ b2ebf95f7920d4ed9473f02ed49b3fce9c66630695af2e321ebf3181e618cad9  ./apps/api/ver
 fd539fe4c5f6acecaf1c0379d7ca8e43ff9e62e9174a2232ed87c5d4fd93f6f0  ./apps/web/README.md
 4e93483cd5d6c29f77fdbc4760eb4da2ecbedb435f21f9275d4f5331ec2b3f04  ./apps/web/api/healthz.js
 c31a889f1b264a488910d2bb2f2828e64c9b45c89e6908f82e606e9a862ed592  ./apps/web/api/readyz.js
-4a4661c567729dcae30c81a10a73db9df946cbd753561a72b484c23fe0fe2701  ./apps/web/api/v1/[...slug].js
+0f8cca6b6421695a7147a299a4bf44afa9d9cb185cb3240771a59e975d889611  ./apps/web/api/v1.js
 54acdeaf075736132995e302dd774a718f8167751fea27f08ad2cd424ea3993d  ./apps/web/package.json
 f1d35093ad867b84d21f56c9ca27d1fcea219a60ea15993fb00783a9436e6ff0  ./apps/web/public/app.mjs
 5ae3a33aaea757edcf67d95341c722f97f46945c9e33d72b3227a162a52355b8  ./apps/web/public/cdp-auth-bridge.mjs
@@ -61,7 +61,7 @@ cc0e87a6cfdd7679a1a2113d75288db8cffb9335c6e0b7d522de74fb5d3a12a7  ./apps/web/pub
 5cf2b7180e4a7c8f7ca6ee5c3a8b74e68912659bcbb07a4c83920971d1c321e6  ./apps/web/public/v2-app.mjs
 797fe26b47b289fbbeb8fa78dae489e398b4e0299dc1f80193f05c63123904c6  ./apps/web/public/wallet.mjs
 83801d1546f4802277969c7403826858d2f70e61ce0077a0e9ac88050bc46eaf  ./apps/web/scripts/build-web.mjs
-2eb04a6cd13a96ec2b76b659b15f15a52af430ff7c8e6f91706a6c52dbcb2704  ./apps/web/vercel.json
+a1a162cbaea0b6d3f6bb89920e5800aae9a6400ff184bd21f736f0d3ca9ff82f  ./apps/web/vercel.json
 55032cb5e1da28cbef359d506e9af505def0ee6170732595b71affb4dd13c740  ./artifacts/deployment-plan/robinhood-mainnet.deploy.safe.json
 e77eee28af3b4556b6309574251f2063f5469c45bb8a9d946c94ab2c824c96ff  ./artifacts/deployment-plan/robinhood-mainnet.json
 c851e50f2301f921858da6f1ef8b1c47fc9b921af209149c02eec97ab0e84185  ./artifacts/deployment-plan/robinhood-mainnet.wire.safe.json
@@ -360,7 +360,7 @@ cc0e87a6cfdd7679a1a2113d75288db8cffb9335c6e0b7d522de74fb5d3a12a7  ./public/style
 33c0b0e9c3502e67e32f1b263969877e9e532dec2cb773c4622f741847c6e184  ./scripts/audit-accessibility.mjs
 0a3d171c82f086bbd31b67d1ac64e4e62c4fbc884f32090c31ce1901e6a88317  ./scripts/audit-security-negative.mjs
 0c3b7d92e9bee282bad4dccc38c27470452a740008a3537cf2694a86cb1c4595  ./scripts/build-v1-safe-bundles.mjs
-d7279eb72a70267b4b48afdc65dd8ffe00906e9d24665f4872404eaf3718dbd5  ./scripts/build-web.mjs
+059754c20c79af2ad311d148e31ff33be5d027561cf3d930e9331fd5f3b70469  ./scripts/build-web.mjs
 199bfdd07f06081ee78a4c05c1ebb35f2e62769763c0c8111dc844e3672c003c  ./scripts/cleanup-final-live-duplicate-project.mjs
 e23f43694f55b1c36c939d505984011dc555641fae6e1cb1a42afc37d0c081fb  ./scripts/cleanup-legacy-turbo-data.mjs
 3763ea5602436e5941a234fe7ea425b494146df484eca25bc7d53dbd2db9a2ec  ./scripts/configure-r2-cors.mjs
@@ -485,6 +485,7 @@ f41e2b34bdc2b9ad94908ee418a1b32a56e54fd9c5084e6bfa801f03d4198aff  ./test/schema.
 45b5877bbb27dc6bfecc638787b4ba48de1891667a3a2e4b8f6141fc01a8df21  ./test/subgraph-manifest.test.mjs
 f3ab49089c06036bca30b050ae794797b311cee8587bc1cf66bbfba30eca6f4c  ./test/transaction-calldata.test.mjs
 2b1ea408827bda81647c95b793a3c19da322ea414f106cfdad62c94fbcf7f0aa  ./test/transaction-lifecycle.test.mjs
+c11301c6f122945ab10740707f24d600d4190bf022fb73070e938f9c5dece166  ./test/vercel-routing.test.mjs
 20a065137430472ba923dd8b44c2b6cb2d6a9dca04eacd71517a369a7785794b  ./test/web-e2e.test.mjs
 1e5113259f7c2f5f0414ef622af9b172bd3ff02e0d2c023c71b0ace696133b55  ./test/web.test.mjs
-cfbaff6bc10e126ae8dc4c348bdc507f6b5dbc48fe0d02c7b576282eef863d51  ./vercel.json
+36a133494958a79811cb1d78f000fbb966a3ce3f2e955ea2f823ebe95af7b75b  ./vercel.json

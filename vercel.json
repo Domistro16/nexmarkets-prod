@@ -13,7 +13,7 @@
     { "source": "/", "destination": "/index.html" },
     { "source": "/healthz", "destination": "/api/healthz" },
     { "source": "/readyz", "destination": "/api/readyz" },
-    { "source": "/v1/:match*", "destination": "/api/v1/:match*" },
+    { "source": "/v1/:match*", "destination": "/api/v1?path=:match*" },
     {
       "source": "/((?!api/|v1/|healthz|readyz|.*\\..*).*)",
       "destination": "/index.html"

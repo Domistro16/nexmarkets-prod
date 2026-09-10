@@ -64,6 +64,7 @@ for (const output of outputs) {
 }
 
 const apiDir = new URL('./api/', root);
+await rm(apiDir, { recursive: true, force: true });
 await mkdir(apiDir, { recursive: true });
 
 try {
@@ -72,7 +73,7 @@ try {
     entryPoints: [
       { in: join(rootPath, 'api-src', 'healthz.js'), out: 'healthz' },
       { in: join(rootPath, 'api-src', 'readyz.js'), out: 'readyz' },
-      { in: join(rootPath, 'api-src', 'v1', '[...slug].js'), out: 'v1/[...slug]' }
+      { in: join(rootPath, 'api-src', 'v1.js'), out: 'v1' }
     ],
     bundle: true,
     platform: 'node',

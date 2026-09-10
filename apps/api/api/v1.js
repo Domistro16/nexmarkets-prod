@@ -12779,26 +12779,29 @@ async function getApiListener() {
   return requestListener;
 }
 
-// api-src/v1/[...slug].js
+// api-src/v1.js
+function normalizeV1RequestUrl(req) {
+  const incoming = new URL(req.url || "/api/v1", "http://nexmarkets.local");
+  const queryPath = Array.isArray(req.query?.path) ? req.query.path.join("/") : req.query?.path;
+  const capturedPath = String(queryPath || incoming.searchParams.get("path") || "discover").replace(/^\/+|\/+$/g, "");
+  incoming.searchParams.delete("path");
+  const search = incoming.searchParams.toString();
+  return `/v1/${capturedPath}${search ? `?${search}` : ""}`;
+}
 async function handler(req, res) {
   try {
-    if (req.url === "/" || req.url === "") {
-      res.writeHead(307, { location: "/index.html", "cache-control": "no-store" });
-      return res.end();
-    }
+    req.url = normalizeV1RequestUrl(req);
     const listener = await getApiListener();
-    if (req.url.startsWith("/api/v1/")) {
-      req.url = req.url.replace("/api/v1/", "/v1/");
-    } else if (req.url === "/api/v1") {
-      req.url = "/v1/discover";
-    }
     return await listener(req, res);
   } catch (err) {
     res.writeHead(500, { "content-type": "application/json" });
     res.end(JSON.stringify({ error: "V1_ROUTING_ERROR", message: err.message, stack: err.stack }));
   }
 }
-export default handler;
+export {
+  handler as default,
+  normalizeV1RequestUrl
+};
 /*! Bundled license information:
 
 @noble/hashes/esm/utils.js:
