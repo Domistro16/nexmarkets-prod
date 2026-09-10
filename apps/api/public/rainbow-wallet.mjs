@@ -35,9 +35,8 @@ function shouldUseInjectedFallback() {
   // stub. Production/local users should still get RainbowKit's wallet
   // chooser, even when an injected extension is present.
   return isLocalBrowser()
-    && window.ethereum?.request
-    && window.__nexmarketsUseInjectedFallback === true
-    && !window.__useRainbowKitInLocal;
+    && typeof window !== 'undefined'
+    && window.__nexmarketsUseInjectedFallback === true;
 }
 
 function ensureBridgeRoot() {
@@ -97,19 +96,29 @@ async function connectInjected() {
   return { address, chainId };
 }
 
-export async function openConnectModal({ chainId = 84532, chainIds = [] } = {}) {
+export async function openConnectModal({ chainId = 84532, chainIds = [], force = false } = {}) {
   const modal = await initModal({ initialChainId: chainId, chainIds });
+  if (force && currentAddress) {
+    await disconnectWallet();
+  }
   if (modal?.openConnectModal) {
     await modal.openConnectModal();
     return { opened: true };
   }
-  if (modal?.openAccountModal) {
+  if (currentAddress && modal?.openAccountModal) {
     await modal.openAccountModal();
-    return { opened: true, address: currentAddress, chainId: currentChainId };
+    return { opened: true, address: currentAddress, chainId: currentChainId, isAccountModal: true };
   }
+  // A forced open means the user explicitly wants to choose a different
+  // wallet. In injected-only environments there is no chooser to show, so
+  // reconnecting immediately would silently select the wallet we just
+  // disconnected. Leave the client disconnected instead.
+  if (force && (shouldUseInjectedFallback() || !modal)) return { opened: true };
   if (shouldUseInjectedFallback() || !modal) return connectInjected();
   throw new Error('RAINBOWKIT_CONTROLS_UNAVAILABLE');
 }
+
+export { initModal };
 
 export async function openAccountModal() {
   const modal = await initModal();

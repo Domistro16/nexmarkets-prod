@@ -1,5 +1,5 @@
 import http from 'node:http';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 import { AbiCoder, Interface, concat, getAddress, getCreate2Address, id, isAddress, keccak256, recoverAddress, toUtf8Bytes } from 'ethers';
@@ -696,6 +696,13 @@ export function createApiServer({
       assertSession(session, token, { csrfToken: req.headers['x-csrf-token'], mutation: req.method !== 'GET' });
       if (Number(session.chainId) !== Number(chainId)) throw Object.assign(new Error('SESSION_NETWORK_MISMATCH'), { status: 401 });
 
+      if (req.method === 'GET' && url.pathname === '/v1/me/session') {
+        const newCsrfToken = randomBytes(32).toString('base64url');
+        const newCsrfHash = createHash('sha256').update(newCsrfToken).digest('hex');
+        await store.refreshSessionCsrf?.(session.id, newCsrfHash);
+        session.csrfHash = newCsrfHash;
+        return json(res, 200, { authenticated: true, accountId: session.accountId, wallet: session.walletAddress, chainId: session.chainId, csrfToken: newCsrfToken });
+      }
       if (req.method === 'POST' && url.pathname === '/v1/auth/logout') { await store.revokeSession(session.id); await store.recordAudit?.({ accountId: session.accountId, walletAddress: session.walletAddress, action: 'SESSION_REVOKED', objectType: 'SESSION', objectId: session.id, requestId, correlationId }); return json(res, 200, { status: 'revoked' }, { 'set-cookie': 'nexmarkets_session=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0' }); }
       if (req.method === 'GET' && url.pathname === '/v1/me/passes') {
         const rawPasses = readModelDisabled ? [] : await store.ownedPasses(session.walletAddress);

@@ -112,6 +112,8 @@ export class PostgresStore {
 
   async revokeSession(id) { await (await this._getPool()).query('UPDATE app_session SET revoked_at=now() WHERE id=$1', [id]); }
 
+  async refreshSessionCsrf(id, csrfHash) { await (await this._getPool()).query('UPDATE app_session SET csrf_hash=$2 WHERE id=$1', [id, csrfHash]); }
+
   async recordAudit({ accountId = null, walletAddress = null, action, objectType, objectId, requestId, correlationId, metadata = {} }) {
     await (await this._getPool()).query(
       `INSERT INTO audit_log(id,actor_account_id,actor_wallet_address,action,object_type,object_id,request_id,correlation_id,metadata)

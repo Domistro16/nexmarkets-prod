@@ -3010,7 +3010,7 @@ function weierstrass(curveDef) {
   function prepSig(msgHash, privateKey, opts = defaultSigOpts) {
     if (["recovered", "canonical"].some((k) => k in opts))
       throw new Error("sign() legacy options not supported");
-    const { hash: hash4, randomBytes: randomBytes5 } = CURVE;
+    const { hash: hash4, randomBytes: randomBytes6 } = CURVE;
     let { lowS, prehash, extraEntropy: ent } = opts;
     if (lowS == null)
       lowS = true;
@@ -3021,7 +3021,7 @@ function weierstrass(curveDef) {
     const d = normPrivateKeyToScalar(privateKey);
     const seedArgs = [int2octets(d), int2octets(h1int)];
     if (ent != null) {
-      const e = ent === true ? randomBytes5(Fp2.BYTES) : ent;
+      const e = ent === true ? randomBytes6(Fp2.BYTES) : ent;
       seedArgs.push(ensureBytes("extraEntropy", e));
     }
     const seed = concatBytes2(...seedArgs);
@@ -9759,6 +9759,9 @@ var init_postgres_store = __esm({
       async revokeSession(id2) {
         await (await this._getPool()).query("UPDATE app_session SET revoked_at=now() WHERE id=$1", [id2]);
       }
+      async refreshSessionCsrf(id2, csrfHash) {
+        await (await this._getPool()).query("UPDATE app_session SET csrf_hash=$2 WHERE id=$1", [id2, csrfHash]);
+      }
       async recordAudit({ accountId = null, walletAddress = null, action, objectType, objectId, requestId, correlationId, metadata = {} }) {
         await (await this._getPool()).query(
           `INSERT INTO audit_log(id,actor_account_id,actor_wallet_address,action,object_type,object_id,request_id,correlation_id,metadata)
@@ -10654,9 +10657,9 @@ var init_postgres_store = __esm({
 });
 
 // apps/api/src/memory-store.mjs
-import { createHash as createHash5, randomUUID as randomUUID4 } from "node:crypto";
+import { createHash as createHash6, randomUUID as randomUUID4 } from "node:crypto";
 function hash3(value) {
-  return createHash5("sha256").update(value).digest("hex");
+  return createHash6("sha256").update(value).digest("hex");
 }
 function builderError2(code, status = 403) {
   return Object.assign(new Error(code), { status });
@@ -10715,6 +10718,9 @@ var init_memory_store = __esm({
       }
       async revokeSession(id2) {
         for (const session of this.sessions.values()) if (session.id === id2) session.revokedAt = Date.now();
+      }
+      async refreshSessionCsrf(id2, csrfHash) {
+        for (const session of this.sessions.values()) if (session.id === id2) session.csrfHash = csrfHash;
       }
       async recordAudit() {
       }
@@ -11237,7 +11243,7 @@ var init_memory_store = __esm({
 
 // apps/api/src/server.mjs
 import http from "node:http";
-import { randomUUID as randomUUID3 } from "node:crypto";
+import { createHash as createHash5, randomBytes as randomBytes5, randomUUID as randomUUID3 } from "node:crypto";
 init_lib();
 import { pathToFileURL } from "node:url";
 
@@ -12486,6 +12492,13 @@ function createApiServer({
       if (!session) throw Object.assign(new Error("AUTH_REQUIRED"), { status: 401 });
       assertSession(session, token, { csrfToken: req.headers["x-csrf-token"], mutation: req.method !== "GET" });
       if (Number(session.chainId) !== Number(chainId2)) throw Object.assign(new Error("SESSION_NETWORK_MISMATCH"), { status: 401 });
+      if (req.method === "GET" && url.pathname === "/v1/me/session") {
+        const newCsrfToken = randomBytes5(32).toString("base64url");
+        const newCsrfHash = createHash5("sha256").update(newCsrfToken).digest("hex");
+        await store.refreshSessionCsrf?.(session.id, newCsrfHash);
+        session.csrfHash = newCsrfHash;
+        return json(res, 200, { authenticated: true, accountId: session.accountId, wallet: session.walletAddress, chainId: session.chainId, csrfToken: newCsrfToken });
+      }
       if (req.method === "POST" && url.pathname === "/v1/auth/logout") {
         await store.revokeSession(session.id);
         await store.recordAudit?.({ accountId: session.accountId, walletAddress: session.walletAddress, action: "SESSION_REVOKED", objectType: "SESSION", objectId: session.id, requestId, correlationId });

@@ -28,6 +28,7 @@ export class MemoryStore {
   }
   async sessionByToken(token) { return structuredClone(this.sessions.get(hash(token)) ?? null); }
   async revokeSession(id) { for (const session of this.sessions.values()) if (session.id === id) session.revokedAt = Date.now(); }
+  async refreshSessionCsrf(id, csrfHash) { for (const session of this.sessions.values()) if (session.id === id) session.csrfHash = csrfHash; }
   async recordAudit() {}
   async prepareTransaction(input) {
     const existing = [...this.transactions.values()].find((tx) => tx.accountId === input.accountId && tx.intentType === input.intentType && tx.idempotencyKey === input.idempotencyKey);

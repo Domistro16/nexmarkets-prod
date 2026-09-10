@@ -15,6 +15,10 @@ export default defineConfig({
   timeout: 60_000,
   expect: { timeout: 10_000 },
   fullyParallel: false,
+  // The two projects each render a 2048px Pass export. Chromium can cancel
+  // one download when both encoders compete on resource-constrained Windows
+  // runners, so keep Windows verification deterministic and serial.
+  workers: process.platform === 'win32' ? 1 : undefined,
   outputDir: testOutputDir,
   reporter: process.env.CI ? [['dot'], ['json', { outputFile: join(testOutputDir, 'browser-acceptance.json') }]] : [['list']],
   use: {

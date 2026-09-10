@@ -73,7 +73,14 @@ function RainbowBridge({ controls, onAccount, onChain, onProvider }) {
     controls.openConnectModal = connectModal.openConnectModal || null;
     controls.openAccountModal = accountModal.openAccountModal || null;
     controls.openChainModal = chainModal.openChainModal || null;
-    controls.disconnect = disconnect.disconnect || null;
+    controls.disconnect = async () => {
+      try {
+        if (disconnect.disconnectAsync) await disconnect.disconnectAsync();
+        else if (disconnect.disconnect) disconnect.disconnect();
+      } catch (e) {
+        console.warn('Wagmi disconnect error:', e);
+      }
+    };
     // RainbowKit initially renders while wagmi is resolving its connection
     // status. Do not let the adapter fall through to the injected-wallet
     // error path until the actual modal control is available.

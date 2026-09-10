@@ -1,5 +1,5 @@
 import { NexWallet, editionCreatedFromReceipt } from './wallet.mjs';
-import { openConnectModal, openAccountModal, openChainModal, onAccountChange, onChainChange, waitForConnection, getWalletProvider } from './rainbow-wallet.mjs';
+import { openConnectModal, openAccountModal, openChainModal, onAccountChange, onChainChange, waitForConnection, getWalletProvider, disconnectWallet, initModal } from './rainbow-wallet.mjs';
 
 /*
  * NexMarkets V2 is intentionally a data adapter around the supplied product
@@ -30,6 +30,7 @@ const state = {
   authenticated: false,
   wallet: null,
   csrfToken: sessionStorage.getItem('nex_csrf') || null,
+  connecting: false,
   error: null,
   route: null,
   detail: null,
@@ -1167,7 +1168,12 @@ function setAccountLabel(value) {
     element.textContent = isConnected ? state.wallet.slice(2, 4).toUpperCase() : '--';
   });
   document.querySelectorAll('#dashboard .p10-connected span').forEach((element) => { element.textContent = isConnected ? 'Wallet connected' : 'Connect wallet'; });
-  document.querySelectorAll('#dashboard .p10-connected').forEach((element) => { element.dataset.connected = isConnected ? 'true' : 'false'; });
+  document.querySelectorAll('#dashboard .p10-connected').forEach((element) => {
+    element.dataset.connected = isConnected ? 'true' : 'false';
+    element.setAttribute('role', 'button');
+    element.setAttribute('tabindex', '0');
+    element.setAttribute('aria-label', isConnected ? 'Wallet connected' : 'Connect wallet');
+  });
   document.querySelectorAll('#dashboard #dashAccountMeta').forEach((element) => {
     if (!isConnected) element.textContent = `${state.templateData?.ownedPasses?.length || 0} Passes`;
   });
@@ -1350,7 +1356,7 @@ async function openNetworkSelector() {
     // the navbar control useful while disconnected by taking the user to the
     // same RainbowKit connect flow first; a second click opens ChainModal.
     if (!state.wallet) {
-      await openConnectModal({ chainId: Number(state.config?.chainId || CHAIN_ID), chainIds: availableChainIds() });
+      await (connectWalletFromUi ? connectWalletFromUi() : authenticateOnce());
       return;
     }
     await openChainModal({ chainIds: availableChainIds() });
@@ -1384,21 +1390,46 @@ function ensureNetworkSelectors() {
     button.title = state.wallet ? 'Switch network' : 'Connect wallet to switch networks';
   });
 }
+async function checkSessionOnServer(networkKey = state.networkKey) {
+  try {
+    const origin = state.config?.apiOrigin || '';
+    const response = await fetch(`${origin}/v1/me/session`, {
+      credentials: 'same-origin',
+      headers: { accept: 'application/json', 'x-nex-network': networkKey }
+    });
+    if (!response.ok) return null;
+    const payload = await response.json();
+    return payload?.data ?? payload;
+  } catch {
+    return null;
+  }
+}
 async function switchNetwork(nextKey, { switchWallet = true } = {}) {
   const next = configuredNetworks()[nextKey];
   if (!next || nextKey === state.networkKey) return;
   const previous = { networkKey: state.networkKey, config: state.config, authenticated: state.authenticated, csrfToken: state.csrfToken };
   state.networkKey = nextKey;
   state.config = next;
-  state.authenticated = false;
-  state.csrfToken = null;
-  sessionStorage.removeItem('nex_csrf');
   try { localStorage.setItem('nexmarkets_network', nextKey); } catch {}
   ensureNetworkSelectors();
   try {
     if (switchWallet && state.wallet) {
       await wallet.switchChain({ chainId: Number(next.chainId), name: next.name, rpcUrl: next.rpcUrl, explorer: next.explorer });
     }
+    const serverSession = await checkSessionOnServer(nextKey);
+    if (serverSession?.authenticated && serverSession.wallet && (!state.wallet || serverSession.wallet.toLowerCase() === state.wallet.toLowerCase())) {
+      state.wallet = serverSession.wallet;
+      state.authenticated = true;
+      if (serverSession.csrfToken) {
+        state.csrfToken = serverSession.csrfToken;
+        sessionStorage.setItem('nex_csrf', serverSession.csrfToken);
+      }
+    } else {
+      state.authenticated = false;
+      state.csrfToken = null;
+      sessionStorage.removeItem('nex_csrf');
+    }
+    setAccountLabel(state.wallet ? short(state.wallet) : 'Connect wallet');
     await hydrate();
   } catch (error) {
     state.networkKey = previous.networkKey;
@@ -1411,6 +1442,7 @@ async function switchNetwork(nextKey, { switchWallet = true } = {}) {
       localStorage.setItem('nexmarkets_network', previous.networkKey);
     } catch {}
     ensureNetworkSelectors();
+    setAccountLabel(state.wallet ? short(state.wallet) : 'Connect wallet');
     throw error;
   }
   showRuntimeBanner(`Switched to ${activeNetworkName()}`);
@@ -1472,6 +1504,11 @@ function injectLiveDataStyle() {
     #nm-v2-data-panel .nm-v2-cell{padding:11px;border-top:1px solid rgba(244,241,233,.075)}#nm-v2-data-panel .nm-v2-cell span{display:block;color:#7f897d;font-size:10px;text-transform:uppercase;letter-spacing:.08em}#nm-v2-data-panel .nm-v2-cell strong{display:block;margin-top:5px;color:#e7ece4;font-size:12px;word-break:break-word}
     #nm-v2-data-panel .nm-v2-adv{padding:12px 0;border-top:1px solid rgba(244,241,233,.075)}#nm-v2-data-panel .nm-v2-adv small{color:#849084}#nm-v2-data-panel .nm-v2-adv b{display:block;margin-top:4px;color:#e9eee7}
     #nm-v2-data-panel code{font-size:10px;color:#cfd8cc;word-break:break-all}@media(max-width:720px){#nm-v2-data-panel .nm-v2-grid{grid-template-columns:1fr}}
+    .nm-account-dot-pulse{width:7px;height:7px;border-radius:50%;background:var(--amber,#ffb000);box-shadow:0 0 0 0 rgba(255,176,0,.7);animation:nm-dot-pulse 1.4s infinite ease-in-out;display:inline-block;flex-shrink:0}
+    @keyframes nm-dot-pulse{0%{transform:scale(.95);box-shadow:0 0 0 0 rgba(255,176,0,.7)}70%{transform:scale(1);box-shadow:0 0 0 6px rgba(255,176,0,0)}100%{transform:scale(.95);box-shadow:0 0 0 0 rgba(255,176,0,0)}}
+    .nm-account-menu{min-width:176px!important;z-index:1000!important}
+    .nm-account-menu button{text-align:left!important;padding:9px 12px!important;font-size:11.5px!important;display:block!important;width:100%!important;background:transparent!important;border:0!important;color:#cfd8cc!important;cursor:pointer!important;box-sizing:border-box!important}
+    .nm-account-menu button:hover{background:rgba(255,255,255,.08)!important;color:#fff!important}
   `; document.head.appendChild(style);
 }
 function renderDetailPanel(mode) {
@@ -2769,8 +2806,14 @@ function selectedAdvantage(id, passKey = null) {
 }
 
 function wireWallet() {
+  let isConnectingFromUi = false;
   const connectFromButton = async () => {
+    if (isConnectingFromUi) return;
+    isConnectingFromUi = true;
     try {
+      if (state.wallet && !state.authenticated) {
+        return await authenticateOnce();
+      }
       const method = await chooseAuthMethod();
       if (method === 'cancel') return;
       if (method === 'cdp') {
@@ -2779,57 +2822,85 @@ function wireWallet() {
       }
       walletMode = 'rainbow';
       const opened = await openConnectModal({ chainId: Number(state.config?.chainId || CHAIN_ID), chainIds: availableChainIds() });
+      if (opened?.isAccountModal) {
+        return;
+      }
       if (!opened?.address) await waitForConnection();
       await authenticateOnce();
     } catch (error) {
       showRuntimeBanner(error.message, true);
+    } finally {
+      isConnectingFromUi = false;
     }
   };
   connectWalletFromUi = connectFromButton;
-  document.querySelectorAll('.account-chip, #nmAccountChip .nm-get-started, #nmMobileAccountChip .nm-get-started, #nmAccountChip .nm-account-trigger, #nmMobileAccountChip .nm-account-trigger, #dashboard .p10-connected, #dashboard .p10-account, #dashboard .dash-person').forEach((chip) => {
-    // The approved template has legacy inline wallet callbacks. Remove them
-    // from the live DOM so the real RainbowKit flow is the single click path;
-    // the immutable authority file itself is never changed.
+  document.addEventListener('click', async (event) => {
+    const chip = event.target.closest('.account-chip, #dashboard .p10-connected, #dashboard .p10-account, #dashboard .dash-person');
+    if (!chip) return;
     if (chip.matches('[onclick]')) chip.removeAttribute('onclick');
     chip.querySelectorAll('[onclick]').forEach((element) => element.removeAttribute('onclick'));
-    chip.addEventListener('click', async () => {
-      if (!state.wallet) {
-        await connectFromButton();
-      } else {
-        if (walletMode === 'cdp') await window.nmSignOut?.();
-        else openAccountModal();
-      }
-    });
-    chip.addEventListener('keydown', async (event) => {
-      if (event.key === 'Enter' || event.key === ' ') {
-        event.preventDefault();
-        if (!state.wallet) {
-          await connectFromButton();
-        } else {
-          if (walletMode === 'cdp') await window.nmSignOut?.();
-          else openAccountModal();
-        }
-      }
-    });
+    if (!state.wallet) {
+      await connectFromButton();
+    } else if (!state.authenticated) {
+      await authenticateOnce();
+    } else {
+      if (walletMode === 'cdp') await window.nmSignOut?.();
+      else openAccountModal();
+    }
+  });
+  document.addEventListener('keydown', async (event) => {
+    if (event.key !== 'Enter' && event.key !== ' ') return;
+    const chip = event.target.closest('.account-chip, #dashboard .p10-connected, #dashboard .p10-account, #dashboard .dash-person');
+    if (!chip) return;
+    event.preventDefault();
+    if (!state.wallet) {
+      await connectFromButton();
+    } else if (!state.authenticated) {
+      await authenticateOnce();
+    } else {
+      if (walletMode === 'cdp') await window.nmSignOut?.();
+      else openAccountModal();
+    }
   });
 
   onAccountChange(async (newAddress) => {
     if (walletMode === 'cdp') return;
+    if (isConnectingFromUi || authenticationPromise) return;
     if (newAddress && newAddress.toLowerCase() !== (state.wallet || '').toLowerCase()) {
       walletMode = 'rainbow';
       cdpSession = null;
       state.wallet = newAddress;
-      setAccountLabel(short(newAddress));
       ensureNetworkSelectors();
-      try { await authenticateOnce(); } catch {}
+      const serverSession = await checkSessionOnServer(state.networkKey);
+      if (isConnectingFromUi || authenticationPromise) return;
+      if (state.authenticated && state.wallet?.toLowerCase() === newAddress.toLowerCase()) return;
+      if (serverSession?.authenticated && serverSession.wallet?.toLowerCase() === newAddress.toLowerCase()) {
+        state.authenticated = true;
+        if (serverSession.csrfToken) {
+          state.csrfToken = serverSession.csrfToken;
+          sessionStorage.setItem('nex_csrf', serverSession.csrfToken);
+        }
+        setAccountLabel(short(newAddress));
+        await hydrate({ authenticatedOverride: true });
+      } else {
+        if (state.authenticated && state.wallet?.toLowerCase() === newAddress.toLowerCase()) return;
+        state.authenticated = false;
+        state.csrfToken = null;
+        sessionStorage.removeItem('nex_csrf');
+        setAccountLabel(short(newAddress));
+        await hydrate({ authenticatedOverride: false });
+      }
     } else if (!newAddress && state.wallet) {
+      if (isConnectingFromUi || authenticationPromise) return;
       walletMode = null;
       cdpSession = null;
       state.wallet = null;
       state.authenticated = false;
+      state.csrfToken = null;
+      sessionStorage.removeItem('nex_csrf');
       setAccountLabel('Connect wallet');
       ensureNetworkSelectors();
-      hydrate();
+      await hydrate();
     }
   });
 
@@ -2841,9 +2912,56 @@ function wireWallet() {
       return;
     }
     if (newChainId && newChainId !== required) {
-      showRuntimeBanner(`Please switch network to ${activeNetworkName()} (${required})`, true);
+      const family = activeNetworkFamily() === 'base' ? 'BASE' : 'ROBINHOOD';
+      showRuntimeBanner(`SWITCH_TO_${family}_${required}`, true);
     }
   });
+}
+
+async function initWalletSession() {
+  const hasStoredSession = Boolean(sessionStorage.getItem('nex_csrf'));
+  const hasStoredWallet = Boolean(
+    typeof localStorage !== 'undefined' && (
+      localStorage.getItem('wagmi.recentConnectorId') ||
+      localStorage.getItem('wagmi.store') ||
+      localStorage.getItem('nexmarkets_connected_wallet')
+    )
+  );
+
+  if (hasStoredSession || hasStoredWallet) {
+    state.connecting = true;
+    setAccountLabel('Connecting...');
+  }
+
+  if (hasStoredSession || hasStoredWallet) {
+    try {
+      const serverSession = await checkSessionOnServer(state.networkKey);
+      if (serverSession?.authenticated && serverSession.wallet) {
+        state.wallet = serverSession.wallet;
+        state.authenticated = true;
+        if (serverSession.csrfToken) {
+          state.csrfToken = serverSession.csrfToken;
+          sessionStorage.setItem('nex_csrf', serverSession.csrfToken);
+        }
+        setAccountLabel(short(serverSession.wallet));
+      }
+    } catch {}
+  }
+
+  const canUseRainbowKit = typeof window !== 'undefined' && !window.__nexmarketsUseInjectedFallback;
+  if (hasStoredWallet && canUseRainbowKit) {
+    try {
+      await initModal({
+        initialChainId: Number(state.config?.chainId || CHAIN_ID),
+        chainIds: availableChainIds()
+      });
+    } catch (error) {
+      console.warn('Wallet provider background initialization:', error);
+    }
+  }
+
+  state.connecting = false;
+  setAccountLabel(state.wallet ? short(state.wallet) : 'Connect wallet');
 }
 async function liveOpenProjectMint(name) {
   try {
@@ -3427,12 +3545,74 @@ function exposeRuntime() {
   // Backwards-compatible aliases for existing integrations and browser tests.
   window.__nmV2SubmitCreateDraft = submitCreateDraft;
   window.completeCreatePublish = submitCreatePass;
-  // Replace the prototype's demo account callbacks with the real wallet
-  // session boundary.  The visual header remains owned by the approved HTML.
-  window.nmOpenGetStarted = () => connectWalletFromUi ? connectWalletFromUi() : authenticateOnce();
+
+  window.nmRenderAccountChip = function() {
+    const chips = [document.getElementById('nmAccountChip'), document.getElementById('nmMobileAccountChip')].filter(Boolean);
+    if (!chips.length) return;
+    const isConnecting = Boolean(state.connecting);
+    const isConnected = Boolean(state.wallet);
+    const isAuthenticated = Boolean(state.authenticated);
+    const displayLabel = isConnected ? short(state.wallet) : 'Connect wallet';
+
+    if (window.nmJourneyState) {
+      window.nmJourneyState.walletConnected = isConnected;
+      window.nmJourneyState.signedIn = isAuthenticated;
+    }
+
+    let html = '';
+    if (isConnecting) {
+      html = '<button class="btn primary nm-get-started nm-connecting" disabled style="opacity:0.85;cursor:wait;display:inline-flex;align-items:center;gap:7px"><span class="nm-account-dot-pulse" aria-hidden="true"></span><span>Connecting...</span><span class="account-label" aria-hidden="true" style="display:none"></span></button>';
+    } else if (!isConnected) {
+      html = '<button class="btn primary nm-get-started" onclick="nmOpenGetStarted()">Log in / Connect</button><span class="account-label" aria-hidden="true" style="display:none"></span>';
+    } else if (!isAuthenticated) {
+      html = `<span class="account-dot" aria-hidden="true" style="background:#ffb000;box-shadow:0 0 0 4px rgba(255,176,0,.15)"></span><button class="btn primary nm-get-started nm-btn-signin" style="padding:0 12px;height:32px;font-size:11px" onclick="nmSignInWallet()">Sign in</button><button class="nm-chev" aria-label="Account menu" onclick="nmToggleAccountMenu(event)">&#9662;</button><div class="nm-account-menu"><div class="nm-menu-header" style="padding:8px 12px;font-size:11px;border-bottom:1px solid rgba(244,241,233,.08)"><div style="font-weight:600;color:#fff">${escapeHtml(displayLabel)}</div><div style="font-size:10px;margin-top:2px;color:#ffb000">Wallet connected · Not signed in</div></div><button onclick="nmSignInWallet()">Sign in with wallet</button><button onclick="nmOpenNetworkSwitcher()">Switch network</button><button onclick="nmSwitchWallet()">Change wallet</button><button onclick="nmSignOut()">Disconnect</button></div><span class="account-label" aria-hidden="true" style="display:none">${escapeHtml(displayLabel)}</span>`;
+    } else {
+      html = `<span class="account-dot" aria-hidden="true"></span><button class="nm-account-trigger" onclick="nmAccountTap()">Account</button><button class="nm-chev" aria-label="Account menu" onclick="nmToggleAccountMenu(event)">&#9662;</button><div class="nm-account-menu"><div class="nm-menu-header" style="padding:8px 12px;font-size:11px;border-bottom:1px solid rgba(244,241,233,.08)"><div style="font-weight:600;color:#fff">${escapeHtml(displayLabel)}</div><div style="font-size:10px;margin-top:2px;color:#7ea8ff">${escapeHtml(activeNetworkName())}</div></div><button onclick="nmGoDashboard()">Dashboard</button><button onclick="nmOpenNetworkSwitcher()">Switch network</button><button onclick="nmSwitchWallet()">Change wallet</button><button onclick="nmSignOut()">Sign out</button></div><span class="account-label" aria-hidden="true" style="display:none">${escapeHtml(displayLabel)}</span>`;
+    }
+
+    chips.forEach((chip) => {
+      chip.innerHTML = html;
+    });
+  };
+
+  window.nmOpenGetStarted = () => {
+    if (!state.wallet) return connectWalletFromUi ? connectWalletFromUi() : authenticateOnce();
+    if (!state.authenticated) return authenticateOnce();
+    return window.nmAccountTap();
+  };
+  window.nmSignInWallet = () => authenticateOnce();
+  window.nmSwitchWallet = async () => {
+    document.querySelectorAll('.nm-account-menu.open').forEach((m) => m.classList.remove('open'));
+    try {
+      if (state.authenticated) await mutation('/v1/auth/logout', {}).catch(() => {});
+    } catch {}
+    if (walletMode === 'cdp') {
+      try { await cdpControls?.signOut?.(); } catch {}
+    }
+    await disconnectWallet();
+    walletMode = null;
+    cdpSession = null;
+    state.authenticated = false;
+    state.wallet = null;
+    state.csrfToken = null;
+    sessionStorage.removeItem('nex_csrf');
+    setAccountLabel('Connect wallet');
+    try {
+      await openConnectModal({ chainId: Number(state.config?.chainId || CHAIN_ID), chainIds: availableChainIds(), force: true });
+    } catch (e) {
+      console.warn('Switch wallet modal error:', e);
+    }
+  };
+  window.nmOpenNetworkSwitcher = () => {
+    document.querySelectorAll('.nm-account-menu.open').forEach((m) => m.classList.remove('open'));
+    openNetworkSelector();
+  };
   window.nmAccountTap = () => state.wallet
-    ? (walletMode === 'cdp' ? window.nmSignOut?.() : openAccountModal())
+    ? (state.authenticated
+        ? (typeof go === 'function' ? go('dashboard') : openAccountModal())
+        : authenticateOnce())
     : (connectWalletFromUi ? connectWalletFromUi() : authenticateOnce());
+
   const priorOpenBuilder = window.openBuilder;
   window.openBuilder = (key) => {
     window.nmEliteBuilderKey = String(key || '').toLowerCase();
@@ -3442,19 +3622,26 @@ function exposeRuntime() {
     else if (priorOpenBuilder) priorOpenBuilder(key);
     return true;
   };
+
   window.nmSignOut = async () => {
+    document.querySelectorAll('.nm-account-menu.open').forEach((m) => m.classList.remove('open'));
     try {
       if (state.authenticated) await mutation('/v1/auth/logout', {});
-    } catch { /* a local disconnect still clears the client session */ }
+    } catch {}
     if (walletMode === 'cdp') {
-      try { await cdpControls?.signOut?.(); } catch { /* local state still clears the CDP session */ }
+      try { await cdpControls?.signOut?.(); } catch {}
     }
+    await disconnectWallet();
     walletMode = null;
     cdpSession = null;
     state.authenticated = false; state.wallet = null; state.csrfToken = null;
-    sessionStorage.removeItem('nex_csrf'); setAccountLabel('Connect wallet');
+    sessionStorage.removeItem('nex_csrf');
+    setAccountLabel('Connect wallet');
+    showRuntimeBanner('Signed out');
     if (typeof go === 'function' && typeof currentRoute !== 'undefined' && currentRoute === 'dashboard') go('home');
+    await hydrate();
   };
+
   window.nexmarketsV2 = {
     state,
     refresh: hydrate,
@@ -3478,4 +3665,11 @@ function exposeRuntime() {
 
 installHistoryRouting(); wireWallet(); installLiveActions(); installLifecycleAuthority(); installCanonicalPassRuntime(); guardMutations(); exposeRuntime(); installCreateDraftAutosave(); installMintAccessCreateFields(); installSocialRuntime(); installMediaRuntime();
 addEventListener('popstate', () => { presentRoute(routeInfo()).catch(() => goView(routeInfo())); });
-hydrate();
+(async () => {
+  try {
+    await initWalletSession();
+  } catch (error) {
+    console.warn('Wallet session initialization failed:', error);
+  }
+  await hydrate();
+})();

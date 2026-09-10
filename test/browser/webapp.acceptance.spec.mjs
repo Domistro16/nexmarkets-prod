@@ -64,6 +64,14 @@ function fixture() {
 
 async function installFixtureApi(page, { delayDiscover = 0, failDiscover = false } = {}) {
   const data = fixture();
+  let activeSession = null;
+  let lastChallengeAddress = null;
+  // Keep the browser suite deterministic in network-restricted runners. The
+  // product's font stylesheet is presentation-only and not part of API data.
+  await page.route('https://fonts.googleapis.com/**', (route) => route.fulfill({
+    contentType: 'text/css',
+    body: ''
+  }));
   await page.route('**/v1/**', async (route) => {
     const request = route.request();
     const path = new URL(request.url()).pathname;
@@ -75,8 +83,31 @@ async function installFixtureApi(page, { delayDiscover = 0, failDiscover = false
     if (path.startsWith('/v1/editions/')) return route.fulfill({ json: { data: data.edition } });
     if (path.startsWith('/v1/passes/')) return route.fulfill({ json: { data: data.pass } });
     if (path === '/v1/market/listings') return route.fulfill({ json: { data: [] } });
-    if (path === '/v1/auth/challenge' && request.method() === 'POST') return route.fulfill({ json: { nonce: 'browser-nonce', message: 'NexMarkets browser challenge' } });
-    if (path === '/v1/auth/verify' && request.method() === 'POST') return route.fulfill({ json: { csrfToken: 'browser-csrf' } });
+    if (path === '/v1/auth/challenge' && request.method() === 'POST') {
+      try {
+        const body = JSON.parse(request.postData() || '{}');
+        lastChallengeAddress = body.address;
+      } catch {}
+      return route.fulfill({ json: { nonce: 'browser-nonce', message: 'NexMarkets browser challenge' } });
+    }
+    if (path === '/v1/auth/verify' && request.method() === 'POST') {
+      activeSession = {
+        authenticated: true,
+        accountId: 'acc_browser_01',
+        wallet: lastChallengeAddress || OWNER,
+        chainId: 84532,
+        csrfToken: 'browser-csrf'
+      };
+      return route.fulfill({ json: { csrfToken: 'browser-csrf' } });
+    }
+    if (path === '/v1/me/session') {
+      if (activeSession) return route.fulfill({ json: activeSession });
+      return route.fulfill({ status: 401, json: { error: 'UNAUTHENTICATED' } });
+    }
+    if (path === '/v1/auth/logout' && request.method() === 'POST') {
+      activeSession = null;
+      return route.fulfill({ json: { success: true } });
+    }
     if (path === '/v1/me/passes') return route.fulfill({ json: { data: [] } });
     if (path === '/v1/me/advantages') return route.fulfill({ json: { data: [] } });
     if (path === '/v1/builder/dashboard') return route.fulfill({ json: { data: { projects: [], editions: [], royalties: [], referrals: [] } } });
@@ -683,4 +714,62 @@ test('approved public surfaces do not introduce document overflow at supported w
       expect(metrics.bodyWidth, `${route} body overflow at ${width}px`).toBeLessThanOrEqual(metrics.viewport + 1);
     }
   }
+});
+
+test('session survives page reload without re-signing and restores authenticated state silently', async ({ page }) => {
+  const signer = Wallet.createRandom();
+  let signCount = 0;
+  await installFixtureApi(page);
+  await page.exposeFunction('__nexmarketsSignPersonalMessage', (message) => {
+    signCount += 1;
+    return signer.signMessage(getBytes(message));
+  });
+  await page.addInitScript(({ address }) => {
+    window.ethereum = { request: async ({ method, params }) => {
+      if (method === 'eth_requestAccounts') return [address];
+      if (method === 'eth_chainId') return '0x14a34';
+      if (method === 'personal_sign') return window.__nexmarketsSignPersonalMessage(params[0]);
+      return '0x0';
+    } };
+  }, { address: signer.address });
+
+  await goto(page, '/dashboard/holder');
+  await page.getByRole('button', { name: 'Connect wallet' }).first().click();
+  await expect.poll(() => page.evaluate(() => window.nexmarketsV2.state.authenticated)).toBe(true);
+  expect(signCount).toBe(1);
+
+  // Reload page and assert silent session restoration without prompting personal_sign again
+  await page.reload({ waitUntil: 'commit' });
+  await expect.poll(() => page.evaluate(() => Boolean(window.nexmarketsV2))).toBe(true);
+  await expect(page.locator('html')).toHaveClass(/nm-v2-ready/, { timeout: 20_000 });
+
+  await expect.poll(() => page.evaluate(() => window.nexmarketsV2.state.authenticated)).toBe(true);
+  await expect.poll(() => page.evaluate(() => window.nexmarketsV2.state.wallet?.toLowerCase())).toBe(signer.address.toLowerCase());
+  await expect(page.getByRole('button', { name: 'Account' }).first()).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Log in / Connect' })).toHaveCount(0);
+  expect(signCount, 'reloading the page must not prompt a new personal_sign message').toBe(1);
+});
+
+test('switching wallet cleanly disconnects and opens wallet modal', async ({ page }) => {
+  const signer = Wallet.createRandom();
+  await installFixtureApi(page);
+  await page.exposeFunction('__nexmarketsSignPersonalMessage', (message) => signer.signMessage(getBytes(message)));
+  await page.addInitScript(({ address }) => {
+    window.ethereum = { request: async ({ method, params }) => {
+      if (method === 'eth_requestAccounts') return [address];
+      if (method === 'eth_chainId') return '0x14a34';
+      if (method === 'personal_sign') return window.__nexmarketsSignPersonalMessage(params[0]);
+      return '0x0';
+    } };
+  }, { address: signer.address });
+
+  await goto(page, '/dashboard/holder');
+  await page.getByRole('button', { name: 'Connect wallet' }).first().click();
+  await expect.poll(() => page.evaluate(() => window.nexmarketsV2.state.authenticated)).toBe(true);
+
+  // Trigger switch wallet action
+  await page.evaluate(() => window.nmSwitchWallet());
+  await expect.poll(() => page.evaluate(() => window.nexmarketsV2.state.authenticated)).toBe(false);
+  await expect.poll(() => page.evaluate(() => window.nexmarketsV2.state.wallet)).toBe(null);
+  await expect(page.getByRole('button', { name: 'Log in / Connect' }).first()).toBeVisible();
 });

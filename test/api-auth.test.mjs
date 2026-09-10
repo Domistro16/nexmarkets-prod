@@ -29,10 +29,20 @@ test('wallet auth is signed, chain/domain bound, single-use, and revocable', asy
   assert.equal(replay.status, 400);
   const me = await fetch(`${base}/v1/me/passes`, { headers: { cookie: auth.cookie, origin: 'https://nexmarkets.fun' } });
   assert.equal(me.status, 200);
-  const logout = await fetch(`${base}/v1/auth/logout`, { method: 'POST', headers: { cookie: auth.cookie, 'x-csrf-token': auth.verified.csrfToken, origin: 'https://nexmarkets.fun' } });
+  const sessionCheck = await fetch(`${base}/v1/me/session`, { headers: { cookie: auth.cookie, origin: 'https://nexmarkets.fun' } });
+  assert.equal(sessionCheck.status, 200);
+  const sessionData = await sessionCheck.json();
+  assert.equal(sessionData.authenticated, true);
+  assert.equal(sessionData.wallet.toLowerCase(), wallet.address.toLowerCase());
+  assert.ok(sessionData.csrfToken);
+  const logout = await fetch(`${base}/v1/auth/logout`, { method: 'POST', headers: { cookie: auth.cookie, 'x-csrf-token': sessionData.csrfToken, origin: 'https://nexmarkets.fun' } });
   assert.equal(logout.status, 200);
   const after = await fetch(`${base}/v1/me/passes`, { headers: { cookie: auth.cookie, origin: 'https://nexmarkets.fun' } });
   assert.equal(after.status, 401);
+  const afterSession = await fetch(`${base}/v1/me/session`, { headers: { cookie: auth.cookie, origin: 'https://nexmarkets.fun' } });
+  assert.equal(afterSession.status, 401);
+  const unauthedSession = await fetch(`${base}/v1/me/session`, { headers: { origin: 'https://nexmarkets.fun' } });
+  assert.equal(unauthedSession.status, 401);
 });
 
 test('mutations enforce CSRF, idempotency, owner session, and no server key custody', async (t) => {
