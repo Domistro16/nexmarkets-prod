@@ -37,6 +37,9 @@ contract NexLaunchRegistry is Ownable, Pausable {
         uint64 previewStartsAt;
         uint64 mintStartsAt;
         uint64 mintEndsAt;
+        bytes32 allowlistRoot;
+        uint64 allowlistEndsAt;
+        uint256 allowlistSupply;
         address primaryRecipient;
         address royaltyReceiver;
         uint96 royaltyBps;
@@ -68,6 +71,7 @@ contract NexLaunchRegistry is Ownable, Pausable {
     error FactoryRequired();
     error FactoryWiringMismatch();
     error InvalidMintWindow();
+    error InvalidAllowlistPhase();
     error InvalidPreviewWindow();
     error InvalidRoyalty();
     error InvalidSupply();
@@ -98,6 +102,13 @@ contract NexLaunchRegistry is Ownable, Pausable {
         uint96 royaltyBps,
         bytes32 advantagesHash,
         bytes32 referralTermsHash
+    );
+    event MintAccessPublished(
+        address indexed edition,
+        bytes32 indexed termsVersionHash,
+        bytes32 allowlistRoot,
+        uint64 allowlistEndsAt,
+        uint256 allowlistSupply
     );
 
     modifier onlyFactory() {
@@ -168,6 +179,9 @@ contract NexLaunchRegistry is Ownable, Pausable {
         record.activeTermsVersionHash = termsVersionHash;
 
         _emitTermsPublished(edition, termsVersionHash, version, terms);
+        emit MintAccessPublished(
+            edition, termsVersionHash, terms.allowlistRoot, terms.allowlistEndsAt, terms.allowlistSupply
+        );
     }
 
     /// @dev Keep the complete Terms event in a separate frame so the
@@ -244,6 +258,20 @@ contract NexLaunchRegistry is Ownable, Pausable {
         return INexPassEditionLaunchView(edition).totalMinted() < terms.activeSupply;
     }
 
+    /// @notice Whether a whitelisted payer may mint during the private phase.
+    function isAllowlistMintOpen(address edition, bytes32 termsVersionHash) external view returns (bool) {
+        if (!_isActiveMintWindow(edition, termsVersionHash)) return false;
+        Terms storage terms = _termsByHash[edition][termsVersionHash];
+        return terms.allowlistRoot != bytes32(0) && block.timestamp < terms.allowlistEndsAt;
+    }
+
+    /// @notice Whether anyone may mint. Public mint follows the allowlist phase automatically.
+    function isPublicMintOpen(address edition, bytes32 termsVersionHash) external view returns (bool) {
+        if (!_isActiveMintWindow(edition, termsVersionHash)) return false;
+        Terms storage terms = _termsByHash[edition][termsVersionHash];
+        return terms.allowlistRoot == bytes32(0) || block.timestamp >= terms.allowlistEndsAt;
+    }
+
     function pause() external onlyOwner {
         _pause();
     }
@@ -265,9 +293,26 @@ contract NexLaunchRegistry is Ownable, Pausable {
             revert InvalidPreviewWindow();
         }
         if (terms.mintEndsAt <= terms.mintStartsAt) revert InvalidMintWindow();
+        if (terms.allowlistRoot == bytes32(0)) {
+            if (terms.allowlistEndsAt != 0 || terms.allowlistSupply != 0) revert InvalidAllowlistPhase();
+        } else {
+            if (
+                terms.allowlistEndsAt <= terms.mintStartsAt || terms.allowlistEndsAt > terms.mintEndsAt
+                    || terms.allowlistSupply > terms.activeSupply
+            ) revert InvalidAllowlistPhase();
+        }
         if (terms.activeSupply < INexPassEditionLaunchView(edition).totalMinted()) {
             revert ActiveSupplyBelowMinted();
         }
+    }
+
+    function _isActiveMintWindow(address edition, bytes32 termsVersionHash) internal view returns (bool) {
+        if (paused()) return false;
+        EditionRecord storage record = _editions[edition];
+        if (!record.registered || record.disabled || record.activeTermsVersionHash != termsVersionHash) return false;
+        Terms storage terms = _termsByHash[edition][termsVersionHash];
+        return terms.activeSupply != 0 && block.timestamp >= terms.mintStartsAt && block.timestamp < terms.mintEndsAt
+            && INexPassEditionLaunchView(edition).totalMinted() < terms.activeSupply;
     }
 
     function _validateFactoryWiring(address factory_) internal view {

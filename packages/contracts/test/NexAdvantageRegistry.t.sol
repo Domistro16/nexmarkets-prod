@@ -129,6 +129,9 @@ contract NexAdvantageRegistryTest is Test {
             previewStartsAt: previewStartsAt,
             mintStartsAt: mintStartsAt,
             mintEndsAt: mintStartsAt + 2 days,
+            allowlistRoot: bytes32(0),
+            allowlistEndsAt: 0,
+            allowlistSupply: 0,
             primaryRecipient: BUILDER,
             royaltyReceiver: BUILDER,
             royaltyBps: 500,
@@ -329,6 +332,22 @@ contract NexAdvantageRegistryTest is Test {
         vm.prank(ALICE);
         vm.expectRevert(NexAdvantageRegistry.NotListingAuthority.selector);
         advantages.setListed(address(edition), 1, true);
+    }
+
+    function testRedemptionCanConsumePartOrAllRemainingUnits() public {
+        NexAdvantageRegistry.AdvantageConfig[] memory configs = _canonicalConfigs();
+        _initialize(1, configs);
+        bytes32 advantageId = configs[3].advantageId;
+        bytes32 partialId = keccak256("redemption:partial");
+        bytes32 allId = keccak256("redemption:all");
+
+        vm.prank(ALICE);
+        assertTrue(advantages.redeemAmount(address(edition), 1, advantageId, 2, partialId));
+        assertEq(advantages.remaining(address(edition), 1, advantageId), 1);
+
+        vm.prank(ALICE);
+        assertTrue(advantages.redeemAmount(address(edition), 1, advantageId, 1, allId));
+        assertEq(advantages.remaining(address(edition), 1, advantageId), 0);
     }
 
     function testAdvantagesCommitmentRejectsAlteredQuantityDatesKindsAndDefinitions() public {

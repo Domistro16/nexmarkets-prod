@@ -45,6 +45,9 @@ type TermsVersion @entity(immutable: false) {
   previewStartsAt: BigInt!
   mintStartsAt: BigInt!
   mintEndsAt: BigInt!
+  allowlistRoot: Bytes
+  allowlistEndsAt: BigInt
+  allowlistSupply: BigInt
   primaryRecipient: Bytes!
   royaltyReceiver: Bytes!
   royaltyBps: BigInt!

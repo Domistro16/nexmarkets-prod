@@ -9,4 +9,5 @@ export * from './transaction-calldata.mjs';
 export * from './launch-draft.mjs';
 export * from './pass-design.mjs';
 export * from './primary-accounting.mjs';
+export * from './allowlist.mjs';
 export * from './pass-renderer.mjs';

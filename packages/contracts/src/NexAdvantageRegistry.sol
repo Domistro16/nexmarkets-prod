@@ -280,6 +280,19 @@ contract NexAdvantageRegistry is Ownable, ReentrancyGuard {
         return _consume(edition, tokenId, advantage, redemptionId, 1);
     }
 
+    /// @notice Redeem an exact number of units, including all remaining units.
+    /// @dev The legacy one-unit redeem entrypoint remains available for integrations.
+    function redeemAmount(address edition, uint256 tokenId, bytes32 advantageId, uint256 amount, bytes32 redemptionId)
+        external
+        nonReentrant
+        returns (bool applied)
+    {
+        if (amount == 0 || redemptionId == bytes32(0)) revert UseIdRequired();
+        Advantage storage advantage = _getAdvantage(edition, tokenId, advantageId);
+        if (advantage.kind != AdvantageKind.Redemption) revert RedemptionOnly();
+        return _consume(edition, tokenId, advantage, redemptionId, amount);
+    }
+
     /// @notice Consume quantity-based utility with an idempotent use ID.
     /// @dev Quantity-based utility is distinct from Redemption so product
     ///      integrations can expose uses without creating redemption claims.

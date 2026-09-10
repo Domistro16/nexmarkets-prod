@@ -12,6 +12,9 @@ const ABI = new Interface([
   'function claimInfo(bytes32) view returns (tuple(address edition,uint256 tokenId,address builder,uint256 amount,uint64 releaseAt,bool withdrawn))',
   'function account(address,uint256) view returns (address)'
 ]);
+const ACTIVE_TERMS_V2_ABI = new Interface([
+  'function activeTerms(address) view returns (bytes32,tuple(uint256 activeSupply,uint256 pricePerPass,uint64 previewStartsAt,uint64 mintStartsAt,uint64 mintEndsAt,bytes32 allowlistRoot,uint64 allowlistEndsAt,uint256 allowlistSupply,address primaryRecipient,address royaltyReceiver,uint96 royaltyBps,bytes32 advantagesHash,bytes32 referralTermsHash))'
+]);
 
 const LISTING_STATUS = ['NONE', 'ACTIVE', 'CANCELLED', 'FILLED', 'EXPIRED', 'STALE'];
 const normalize = (value) => typeof value === 'bigint'
@@ -22,16 +25,23 @@ const normalize = (value) => typeof value === 'bigint'
 const tupleObject = (value, fields) => Object.fromEntries(fields.map((field, index) => [field, normalize(value[field] ?? value[index])]));
 
 export class RobinhoodReconciliationChain {
-  constructor({ rpc, rpcUrl = process.env.RH_MAINNET_RPC_URL, addresses = {} } = {}) { this.rpc = rpc ?? new JsonRpcClient(rpcUrl); this.addresses = addresses; }
+  constructor({ rpc, rpcUrl = process.env.RH_MAINNET_RPC_URL, addresses = {}, protocolVersion = 1 } = {}) { this.rpc = rpc ?? new JsonRpcClient(rpcUrl); this.addresses = addresses; this.protocolVersion = Number(protocolVersion); }
   async call(address, fragment, args, block = 'latest') { const data = ABI.encodeFunctionData(fragment, args); const result = await this.rpc.ethCall(address, data, block); return ABI.decodeFunctionResult(fragment, result); }
   async edition({ edition }) { const code = await this.rpc.getCode(edition); return Boolean(code && code !== '0x'); }
   async totalMinted({ edition }) { const result = await this.call(edition, 'totalMinted', []); return String(result[0]); }
   async owner({ edition, tokenId }) { return (await this.call(edition, 'ownerOf', [tokenId]))[0].toLowerCase(); }
   async tokenTerms({ edition, tokenId }) { return (await this.call(edition, 'termsVersionHashOf', [tokenId]))[0].toLowerCase(); }
   async activeTerms({ edition }) {
-    const [hash, terms] = await this.call(this.addresses.launchRegistry, 'activeTerms', [edition]);
-    const normalized = tupleObject(terms, ['activeSupply', 'pricePerPass', 'previewStartsAt', 'mintStartsAt', 'mintEndsAt', 'primaryRecipient', 'royaltyReceiver', 'royaltyBps', 'advantagesHash', 'referralTermsHash']);
-    for (const field of ['previewStartsAt', 'mintStartsAt', 'mintEndsAt']) normalized[field] = Number(normalized[field]);
+    let hash; let terms;
+    if (this.protocolVersion >= 2) {
+      const data = ACTIVE_TERMS_V2_ABI.encodeFunctionData('activeTerms', [edition]);
+      [hash, terms] = ACTIVE_TERMS_V2_ABI.decodeFunctionResult('activeTerms', await this.rpc.ethCall(this.addresses.launchRegistry, data, 'latest'));
+    } else [hash, terms] = await this.call(this.addresses.launchRegistry, 'activeTerms', [edition]);
+    const fields = this.protocolVersion >= 2
+      ? ['activeSupply', 'pricePerPass', 'previewStartsAt', 'mintStartsAt', 'mintEndsAt', 'allowlistRoot', 'allowlistEndsAt', 'allowlistSupply', 'primaryRecipient', 'royaltyReceiver', 'royaltyBps', 'advantagesHash', 'referralTermsHash']
+      : ['activeSupply', 'pricePerPass', 'previewStartsAt', 'mintStartsAt', 'mintEndsAt', 'primaryRecipient', 'royaltyReceiver', 'royaltyBps', 'advantagesHash', 'referralTermsHash'];
+    const normalized = tupleObject(terms, fields);
+    for (const field of ['previewStartsAt', 'mintStartsAt', 'mintEndsAt', 'allowlistEndsAt']) if (normalized[field] != null) normalized[field] = Number(normalized[field]);
     return {
       hash: hash.toLowerCase(),
       terms: normalized

@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 import { AbiCoder, Interface, concat, getAddress, getCreate2Address, id, isAddress, keccak256, recoverAddress, toUtf8Bytes } from 'ethers';
 import { issueSession, issueWalletChallenge, assertChallengeUsable, assertSession, sessionCookie, verifyWalletChallengeSignature } from '@nexmarkets/auth';
-import { buildNexMarketsOrder, buildProtocolCalldata, buildSeaportFulfillment, inspectImageBytes, MEDIA_POLICY, seaportOrderHash, seaportTypedData, transitionTransaction, validateAndNormalizeProjectPayload, validateProjectedNexMarketsOrder, verifySeaportOrderSignature } from '@nexmarkets/domain';
+import { buildAllowlist, buildNexMarketsOrder, buildProtocolCalldata, buildSeaportFulfillment, inspectImageBytes, MEDIA_POLICY, seaportOrderHash, seaportTypedData, transitionTransaction, validateAndNormalizeProjectPayload, validateProjectedNexMarketsOrder, verifySeaportOrderSignature } from '@nexmarkets/domain';
 import { PostgresStore } from '@nexmarkets/data';
 import { MetricsRegistry } from '@nexmarkets/observability';
 import { JsonRpcClient } from '@nexmarkets/chain';
@@ -19,10 +19,10 @@ const INTENT_TYPE = Object.freeze({
   '/v1/royalties/withdraw': 'ROYALTY_WITHDRAW'
 });
 const INTENT_SELECTORS = Object.freeze({
-  MINT: [id('mint((address,bytes32,address,uint256,bytes32,address,(bytes32,uint8,uint64,uint64,uint256,bytes32)[]))').slice(0, 10)],
-  TERMS_PUBLISH: [id('publishTerms(address,(uint256,uint256,uint64,uint64,uint64,address,address,uint96,bytes32,bytes32))').slice(0, 10)],
+  MINT: [id('mint((address,bytes32,address,uint256,bytes32,address,(bytes32,uint8,uint64,uint64,uint256,bytes32)[]))').slice(0, 10), id('mintAllowlisted((address,bytes32,address,uint256,bytes32,address,(bytes32,uint8,uint64,uint64,uint256,bytes32)[]),bytes32[])').slice(0, 10)],
+  TERMS_PUBLISH: [id('publishTerms(address,(uint256,uint256,uint64,uint64,uint64,address,address,uint96,bytes32,bytes32))').slice(0, 10), id('publishTerms(address,(uint256,uint256,uint64,uint64,uint64,bytes32,uint64,uint256,address,address,uint96,bytes32,bytes32))').slice(0, 10)],
   LISTING_CANCEL: [id('cancelListing(bytes32)').slice(0, 10)],
-  ADVANTAGE_USE: [id('consumeQuantity(address,uint256,bytes32,uint256,bytes32)').slice(0, 10), id('redeem(address,uint256,bytes32,bytes32)').slice(0, 10), id('useAmount(address,uint256,bytes32,bytes32)').slice(0, 10)],
+  ADVANTAGE_USE: [id('consumeQuantity(address,uint256,bytes32,uint256,bytes32)').slice(0, 10), id('redeem(address,uint256,bytes32,bytes32)').slice(0, 10), id('redeemAmount(address,uint256,bytes32,uint256,bytes32)').slice(0, 10), id('useAmount(address,uint256,bytes32,bytes32)').slice(0, 10)],
   ROYALTY_WITHDRAW: [id('withdraw(bytes32)').slice(0, 10)]
 });
 const MINT_OPEN_SELECTOR = id('isMintOpen(address,bytes32)').slice(0, 10);
@@ -183,7 +183,8 @@ function networkSubgraph(env, prefix, fallbackEndpoint, fallbackEdition, fallbac
   return new SubgraphClient({
     endpoint,
     certificationEditionAddress: env[`${prefix}_CERTIFICATION_EDITION_ADDRESS`] ?? fallbackEdition,
-    certificationEditionName: env[`${prefix}_CERTIFICATION_EDITION_NAME`] ?? fallbackName
+    certificationEditionName: env[`${prefix}_CERTIFICATION_EDITION_NAME`] ?? fallbackName,
+    protocolVersion: Number(env[`${prefix}_PROTOCOL_VERSION`] ?? 1)
   });
 }
 
@@ -221,6 +222,7 @@ export function createNetworkConfigs(env = process.env) {
   const config = (key, chainId, rpcEnv, fallbackRpc, subgraph, policyEnv, readModelDisabled = false) => ({
     key,
     chainId,
+    protocolVersion: subgraph.protocolVersion,
     chain: new JsonRpcClient(env[rpcEnv] ?? fallbackRpc),
     subgraph,
     orderPolicy: productionOrderPolicy(policyEnv),
@@ -410,6 +412,7 @@ export function createApiServer({
   maxIndexerLagBlocks = 120,
   maxFinalityLagBlocks = 120,
   storage = null,
+  protocolVersion = 1,
   productionReadiness = null,
   requireProductionReadiness = false
 } = {}) {
@@ -441,6 +444,7 @@ export function createApiServer({
       const chain = selectedNetwork?.chain ?? fallbackChain;
       const subgraph = selectedNetwork?.subgraph ?? fallbackSubgraph;
       const orderPolicy = selectedNetwork?.orderPolicy ?? fallbackOrderPolicy;
+      const activeProtocolVersion = Number(selectedNetwork?.protocolVersion ?? protocolVersion);
       const readiness = selectedNetwork?.productionReadiness ?? productionReadiness;
       const readModelDisabled = Boolean(selectedNetwork?.readModelDisabled && !subgraph?.enabled);
       const origin = headers.origin;
@@ -633,10 +637,11 @@ export function createApiServer({
         if (indexed && store.projectByEditionAddress) linkedProject = await store.projectByEditionAddress(address);
         const commitments = store.termsCommitmentsForEdition ? await store.termsCommitmentsForEdition(address) : [];
         if (indexed && commitments.length) {
-          const byHash = new Map(commitments.map((row) => [String(row.advantagesHash).toLowerCase(), row.configs]));
+          const byHash = new Map(commitments.map((row) => [String(row.advantagesHash).toLowerCase(), row]));
           const enrich = (term) => {
             const hash = String(term?.advantagesHash ?? term?.advantages_hash ?? '').toLowerCase();
-            return hash && byHash.has(hash) ? { ...term, advantageConfigs: byHash.get(hash) } : term;
+            const commitment = hash ? byHash.get(hash) : null;
+            return commitment ? { ...(commitment.termsPayload ?? {}), ...term, advantageConfigs: commitment.configs } : term;
           };
           indexed.currentTerms = enrich(indexed.currentTerms ?? indexed.current_terms);
           indexed.current_terms = indexed.currentTerms;
@@ -1021,6 +1026,14 @@ export function createApiServer({
         return json(res, 200, { data: { advantagesHash } });
       }
 
+      if (req.method === 'POST' && url.pathname === '/v1/allowlists/merkle') {
+        const input = await readBody(req);
+        if (!Array.isArray(input.addresses) || input.addresses.length > 10_000) throw Object.assign(new Error('ALLOWLIST_ADDRESSES_REQUIRED'), { status: 400 });
+        let data;
+        try { data = buildAllowlist(input.addresses); } catch { throw Object.assign(new Error('ALLOWLIST_ADDRESS_INVALID'), { status: 400 }); }
+        return json(res, 200, { data, authority: 'DETERMINISTIC_MERKLE_COMMITMENT' });
+      }
+
       if (req.method === 'POST' && INTENT_TYPE[url.pathname]) {
         const input = await readBody(req); const idempotencyKey = req.headers['idempotency-key']?.toString();
         if (!idempotencyKey || idempotencyKey.length > 128) throw Object.assign(new Error('IDEMPOTENCY_KEY_REQUIRED'), { status: 400 });
@@ -1034,12 +1047,19 @@ export function createApiServer({
           const intentType = INTENT_TYPE[url.pathname]; const target = orderPolicy.transactionTargets?.[intentType];
           if (!isAddress(target ?? '')) throw Object.assign(new Error('CONTRACT_CONFIGURATION_REQUIRED'), { status: 503 });
           if (input.to !== undefined && (!isAddress(input.to) || getAddress(input.to) !== getAddress(target))) throw Object.assign(new Error('TRANSACTION_TARGET_REJECTED'), { status: 400 });
-          let calldata = input.calldata; const protocolInput = input;
+          let calldata = input.calldata; let protocolInput = input;
           if (intentType === 'TERMS_PUBLISH') {
+            const requestsV2 = Number(input.protocolVersion ?? 1) >= 2 || Object.hasOwn(input.terms ?? {}, 'allowlistRoot');
+            if (requestsV2 && activeProtocolVersion < 2) throw Object.assign(new Error('PROTOCOL_V2_REQUIRED'), { status: 409 });
             if (!isAddress(input.edition ?? '') || !/^0x[0-9a-fA-F]{64}$/.test(input.terms?.advantagesHash ?? '')) throw Object.assign(new Error('TERMS_COMMITMENT_REQUIRED'), { status: 400 });
             const computedAdvantagesHash = canonicalAdvantagesHash(input.advantageConfigs ?? []);
             if (!computedAdvantagesHash || computedAdvantagesHash.toLowerCase() !== input.terms.advantagesHash.toLowerCase()) throw Object.assign(new Error('ADVANTAGES_COMMITMENT_MISMATCH'), { status: 400 });
-            await store.saveTermsCommitment?.({ builderAccountId: session.accountId, builderId: input.builderId ?? input.builder_id ?? null, editionAddress: input.edition, advantagesHash: input.terms.advantagesHash, termsPayload: input.terms, configs: input.advantageConfigs ?? [] });
+            let allowlist = null;
+            if (Array.isArray(input.allowlistAddresses)) {
+              try { allowlist = buildAllowlist(input.allowlistAddresses); } catch { throw Object.assign(new Error('ALLOWLIST_ADDRESS_INVALID'), { status: 400 }); }
+              if (allowlist.root.toLowerCase() !== String(input.terms.allowlistRoot ?? '').toLowerCase()) throw Object.assign(new Error('ALLOWLIST_COMMITMENT_MISMATCH'), { status: 400 });
+            }
+            await store.saveTermsCommitment?.({ builderAccountId: session.accountId, builderId: input.builderId ?? input.builder_id ?? null, editionAddress: input.edition, advantagesHash: input.terms.advantagesHash, termsPayload: { ...input.terms, ...(allowlist ? { allowlistAddresses: allowlist.entries.map((entry) => entry.account) } : {}) }, configs: input.advantageConfigs ?? [] });
             // The persisted commitment and calldata must describe the same
             // Terms snapshot; callers cannot substitute opaque calldata here.
             calldata = undefined;
@@ -1064,6 +1084,31 @@ export function createApiServer({
             const minted = Number(indexedEdition.total_minted ?? indexedEdition.totalMinted ?? 0);
             const quantity = Number(input.quantity ?? 1);
             if (cap > 0 && minted + quantity > cap) throw Object.assign(new Error('SUPPLY_EXHAUSTED'), { status: 409 });
+            const allowlistRoot = terms.allowlistRoot ?? terms.allowlist_root;
+            const allowlistEndsAt = epochSeconds(terms.allowlistEndsAt ?? terms.allowlist_ends_at);
+            if (allowlistRoot && !/^0x0{64}$/i.test(String(allowlistRoot)) && allowlistEndsAt != null && now < allowlistEndsAt) {
+              let proof = input.allowlistProof;
+              if (!Array.isArray(proof)) {
+                const commitments = await store.termsCommitmentsForEdition?.(input.edition) ?? [];
+                const commitment = commitments.find((row) => String(row.termsPayload?.allowlistRoot ?? '').toLowerCase() === String(allowlistRoot).toLowerCase());
+                const addresses = commitment?.termsPayload?.allowlistAddresses;
+                if (!Array.isArray(addresses)) throw Object.assign(new Error('ALLOWLIST_PROOF_REQUIRED'), { status: 403 });
+                const tree = buildAllowlist(addresses);
+                const entry = tree.entries.find((item) => item.account.toLowerCase() === session.walletAddress.toLowerCase());
+                if (!entry) throw Object.assign(new Error('WALLET_NOT_ALLOWLISTED'), { status: 403 });
+                proof = entry.proof;
+              }
+              protocolInput = { ...input, allowlistProof: proof };
+            } else if (Array.isArray(input.allowlistProof)) {
+              const { allowlistProof: _expiredProof, ...publicMintInput } = input;
+              protocolInput = publicMintInput;
+            }
+          }
+          if (intentType === 'ADVANTAGE_USE' && input.operation === 'REDEEM_AMOUNT' && activeProtocolVersion < 2) {
+            throw Object.assign(new Error('PROTOCOL_V2_REQUIRED'), { status: 409 });
+          }
+          if (intentType === 'MINT' && Array.isArray(protocolInput.allowlistProof) && activeProtocolVersion < 2) {
+            throw Object.assign(new Error('PROTOCOL_V2_REQUIRED'), { status: 409 });
           }
           if (calldata === undefined) calldata = buildProtocolCalldata(intentType, protocolInput, { walletAddress: session.walletAddress, idempotencyKey });
           if (!/^0x[0-9a-fA-F]+$/.test(calldata ?? '') || !INTENT_SELECTORS[intentType]?.includes(calldata.slice(0, 10).toLowerCase())) throw Object.assign(new Error('CALLDATA_SELECTOR_REJECTED'), { status: 400 });

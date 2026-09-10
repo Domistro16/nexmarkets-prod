@@ -48,6 +48,8 @@ dataSources:
           handler: handleEditionRegistered
         - event: TermsPublished(indexed address,indexed bytes32,indexed uint64,uint256,uint256,uint64,uint64,uint64,address,address,uint96,bytes32,bytes32)
           handler: handleTermsPublished
+        - event: MintAccessPublished(indexed address,indexed bytes32,bytes32,uint64,uint256)
+          handler: handleMintAccessPublished
   - kind: ethereum
     name: NexMintController
     network: robinhood-testnet

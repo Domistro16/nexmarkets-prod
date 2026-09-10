@@ -232,6 +232,10 @@ export class MemoryStore {
     this.termsCommitments.set(input.advantagesHash.toLowerCase(), structuredClone(value));
     return structuredClone(value);
   }
+  async termsCommitmentsForEdition(editionAddress) {
+    const wanted = String(editionAddress ?? '').toLowerCase();
+    return structuredClone([...this.termsCommitments.values()].filter((row) => String(row.editionAddress ?? '').toLowerCase() === wanted));
+  }
   async createMedia({ accountId, metadata }) {
     const existing = this.media.find((row) => row.ownerAccountId === accountId && row.sha256 === metadata.sha256 && !row.deletedAt);
     if (existing) return structuredClone(existing);

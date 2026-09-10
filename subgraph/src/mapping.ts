@@ -4,6 +4,7 @@ import { NexAdvantageRegistry as AdvantageRegistryContract } from "../generated/
 import { EditionCreated } from "../generated/NexPassFactory/NexPassFactory";
 import {
   EditionRegistered,
+  MintAccessPublished,
   TermsPublished
 } from "../generated/NexLaunchRegistry/NexLaunchRegistry";
 import {
@@ -217,6 +218,16 @@ export function handleTermsPublished(event: TermsPublished): void {
   terms.save();
   edition.currentTerms = terms.id;
   edition.save();
+}
+
+export function handleMintAccessPublished(event: MintAccessPublished): void {
+  let id = `${addressId(event.params.edition)}-${bytesId(event.params.termsVersionHash)}`;
+  let terms = TermsVersion.load(id);
+  if (terms == null) return;
+  terms.allowlistRoot = event.params.allowlistRoot;
+  terms.allowlistEndsAt = event.params.allowlistEndsAt;
+  terms.allowlistSupply = event.params.allowlistSupply;
+  terms.save();
 }
 
 export function handlePrimaryMintSettled(event: PrimaryMintSettled): void {

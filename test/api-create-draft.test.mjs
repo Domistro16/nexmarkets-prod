@@ -296,6 +296,29 @@ test('Create draft preserves the selected Base network in normalized content', (
   assert.equal(normalized.launchDraft.edition.network, 'base');
 });
 
+test('Create draft commits an optional timed allowlist with an optional phase supply', () => {
+  const fixture = fullDraftFixture({
+    mintAccess: {
+      enabled: true,
+      addresses: ['0x2222222222222222222222222222222222222222', '0x1111111111111111111111111111111111111111'],
+      hours: 24,
+      supply: 40
+    }
+  });
+  const normalized = validateAndNormalizeProjectPayload(fixture).launchDraft;
+  assert.equal(normalized.mintAccess.enabled, true);
+  assert.equal(normalized.mintAccess.hours, 24);
+  assert.equal(normalized.mintAccess.supply, 40);
+  assert.equal(normalized.mintAccess.addresses.length, 2);
+  assert.match(normalized.mintAccess.root, /^0x[0-9a-f]{64}$/);
+
+  const uncapped = fullDraftFixture({ mintAccess: { enabled: true, addresses: normalized.mintAccess.addresses, hours: 24, supply: 0 } });
+  assert.equal(validateAndNormalizeProjectPayload(uncapped).launchDraft.mintAccess.supply, 0);
+
+  const invalid = fullDraftFixture({ mintAccess: { enabled: true, addresses: normalized.mintAccess.addresses, hours: 24, supply: 101 } });
+  assert.throws(() => validateAndNormalizeProjectPayload(invalid), /INVALID_ALLOWLIST_SUPPLY/);
+});
+
 test('Idempotent repeated draft submission updates existing draft without creating duplicates', async (t) => {
   const { server, base } = await running();
   t.after(() => server.close());
@@ -553,6 +576,33 @@ test('Artwork metadata and serial mapping preservation', async (t) => {
     { tokenId: 3, sha256: shaC }
   ]);
   assert.equal(commitment.length, 64);
+});
+
+test('authenticated builders can create deterministic allowlist roots and proofs', async (t) => {
+  const { server, base } = await running();
+  t.after(() => server.close());
+  const wallet = Wallet.createRandom();
+  const auth = await authenticate(base, wallet);
+  const alice = '0x1111111111111111111111111111111111111111';
+  const bob = '0x2222222222222222222222222222222222222222';
+
+  const response = await fetch(`${base}/v1/allowlists/merkle`, {
+    method: 'POST',
+    headers: {
+      cookie: auth.cookie,
+      'x-csrf-token': auth.csrf,
+      'content-type': 'application/json',
+      origin: 'https://nexmarkets.fun'
+    },
+    body: JSON.stringify({ addresses: [bob, alice, alice] })
+  });
+
+  assert.equal(response.status, 200);
+  const result = await response.json();
+  assert.match(result.data.root, /^0x[0-9a-f]{64}$/);
+  assert.equal(result.data.entries.length, 2);
+  assert.deepEqual(result.data.entries.map((entry) => entry.account), [alice, bob]);
+  assert.equal(result.authority, 'DETERMINISTIC_MERKLE_COMMITMENT');
 });
 
 test('PostgreSQL JSONB persistence and idempotency when DATABASE_URL is available', async () => {

@@ -34,13 +34,14 @@ function advantageRemaining(advantage, now = Math.floor(Date.now() / 1000)) {
 }
 
 export class SubgraphClient {
-  constructor({ endpoint, fetchImpl = globalThis.fetch, timeoutMs = DEFAULT_TIMEOUT_MS, logger = console, certificationEditionAddress = null, certificationEditionName = null } = {}) {
+  constructor({ endpoint, fetchImpl = globalThis.fetch, timeoutMs = DEFAULT_TIMEOUT_MS, logger = console, certificationEditionAddress = null, certificationEditionName = null, protocolVersion = 1 } = {}) {
     this.endpoint = endpoint?.trim() || null;
     this.fetchImpl = fetchImpl;
     this.timeoutMs = timeoutMs;
     this.logger = logger;
     this.certificationEditionAddress = lower(certificationEditionAddress);
     this.certificationEditionName = certificationEditionName;
+    this.protocolVersion = Number(protocolVersion);
   }
 
   get enabled() { return Boolean(this.endpoint); }
@@ -73,7 +74,8 @@ export class SubgraphClient {
   }
 
   async discover({ first = 100 } = {}) {
-    const data = await this.query(`query($first:Int!){ editions(first:$first,orderBy:createdBlock,orderDirection:desc){ id address editionId publisher absoluteSupplyCap totalMinted disabled currentTerms { hash pricePerPass previewStartsAt mintStartsAt mintEndsAt } createdBlock createdTimestamp createdTx } }`, { first });
+    const accessFields = this.protocolVersion >= 2 ? ' allowlistRoot allowlistEndsAt allowlistSupply' : '';
+    const data = await this.query(`query($first:Int!){ editions(first:$first,orderBy:createdBlock,orderDirection:desc){ id address editionId publisher absoluteSupplyCap totalMinted disabled currentTerms { hash pricePerPass previewStartsAt mintStartsAt mintEndsAt${accessFields} } createdBlock createdTimestamp createdTx } }`, { first });
     return (data.editions ?? []).map((edition) => {
       const address = lower(edition.address);
       const name = address === this.certificationEditionAddress && this.certificationEditionName
@@ -95,7 +97,8 @@ export class SubgraphClient {
   }
 
   async editionByAddress(address) {
-    const data = await this.query(`query($address:Bytes!,$editionId:ID!){ editions(where:{address:$address}){ id address editionId publisher mintController absoluteSupplyCap artworkCommitment totalMinted disabled currentTerms { id hash version activeSupply pricePerPass previewStartsAt mintStartsAt mintEndsAt primaryRecipient royaltyReceiver royaltyBps advantagesHash referralTermsHash blockNumber timestamp transactionHash } terms(orderBy:version,orderDirection:desc){ id hash version activeSupply pricePerPass previewStartsAt mintStartsAt mintEndsAt primaryRecipient royaltyReceiver royaltyBps advantagesHash referralTermsHash } } advantageDefinitions(where:{edition:$editionId}){ termsHash advantageId kind startsAt endsAt totalUnits definitionHash } }`, { address: lower(address), editionId: lower(address) });
+    const accessFields = this.protocolVersion >= 2 ? ' allowlistRoot allowlistEndsAt allowlistSupply' : '';
+    const data = await this.query(`query($address:Bytes!,$editionId:ID!){ editions(where:{address:$address}){ id address editionId publisher mintController absoluteSupplyCap artworkCommitment totalMinted disabled currentTerms { id hash version activeSupply pricePerPass previewStartsAt mintStartsAt mintEndsAt${accessFields} primaryRecipient royaltyReceiver royaltyBps advantagesHash referralTermsHash blockNumber timestamp transactionHash } terms(orderBy:version,orderDirection:desc){ id hash version activeSupply pricePerPass previewStartsAt mintStartsAt mintEndsAt${accessFields} primaryRecipient royaltyReceiver royaltyBps advantagesHash referralTermsHash } } advantageDefinitions(where:{edition:$editionId}){ termsHash advantageId kind startsAt endsAt totalUnits definitionHash } }`, { address: lower(address), editionId: lower(address) });
     const edition = data.editions?.[0];
     if (!edition) return null;
     const normalizedAddress = lower(edition.address);
@@ -180,7 +183,8 @@ function normalizeTerms(terms) {
   const previewStartsAt = unix(terms.previewStartsAt);
   const mintStartsAt = unix(terms.mintStartsAt);
   const mintEndsAt = unix(terms.mintEndsAt);
-  return { ...terms, hash: lower(terms.hash), primaryRecipient: lower(terms.primaryRecipient), royaltyReceiver: lower(terms.royaltyReceiver), advantagesHash: lower(terms.advantagesHash), referralTermsHash: lower(terms.referralTermsHash), previewStartsAt, mintStartsAt, mintEndsAt, price_usdg: terms.pricePerPass, preview_starts_at: iso(previewStartsAt), mint_starts_at: iso(mintStartsAt), mint_ends_at: iso(mintEndsAt), terms_hash: lower(terms.hash), primary_recipient: lower(terms.primaryRecipient), royalty_receiver: lower(terms.royaltyReceiver), royalty_bps: terms.royaltyBps, advantages_hash: lower(terms.advantagesHash), referral_terms_hash: lower(terms.referralTermsHash) };
+  const allowlistEndsAt = unix(terms.allowlistEndsAt);
+  return { ...terms, hash: lower(terms.hash), primaryRecipient: lower(terms.primaryRecipient), royaltyReceiver: lower(terms.royaltyReceiver), advantagesHash: lower(terms.advantagesHash), referralTermsHash: lower(terms.referralTermsHash), allowlistRoot: lower(terms.allowlistRoot), previewStartsAt, mintStartsAt, mintEndsAt, allowlistEndsAt, price_usdg: terms.pricePerPass, preview_starts_at: iso(previewStartsAt), mint_starts_at: iso(mintStartsAt), mint_ends_at: iso(mintEndsAt), allowlist_root: lower(terms.allowlistRoot), allowlist_ends_at: iso(allowlistEndsAt), allowlist_supply: terms.allowlistSupply, terms_hash: lower(terms.hash), primary_recipient: lower(terms.primaryRecipient), royalty_receiver: lower(terms.royaltyReceiver), royalty_bps: terms.royaltyBps, advantages_hash: lower(terms.advantagesHash), referral_terms_hash: lower(terms.referralTermsHash) };
 }
 
 function iso(value) { return value == null ? null : new Date(Number(value) * 1000).toISOString(); }

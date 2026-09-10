@@ -4776,9 +4776,9 @@ var init_anonymous = __esm({
     init_abstract_coder();
     AnonymousCoder = class extends Coder {
       coder;
-      constructor(coder2) {
-        super(coder2.name, coder2.type, "_", coder2.dynamic);
-        this.coder = coder2;
+      constructor(coder3) {
+        super(coder3.name, coder3.type, "_", coder3.dynamic);
+        this.coder = coder3;
       }
       defaultValue() {
         return this.coder.defaultValue();
@@ -4800,10 +4800,10 @@ function pack(writer, coders, values) {
     arrayValues = values;
   } else if (values && typeof values === "object") {
     let unique = {};
-    arrayValues = coders.map((coder2) => {
-      const name = coder2.localName;
-      assert(name, "cannot encode object for signature with missing names", "INVALID_ARGUMENT", { argument: "values", info: { coder: coder2 }, value: values });
-      assert(!unique[name], "cannot encode object for signature with duplicate names", "INVALID_ARGUMENT", { argument: "values", info: { coder: coder2 }, value: values });
+    arrayValues = coders.map((coder3) => {
+      const name = coder3.localName;
+      assert(name, "cannot encode object for signature with missing names", "INVALID_ARGUMENT", { argument: "values", info: { coder: coder3 }, value: values });
+      assert(!unique[name], "cannot encode object for signature with duplicate names", "INVALID_ARGUMENT", { argument: "values", info: { coder: coder3 }, value: values });
       unique[name] = true;
       return values[name];
     });
@@ -4814,17 +4814,17 @@ function pack(writer, coders, values) {
   let staticWriter = new Writer();
   let dynamicWriter = new Writer();
   let updateFuncs = [];
-  coders.forEach((coder2, index) => {
+  coders.forEach((coder3, index) => {
     let value = arrayValues[index];
-    if (coder2.dynamic) {
+    if (coder3.dynamic) {
       let dynamicOffset = dynamicWriter.length;
-      coder2.encode(dynamicWriter, value);
+      coder3.encode(dynamicWriter, value);
       let updateFunc = staticWriter.writeUpdatableValue();
       updateFuncs.push((baseOffset) => {
         updateFunc(baseOffset + dynamicOffset);
       });
     } else {
-      coder2.encode(staticWriter, value);
+      coder3.encode(staticWriter, value);
     }
   });
   updateFuncs.forEach((func) => {
@@ -4838,40 +4838,40 @@ function unpack(reader, coders) {
   let values = [];
   let keys = [];
   let baseReader = reader.subReader(0);
-  coders.forEach((coder2) => {
+  coders.forEach((coder3) => {
     let value = null;
-    if (coder2.dynamic) {
+    if (coder3.dynamic) {
       let offset = reader.readIndex();
       let offsetReader = baseReader.subReader(offset);
       try {
-        value = coder2.decode(offsetReader);
+        value = coder3.decode(offsetReader);
       } catch (error) {
         if (isError(error, "BUFFER_OVERRUN")) {
           throw error;
         }
         value = error;
-        value.baseType = coder2.name;
-        value.name = coder2.localName;
-        value.type = coder2.type;
+        value.baseType = coder3.name;
+        value.name = coder3.localName;
+        value.type = coder3.type;
       }
     } else {
       try {
-        value = coder2.decode(reader);
+        value = coder3.decode(reader);
       } catch (error) {
         if (isError(error, "BUFFER_OVERRUN")) {
           throw error;
         }
         value = error;
-        value.baseType = coder2.name;
-        value.name = coder2.localName;
-        value.type = coder2.type;
+        value.baseType = coder3.name;
+        value.name = coder3.localName;
+        value.type = coder3.type;
       }
     }
     if (value == void 0) {
       throw new Error("investigate");
     }
     values.push(value);
-    keys.push(coder2.localName || null);
+    keys.push(coder3.localName || null);
   });
   return Result.fromItems(values, keys);
 }
@@ -4885,11 +4885,11 @@ var init_array = __esm({
     ArrayCoder = class extends Coder {
       coder;
       length;
-      constructor(coder2, length, localName) {
-        const type = coder2.type + "[" + (length >= 0 ? length : "") + "]";
-        const dynamic = length === -1 || coder2.dynamic;
+      constructor(coder3, length, localName) {
+        const type = coder3.type + "[" + (length >= 0 ? length : "") + "]";
+        const dynamic = length === -1 || coder3.dynamic;
         super("array", type, localName, dynamic);
-        defineProperties(this, { coder: coder2, length });
+        defineProperties(this, { coder: coder3, length });
       }
       defaultValue() {
         const defaultChild = this.coder.defaultValue();
@@ -5131,11 +5131,11 @@ var init_tuple = __esm({
       constructor(coders, localName) {
         let dynamic = false;
         const types = [];
-        coders.forEach((coder2) => {
-          if (coder2.dynamic) {
+        coders.forEach((coder3) => {
+          if (coder3.dynamic) {
             dynamic = true;
           }
-          types.push(coder2.type);
+          types.push(coder3.type);
         });
         const type = "tuple(" + types.join(",") + ")";
         super("tuple", type, localName, dynamic);
@@ -5143,11 +5143,11 @@ var init_tuple = __esm({
       }
       defaultValue() {
         const values = [];
-        this.coders.forEach((coder2) => {
-          values.push(coder2.defaultValue());
+        this.coders.forEach((coder3) => {
+          values.push(coder3.defaultValue());
         });
-        const uniqueNames = this.coders.reduce((accum, coder2) => {
-          const name = coder2.localName;
+        const uniqueNames = this.coders.reduce((accum, coder3) => {
+          const name = coder3.localName;
           if (name) {
             if (!accum[name]) {
               accum[name] = 0;
@@ -5156,8 +5156,8 @@ var init_tuple = __esm({
           }
           return accum;
         }, {});
-        this.coders.forEach((coder2, index) => {
-          let name = coder2.localName;
+        this.coders.forEach((coder3, index) => {
+          let name = coder3.localName;
           if (!name || uniqueNames[name] !== 1) {
             return;
           }
@@ -7123,8 +7123,8 @@ var init_abi_coder = __esm({
        */
       getDefaultValue(types) {
         const coders = types.map((type) => this.#getCoder(ParamType.from(type)));
-        const coder2 = new TupleCoder(coders, "_");
-        return coder2.defaultValue();
+        const coder3 = new TupleCoder(coders, "_");
+        return coder3.defaultValue();
       }
       /**
        *  Encode the %%values%% as the %%types%% into ABI data.
@@ -7134,9 +7134,9 @@ var init_abi_coder = __esm({
       encode(types, values) {
         assertArgumentCount(values.length, types.length, "types/values length mismatch");
         const coders = types.map((type) => this.#getCoder(ParamType.from(type)));
-        const coder2 = new TupleCoder(coders, "_");
+        const coder3 = new TupleCoder(coders, "_");
         const writer = new Writer();
-        coder2.encode(writer, values);
+        coder3.encode(writer, values);
         return writer.data;
       }
       /**
@@ -7148,8 +7148,8 @@ var init_abi_coder = __esm({
        */
       decode(types, data, loose) {
         const coders = types.map((type) => this.#getCoder(ParamType.from(type)));
-        const coder2 = new TupleCoder(coders, "_");
-        return coder2.decode(new Reader(data, loose, defaultMaxInflation));
+        const coder3 = new TupleCoder(coders, "_");
+        return coder3.decode(new Reader(data, loose, defaultMaxInflation));
       }
       static _setDefaultMaxInflation(value) {
         assertArgument(typeof value === "number" && Number.isInteger(value), "invalid defaultMaxInflation factor", "value", value);
@@ -8688,27 +8688,34 @@ function buildProtocolCalldata(intentType, input, { walletAddress, idempotencyKe
   if (!abi) throw new Error("UNSUPPORTED_PROTOCOL_INTENT");
   if (intentType === "MINT") {
     const intentId = keccak256(toUtf8Bytes(`NEXMARKETS_MINT_INTENT:${walletAddress.toLowerCase()}:${idempotencyKey}`));
-    return abi.encodeFunctionData("mint", [[input.edition, input.termsVersionHash, input.recipient ?? walletAddress, input.quantity, intentId, input.referralHint ?? ZeroAddress, input.advantageConfigs ?? []]]);
+    const request = [input.edition, input.termsVersionHash, input.recipient ?? walletAddress, input.quantity, intentId, input.referralHint ?? ZeroAddress, input.advantageConfigs ?? []];
+    return Array.isArray(input.allowlistProof) ? abi.encodeFunctionData("mintAllowlisted", [request, input.allowlistProof]) : abi.encodeFunctionData("mint", [request]);
   }
   if (intentType === "EDITION_CREATE") return abi.encodeFunctionData("createEdition", [[input.name, input.symbol, input.initialOwner, input.editionId, input.absoluteSupplyCap, input.artworkCommitment, input.baseTokenURI], input.salt]);
-  if (intentType === "TERMS_PUBLISH") return abi.encodeFunctionData("publishTerms", [input.edition, input.terms]);
+  if (intentType === "TERMS_PUBLISH") {
+    const versionedAbi = input.protocolVersion === 1 || !Object.hasOwn(input.terms ?? {}, "allowlistRoot") ? interfaces.TERMS_PUBLISH_V1 : abi;
+    return versionedAbi.encodeFunctionData("publishTerms", [input.edition, input.terms]);
+  }
   if (intentType === "LISTING_CANCEL") return abi.encodeFunctionData("cancelListing", [input.orderHash]);
   if (intentType === "ROYALTY_WITHDRAW") return abi.encodeFunctionData("withdraw", [input.orderHash]);
   if (intentType === "ADVANTAGE_USE" && input.operation === "REDEEM") return abi.encodeFunctionData("redeem", [input.edition, input.tokenId, input.advantageId, input.useId]);
+  if (intentType === "ADVANTAGE_USE" && input.operation === "REDEEM_AMOUNT") return abi.encodeFunctionData("redeemAmount", [input.edition, input.tokenId, input.advantageId, input.amount, input.useId]);
   if (intentType === "ADVANTAGE_USE" && input.operation === "CONSUME_QUANTITY") return abi.encodeFunctionData("consumeQuantity", [input.edition, input.tokenId, input.advantageId, input.amount, input.useId]);
   if (intentType === "ADVANTAGE_USE" && input.operation === "USE_AMOUNT") return abi.encodeFunctionData("useAmount", [input.edition, input.tokenId, input.advantageId, input.useId]);
   throw new Error("ADVANTAGE_OPERATION_REQUIRED");
 }
-var interfaces;
+var MINT_REQUEST, interfaces;
 var init_transaction_calldata = __esm({
   "packages/domain/src/transaction-calldata.mjs"() {
     init_lib();
+    MINT_REQUEST = "(address edition,bytes32 termsVersionHash,address recipient,uint256 quantity,bytes32 intentId,address referralHint,(bytes32 advantageId,uint8 kind,uint64 startsAt,uint64 endsAt,uint256 totalUnits,bytes32 definitionHash)[] advantageConfigs)";
     interfaces = {
-      MINT: new Interface(["function mint((address edition,bytes32 termsVersionHash,address recipient,uint256 quantity,bytes32 intentId,address referralHint,(bytes32 advantageId,uint8 kind,uint64 startsAt,uint64 endsAt,uint256 totalUnits,bytes32 definitionHash)[] advantageConfigs) request) returns (uint256)"]),
+      MINT: new Interface([`function mint(${MINT_REQUEST} request) returns (uint256)`, `function mintAllowlisted(${MINT_REQUEST} request,bytes32[] proof) returns (uint256)`]),
       EDITION_CREATE: new Interface(["function createEdition((string name,string symbol,address initialOwner,bytes32 editionId,uint32 absoluteSupplyCap,bytes32 artworkCommitment,string baseTokenURI) config,bytes32 salt) returns (address)"]),
-      TERMS_PUBLISH: new Interface(["function publishTerms(address edition,(uint256 activeSupply,uint256 pricePerPass,uint64 previewStartsAt,uint64 mintStartsAt,uint64 mintEndsAt,address primaryRecipient,address royaltyReceiver,uint96 royaltyBps,bytes32 advantagesHash,bytes32 referralTermsHash) terms) returns (bytes32)"]),
+      TERMS_PUBLISH_V1: new Interface(["function publishTerms(address edition,(uint256 activeSupply,uint256 pricePerPass,uint64 previewStartsAt,uint64 mintStartsAt,uint64 mintEndsAt,address primaryRecipient,address royaltyReceiver,uint96 royaltyBps,bytes32 advantagesHash,bytes32 referralTermsHash) terms) returns (bytes32)"]),
+      TERMS_PUBLISH: new Interface(["function publishTerms(address edition,(uint256 activeSupply,uint256 pricePerPass,uint64 previewStartsAt,uint64 mintStartsAt,uint64 mintEndsAt,bytes32 allowlistRoot,uint64 allowlistEndsAt,uint256 allowlistSupply,address primaryRecipient,address royaltyReceiver,uint96 royaltyBps,bytes32 advantagesHash,bytes32 referralTermsHash) terms) returns (bytes32)"]),
       LISTING_CANCEL: new Interface(["function cancelListing(bytes32 orderHash)"]),
-      ADVANTAGE_USE: new Interface(["function consumeQuantity(address edition,uint256 tokenId,bytes32 advantageId,uint256 amount,bytes32 useId)", "function redeem(address edition,uint256 tokenId,bytes32 advantageId,bytes32 redemptionId)", "function useAmount(address edition,uint256 tokenId,bytes32 advantageId,bytes32 useId) returns (uint256)"]),
+      ADVANTAGE_USE: new Interface(["function consumeQuantity(address edition,uint256 tokenId,bytes32 advantageId,uint256 amount,bytes32 useId)", "function redeem(address edition,uint256 tokenId,bytes32 advantageId,bytes32 redemptionId)", "function redeemAmount(address edition,uint256 tokenId,bytes32 advantageId,uint256 amount,bytes32 redemptionId)", "function useAmount(address edition,uint256 tokenId,bytes32 advantageId,bytes32 useId) returns (uint256)"]),
       ROYALTY_WITHDRAW: new Interface(["function withdraw(bytes32 orderHash)"])
     };
   }
@@ -8838,6 +8845,49 @@ var init_pass_design = __esm({
       palette: Object.freeze({ primary: PALETTES[option.family === "classic" ? "classic" : option.family === "glass" ? "glass" : option.id][index][0], secondary: PALETTES[option.family === "classic" ? "classic" : option.family === "glass" ? "glass" : option.id][index][1], accent: PALETTES[option.family === "classic" ? "classic" : option.family === "glass" ? "glass" : option.id][index][2] })
     }))));
     OPTION_MAP = new Map(PASS_DESIGN_OPTIONS.map((option) => [option.id, option]));
+  }
+});
+
+// packages/domain/src/allowlist.mjs
+function allowlistLeaf(account) {
+  const normalized = getAddress(account);
+  return keccak256(concat([keccak256(coder2.encode(["address"], [normalized]))]));
+}
+function hashPair(left, right) {
+  const [first, second] = left.toLowerCase() < right.toLowerCase() ? [left, right] : [right, left];
+  return keccak256(concat([first, second]));
+}
+function buildAllowlist(addresses = []) {
+  const accounts = [...new Set(addresses.map((account) => getAddress(String(account)).toLowerCase()))].sort().map(getAddress);
+  if (accounts.length === 0) return Object.freeze({ root: ZeroHash, entries: Object.freeze([]) });
+  const leaves = accounts.map(allowlistLeaf);
+  const layers = [leaves];
+  while (layers.at(-1).length > 1) {
+    const current = layers.at(-1);
+    const next = [];
+    for (let index = 0; index < current.length; index += 2) {
+      next.push(index + 1 < current.length ? hashPair(current[index], current[index + 1]) : current[index]);
+    }
+    layers.push(next);
+  }
+  const entries = accounts.map((account, leafIndex) => {
+    const proof = [];
+    let index = leafIndex;
+    for (let layerIndex = 0; layerIndex < layers.length - 1; layerIndex += 1) {
+      const layer = layers[layerIndex];
+      const sibling = index % 2 === 0 ? index + 1 : index - 1;
+      if (sibling < layer.length) proof.push(layer[sibling]);
+      index = Math.floor(index / 2);
+    }
+    return Object.freeze({ account, leaf: leaves[leafIndex], proof: Object.freeze(proof) });
+  });
+  return Object.freeze({ root: layers.at(-1)[0], entries: Object.freeze(entries) });
+}
+var coder2;
+var init_allowlist = __esm({
+  "packages/domain/src/allowlist.mjs"() {
+    init_lib();
+    coder2 = AbiCoder.defaultAbiCoder();
   }
 });
 
@@ -9184,6 +9234,33 @@ function normalizeLaunchDraft(draft = {}, defaults = {}) {
     timezone,
     termsVersion
   };
+  const accessInput = draft.mintAccess ?? {};
+  const allowlistEnabled = Boolean(accessInput.enabled);
+  const rawAllowlistAddresses = Array.isArray(accessInput.addresses) ? accessInput.addresses : String(accessInput.addresses ?? "").split(/[\s,]+/).filter(Boolean);
+  let allowlist;
+  try {
+    allowlist = buildAllowlist(allowlistEnabled ? rawAllowlistAddresses : []);
+  } catch {
+    throw Object.assign(new Error("INVALID_ALLOWLIST_ADDRESS"), { status: 400 });
+  }
+  if (allowlistEnabled && isFullDraft && allowlist.entries.length === 0) {
+    throw Object.assign(new Error("ALLOWLIST_ADDRESSES_REQUIRED"), { status: 400 });
+  }
+  const allowlistHours = Number(accessInput.hours ?? 24);
+  if (allowlistEnabled && (!Number.isInteger(allowlistHours) || allowlistHours < 1)) {
+    throw Object.assign(new Error("INVALID_ALLOWLIST_HOURS"), { status: 400 });
+  }
+  const allowlistSupply = Number(accessInput.supply ?? 0);
+  if (!Number.isInteger(allowlistSupply) || allowlistSupply < 0 || allowlistSupply > supply) {
+    throw Object.assign(new Error("INVALID_ALLOWLIST_SUPPLY"), { status: 400 });
+  }
+  const mintAccess = {
+    enabled: allowlistEnabled,
+    addresses: allowlist.entries.map((entry) => entry.account),
+    root: allowlist.root,
+    hours: allowlistEnabled ? allowlistHours : 0,
+    supply: allowlistEnabled ? allowlistSupply : 0
+  };
   const reviewInput = draft.review ?? {};
   const review = {
     evidence: Boolean(reviewInput.evidence ?? draft.reviewEvidence),
@@ -9234,6 +9311,7 @@ function normalizeLaunchDraft(draft = {}, defaults = {}) {
     economics,
     design,
     preview,
+    mintAccess,
     review,
     status
   };
@@ -9242,6 +9320,7 @@ var ALLOWED_CATEGORIES, ALLOWED_PRODUCT_STATES, ALLOWED_NETWORKS, ALLOWED_PROJEC
 var init_launch_draft = __esm({
   "packages/domain/src/launch-draft.mjs"() {
     init_pass_design();
+    init_allowlist();
     ALLOWED_CATEGORIES = Object.freeze([
       "tools",
       "ai",
@@ -9472,6 +9551,7 @@ var init_src = __esm({
     init_launch_draft();
     init_pass_design();
     init_primary_accounting();
+    init_allowlist();
     init_pass_renderer();
   }
 });
@@ -10785,6 +10865,10 @@ var init_memory_store = __esm({
         this.termsCommitments.set(input.advantagesHash.toLowerCase(), structuredClone(value));
         return structuredClone(value);
       }
+      async termsCommitmentsForEdition(editionAddress) {
+        const wanted = String(editionAddress ?? "").toLowerCase();
+        return structuredClone([...this.termsCommitments.values()].filter((row) => String(row.editionAddress ?? "").toLowerCase() === wanted));
+      }
       async createMedia({ accountId, metadata }) {
         const existing = this.media.find((row2) => row2.ownerAccountId === accountId && row2.sha256 === metadata.sha256 && !row2.deletedAt);
         if (existing) return structuredClone(existing);
@@ -11286,13 +11370,14 @@ function advantageRemaining(advantage, now = Math.floor(Date.now() / 1e3)) {
   return String(advantage.remainingUnits ?? advantage.totalUnits ?? 0);
 }
 var SubgraphClient = class {
-  constructor({ endpoint, fetchImpl = globalThis.fetch, timeoutMs = DEFAULT_TIMEOUT_MS, logger = console, certificationEditionAddress = null, certificationEditionName = null } = {}) {
+  constructor({ endpoint, fetchImpl = globalThis.fetch, timeoutMs = DEFAULT_TIMEOUT_MS, logger = console, certificationEditionAddress = null, certificationEditionName = null, protocolVersion = 1 } = {}) {
     this.endpoint = endpoint?.trim() || null;
     this.fetchImpl = fetchImpl;
     this.timeoutMs = timeoutMs;
     this.logger = logger;
     this.certificationEditionAddress = lower(certificationEditionAddress);
     this.certificationEditionName = certificationEditionName;
+    this.protocolVersion = Number(protocolVersion);
   }
   get enabled() {
     return Boolean(this.endpoint);
@@ -11323,7 +11408,8 @@ var SubgraphClient = class {
     return { indexedBlock: asNumber(block.number, 0), blockHash: lower(block.hash ?? null), deployment: data._meta?.deployment ?? null };
   }
   async discover({ first = 100 } = {}) {
-    const data = await this.query(`query($first:Int!){ editions(first:$first,orderBy:createdBlock,orderDirection:desc){ id address editionId publisher absoluteSupplyCap totalMinted disabled currentTerms { hash pricePerPass previewStartsAt mintStartsAt mintEndsAt } createdBlock createdTimestamp createdTx } }`, { first });
+    const accessFields = this.protocolVersion >= 2 ? " allowlistRoot allowlistEndsAt allowlistSupply" : "";
+    const data = await this.query(`query($first:Int!){ editions(first:$first,orderBy:createdBlock,orderDirection:desc){ id address editionId publisher absoluteSupplyCap totalMinted disabled currentTerms { hash pricePerPass previewStartsAt mintStartsAt mintEndsAt${accessFields} } createdBlock createdTimestamp createdTx } }`, { first });
     return (data.editions ?? []).map((edition) => {
       const address2 = lower(edition.address);
       const name = address2 === this.certificationEditionAddress && this.certificationEditionName ? this.certificationEditionName : `NexPass Edition ${address2?.slice(0, 10) ?? ""}`;
@@ -11350,7 +11436,8 @@ var SubgraphClient = class {
     });
   }
   async editionByAddress(address2) {
-    const data = await this.query(`query($address:Bytes!,$editionId:ID!){ editions(where:{address:$address}){ id address editionId publisher mintController absoluteSupplyCap artworkCommitment totalMinted disabled currentTerms { id hash version activeSupply pricePerPass previewStartsAt mintStartsAt mintEndsAt primaryRecipient royaltyReceiver royaltyBps advantagesHash referralTermsHash blockNumber timestamp transactionHash } terms(orderBy:version,orderDirection:desc){ id hash version activeSupply pricePerPass previewStartsAt mintStartsAt mintEndsAt primaryRecipient royaltyReceiver royaltyBps advantagesHash referralTermsHash } } advantageDefinitions(where:{edition:$editionId}){ termsHash advantageId kind startsAt endsAt totalUnits definitionHash } }`, { address: lower(address2), editionId: lower(address2) });
+    const accessFields = this.protocolVersion >= 2 ? " allowlistRoot allowlistEndsAt allowlistSupply" : "";
+    const data = await this.query(`query($address:Bytes!,$editionId:ID!){ editions(where:{address:$address}){ id address editionId publisher mintController absoluteSupplyCap artworkCommitment totalMinted disabled currentTerms { id hash version activeSupply pricePerPass previewStartsAt mintStartsAt mintEndsAt${accessFields} primaryRecipient royaltyReceiver royaltyBps advantagesHash referralTermsHash blockNumber timestamp transactionHash } terms(orderBy:version,orderDirection:desc){ id hash version activeSupply pricePerPass previewStartsAt mintStartsAt mintEndsAt${accessFields} primaryRecipient royaltyReceiver royaltyBps advantagesHash referralTermsHash } } advantageDefinitions(where:{edition:$editionId}){ termsHash advantageId kind startsAt endsAt totalUnits definitionHash } }`, { address: lower(address2), editionId: lower(address2) });
     const edition = data.editions?.[0];
     if (!edition) return null;
     const normalizedAddress = lower(edition.address);
@@ -11427,7 +11514,8 @@ function normalizeTerms(terms) {
   const previewStartsAt = unix(terms.previewStartsAt);
   const mintStartsAt = unix(terms.mintStartsAt);
   const mintEndsAt = unix(terms.mintEndsAt);
-  return { ...terms, hash: lower(terms.hash), primaryRecipient: lower(terms.primaryRecipient), royaltyReceiver: lower(terms.royaltyReceiver), advantagesHash: lower(terms.advantagesHash), referralTermsHash: lower(terms.referralTermsHash), previewStartsAt, mintStartsAt, mintEndsAt, price_usdg: terms.pricePerPass, preview_starts_at: iso(previewStartsAt), mint_starts_at: iso(mintStartsAt), mint_ends_at: iso(mintEndsAt), terms_hash: lower(terms.hash), primary_recipient: lower(terms.primaryRecipient), royalty_receiver: lower(terms.royaltyReceiver), royalty_bps: terms.royaltyBps, advantages_hash: lower(terms.advantagesHash), referral_terms_hash: lower(terms.referralTermsHash) };
+  const allowlistEndsAt = unix(terms.allowlistEndsAt);
+  return { ...terms, hash: lower(terms.hash), primaryRecipient: lower(terms.primaryRecipient), royaltyReceiver: lower(terms.royaltyReceiver), advantagesHash: lower(terms.advantagesHash), referralTermsHash: lower(terms.referralTermsHash), allowlistRoot: lower(terms.allowlistRoot), previewStartsAt, mintStartsAt, mintEndsAt, allowlistEndsAt, price_usdg: terms.pricePerPass, preview_starts_at: iso(previewStartsAt), mint_starts_at: iso(mintStartsAt), mint_ends_at: iso(mintEndsAt), allowlist_root: lower(terms.allowlistRoot), allowlist_ends_at: iso(allowlistEndsAt), allowlist_supply: terms.allowlistSupply, terms_hash: lower(terms.hash), primary_recipient: lower(terms.primaryRecipient), royalty_receiver: lower(terms.royaltyReceiver), royalty_bps: terms.royaltyBps, advantages_hash: lower(terms.advantagesHash), referral_terms_hash: lower(terms.referralTermsHash) };
 }
 function iso(value) {
   return value == null ? null : new Date(Number(value) * 1e3).toISOString();
@@ -11693,10 +11781,10 @@ var INTENT_TYPE = Object.freeze({
   "/v1/royalties/withdraw": "ROYALTY_WITHDRAW"
 });
 var INTENT_SELECTORS = Object.freeze({
-  MINT: [id("mint((address,bytes32,address,uint256,bytes32,address,(bytes32,uint8,uint64,uint64,uint256,bytes32)[]))").slice(0, 10)],
-  TERMS_PUBLISH: [id("publishTerms(address,(uint256,uint256,uint64,uint64,uint64,address,address,uint96,bytes32,bytes32))").slice(0, 10)],
+  MINT: [id("mint((address,bytes32,address,uint256,bytes32,address,(bytes32,uint8,uint64,uint64,uint256,bytes32)[]))").slice(0, 10), id("mintAllowlisted((address,bytes32,address,uint256,bytes32,address,(bytes32,uint8,uint64,uint64,uint256,bytes32)[]),bytes32[])").slice(0, 10)],
+  TERMS_PUBLISH: [id("publishTerms(address,(uint256,uint256,uint64,uint64,uint64,address,address,uint96,bytes32,bytes32))").slice(0, 10), id("publishTerms(address,(uint256,uint256,uint64,uint64,uint64,bytes32,uint64,uint256,address,address,uint96,bytes32,bytes32))").slice(0, 10)],
   LISTING_CANCEL: [id("cancelListing(bytes32)").slice(0, 10)],
-  ADVANTAGE_USE: [id("consumeQuantity(address,uint256,bytes32,uint256,bytes32)").slice(0, 10), id("redeem(address,uint256,bytes32,bytes32)").slice(0, 10), id("useAmount(address,uint256,bytes32,bytes32)").slice(0, 10)],
+  ADVANTAGE_USE: [id("consumeQuantity(address,uint256,bytes32,uint256,bytes32)").slice(0, 10), id("redeem(address,uint256,bytes32,bytes32)").slice(0, 10), id("redeemAmount(address,uint256,bytes32,uint256,bytes32)").slice(0, 10), id("useAmount(address,uint256,bytes32,bytes32)").slice(0, 10)],
   ROYALTY_WITHDRAW: [id("withdraw(bytes32)").slice(0, 10)]
 });
 var MINT_OPEN_SELECTOR = id("isMintOpen(address,bytes32)").slice(0, 10);
@@ -11749,8 +11837,8 @@ function parseFactoryEditionCreatedReceipt(receipt, { factoryAddress, publisherA
 function canonicalAdvantagesHash(configs) {
   if (!Array.isArray(configs) || configs.length === 0) return "0x" + "00".repeat(32);
   try {
-    const coder2 = AbiCoder.defaultAbiCoder();
-    return keccak256(coder2.encode(["bytes32", ADVANTAGE_TUPLE], [ADVANTAGES_DOMAIN, configs.map((config) => [config.advantageId, config.kind, config.startsAt, config.endsAt, config.totalUnits, config.definitionHash])]));
+    const coder3 = AbiCoder.defaultAbiCoder();
+    return keccak256(coder3.encode(["bytes32", ADVANTAGE_TUPLE], [ADVANTAGES_DOMAIN, configs.map((config) => [config.advantageId, config.kind, config.startsAt, config.endsAt, config.totalUnits, config.definitionHash])]));
   } catch {
     return null;
   }
@@ -11826,7 +11914,8 @@ function networkSubgraph(env, prefix, fallbackEndpoint, fallbackEdition, fallbac
   return new SubgraphClient({
     endpoint,
     certificationEditionAddress: env[`${prefix}_CERTIFICATION_EDITION_ADDRESS`] ?? fallbackEdition,
-    certificationEditionName: env[`${prefix}_CERTIFICATION_EDITION_NAME`] ?? fallbackName
+    certificationEditionName: env[`${prefix}_CERTIFICATION_EDITION_NAME`] ?? fallbackName,
+    protocolVersion: Number(env[`${prefix}_PROTOCOL_VERSION`] ?? 1)
   });
 }
 async function attachSignedListingData(listings, store) {
@@ -11862,6 +11951,7 @@ function createNetworkConfigs(env = process.env) {
   const config = (key, chainId, rpcEnv, fallbackRpc, subgraph, policyEnv, readModelDisabled = false) => ({
     key,
     chainId,
+    protocolVersion: subgraph.protocolVersion,
     chain: new JsonRpcClient(env[rpcEnv] ?? fallbackRpc),
     subgraph,
     orderPolicy: productionOrderPolicy(policyEnv),
@@ -12050,6 +12140,7 @@ function createApiServer({
   maxIndexerLagBlocks = 120,
   maxFinalityLagBlocks = 120,
   storage = null,
+  protocolVersion = 1,
   productionReadiness = null,
   requireProductionReadiness = false
 } = {}) {
@@ -12079,6 +12170,7 @@ function createApiServer({
       const chain2 = selectedNetwork?.chain ?? fallbackChain;
       const subgraph2 = selectedNetwork?.subgraph ?? fallbackSubgraph;
       const orderPolicy2 = selectedNetwork?.orderPolicy ?? fallbackOrderPolicy;
+      const activeProtocolVersion = Number(selectedNetwork?.protocolVersion ?? protocolVersion);
       const readiness = selectedNetwork?.productionReadiness ?? productionReadiness;
       const readModelDisabled = Boolean(selectedNetwork?.readModelDisabled && !subgraph2?.enabled);
       const origin = headers.origin;
@@ -12265,10 +12357,11 @@ function createApiServer({
         if (indexed && store.projectByEditionAddress) linkedProject = await store.projectByEditionAddress(address2);
         const commitments = store.termsCommitmentsForEdition ? await store.termsCommitmentsForEdition(address2) : [];
         if (indexed && commitments.length) {
-          const byHash = new Map(commitments.map((row) => [String(row.advantagesHash).toLowerCase(), row.configs]));
+          const byHash = new Map(commitments.map((row) => [String(row.advantagesHash).toLowerCase(), row]));
           const enrich = (term) => {
             const hash5 = String(term?.advantagesHash ?? term?.advantages_hash ?? "").toLowerCase();
-            return hash5 && byHash.has(hash5) ? { ...term, advantageConfigs: byHash.get(hash5) } : term;
+            const commitment = hash5 ? byHash.get(hash5) : null;
+            return commitment ? { ...commitment.termsPayload ?? {}, ...term, advantageConfigs: commitment.configs } : term;
           };
           indexed.currentTerms = enrich(indexed.currentTerms ?? indexed.current_terms);
           indexed.current_terms = indexed.currentTerms;
@@ -12653,6 +12746,17 @@ function createApiServer({
         if (!advantagesHash) throw Object.assign(new Error("ADVANTAGES_COMMITMENT_INVALID"), { status: 400 });
         return json(res, 200, { data: { advantagesHash } });
       }
+      if (req.method === "POST" && url.pathname === "/v1/allowlists/merkle") {
+        const input = await readBody(req);
+        if (!Array.isArray(input.addresses) || input.addresses.length > 1e4) throw Object.assign(new Error("ALLOWLIST_ADDRESSES_REQUIRED"), { status: 400 });
+        let data;
+        try {
+          data = buildAllowlist(input.addresses);
+        } catch {
+          throw Object.assign(new Error("ALLOWLIST_ADDRESS_INVALID"), { status: 400 });
+        }
+        return json(res, 200, { data, authority: "DETERMINISTIC_MERKLE_COMMITMENT" });
+      }
       if (req.method === "POST" && INTENT_TYPE[url.pathname]) {
         const input = await readBody(req);
         const idempotencyKey = req.headers["idempotency-key"]?.toString();
@@ -12668,12 +12772,23 @@ function createApiServer({
           if (!isAddress(target ?? "")) throw Object.assign(new Error("CONTRACT_CONFIGURATION_REQUIRED"), { status: 503 });
           if (input.to !== void 0 && (!isAddress(input.to) || getAddress(input.to) !== getAddress(target))) throw Object.assign(new Error("TRANSACTION_TARGET_REJECTED"), { status: 400 });
           let calldata = input.calldata;
-          const protocolInput = input;
+          let protocolInput = input;
           if (intentType === "TERMS_PUBLISH") {
+            const requestsV2 = Number(input.protocolVersion ?? 1) >= 2 || Object.hasOwn(input.terms ?? {}, "allowlistRoot");
+            if (requestsV2 && activeProtocolVersion < 2) throw Object.assign(new Error("PROTOCOL_V2_REQUIRED"), { status: 409 });
             if (!isAddress(input.edition ?? "") || !/^0x[0-9a-fA-F]{64}$/.test(input.terms?.advantagesHash ?? "")) throw Object.assign(new Error("TERMS_COMMITMENT_REQUIRED"), { status: 400 });
             const computedAdvantagesHash = canonicalAdvantagesHash(input.advantageConfigs ?? []);
             if (!computedAdvantagesHash || computedAdvantagesHash.toLowerCase() !== input.terms.advantagesHash.toLowerCase()) throw Object.assign(new Error("ADVANTAGES_COMMITMENT_MISMATCH"), { status: 400 });
-            await store.saveTermsCommitment?.({ builderAccountId: session.accountId, builderId: input.builderId ?? input.builder_id ?? null, editionAddress: input.edition, advantagesHash: input.terms.advantagesHash, termsPayload: input.terms, configs: input.advantageConfigs ?? [] });
+            let allowlist = null;
+            if (Array.isArray(input.allowlistAddresses)) {
+              try {
+                allowlist = buildAllowlist(input.allowlistAddresses);
+              } catch {
+                throw Object.assign(new Error("ALLOWLIST_ADDRESS_INVALID"), { status: 400 });
+              }
+              if (allowlist.root.toLowerCase() !== String(input.terms.allowlistRoot ?? "").toLowerCase()) throw Object.assign(new Error("ALLOWLIST_COMMITMENT_MISMATCH"), { status: 400 });
+            }
+            await store.saveTermsCommitment?.({ builderAccountId: session.accountId, builderId: input.builderId ?? input.builder_id ?? null, editionAddress: input.edition, advantagesHash: input.terms.advantagesHash, termsPayload: { ...input.terms, ...allowlist ? { allowlistAddresses: allowlist.entries.map((entry) => entry.account) } : {} }, configs: input.advantageConfigs ?? [] });
             calldata = void 0;
           }
           if (intentType === "MINT" && input.edition && input.termsVersionHash) {
@@ -12695,6 +12810,31 @@ function createApiServer({
             const minted = Number(indexedEdition.total_minted ?? indexedEdition.totalMinted ?? 0);
             const quantity2 = Number(input.quantity ?? 1);
             if (cap > 0 && minted + quantity2 > cap) throw Object.assign(new Error("SUPPLY_EXHAUSTED"), { status: 409 });
+            const allowlistRoot = terms.allowlistRoot ?? terms.allowlist_root;
+            const allowlistEndsAt = epochSeconds(terms.allowlistEndsAt ?? terms.allowlist_ends_at);
+            if (allowlistRoot && !/^0x0{64}$/i.test(String(allowlistRoot)) && allowlistEndsAt != null && now < allowlistEndsAt) {
+              let proof = input.allowlistProof;
+              if (!Array.isArray(proof)) {
+                const commitments = await store.termsCommitmentsForEdition?.(input.edition) ?? [];
+                const commitment = commitments.find((row) => String(row.termsPayload?.allowlistRoot ?? "").toLowerCase() === String(allowlistRoot).toLowerCase());
+                const addresses = commitment?.termsPayload?.allowlistAddresses;
+                if (!Array.isArray(addresses)) throw Object.assign(new Error("ALLOWLIST_PROOF_REQUIRED"), { status: 403 });
+                const tree = buildAllowlist(addresses);
+                const entry = tree.entries.find((item) => item.account.toLowerCase() === session.walletAddress.toLowerCase());
+                if (!entry) throw Object.assign(new Error("WALLET_NOT_ALLOWLISTED"), { status: 403 });
+                proof = entry.proof;
+              }
+              protocolInput = { ...input, allowlistProof: proof };
+            } else if (Array.isArray(input.allowlistProof)) {
+              const { allowlistProof: _expiredProof, ...publicMintInput } = input;
+              protocolInput = publicMintInput;
+            }
+          }
+          if (intentType === "ADVANTAGE_USE" && input.operation === "REDEEM_AMOUNT" && activeProtocolVersion < 2) {
+            throw Object.assign(new Error("PROTOCOL_V2_REQUIRED"), { status: 409 });
+          }
+          if (intentType === "MINT" && Array.isArray(protocolInput.allowlistProof) && activeProtocolVersion < 2) {
+            throw Object.assign(new Error("PROTOCOL_V2_REQUIRED"), { status: 409 });
           }
           if (calldata === void 0) calldata = buildProtocolCalldata(intentType, protocolInput, { walletAddress: session.walletAddress, idempotencyKey });
           if (!/^0x[0-9a-fA-F]+$/.test(calldata ?? "") || !INTENT_SELECTORS[intentType]?.includes(calldata.slice(0, 10).toLowerCase())) throw Object.assign(new Error("CALLDATA_SELECTOR_REJECTED"), { status: 400 });

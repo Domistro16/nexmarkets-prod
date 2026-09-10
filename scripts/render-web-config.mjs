@@ -38,6 +38,7 @@ const deployment = await readJson('deployments/robinhood-testnet.v1-deployment.j
 const release = await readJson('deployments/MAINNET_RELEASE_CANDIDATE.json', {});
 const editionEvidence = await readJson('artifacts/testnet-certification/edition.json', {});
 const rhTestnet = {
+  protocolVersion: Number(deployment?.protocolVersion ?? 1),
   network: 'robinhood-testnet',
   displayName: 'Robinhood',
   family: 'robinhood',
@@ -76,6 +77,7 @@ const baseDeployment = await readJson('deployments/base-sepolia.v1-deployment.js
 const baseContracts = contractsFromDeployment(baseDeployment);
 if (!baseDeployment?.subgraph?.endpoint || baseDeployment.subgraph.name !== 'nexmarkets-v1-base-sepolia/1.0.1') throw new Error('BASE_SEPOLIA_SUBGRAPH_REQUIRED');
 const base = {
+  protocolVersion: Number(baseDeployment?.protocolVersion ?? 1),
   network: 'base-sepolia',
   displayName: 'Base Sepolia',
   family: 'base',

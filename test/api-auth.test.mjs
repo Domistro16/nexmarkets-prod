@@ -52,6 +52,28 @@ test('mutations enforce CSRF, idempotency, owner session, and no server key cust
   assert.equal(wrongTarget.status, 400);
 });
 
+test('V1 API refuses multi-unit redemption calldata until the V2 contracts are configured', async (t) => {
+  const target = '0x6666666666666666666666666666666666666666';
+  const { server, base } = await running({ orderPolicy: { transactionTargets: { ADVANTAGE_USE: target } } });
+  t.after(() => server.close());
+  const auth = await authenticate(base, Wallet.createRandom());
+  const calldata = new Interface(['function redeemAmount(address,uint256,bytes32,uint256,bytes32)'])
+    .encodeFunctionData('redeemAmount', ['0x5555555555555555555555555555555555555555', 1, `0x${'11'.repeat(32)}`, 2, `0x${'22'.repeat(32)}`]);
+  const response = await fetch(`${base}/v1/advantages/consume`, {
+    method: 'POST',
+    headers: {
+      cookie: auth.cookie,
+      'x-csrf-token': auth.verified.csrfToken,
+      'idempotency-key': 'v1-multi-redeem',
+      'content-type': 'application/json',
+      origin: 'https://nexmarkets.fun'
+    },
+    body: JSON.stringify({ to: target, calldata, operation: 'REDEEM_AMOUNT' })
+  });
+  assert.equal(response.status, 409);
+  assert.equal((await response.json()).error.code, 'PROTOCOL_V2_REQUIRED');
+});
+
 test('same-origin and rate-limit controls fail closed', async (t) => {
   const { server, base } = await running({ rateLimiter: new RateLimiter({ limit: 1, windowMs: 60_000 }) }); t.after(() => server.close());
   const forbidden = await fetch(`${base}/healthz`, { headers: { origin: 'https://evil.example' } }); assert.equal(forbidden.status, 403);

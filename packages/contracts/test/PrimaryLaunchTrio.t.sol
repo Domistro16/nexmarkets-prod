@@ -66,6 +66,9 @@ contract CallbackTermsPublisherReceiver {
                     previewStartsAt: previewStartsAt,
                     mintStartsAt: previewStartsAt + 1 days,
                     mintEndsAt: previewStartsAt + 3 days,
+                    allowlistRoot: bytes32(0),
+                    allowlistEndsAt: 0,
+                    allowlistSupply: 0,
                     primaryRecipient: address(0xCAFE),
                     royaltyReceiver: address(0xCAFE),
                     royaltyBps: 0,
@@ -146,6 +149,9 @@ contract PrimaryLaunchTrioTest is Test {
             previewStartsAt: previewStartsAt,
             mintStartsAt: mintStartsAt,
             mintEndsAt: mintStartsAt + 2 days,
+            allowlistRoot: bytes32(0),
+            allowlistEndsAt: 0,
+            allowlistSupply: 0,
             primaryRecipient: BUILDER,
             royaltyReceiver: BUILDER,
             royaltyBps: 500,
@@ -318,6 +324,83 @@ contract PrimaryLaunchTrioTest is Test {
         assertEq(amount, 0.03 ether);
     }
 
+    function testAllowlistPhasePrecedesPublicMintAndHonorsOptionalPhaseSupply() public {
+        uint64 previewStartsAt = uint64(block.timestamp);
+        uint64 mintStartsAt = previewStartsAt + 1 days;
+        NexLaunchRegistry.Terms memory terms = _terms(5, previewStartsAt, mintStartsAt);
+        terms.allowlistRoot = controller.allowlistLeaf(ALICE);
+        terms.allowlistEndsAt = mintStartsAt + 1 days;
+        terms.allowlistSupply = 2;
+        vm.prank(PUBLISHER);
+        bytes32 termsHash = registry.publishTerms(address(edition), terms);
+
+        NexMintController.MintRequest memory request = NexMintController.MintRequest({
+            edition: address(edition),
+            termsVersionHash: termsHash,
+            recipient: ALICE,
+            quantity: 2,
+            intentId: keccak256("allowlist:alice"),
+            referralHint: address(0),
+            advantageConfigs: new NexAdvantageRegistry.AdvantageConfig[](0)
+        });
+        bytes32[] memory proof = new bytes32[](0);
+
+        vm.warp(mintStartsAt);
+        assertTrue(registry.isAllowlistMintOpen(address(edition), termsHash));
+        assertFalse(registry.isPublicMintOpen(address(edition), termsHash));
+        vm.prank(ALICE);
+        vm.expectRevert(NexMintController.MintClosed.selector);
+        controller.mint(request);
+
+        vm.prank(BOB);
+        vm.expectRevert(NexMintController.NotAllowlisted.selector);
+        controller.mintAllowlisted(request, proof);
+
+        vm.prank(ALICE);
+        controller.mintAllowlisted(request, proof);
+        assertEq(controller.allowlistMinted(address(edition), termsHash), 2);
+
+        request.quantity = 1;
+        request.intentId = keccak256("allowlist:cap");
+        vm.prank(ALICE);
+        vm.expectRevert(NexMintController.AllowlistSupplyExceeded.selector);
+        controller.mintAllowlisted(request, proof);
+
+        vm.warp(terms.allowlistEndsAt);
+        assertFalse(registry.isAllowlistMintOpen(address(edition), termsHash));
+        assertTrue(registry.isPublicMintOpen(address(edition), termsHash));
+        request.recipient = BOB;
+        request.intentId = keccak256("public:bob");
+        vm.prank(BOB);
+        controller.mint(request);
+        assertEq(edition.ownerOf(3), BOB);
+    }
+
+    function testZeroAllowlistSupplyLeavesPrivatePhaseOpenToOverallSupply() public {
+        uint64 previewStartsAt = uint64(block.timestamp);
+        uint64 mintStartsAt = previewStartsAt + 1 days;
+        NexLaunchRegistry.Terms memory terms = _terms(5, previewStartsAt, mintStartsAt);
+        terms.allowlistRoot = controller.allowlistLeaf(ALICE);
+        terms.allowlistEndsAt = mintStartsAt + 1 days;
+        terms.allowlistSupply = 0;
+        vm.prank(PUBLISHER);
+        bytes32 termsHash = registry.publishTerms(address(edition), terms);
+
+        NexMintController.MintRequest memory request = NexMintController.MintRequest({
+            edition: address(edition),
+            termsVersionHash: termsHash,
+            recipient: ALICE,
+            quantity: 5,
+            intentId: keccak256("allowlist:uncapped"),
+            referralHint: address(0),
+            advantageConfigs: new NexAdvantageRegistry.AdvantageConfig[](0)
+        });
+        vm.warp(mintStartsAt);
+        vm.prank(ALICE);
+        controller.mintAllowlisted(request, new bytes32[](0));
+        assertEq(edition.totalMinted(), 5);
+    }
+
     function testMintFailureRollsBackPaymentAndIntent() public {
         (bytes32 termsHash, uint64 mintStartsAt) = _publish(3);
         vm.warp(mintStartsAt);
@@ -340,7 +423,6 @@ contract PrimaryLaunchTrioTest is Test {
         assertFalse(controller.isIntentConsumed(ALICE, request.intentId));
         assertEq(edition.totalMinted(), 0);
     }
-
 
     function testTermsValidationRejectsUnsafeLaunches() public {
         uint64 start = uint64(block.timestamp);

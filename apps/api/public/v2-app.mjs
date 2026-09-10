@@ -147,6 +147,12 @@ function normalizeTerms(raw = {}) {
     previewStartsAt: seconds(raw.previewStartsAt ?? raw.preview_starts_at),
     mintStartsAt: seconds(raw.mintStartsAt ?? raw.mint_starts_at),
     mintEndsAt: seconds(raw.mintEndsAt ?? raw.mint_ends_at),
+    allowlistRoot: lower(raw.allowlistRoot || raw.allowlist_root) || `0x${'00'.repeat(32)}`,
+    allowlist_root: lower(raw.allowlistRoot || raw.allowlist_root) || `0x${'00'.repeat(32)}`,
+    allowlistEndsAt: seconds(raw.allowlistEndsAt ?? raw.allowlist_ends_at),
+    allowlist_ends_at: raw.allowlist_ends_at || iso(raw.allowlistEndsAt ?? raw.allowlist_ends_at),
+    allowlistSupply: raw.allowlistSupply ?? raw.allowlist_supply ?? 0,
+    allowlist_supply: raw.allowlistSupply ?? raw.allowlist_supply ?? 0,
     preview_starts_at: raw.preview_starts_at || iso(raw.previewStartsAt ?? raw.preview_starts_at),
     mint_starts_at: raw.mint_starts_at || iso(raw.mintStartsAt ?? raw.mint_starts_at),
     mint_ends_at: raw.mint_ends_at || iso(raw.mintEndsAt ?? raw.mint_ends_at),
@@ -442,7 +448,7 @@ function neutralCreateData() {
     passDesign: 'classic', randomPassMode: false, randomPassSeed: '', frame: 'obsidian', frameColor: '#2a2725', texture: 'none', textureTint: '#9b9b94', frameHueCustomized: false,
     packOption: 'classic-obsidian', packFamily: 'classic', material: 'obsidian', colorwayId: 'colourway-01', palette: { primary: '#b31d2b', secondary: '#f2f0e9', accent: '#17181b' }, passAssignments: [],
     logoSrc: '', logoAssetId: '', bannerSrc: '', bannerAssetId: '', bannerPalette: ['#5f6f50', '#30483d', '#111512'], bannerLogoPosition: 'tl', artSrc: '', artAssetId: '', artX: 50, artY: 50, artMode: 'single', artEdition: [], artEditionView: 'grid', artEditionSelected: 0,
-    previewHours: 24, opensAt: '', timezone: 'Africa/Lagos', termsVersion: 'v1.0', reviewEvidence: false, reviewAdvantages: false, reviewPreview: false, published: false
+    previewHours: 24, opensAt: '', timezone: 'Africa/Lagos', termsVersion: 'v1.0', allowlistEnabled: false, allowlistAddresses: '', allowlistHours: 24, allowlistSupply: 0, reviewEvidence: false, reviewAdvantages: false, reviewPreview: false, published: false
   };
 }
 function createDataFromLaunchDraft(project) {
@@ -521,6 +527,10 @@ function createDataFromLaunchDraft(project) {
     opensAt: preview.localOpensAt || preview.opensAt || '',
     timezone: preview.timezone || 'Africa/Lagos',
     termsVersion: preview.termsVersion || 'v1.0',
+    allowlistEnabled: Boolean(draft.mintAccess?.enabled),
+    allowlistAddresses: Array.isArray(draft.mintAccess?.addresses) ? draft.mintAccess.addresses.join('\n') : '',
+    allowlistHours: Number(draft.mintAccess?.hours || 24),
+    allowlistSupply: Number(draft.mintAccess?.supply || 0),
     reviewEvidence: Boolean(draft.review?.evidence),
     reviewAdvantages: Boolean(draft.review?.advantages),
     reviewPreview: Boolean(draft.review?.preview),
@@ -529,6 +539,17 @@ function createDataFromLaunchDraft(project) {
 }
 
 let createAutosaveTimer = null;
+function applyMintAccessDraft(draft) {
+  if (Number(state.config?.protocolVersion ?? 1) < 2) return draft;
+  const data = createDataValue();
+  draft.mintAccess = {
+    enabled: Boolean(data.allowlistEnabled),
+    addresses: String(data.allowlistAddresses || '').split(/[\s,]+/).filter(Boolean),
+    hours: Math.max(1, Math.trunc(Number(data.allowlistHours || 24))),
+    supply: Math.max(0, Math.trunc(Number(data.allowlistSupply || 0)))
+  };
+  return draft;
+}
 async function autosaveCreateDraft() {
   if (!state.authenticated || !state.wallet || state.draftSavePromise) return state.draftSavePromise;
   const getter = typeof window.__nmV2CompileCreateLaunch === 'function' ? window.__nmV2CompileCreateLaunch : null;
@@ -536,6 +557,7 @@ async function autosaveCreateDraft() {
   const compiled = compiledForActiveNetwork(getter());
   if (!compiled) return null;
   const cleanDraft = assertCreatePassFieldCoverage(sanitizeCompiledForApi(compiled));
+  applyMintAccessDraft(cleanDraft);
   cleanDraft.status = 'DRAFT';
   const draftId = String(cleanDraft.draftId || state.lastDraftId || `draft-${uuid()}`).slice(0, 120);
   cleanDraft.draftId = draftId;
@@ -1866,7 +1888,7 @@ function buildDashboardData(accountData, owned) {
       remainingCount: ['QUANTITY_BASED', 'REDEMPTION'].includes(k) ? numericRemaining : undefined,
       remaining,
       state: listed ? 'listed' : numericRemaining <= 0 && ['QUANTITY_BASED', 'REDEMPTION'].includes(k) ? 'used' : 'ready',
-      action: k === 'REDEMPTION' ? 'Redeem 1' : k === 'QUANTITY_BASED' ? 'Use 1' : 'Open benefit',
+      action: ['REDEMPTION', 'QUANTITY_BASED'].includes(k) ? 'Claim' : 'Open benefit',
       termsHash: lower(raw.terms_hash || raw.termsHash || pass.termsHash),
       raw
     };
@@ -2147,7 +2169,36 @@ async function buildCreateTermsInput(compiled, editionAddress) {
   const hashResponse = await mutation('/v1/terms/hash', { configs });
   const advantagesHash = hashResponse?.advantagesHash || hashResponse?.data?.advantagesHash;
   if (!/^0x[0-9a-f]{64}$/i.test(String(advantagesHash || ''))) throw new Error('ADVANTAGES_COMMITMENT_UNAVAILABLE');
-  return { builderId: state.selectedBuilderId, edition: editionAddress, advantageConfigs: configs, terms: { activeSupply: Number(compiled.edition?.supply || 1), pricePerPass: String(Math.max(1, Math.round(Number(compiled.edition?.price || 1) * 1_000_000))), previewStartsAt, mintStartsAt, mintEndsAt: mintStartsAt + 30 * 86400, primaryRecipient: state.wallet, royaltyReceiver: state.wallet, royaltyBps: Math.max(0, Math.min(1000, Math.round(Number(compiled.edition?.royalty || 0) * 100))), advantagesHash, referralTermsHash: `0x${'00'.repeat(32)}` } };
+  const baseTerms = { activeSupply: Number(compiled.edition?.supply || 1), pricePerPass: String(Math.max(1, Math.round(Number(compiled.edition?.price || 1) * 1_000_000))), previewStartsAt, mintStartsAt, mintEndsAt: mintStartsAt + 30 * 86400, primaryRecipient: state.wallet, royaltyReceiver: state.wallet, royaltyBps: Math.max(0, Math.min(500, Math.round(Number(compiled.edition?.royalty || 0) * 100))), advantagesHash, referralTermsHash: `0x${'00'.repeat(32)}` };
+  if (Number(state.config?.protocolVersion ?? 1) < 2) return { builderId: state.selectedBuilderId, edition: editionAddress, advantageConfigs: configs, terms: baseTerms };
+  const create = createDataValue();
+  const addresses = create.allowlistEnabled ? String(create.allowlistAddresses || '').split(/[\s,]+/).filter(Boolean) : [];
+  const merkle = await mutation('/v1/allowlists/merkle', { addresses });
+  const root = merkle?.root || merkle?.data?.root;
+  if (!/^0x[0-9a-f]{64}$/i.test(String(root || ''))) throw new Error('ALLOWLIST_COMMITMENT_UNAVAILABLE');
+  const allowlistHours = create.allowlistEnabled ? Math.max(1, Math.trunc(Number(create.allowlistHours || 24))) : 0;
+  const allowlistSupply = create.allowlistEnabled ? Math.max(0, Math.trunc(Number(create.allowlistSupply || 0))) : 0;
+  if (allowlistSupply > baseTerms.activeSupply) throw new Error('ALLOWLIST_SUPPLY_EXCEEDS_ACTIVE_SUPPLY');
+  return { builderId: state.selectedBuilderId, edition: editionAddress, protocolVersion: 2, advantageConfigs: configs, allowlistAddresses: addresses, terms: { ...baseTerms, allowlistRoot: root, allowlistEndsAt: create.allowlistEnabled ? mintStartsAt + allowlistHours * 3600 : 0, allowlistSupply } };
+}
+
+function installMintAccessCreateFields() {
+  const mount = document.getElementById('stageMount');
+  if (!mount) return;
+  const decorate = () => {
+    if (Number(state.config?.protocolVersion ?? 1) < 2 || !document.getElementById('cOpensAt') || document.getElementById('nmCreateMintAccess')) return;
+    const data = createDataValue();
+    const panel = document.createElement('section');
+    panel.id = 'nmCreateMintAccess';
+    panel.className = 'nm-stage-section';
+    panel.innerHTML = `<div class="nm-stage-section-label"><b>Early access</b><span>Optional allowlist phase before public mint.</span></div><div class="nm-stage-fields"><label class="switch-row"><span class="switch-copy"><b>Allowlist mints first</b><span>Public mint opens automatically when this phase ends.</span></span><input id="nmAllowlistEnabled" type="checkbox" ${data.allowlistEnabled ? 'checked' : ''}></label><div class="field"><label>Allowlisted wallet addresses</label><textarea id="nmAllowlistAddresses" rows="6" placeholder="One 0x address per line">${escapeHtml(data.allowlistAddresses || '')}</textarea></div><div class="two-col"><div class="field"><label>Private phase (hours)</label><input id="nmAllowlistHours" type="number" min="1" step="1" value="${escapeHtml(data.allowlistHours || 24)}"></div><div class="field"><label>Private phase supply</label><input id="nmAllowlistSupply" type="number" min="0" step="1" value="${escapeHtml(data.allowlistSupply || 0)}"><small class="field-help">Use 0 for no separate phase cap.</small></div></div></div>`;
+    mount.append(panel);
+    const sync = () => updateCreateData({ allowlistEnabled: Boolean(document.getElementById('nmAllowlistEnabled')?.checked), allowlistAddresses: document.getElementById('nmAllowlistAddresses')?.value || '', allowlistHours: Number(document.getElementById('nmAllowlistHours')?.value || 24), allowlistSupply: Number(document.getElementById('nmAllowlistSupply')?.value || 0) }, false);
+    panel.addEventListener('input', sync);
+    panel.addEventListener('change', sync);
+  };
+  new MutationObserver(decorate).observe(mount, { childList: true, subtree: true });
+  decorate();
 }
 
 // Keep the old diagnostic alias for integrations that used the draft name.
@@ -2162,6 +2213,7 @@ async function submitCreatePass() {
     const compiled = compiledForActiveNetwork(getter());
     if (!compiled) throw new Error('COMPILED_LAUNCH_UNAVAILABLE');
     const cleanDraft = assertCreatePassFieldCoverage(sanitizeCompiledForApi(compiled));
+    applyMintAccessDraft(cleanDraft);
     cleanDraft.status = 'PUBLISHED';
     const slug = (window.slugKey ? window.slugKey(compiled.project?.name || '') : compiled.id?.replace(/^launch-/, '')) || 'launch-draft';
     const name = compiled.project?.name || compiled.edition?.name || 'Untitled';
@@ -2300,6 +2352,7 @@ async function submitCreateDraft() {
     const compiled = compiledForActiveNetwork(getter());
     if (!compiled) throw new Error('COMPILED_LAUNCH_UNAVAILABLE');
     const cleanDraft = assertCreatePassFieldCoverage(sanitizeCompiledForApi(compiled));
+    applyMintAccessDraft(cleanDraft);
     cleanDraft.status = 'DRAFT';
     const draftId = String(cleanDraft.draftId || state.lastDraftId || `draft-${uuid()}`).slice(0, 120);
     cleanDraft.draftId = draftId;
@@ -2793,18 +2846,46 @@ async function liveDashUseAdvantage(id) {
       showRuntimeBanner(k === 'CONNECTED' ? 'Connected Advantages apply automatically.' : 'Time-based Advantages update from their committed clock.', false);
       return;
     }
-    actionState('dashboard', 'Preparing Advantage use', 'Your wallet will sign the exact committed use operation.');
-    await requireSession();
-    const response = await mutation('/v1/advantages/consume', {
-      operation: k === 'REDEMPTION' ? 'REDEEM' : 'CONSUME_QUANTITY',
-      edition: context.pass.edition_address,
-      tokenId: context.pass.token_id,
-      advantageId: advantage.advantageId || rawAdvantageId(advantage.raw),
-      ...(k === 'QUANTITY_BASED' ? { amount: '1' } : {}),
-      useId: randomBytes32()
+    const remaining = Math.max(1, Math.trunc(Number(advantage.remainingCount ?? advantage.remaining ?? 1)));
+    const supportsVariableAmount = k === 'QUANTITY_BASED' || Number(state.config?.protocolVersion ?? 1) >= 2;
+    const body = supportsVariableAmount
+      ? `<p class="dash-modal-copy">Choose how much of this Pass Advantage to claim. Percentages resolve to whole units, rounded down with a minimum of one unit.</p><div class="dash-modal-field"><label>Claim</label><select id="nmAdvantageClaimMode"><option value="ALL">All remaining</option><option value="PERCENT">A percentage</option></select></div><div class="dash-modal-field" id="nmAdvantagePercentField" hidden><label>Percentage</label><input id="nmAdvantageClaimPercent" type="number" min="1" max="100" step="1" value="50"></div><p class="dash-modal-copy" id="nmAdvantageClaimSummary"></p>`
+      : '<p class="dash-modal-copy">The current protocol supports one redemption unit per claim. Multi-unit and percentage redemption activates with protocol V2.</p>';
+    window.openDashModal?.(`Claim ${advantage.title || 'Advantage'}`, body, 'Claim', async () => {
+      try {
+        const mode = supportsVariableAmount ? (document.getElementById('nmAdvantageClaimMode')?.value || 'ALL') : 'ONE';
+        const percent = Math.trunc(Number(document.getElementById('nmAdvantageClaimPercent')?.value || 0));
+        if (mode === 'PERCENT' && (!Number.isInteger(percent) || percent < 1 || percent > 100)) throw new Error('CLAIM_PERCENTAGE_INVALID');
+        const amount = mode === 'ONE' ? 1 : (mode === 'ALL' || percent === 100 ? remaining : Math.max(1, Math.floor((remaining * percent) / 100)));
+        actionState('dashboard', 'Preparing Advantage claim', `Your wallet will sign a claim for exactly ${amount} unit${amount === 1 ? '' : 's'}.`);
+        await requireSession();
+        const response = await mutation('/v1/advantages/consume', {
+          operation: k === 'REDEMPTION' ? (amount === 1 ? 'REDEEM' : 'REDEEM_AMOUNT') : 'CONSUME_QUANTITY',
+          edition: context.pass.edition_address,
+          tokenId: context.pass.token_id,
+          advantageId: advantage.advantageId || rawAdvantageId(advantage.raw),
+          amount: String(amount),
+          useId: randomBytes32()
+        });
+        const result = await submitPrepared(response, { label: 'Advantage claim' });
+        actionSuccess('dashboard', 'Advantage claim', result);
+      } catch (error) { actionError('dashboard', error); }
     });
-    const result = await submitPrepared(response, { label: 'Advantage use' });
-    actionSuccess('dashboard', 'Advantage use', result);
+    const modeInput = document.getElementById('nmAdvantageClaimMode');
+    const percentInput = document.getElementById('nmAdvantageClaimPercent');
+    const percentField = document.getElementById('nmAdvantagePercentField');
+    const summary = document.getElementById('nmAdvantageClaimSummary');
+    if (!supportsVariableAmount) return;
+    const updateSummary = () => {
+      const percent = Math.max(1, Math.min(100, Math.trunc(Number(percentInput?.value || 50))));
+      const all = modeInput?.value !== 'PERCENT';
+      if (percentField) percentField.hidden = all;
+      const amount = all || percent === 100 ? remaining : Math.max(1, Math.floor((remaining * percent) / 100));
+      if (summary) summary.textContent = `${amount} of ${remaining} remaining unit${remaining === 1 ? '' : 's'} will be claimed.`;
+    };
+    modeInput?.addEventListener('change', updateSummary);
+    percentInput?.addEventListener('input', updateSummary);
+    updateSummary();
   } catch (error) { actionError('dashboard', error); }
 }
 async function liveOwnedUse(key) {
@@ -3221,6 +3302,6 @@ function exposeRuntime() {
   };
 }
 
-installHistoryRouting(); wireWallet(); installLiveActions(); installLifecycleAuthority(); installCanonicalPassRuntime(); guardMutations(); exposeRuntime(); installCreateDraftAutosave(); installSocialRuntime(); installMediaRuntime();
+installHistoryRouting(); wireWallet(); installLiveActions(); installLifecycleAuthority(); installCanonicalPassRuntime(); guardMutations(); exposeRuntime(); installCreateDraftAutosave(); installMintAccessCreateFields(); installSocialRuntime(); installMediaRuntime();
 addEventListener('popstate', () => { presentRoute(routeInfo()).catch(() => goView(routeInfo())); });
 hydrate();

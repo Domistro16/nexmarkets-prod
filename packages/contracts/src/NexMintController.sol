@@ -6,6 +6,7 @@ import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {MerkleProof} from "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 
 import {NexLaunchRegistry} from "./NexLaunchRegistry.sol";
 import {NexPassEdition} from "./NexPassEdition.sol";
@@ -42,6 +43,7 @@ contract NexMintController is Ownable, Pausable, ReentrancyGuard {
     address public advantageInitializer;
 
     mapping(address => mapping(bytes32 => bool)) private _consumedIntent;
+    mapping(address => mapping(bytes32 => uint256)) public allowlistMinted;
 
     struct MintRequest {
         address edition;
@@ -65,6 +67,8 @@ contract NexMintController is Ownable, Pausable, ReentrancyGuard {
     error IntentRequired();
     error InvalidEditionController();
     error MintClosed();
+    error AllowlistSupplyExceeded();
+    error NotAllowlisted();
     error QuantityRequired();
     error TermsChangedDuringMint();
     error TermsNotActive();
@@ -136,6 +140,37 @@ contract NexMintController is Ownable, Pausable, ReentrancyGuard {
     }
 
     function mint(MintRequest calldata request) external whenNotPaused nonReentrant returns (uint256 firstTokenId) {
+        if (!launchRegistry.isPublicMintOpen(request.edition, request.termsVersionHash)) revert MintClosed();
+        return _mint(request);
+    }
+
+    /// @notice Mint during the private phase using a proof for the transaction payer.
+    function mintAllowlisted(MintRequest calldata request, bytes32[] calldata proof)
+        external
+        whenNotPaused
+        nonReentrant
+        returns (uint256 firstTokenId)
+    {
+        if (!launchRegistry.isAllowlistMintOpen(request.edition, request.termsVersionHash)) {
+            revert MintClosed();
+        }
+        (, NexLaunchRegistry.Terms memory terms) = launchRegistry.activeTerms(request.edition);
+        bytes32 leaf = keccak256(bytes.concat(keccak256(abi.encode(msg.sender))));
+        if (!MerkleProof.verifyCalldata(proof, terms.allowlistRoot, leaf)) revert NotAllowlisted();
+        uint256 phaseMinted = allowlistMinted[request.edition][request.termsVersionHash];
+        if (
+            terms.allowlistSupply != 0
+                && (phaseMinted >= terms.allowlistSupply || request.quantity > terms.allowlistSupply - phaseMinted)
+        ) revert AllowlistSupplyExceeded();
+        firstTokenId = _mint(request);
+        allowlistMinted[request.edition][request.termsVersionHash] = phaseMinted + request.quantity;
+    }
+
+    function allowlistLeaf(address account) external pure returns (bytes32) {
+        return keccak256(bytes.concat(keccak256(abi.encode(account))));
+    }
+
+    function _mint(MintRequest calldata request) internal returns (uint256 firstTokenId) {
         if (request.edition == address(0) || request.recipient == address(0)) revert AddressRequired();
         if (request.termsVersionHash == bytes32(0)) revert TermsNotActive();
         if (request.quantity == 0) revert QuantityRequired();

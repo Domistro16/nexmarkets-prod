@@ -9,6 +9,7 @@ import {
   isApprovedPassOption,
   isApprovedColorway
 } from './pass-design.mjs';
+import { buildAllowlist } from './allowlist.mjs';
 
 export const ALLOWED_CATEGORIES = Object.freeze([
   'tools', 'ai', 'media', 'finance', 'community', 'gaming', 'physical', 'infrastructure'
@@ -486,6 +487,35 @@ export function normalizeLaunchDraft(draft = {}, defaults = {}) {
     termsVersion
   };
 
+  // Optional private mint phase. A zero phase supply means the allowlist is
+  // constrained only by the time window and the Edition's active supply.
+  const accessInput = draft.mintAccess ?? {};
+  const allowlistEnabled = Boolean(accessInput.enabled);
+  const rawAllowlistAddresses = Array.isArray(accessInput.addresses)
+    ? accessInput.addresses
+    : String(accessInput.addresses ?? '').split(/[\s,]+/).filter(Boolean);
+  let allowlist;
+  try { allowlist = buildAllowlist(allowlistEnabled ? rawAllowlistAddresses : []); }
+  catch { throw Object.assign(new Error('INVALID_ALLOWLIST_ADDRESS'), { status: 400 }); }
+  if (allowlistEnabled && isFullDraft && allowlist.entries.length === 0) {
+    throw Object.assign(new Error('ALLOWLIST_ADDRESSES_REQUIRED'), { status: 400 });
+  }
+  const allowlistHours = Number(accessInput.hours ?? 24);
+  if (allowlistEnabled && (!Number.isInteger(allowlistHours) || allowlistHours < 1)) {
+    throw Object.assign(new Error('INVALID_ALLOWLIST_HOURS'), { status: 400 });
+  }
+  const allowlistSupply = Number(accessInput.supply ?? 0);
+  if (!Number.isInteger(allowlistSupply) || allowlistSupply < 0 || allowlistSupply > supply) {
+    throw Object.assign(new Error('INVALID_ALLOWLIST_SUPPLY'), { status: 400 });
+  }
+  const mintAccess = {
+    enabled: allowlistEnabled,
+    addresses: allowlist.entries.map((entry) => entry.account),
+    root: allowlist.root,
+    hours: allowlistEnabled ? allowlistHours : 0,
+    supply: allowlistEnabled ? allowlistSupply : 0
+  };
+
   // Review section
   const reviewInput = draft.review ?? {};
   const review = {
@@ -539,6 +569,7 @@ export function normalizeLaunchDraft(draft = {}, defaults = {}) {
     economics,
     design,
     preview,
+    mintAccess,
     review,
     status
   };
