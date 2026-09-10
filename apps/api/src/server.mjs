@@ -565,6 +565,10 @@ export function createApiServer({
           // content merely because the subgraph is the selected authority.
           let source = project;
           const editionAddress = project.edition_address ?? project.editionAddress ?? project.address;
+          if (editionAddress && store.editionByAddress) {
+            const edRow = await store.editionByAddress(editionAddress);
+            if (edRow?.disabled) return null;
+          }
           if (!project.content && editionAddress && store.projectByEditionAddress) {
             const linkedProject = await store.projectByEditionAddress(editionAddress);
             if (linkedProject) source = { ...project, slug: linkedProject.slug ?? project.slug, project_id: linkedProject.id, project_name: linkedProject.name, builder_account_id: linkedProject.builder_account_id ?? linkedProject.builderAccountId, content: linkedProject.content, project: linkedProject };
@@ -617,7 +621,7 @@ export function createApiServer({
           const watcherCount = readModelDisabled ? 0 : await store.getWatchlistCount?.(source.project_id ?? source.id ?? source.slug) ?? 0;
           const links = source.content?.links ?? source.launchDraft?.links ?? source.links ?? {};
           return { ...source, statusTag, watcherCount, links };
-        }))).filter((project) => project.statusTag !== 'DRAFT');
+        }))).filter((project) => project && project.statusTag !== 'DRAFT');
         return json(res, 200, { data, authority: subgraph?.enabled ? 'GOLDSKY_SUBGRAPH_READ_MODEL' : 'POSTGRES_READ_MODEL' });
       }
       if (req.method === 'GET' && url.pathname === '/v1/market/listings') {
@@ -887,8 +891,10 @@ export function createApiServer({
         return json(res, 200, { data: updated });
       }
       if (req.method === 'POST' && url.pathname === '/v1/builder/projects') {
-        const input = await readBody(req);
-        const draftIntent = String(input.intent ?? input.status ?? '').trim().toUpperCase() === 'DRAFT';
+        // Random Phase 4 publication carries one frozen render assignment per
+        // serial. Keep the larger limit scoped to authenticated Create writes.
+        const input = await readBody(req, 16_777_216);
+        const draftIntent = String(input.status ?? input.intent ?? '').trim().toUpperCase() === 'DRAFT' && String(input.status ?? '').trim().toUpperCase() !== 'PUBLISHED';
         if (draftIntent) {
           const normalized = validateAndNormalizeProjectPayload(input, { status: 'DRAFT', allowIncomplete: true, freezeAssignments: false });
           const project = await store.createProject({
@@ -934,7 +940,7 @@ export function createApiServer({
         return json(res, 201, { data: project });
       }
       if ((req.method === 'POST' && url.pathname === '/v1/builder/drafts') || (req.method === 'PUT' && /^\/v1\/builder\/drafts\/[^/]+$/.test(url.pathname))) {
-        const input = await readBody(req);
+        const input = await readBody(req, 16_777_216);
         const routeDraftId = req.method === 'PUT' ? decodeURIComponent(url.pathname.split('/')[4]) : null;
         const draftId = String(routeDraftId ?? input.draftId ?? input.launchDraft?.draftId ?? `draft-${randomUUID()}`).slice(0, 120);
         const launchDraft = { ...(input.launchDraft ?? {}), draftId, status: 'DRAFT' };

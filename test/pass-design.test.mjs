@@ -24,10 +24,15 @@ test('random assignment deck is deterministic and cycles without rerolling', () 
   assert.notDeepEqual(first, buildPassAssignmentDeck('edition-seed-2'));
   const firstAssignment = resolvePassAssignment({ seed: 'edition-seed-1', serial: 1 });
   const repeatedAssignment = resolvePassAssignment({ seed: 'edition-seed-1', serial: 66 });
-  assert.deepEqual({ ...firstAssignment, serial: 0 }, { ...repeatedAssignment, serial: 0 });
+  assert.deepEqual(
+    { ...firstAssignment, serial: 0, authorityAssignment: { ...firstAssignment.authorityAssignment, serial: 0 } },
+    { ...repeatedAssignment, serial: 0, authorityAssignment: { ...repeatedAssignment.authorityAssignment, serial: 0 } }
+  );
+  assert.equal(new Set(first.map((item) => `${item.optionId}:${item.colorwayId}`)).size, 65);
 });
 
 test('frozen assignments retain serial, renderer, palette and artwork mapping', () => {
+  const frozenAt = '2026-09-10T00:00:00.000Z';
   const frozen = freezePassAssignments({
     editionId: 'edition-1',
     supply: 65,
@@ -35,7 +40,8 @@ test('frozen assignments retain serial, renderer, palette and artwork mapping', 
     artworkBySerial: { 1: { assetId: 'art-1', url: 'https://cdn.example/art-1.png', x: 47, y: 52 } },
     projectName: 'Example',
     editionName: 'Genesis',
-    seriesName: 'Series 01'
+    seriesName: 'Series 01',
+    frozenAt
   });
   assert.equal(frozen.length, 65);
   assert.equal(frozen[0].rendererVersion, PASS_RENDERER_VERSION);
@@ -46,6 +52,6 @@ test('frozen assignments retain serial, renderer, palette and artwork mapping', 
   assert.deepEqual(frozen, freezePassAssignments({
     editionId: 'edition-1', supply: 65, seed: 'immutable-seed',
     artworkBySerial: { 1: { assetId: 'art-1', url: 'https://cdn.example/art-1.png', x: 47, y: 52 } },
-    projectName: 'Example', editionName: 'Genesis', seriesName: 'Series 01'
+    projectName: 'Example', editionName: 'Genesis', seriesName: 'Series 01', frozenAt
   }));
 });

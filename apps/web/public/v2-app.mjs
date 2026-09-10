@@ -122,6 +122,7 @@ function advantageText(advantages, fallbackHash) {
 }
 function activeNetworkName() { return state.config?.displayName || state.config?.name || (state.config?.family === 'base' ? 'Base' : 'Robinhood'); }
 function activeNetworkFamily() { return state.config?.family || (state.config?.network?.startsWith('base-') ? 'base' : 'robinhood'); }
+function activeNetworkKey() { return state.networkKey || state.config?.network || DEFAULT_NETWORK_KEY; }
 function activeCertificationEdition() { return address(state.config?.certificationEdition?.address || state.config?.certificationEditionAddress) || null; }
 function activeSettlementSymbol() { return state.config?.settlementSymbol || state.config?.settlement?.symbol || 'USDG'; }
 function defaultCertificationEdition() { return activeCertificationEdition() || (activeNetworkFamily() === 'robinhood' ? CERTIFICATION_EDITION : null); }
@@ -386,6 +387,9 @@ function projectModel(edition, summary, pass) {
     supportUrl: launchProject.supportUrl || '',
     compiledLaunch
   };
+  const totalMinted = edition?.totalMinted ?? summary?.total_minted ?? 0;
+  const supplyCap = edition?.absoluteSupplyCap || number(launchEdition.supply) || Number(summary?.absolute_supply_cap || 0);
+  const serialsDesc = `Finite Pass Edition · ${totalMinted}/${supplyCap} serials issued on ${activeNetworkName()}.`;
   const project = {
     name: title,
     logo: initials(title),
@@ -395,7 +399,7 @@ function projectModel(edition, summary, pass) {
     price: launchEdition.price != null ? number(launchEdition.price) : (edition?.price || usd(terms.pricePerPass ?? terms.price_usdg)),
     supply: edition?.absoluteSupplyCap || number(launchEdition.supply),
     color: launchDesign.color || '#34483a',
-    desc: `Finite Pass Edition · ${edition?.totalMinted || 0}/${edition?.absoluteSupplyCap || 0} serials issued on ${activeNetworkName()}.`,
+    desc: launchProject.desc ? `${launchProject.desc} · ${totalMinted}/${supplyCap} serials issued` : serialsDesc,
     opens: stage === 'preview' ? (compiledLaunch?.preview?.opensAt || 'Preview') : 'Live',
     network: activeNetworkFamily(),
     editionAddress: edition?.address,
@@ -404,7 +408,6 @@ function projectModel(edition, summary, pass) {
     builderProfile,
     compiledLaunch
   };
-  if (launchProject.desc) project.desc = launchProject.desc;
   return { project, experience };
 }
 function ownedModel(raw, pass, edition) {
@@ -446,7 +449,7 @@ function neutralCreateData() {
     edition: '', series: '', supply: 1, price: 0, royalty: 0, advantages: [], referral: false, referralRate: 10,
     color: '#5f6f50', themeMode: 'auto', customColor: '#5f6f50', colorStyle: 'solid', gradientA: '#5f6f50', gradientB: '#17241f', gradientDirection: 'diagonal',
     passDesign: 'classic', randomPassMode: false, randomPassSeed: '', frame: 'obsidian', frameColor: '#2a2725', texture: 'none', textureTint: '#9b9b94', frameHueCustomized: false,
-    packOption: 'classic-obsidian', packFamily: 'classic', material: 'obsidian', colorwayId: 'colourway-01', palette: { primary: '#b31d2b', secondary: '#f2f0e9', accent: '#17181b' }, passAssignments: [],
+    packOption: null, packFamily: null, material: null, colorwayId: null, palette: null, passAssignments: [],
     logoSrc: '', logoAssetId: '', bannerSrc: '', bannerAssetId: '', bannerPalette: ['#5f6f50', '#30483d', '#111512'], bannerLogoPosition: 'tl', artSrc: '', artAssetId: '', artX: 50, artY: 50, artMode: 'single', artEdition: [], artEditionView: 'grid', artEditionSelected: 0,
     previewHours: 24, opensAt: '', timezone: 'Africa/Lagos', termsVersion: 'v1.0', allowlistEnabled: false, allowlistAddresses: '', allowlistHours: 24, allowlistSupply: 0, reviewEvidence: false, reviewAdvantages: false, reviewPreview: false, published: false
   };
@@ -497,7 +500,7 @@ function createDataFromLaunchDraft(project) {
     packOption,
     packFamily: design.packFamily || passDesign,
     material: design.material || design.frame || 'obsidian',
-    colorwayId: design.colorwayId || 'colourway-01',
+    colorwayId: design.colorwayId || null,
     palette: design.palette || null,
     passAssignments: Array.isArray(design.passAssignments) ? design.passAssignments : [],
     frame: design.frame || 'obsidian',
@@ -573,7 +576,7 @@ async function autosaveCreateDraft() {
   }).then((project) => {
     state.lastDraftId = project.content?.draftId || project.launchDraft?.draftId || draftId;
     state.lastSavedProject = project;
-    return published;
+    return project;
   }).finally(() => { state.draftSavePromise = null; });
   return state.draftSavePromise;
 }
@@ -2053,6 +2056,129 @@ function authenticateOnce() {
   if (!authenticationPromise) authenticationPromise = authenticate().finally(() => { authenticationPromise = null; });
   return authenticationPromise;
 }
+
+const PHASE4_MANUAL_COLORWAY = 'phase4-manual';
+const PHASE4_COLORWAY_NAMES = Object.freeze(['Crimson Archive', 'Cobalt Field', 'Forest Ledger', 'Ochre Study', 'Violet Register']);
+const PHASE4_PACK_META = Object.freeze({
+  'classic-obsidian': ['classic', 'obsidian'],
+  'classic-carbon': ['classic', 'carbon'],
+  'classic-gilt': ['classic', 'gilt'],
+  'glass-obsidian': ['glass', 'obsidian'],
+  'glass-carbon': ['glass', 'carbon'],
+  'pack-slab': ['graded-vault-slab', 'transparent-graded-case'],
+  'pack-glass': ['museum-glass-archive', 'glass-vitrine'],
+  'pack-metal': ['machined-metal-vault', 'milled-alloy'],
+  'pack-ceramic': ['ceramic-enamel-tile', 'glazed-ceramic'],
+  'pack-blister': ['collector-blister-pack', 'thermoformed-chamber'],
+  'pack-carbon': ['forged-carbon-frame', 'carbon-weave'],
+  'pack-paper': ['antique-archive-certificate', 'cotton-rag-deed-stock'],
+  'pack-resin': ['cast-resin-display-block', 'tinted-cast-resin']
+});
+
+function phase4Visual(source, optionId, randomPalette = null) {
+  const [family, material] = PHASE4_PACK_META[optionId] || ['', ''];
+  const isRandom = Array.isArray(randomPalette) && randomPalette.length >= 3;
+  const passDesign = optionId.startsWith('classic-') ? 'classic' : optionId.startsWith('glass-') ? 'glass' : optionId;
+  const frame = optionId.startsWith('classic-') || optionId.startsWith('glass-') ? material : 'obsidian';
+  const color = isRandom ? randomPalette[0] : String(source.color || '#5f6f50');
+  return {
+    passDesign,
+    packOption: optionId,
+    packFamily: family,
+    material,
+    themeMode: isRandom ? 'random' : String(source.themeMode || 'auto'),
+    color,
+    customColor: isRandom ? color : String(source.customColor || color),
+    colorStyle: isRandom ? 'solid' : String(source.colorStyle || 'solid'),
+    gradientA: isRandom ? randomPalette[0] : String(source.gradientA || color),
+    gradientB: isRandom ? randomPalette[1] : String(source.gradientB || color),
+    gradientDirection: isRandom ? 'diagonal' : String(source.gradientDirection || 'diagonal'),
+    frame,
+    frameColor: isRandom ? (frame === 'gilt' ? '#c8a84e' : frame === 'carbon' ? '#313337' : '#2a2725') : String(source.frameColor || (frame === 'gilt' ? '#c8a84e' : frame === 'carbon' ? '#313337' : '#2a2725')),
+    frameHueCustomized: isRandom ? false : Boolean(source.frameHueCustomized),
+    texture: isRandom ? 'none' : String(source.texture || 'none'),
+    textureTint: isRandom ? '#9b9b94' : String(source.textureTint || '#9b9b94'),
+    randomPalette: isRandom ? randomPalette.slice(0, 3) : null
+  };
+}
+
+function phase4Artwork(source, serial) {
+  if (source.artMode === 'collection') {
+    const entry = (Array.isArray(source.artEdition) ? source.artEdition : []).find((item, index) => Number(item.serial ?? index + 1) === serial) || {};
+    return {
+      assetId: entry.assetId || entry.assetKey || null,
+      assetKey: entry.assetKey || '',
+      url: entry.url || entry.src || '',
+      x: Number(entry.x ?? source.artX ?? 50),
+      y: Number(entry.y ?? source.artY ?? 50),
+      scale: Number(entry.scale ?? 1)
+    };
+  }
+  return {
+    assetId: source.artAssetId || null,
+    assetKey: source.artAssetId || '',
+    url: source.artMode === 'random' ? '' : String(source.artSrc || ''),
+    x: Number(source.artX ?? 50),
+    y: Number(source.artY ?? 50),
+    scale: 1
+  };
+}
+
+function buildPhase4Assignments(compiled, source) {
+  const supply = Math.max(1, Math.trunc(Number(compiled.edition?.supply || source.supply || 1)));
+  const randomMode = Boolean(source.randomPassMode);
+  const manualOption = randomMode ? null : approvedPackOptionForDesign(source);
+  if (!randomMode && !manualOption) throw new Error('APPROVED_PASS_OPTION_REQUIRED');
+  const seed = String(source.randomPassSeed || compiled.draftId || compiled.id || 'nexmarkets-random-v1');
+  const editionId = String(compiled.id || compiled.draftId || `launch-${compiled.project?.name || 'edition'}`);
+  return Array.from({ length: supply }, (_, index) => {
+    const serial = index + 1;
+    const artEntry = source.artMode === 'collection'
+      ? (Array.isArray(source.artEdition) ? source.artEdition : []).find((item, itemIndex) => Number(item.serial ?? itemIndex + 1) === serial) || null
+      : null;
+    const authority = randomMode ? window.__nmV2RandomPassAssignment?.({ ...source, randomPassSeed: seed }, serial, artEntry) : null;
+    if (randomMode && (!authority?.packId || !Array.isArray(authority.palette) || authority.palette.length < 3)) throw new Error(`RANDOM_PASS_ASSIGNMENT_REQUIRED:${serial}`);
+    const optionId = randomMode ? String(authority.packId) : manualOption;
+    const [family, material] = PHASE4_PACK_META[optionId] || [];
+    if (!family || !material) throw new Error(`APPROVED_PASS_OPTION_REQUIRED:${serial}`);
+    const visual = phase4Visual(source, optionId, randomMode ? authority.palette : null);
+    const palette = randomMode
+      ? { primary: authority.palette[0], secondary: authority.palette[1], accent: authority.palette[2] }
+      : { primary: visual.colorStyle === 'gradient' ? visual.gradientA : visual.color, secondary: visual.colorStyle === 'gradient' ? visual.gradientB : visual.color, accent: visual.frameColor };
+    const colourIndex = randomMode ? Number(authority.colourIndex) : -1;
+    return {
+      rendererVersion: 'pass-renderer-v1',
+      editionId,
+      passId: null,
+      serial,
+      supply,
+      optionId,
+      family,
+      material,
+      colorwayId: randomMode ? `colourway-${String(colourIndex + 1).padStart(2, '0')}` : PHASE4_MANUAL_COLORWAY,
+      colorwayName: randomMode ? PHASE4_COLORWAY_NAMES[colourIndex] : 'Manual Phase 4',
+      palette,
+      visual,
+      authorityAssignment: randomMode ? { ...authority, serial, palette: authority.palette.slice(0, 3) } : null,
+      artwork: phase4Artwork(source, serial),
+      logo: { assetId: source.logoAssetId || null, url: source.logoSrc || null },
+      projectName: String(compiled.project?.name || ''),
+      editionName: String(compiled.edition?.name || ''),
+      seriesName: String(compiled.edition?.series || ''),
+      holderState: null,
+      frozen: false,
+      frozenAt: null,
+      randomAssignment: {
+        enabled: randomMode,
+        seed: randomMode ? seed : null,
+        combinationIndex: randomMode ? Object.keys(PHASE4_PACK_META).indexOf(optionId) * 5 + colourIndex : -1,
+        frozen: false
+      }
+    };
+  });
+}
+window.__nmV2BuildPhase4Assignments = buildPhase4Assignments;
+
 function sanitizeCompiledForApi(compiled) {
   const clone = JSON.parse(JSON.stringify(compiled));
   clone.referral = {
@@ -2065,18 +2191,53 @@ function sanitizeCompiledForApi(compiled) {
     advantages: Boolean(clone.review?.advantages),
     preview: Boolean(clone.review?.preview)
   };
+  if (Array.isArray(clone.advantages)) {
+    clone.advantages = clone.advantages.map((adv) => ({
+      ...adv,
+      mechanism: String(adv?.mechanism || '').toLowerCase() === 'redemption' ? 'Redemption' : 'Connected'
+    }));
+  }
   if (clone.design) {
+    const current = createDataValue();
+    const phase4 = current && Object.keys(current).length ? { ...clone.design, ...current } : clone.design;
     if (clone.design.retiredPassDesign) throw new Error(`RETIRED_PASS_DESIGN:${clone.design.retiredPassDesign}`);
-    const packOption = approvedPackOptionForDesign(clone.design);
-    if (!packOption) throw new Error('APPROVED_PASS_OPTION_REQUIRED');
-    clone.design.packOption = packOption;
-    clone.design.passFamily = packOption.startsWith('classic-') ? 'classic' : packOption.startsWith('glass-') ? 'glass' : packOption;
-    clone.design.packFamily = clone.design.passFamily;
-    clone.design.material = packOption.startsWith('classic-') || packOption.startsWith('glass-') ? packOption.split('-')[1] : 'approved-native-material';
-    clone.design.colorwayId = clone.design.colorwayId || 'colourway-01';
-    clone.design.customColor = clone.design.customColor || clone.design.color || '#5f6f50';
-    clone.design.frameHueCustomized = Boolean(clone.design.frameHueCustomized);
-    clone.design.artEditionView = clone.design.artEditionView || 'grid';
+    const randomMode = Boolean(phase4.randomPassMode);
+    const packOption = randomMode ? null : approvedPackOptionForDesign(phase4);
+    if (!randomMode && !packOption) throw new Error('APPROVED_PASS_OPTION_REQUIRED');
+    Object.assign(clone.design, {
+      passDesign: phase4.passDesign,
+      packOption,
+      passFamily: randomMode ? 'random' : PHASE4_PACK_META[packOption][0],
+      packFamily: randomMode ? 'random' : PHASE4_PACK_META[packOption][0],
+      material: randomMode ? 'authority-assigned' : PHASE4_PACK_META[packOption][1],
+      colorwayId: randomMode ? null : PHASE4_MANUAL_COLORWAY,
+      palette: randomMode ? null : buildPhase4Assignments(clone, phase4)[0].palette,
+      themeMode: phase4.themeMode,
+      color: phase4.color,
+      customColor: phase4.customColor || phase4.color || '#5f6f50',
+      colorStyle: phase4.colorStyle,
+      gradientA: phase4.gradientA,
+      gradientB: phase4.gradientB,
+      gradientDirection: phase4.gradientDirection,
+      frame: phase4.frame,
+      frameColor: phase4.frameColor,
+      frameHueCustomized: Boolean(phase4.frameHueCustomized),
+      texture: phase4.texture,
+      textureTint: phase4.textureTint,
+      logoSrc: phase4.logoSrc,
+      logoAssetId: phase4.logoAssetId || '',
+      artMode: phase4.artMode,
+      artSrc: phase4.artSrc,
+      artAssetId: phase4.artAssetId || '',
+      artEdition: Array.isArray(phase4.artEdition) ? phase4.artEdition : [],
+      artEditionView: phase4.artEditionView || 'grid',
+      selectedSerialIndex: Number(phase4.artEditionSelected ?? phase4.selectedSerialIndex ?? 0),
+      artX: Number(phase4.artX ?? 50),
+      artY: Number(phase4.artY ?? 50),
+      randomPassMode: randomMode,
+      randomPassSeed: phase4.randomPassSeed || clone.draftId || clone.id,
+      randomPoolVersion: 'v1'
+    });
     if (clone.design.logoSrc?.startsWith('data:')) {
       if (clone.design.logoSrc.length > 2048) clone.design.logoSrc = '';
     }
@@ -2096,9 +2257,14 @@ function sanitizeCompiledForApi(compiled) {
         traits: item.traits && typeof item.traits === 'object' ? item.traits : {}
       }));
     }
+    clone.design.passAssignments = buildPhase4Assignments(clone, { ...phase4, ...clone.design });
   }
-  if (clone.project?.banner?.src?.startsWith('data:')) {
-    if (clone.project.banner.src.length > 2048) clone.project.banner.src = '';
+  if (clone.project?.banner) {
+    const current = createDataValue();
+    clone.project.banner.assetId = current?.bannerAssetId || clone.project.banner.assetId || '';
+    if (clone.project.banner.src?.startsWith('data:')) {
+      if (clone.project.banner.src.length > 2048) clone.project.banner.src = '';
+    }
   }
   return clone;
 }
@@ -2132,7 +2298,7 @@ const CREATE_PASS_FIELD_PATHS = Object.freeze([
   'edition.name', 'edition.series', 'edition.supply', 'edition.price', 'edition.royalty', 'edition.network',
   'advantages', 'referral.enabled', 'referral.rate', 'referral.settlement',
   'economics.maxPrimary', 'economics.nexMarketsFeeRate', 'economics.nexMarketsFee', 'economics.afterPlatformFee',
-  'design.passDesign', 'design.packOption', 'design.packFamily', 'design.material', 'design.colorwayId', 'design.themeMode', 'design.color', 'design.customColor', 'design.colorStyle',
+  'design.passDesign', 'design.packOption', 'design.packFamily', 'design.material', 'design.colorwayId', 'design.palette', 'design.passAssignments', 'design.randomPassMode', 'design.randomPassSeed', 'design.randomPoolVersion', 'design.themeMode', 'design.color', 'design.customColor', 'design.colorStyle',
   'design.gradientA', 'design.gradientB', 'design.gradientDirection', 'design.frame', 'design.frameHueCustomized',
   'design.frameColor', 'design.texture', 'design.textureTint', 'design.logoSrc', 'design.logoAssetId', 'design.artMode', 'design.artSrc', 'design.artAssetId',
   'design.artEdition', 'design.artEditionView', 'design.selectedSerialIndex', 'design.artX', 'design.artY',
@@ -2267,7 +2433,7 @@ async function submitCreatePass() {
         'content-type': 'application/json',
         'x-csrf-token': state.csrfToken || sessionStorage.getItem('nex_csrf') || ''
       },
-      body: JSON.stringify({ ...payload, status: 'PUBLISHED', publicationMode: 'ONCHAIN', launchDraft: { ...cleanDraft, editionAddress: created.edition, editionTxHash: created.txHash, termsTxHash: termsResult.txHash } })
+      body: JSON.stringify({ ...payload, status: 'PUBLISHED', intent: 'PUBLISHED', publicationMode: 'ONCHAIN', launchDraft: { ...cleanDraft, editionAddress: created.edition, editionTxHash: created.txHash, termsTxHash: termsResult.txHash } })
     });
     state.lastSavedProject = published;
     sessionStorage.setItem(`nexmarkets_terms_published:${lower(created.edition)}`, '1');
@@ -3122,14 +3288,22 @@ function applyCanonicalPassAssignment(compiled, project, serialNo) {
   }
   const palette = assignment.palette && typeof assignment.palette === 'object' ? assignment.palette : {};
   const paletteArray = [palette.primary, palette.secondary, palette.accent].filter(Boolean).slice(0, 3);
-  if (paletteArray.length === 3) {
+  const visual = assignment.visual && typeof assignment.visual === 'object' ? assignment.visual : null;
+  if (visual) {
+    for (const field of ['passDesign', 'packOption', 'packFamily', 'material', 'themeMode', 'color', 'customColor', 'colorStyle', 'gradientA', 'gradientB', 'gradientDirection', 'frame', 'frameColor', 'texture', 'textureTint']) {
+      if (visual[field] != null) design[field] = visual[field];
+    }
+    design.frameHueCustomized = Boolean(visual.frameHueCustomized);
+    if (Array.isArray(visual.randomPalette) && visual.randomPalette.length >= 3) design.randomPalette = visual.randomPalette.slice(0, 3);
+    else delete design.randomPalette;
+  } else if (paletteArray.length === 3) {
     design.color = paletteArray[0];
     design.gradientA = paletteArray[0];
     design.gradientB = paletteArray[1];
     design.randomPalette = paletteArray;
     design.colorStyle = 'solid';
   }
-  design.frameColor = design.frame === 'gilt' ? '#c8a84e' : design.frame === 'carbon' ? '#313337' : '#2a2725';
+  if (!visual) design.frameColor = design.frame === 'gilt' ? '#c8a84e' : design.frame === 'carbon' ? '#313337' : '#2a2725';
   design.colorwayId = assignment.colorwayId || design.colorwayId;
   design.rendererVersion = assignment.rendererVersion || design.rendererVersion;
   design.randomAssignment = {

@@ -1,0 +1,906 @@
+{
+  "schemaVersion": 1,
+  "status": "PASS_PRODUCT_PUBLISHED_THROUGH_UI",
+  "runId": "replacement-1789047559621",
+  "network": "base-sepolia",
+  "chainId": 84532,
+  "baseUrl": "http://localhost:4174",
+  "wallet": "0xD83deFbA240568040b39bb2C8B4DB7dB02d40593",
+  "projectName": "NexMarkets Replacement Live replacement-1789047559621",
+  "stages": [
+    {
+      "name": "01-builder-connected",
+      "screenshot": "artifacts/verification/clean-replacement/01-builder-connected.png"
+    },
+    {
+      "name": "02-create-phase-1",
+      "screenshot": "artifacts/verification/clean-replacement/02-create-phase-1.png"
+    },
+    {
+      "name": "03-create-phase-2",
+      "screenshot": "artifacts/verification/clean-replacement/03-create-phase-2.png"
+    },
+    {
+      "name": "04-create-phase-3-advantages",
+      "screenshot": "artifacts/verification/clean-replacement/04-create-phase-3-advantages.png"
+    },
+    {
+      "name": "05-create-phase-4-artwork-random",
+      "screenshot": "artifacts/verification/clean-replacement/05-create-phase-4-artwork-random.png"
+    },
+    {
+      "name": "06-create-phase-5-timing",
+      "screenshot": "artifacts/verification/clean-replacement/06-create-phase-5-timing.png"
+    },
+    {
+      "name": "07-create-phase-6-review",
+      "screenshot": "artifacts/verification/clean-replacement/07-create-phase-6-review.png"
+    },
+    {
+      "name": "08-product-published",
+      "screenshot": "artifacts/verification/clean-replacement/08-product-published.png"
+    }
+  ],
+  "providerMethods": [
+    "eth_requestAccounts",
+    "eth_chainId",
+    "eth_requestAccounts",
+    "eth_chainId",
+    "personal_sign",
+    "eth_call",
+    "eth_sendTransaction",
+    "eth_getTransactionReceipt",
+    "eth_sendTransaction",
+    "eth_getTransactionReceipt"
+  ],
+  "consoleErrors": [],
+  "pageErrors": [],
+  "project": {
+    "id": "prj_2f80a309-b7d5-4714-b88c-ae730132f63c",
+    "builder_account_id": "acct_d09f77745c0aa9cb3df14c37",
+    "slug": "5db38efc-22e7-4dfb-aee6-f9ee0e990277",
+    "name": "NexMarkets Replacement Live replacement-1789047559621",
+    "summary": "A clean replacement Base Sepolia product proving the complete NexMarkets Pass lifecycle.",
+    "content": {
+      "id": "launch-nexmarketsreplacementlivereplacement1789047559621",
+      "design": {
+        "artX": 50,
+        "artY": 50,
+        "color": "#5f6f50",
+        "frame": "obsidian",
+        "artSrc": "/v1/media/med_493b8c74-6c4c-4604-9771-bfb628deeeab/content",
+        "artMode": "single",
+        "logoSrc": "",
+        "palette": null,
+        "texture": "none",
+        "material": "authority-assigned",
+        "gradientA": "#5f6f50",
+        "gradientB": "#17241f",
+        "themeMode": "auto",
+        "artAssetId": "med_493b8c74-6c4c-4604-9771-bfb628deeeab",
+        "artEdition": [],
+        "colorStyle": "solid",
+        "colorwayId": null,
+        "frameColor": "#2a2725",
+        "packFamily": "random",
+        "packOption": null,
+        "passDesign": "classic",
+        "customColor": "#5f6f50",
+        "logoAssetId": "",
+        "textureTint": "#9b9b94",
+        "artEditionView": "grid",
+        "randomPassMode": true,
+        "randomPassSeed": "nexmarkets-random-v1",
+        "passAssignments": [
+          {
+            "logo": {
+              "url": null,
+              "assetId": null
+            },
+            "family": "ceramic-enamel-tile",
+            "frozen": false,
+            "passId": null,
+            "serial": 1,
+            "supply": 3,
+            "visual": {
+              "color": "#2f3f85",
+              "frame": "obsidian",
+              "texture": "none",
+              "material": "glazed-ceramic",
+              "gradientA": "#2f3f85",
+              "gradientB": "#d9e0f1",
+              "themeMode": "random",
+              "colorStyle": "solid",
+              "frameColor": "#2a2725",
+              "packFamily": "ceramic-enamel-tile",
+              "packOption": "pack-ceramic",
+              "passDesign": "pack-ceramic",
+              "customColor": "#2f3f85",
+              "textureTint": "#9b9b94",
+              "randomPalette": [
+                "#2f3f85",
+                "#d9e0f1",
+                "#ece7d3"
+              ],
+              "gradientDirection": "diagonal",
+              "frameHueCustomized": false
+            },
+            "artwork": {
+              "x": 50,
+              "y": 50,
+              "url": "/v1/media/med_493b8c74-6c4c-4604-9771-bfb628deeeab/content",
+              "scale": 1,
+              "assetId": null
+            },
+            "palette": {
+              "accent": "#ece7d3",
+              "primary": "#2f3f85",
+              "secondary": "#d9e0f1"
+            },
+            "frozenAt": null,
+            "material": "glazed-ceramic",
+            "optionId": "pack-ceramic",
+            "editionId": "launch-nexmarketsreplacementlivereplacement1789047559621",
+            "colorwayId": "colourway-04",
+            "seriesName": "CERT-2026",
+            "editionName": "Clean Replacement Edition",
+            "holderState": null,
+            "projectName": "NexMarkets Replacement Live replacement-1789047559621",
+            "colorwayName": "Ochre Study",
+            "rendererVersion": "pass-renderer-v1",
+            "randomAssignment": {
+              "seed": null,
+              "frozen": false,
+              "enabled": true,
+              "combinationIndex": 43
+            },
+            "authorityAssignment": {
+              "frame": "obsidian",
+              "label": "Ceramic Enamel Tile",
+              "artKey": "",
+              "packId": "pack-ceramic",
+              "serial": 1,
+              "palette": [
+                "#2f3f85",
+                "#d9e0f1",
+                "#ece7d3"
+              ],
+              "passDesign": "pack-ceramic",
+              "colourIndex": 3,
+              "poolVersion": "v1"
+            }
+          },
+          {
+            "logo": {
+              "url": null,
+              "assetId": null
+            },
+            "family": "museum-glass-archive",
+            "frozen": false,
+            "passId": null,
+            "serial": 2,
+            "supply": 3,
+            "visual": {
+              "color": "#6d1822",
+              "frame": "obsidian",
+              "texture": "none",
+              "material": "glass-vitrine",
+              "gradientA": "#6d1822",
+              "gradientB": "#d7d0bb",
+              "themeMode": "random",
+              "colorStyle": "solid",
+              "frameColor": "#2a2725",
+              "packFamily": "museum-glass-archive",
+              "packOption": "pack-glass",
+              "passDesign": "pack-glass",
+              "customColor": "#6d1822",
+              "textureTint": "#9b9b94",
+              "randomPalette": [
+                "#6d1822",
+                "#d7d0bb",
+                "#20252b"
+              ],
+              "gradientDirection": "diagonal",
+              "frameHueCustomized": false
+            },
+            "artwork": {
+              "x": 50,
+              "y": 50,
+              "url": "/v1/media/med_493b8c74-6c4c-4604-9771-bfb628deeeab/content",
+              "scale": 1,
+              "assetId": null
+            },
+            "palette": {
+              "accent": "#20252b",
+              "primary": "#6d1822",
+              "secondary": "#d7d0bb"
+            },
+            "frozenAt": null,
+            "material": "glass-vitrine",
+            "optionId": "pack-glass",
+            "editionId": "launch-nexmarketsreplacementlivereplacement1789047559621",
+            "colorwayId": "colourway-01",
+            "seriesName": "CERT-2026",
+            "editionName": "Clean Replacement Edition",
+            "holderState": null,
+            "projectName": "NexMarkets Replacement Live replacement-1789047559621",
+            "colorwayName": "Crimson Archive",
+            "rendererVersion": "pass-renderer-v1",
+            "randomAssignment": {
+              "seed": null,
+              "frozen": false,
+              "enabled": true,
+              "combinationIndex": 30
+            },
+            "authorityAssignment": {
+              "frame": "obsidian",
+              "label": "Museum Glass Archive",
+              "artKey": "",
+              "packId": "pack-glass",
+              "serial": 2,
+              "palette": [
+                "#6d1822",
+                "#d7d0bb",
+                "#20252b"
+              ],
+              "passDesign": "pack-glass",
+              "colourIndex": 0,
+              "poolVersion": "v1"
+            }
+          },
+          {
+            "logo": {
+              "url": null,
+              "assetId": null
+            },
+            "family": "classic",
+            "frozen": false,
+            "passId": null,
+            "serial": 3,
+            "supply": 3,
+            "visual": {
+              "color": "#2d5d49",
+              "frame": "gilt",
+              "texture": "none",
+              "material": "gilt",
+              "gradientA": "#2d5d49",
+              "gradientB": "#f4ebd1",
+              "themeMode": "random",
+              "colorStyle": "solid",
+              "frameColor": "#c8a84e",
+              "packFamily": "classic",
+              "packOption": "classic-gilt",
+              "passDesign": "classic",
+              "customColor": "#2d5d49",
+              "textureTint": "#9b9b94",
+              "randomPalette": [
+                "#2d5d49",
+                "#f4ebd1",
+                "#161916"
+              ],
+              "gradientDirection": "diagonal",
+              "frameHueCustomized": false
+            },
+            "artwork": {
+              "x": 50,
+              "y": 50,
+              "url": "/v1/media/med_493b8c74-6c4c-4604-9771-bfb628deeeab/content",
+              "scale": 1,
+              "assetId": null
+            },
+            "palette": {
+              "accent": "#161916",
+              "primary": "#2d5d49",
+              "secondary": "#f4ebd1"
+            },
+            "frozenAt": null,
+            "material": "gilt",
+            "optionId": "classic-gilt",
+            "editionId": "launch-nexmarketsreplacementlivereplacement1789047559621",
+            "colorwayId": "colourway-04",
+            "seriesName": "CERT-2026",
+            "editionName": "Clean Replacement Edition",
+            "holderState": null,
+            "projectName": "NexMarkets Replacement Live replacement-1789047559621",
+            "colorwayName": "Ochre Study",
+            "rendererVersion": "pass-renderer-v1",
+            "randomAssignment": {
+              "seed": null,
+              "frozen": false,
+              "enabled": true,
+              "combinationIndex": 13
+            },
+            "authorityAssignment": {
+              "frame": "gilt",
+              "label": "Classic · Gilt",
+              "artKey": "",
+              "packId": "classic-gilt",
+              "serial": 3,
+              "palette": [
+                "#2d5d49",
+                "#f4ebd1",
+                "#161916"
+              ],
+              "passDesign": "classic",
+              "colourIndex": 3,
+              "poolVersion": "v1"
+            }
+          }
+        ],
+        "rendererVersion": "pass-renderer-v1",
+        "gradientDirection": "diagonal",
+        "randomPoolVersion": "v1",
+        "frameHueCustomized": false,
+        "selectedSerialIndex": 0
+      },
+      "review": {
+        "preview": false,
+        "evidence": false,
+        "advantages": false
+      },
+      "status": "DRAFT",
+      "draftId": "draft-5db38efc-22e7-4dfb-aee6-f9ee0e990277",
+      "edition": {
+        "name": "Clean Replacement Edition",
+        "price": 1,
+        "series": "CERT-2026",
+        "supply": 3,
+        "network": "base",
+        "royalty": 3
+      },
+      "network": "base",
+      "preview": {
+        "hours": 48,
+        "debutAt": "2026-09-12T13:45:00.000Z",
+        "opensAt": "2026-09-12T13:45:00.000Z",
+        "startsAt": null,
+        "timezone": "Africa/Lagos",
+        "localOpensAt": "2026-09-12T14:45",
+        "termsVersion": "v1.0"
+      },
+      "project": {
+        "desc": "A clean replacement Base Sepolia product proving the complete NexMarkets Pass lifecycle.",
+        "name": "NexMarkets Replacement Live replacement-1789047559621",
+        "about": "This clean replacement product verifies the real Builder, Preview, Debut, primary acquisition, immutable Pass artwork, Advantage, listing, replacement-order, secondary purchase, royalty, and public social flows on Base Sepolia.",
+        "banner": {
+          "src": "",
+          "assetId": "",
+          "palette": [
+            "#5f6f50",
+            "#30483d",
+            "#111512"
+          ],
+          "logoPosition": "tl"
+        },
+        "builder": "NexMarkets Certification Builder",
+        "network": "base",
+        "category": "tools",
+        "evidence": {
+          "url": "https://docs.nexmarkets.fun/",
+          "type": "Docs",
+          "label": "View docs"
+        },
+        "videoUrl": "",
+        "supportUrl": "https://nexmarkets.fun/",
+        "productState": "Beta",
+        "builderHandle": "@nexmarkets-cert"
+      },
+      "referral": {
+        "rate": 0,
+        "enabled": false,
+        "settlement": "Builder Settled"
+      },
+      "economics": {
+        "maxPrimary": 3,
+        "nexMarketsFee": 0.15,
+        "afterPlatformFee": 2.85,
+        "nexMarketsFeeRate": 0.05
+      },
+      "advantages": [
+        {
+          "id": "adv-discount",
+          "benefit": "10% off Pass vault",
+          "covered": "Pass vault",
+          "summary": "10% off Pass vault · Ongoing",
+          "duration": "Ongoing",
+          "mechanism": "Connected"
+        },
+        {
+          "id": "adv-basket",
+          "benefit": "Pass Vault enabled. The builder can send tokens, rewards, or future drops directly into each pass. Whatever is inside tr",
+          "covered": "Pass vault",
+          "summary": "Pass Vault enabled. The builder can send tokens, rewards, or future drops directly into each pass. Whatever is inside travels with the pass if it is sold. · Ongoing",
+          "duration": "Ongoing",
+          "mechanism": "Connected"
+        }
+      ],
+      "mintAccess": {
+        "root": "0x0000000000000000000000000000000000000000000000000000000000000000",
+        "hours": 0,
+        "supply": 0,
+        "enabled": false,
+        "addresses": []
+      }
+    },
+    "status": "DRAFT",
+    "published_at": null,
+    "created_at": "2026-09-09T06:10:31.550Z",
+    "updated_at": "2026-09-10T13:40:04.584Z",
+    "builder_id": "bld_e1ac9bff-a27d-40a0-bd49-f6d08bc8dfd6"
+  },
+  "edition": "0x2854c071ecbc74b3487fad3a83a3d87bb9e55b68",
+  "artwork": {
+    "assetId": "med_493b8c74-6c4c-4604-9771-bfb628deeeab",
+    "url": "/v1/media/med_493b8c74-6c4c-4604-9771-bfb628deeeab/content",
+    "randomPassMode": true,
+    "randomPassSeed": "nexmarkets-random-v1"
+  },
+  "created": null,
+  "termsResult": null,
+  "continuity": {
+    "randomPassMode": true,
+    "passAssignmentsCount": 3,
+    "assignments": [
+      {
+        "serial": 1,
+        "optionId": "pack-ceramic",
+        "colorwayId": "colourway-04",
+        "colorwayName": "Ochre Study",
+        "palette": {
+          "accent": "#ece7d3",
+          "primary": "#2f3f85",
+          "secondary": "#d9e0f1"
+        }
+      },
+      {
+        "serial": 2,
+        "optionId": "pack-glass",
+        "colorwayId": "colourway-01",
+        "colorwayName": "Crimson Archive",
+        "palette": {
+          "accent": "#20252b",
+          "primary": "#6d1822",
+          "secondary": "#d7d0bb"
+        }
+      },
+      {
+        "serial": 3,
+        "optionId": "classic-gilt",
+        "colorwayId": "colourway-04",
+        "colorwayName": "Ochre Study",
+        "palette": {
+          "accent": "#161916",
+          "primary": "#2d5d49",
+          "secondary": "#f4ebd1"
+        }
+      }
+    ],
+    "onchain": {
+      "address": "0x2854c071ecbc74b3487fad3a83a3d87bb9e55b68",
+      "name": "Clean Replacement Edition",
+      "symbol": "CERT2026",
+      "owner": "0xD83deFbA240568040b39bb2C8B4DB7dB02d40593",
+      "absoluteSupplyCap": 3,
+      "artworkCommitment": "0xe607325b4f216d0466ced9ab2a5e0c6b578d1a3adde515dcdd0149deabaf03a3"
+    },
+    "discoverStatus": 200,
+    "replacementInDiscover": true,
+    "editionApiStatus": 200,
+    "editionApiData": {
+      "activeTermsVersion": "1",
+      "pricePerPass": "1000000",
+      "advantagesHash": "0x71ba1ba05d430396f2d6f5dc179fd81a5c9f832cc6448de5c1b2616925b87d98"
+    },
+    "passes": [
+      {
+        "tokenId": 1,
+        "status": 404,
+        "pass": null
+      },
+      {
+        "tokenId": 2,
+        "status": 404,
+        "pass": null
+      },
+      {
+        "tokenId": 3,
+        "status": 404,
+        "pass": null
+      }
+    ]
+  },
+  "startedAt": "2026-09-10T13:39:19.621Z",
+  "dbProject": {
+    "id": "prj_2f80a309-b7d5-4714-b88c-ae730132f63c",
+    "builder_account_id": "acct_d09f77745c0aa9cb3df14c37",
+    "slug": "5db38efc-22e7-4dfb-aee6-f9ee0e990277",
+    "name": "NexMarkets Replacement Live replacement-1789047559621",
+    "summary": "A clean replacement Base Sepolia product proving the complete NexMarkets Pass lifecycle.",
+    "content": {
+      "id": "launch-nexmarketsreplacementlivereplacement1789047559621",
+      "design": {
+        "artX": 50,
+        "artY": 50,
+        "color": "#5f6f50",
+        "frame": "obsidian",
+        "artSrc": "/v1/media/med_493b8c74-6c4c-4604-9771-bfb628deeeab/content",
+        "artMode": "single",
+        "logoSrc": "",
+        "palette": null,
+        "texture": "none",
+        "material": "authority-assigned",
+        "gradientA": "#5f6f50",
+        "gradientB": "#17241f",
+        "themeMode": "auto",
+        "artAssetId": "med_493b8c74-6c4c-4604-9771-bfb628deeeab",
+        "artEdition": [],
+        "colorStyle": "solid",
+        "colorwayId": null,
+        "frameColor": "#2a2725",
+        "packFamily": "random",
+        "packOption": null,
+        "passDesign": "classic",
+        "customColor": "#5f6f50",
+        "logoAssetId": "",
+        "textureTint": "#9b9b94",
+        "artEditionView": "grid",
+        "randomPassMode": true,
+        "randomPassSeed": "nexmarkets-random-v1",
+        "passAssignments": [
+          {
+            "logo": {
+              "url": null,
+              "assetId": null
+            },
+            "family": "ceramic-enamel-tile",
+            "frozen": false,
+            "passId": null,
+            "serial": 1,
+            "supply": 3,
+            "visual": {
+              "color": "#2f3f85",
+              "frame": "obsidian",
+              "texture": "none",
+              "material": "glazed-ceramic",
+              "gradientA": "#2f3f85",
+              "gradientB": "#d9e0f1",
+              "themeMode": "random",
+              "colorStyle": "solid",
+              "frameColor": "#2a2725",
+              "packFamily": "ceramic-enamel-tile",
+              "packOption": "pack-ceramic",
+              "passDesign": "pack-ceramic",
+              "customColor": "#2f3f85",
+              "textureTint": "#9b9b94",
+              "randomPalette": [
+                "#2f3f85",
+                "#d9e0f1",
+                "#ece7d3"
+              ],
+              "gradientDirection": "diagonal",
+              "frameHueCustomized": false
+            },
+            "artwork": {
+              "x": 50,
+              "y": 50,
+              "url": "/v1/media/med_493b8c74-6c4c-4604-9771-bfb628deeeab/content",
+              "scale": 1,
+              "assetId": null
+            },
+            "palette": {
+              "accent": "#ece7d3",
+              "primary": "#2f3f85",
+              "secondary": "#d9e0f1"
+            },
+            "frozenAt": null,
+            "material": "glazed-ceramic",
+            "optionId": "pack-ceramic",
+            "editionId": "launch-nexmarketsreplacementlivereplacement1789047559621",
+            "colorwayId": "colourway-04",
+            "seriesName": "CERT-2026",
+            "editionName": "Clean Replacement Edition",
+            "holderState": null,
+            "projectName": "NexMarkets Replacement Live replacement-1789047559621",
+            "colorwayName": "Ochre Study",
+            "rendererVersion": "pass-renderer-v1",
+            "randomAssignment": {
+              "seed": null,
+              "frozen": false,
+              "enabled": true,
+              "combinationIndex": 43
+            },
+            "authorityAssignment": {
+              "frame": "obsidian",
+              "label": "Ceramic Enamel Tile",
+              "artKey": "",
+              "packId": "pack-ceramic",
+              "serial": 1,
+              "palette": [
+                "#2f3f85",
+                "#d9e0f1",
+                "#ece7d3"
+              ],
+              "passDesign": "pack-ceramic",
+              "colourIndex": 3,
+              "poolVersion": "v1"
+            }
+          },
+          {
+            "logo": {
+              "url": null,
+              "assetId": null
+            },
+            "family": "museum-glass-archive",
+            "frozen": false,
+            "passId": null,
+            "serial": 2,
+            "supply": 3,
+            "visual": {
+              "color": "#6d1822",
+              "frame": "obsidian",
+              "texture": "none",
+              "material": "glass-vitrine",
+              "gradientA": "#6d1822",
+              "gradientB": "#d7d0bb",
+              "themeMode": "random",
+              "colorStyle": "solid",
+              "frameColor": "#2a2725",
+              "packFamily": "museum-glass-archive",
+              "packOption": "pack-glass",
+              "passDesign": "pack-glass",
+              "customColor": "#6d1822",
+              "textureTint": "#9b9b94",
+              "randomPalette": [
+                "#6d1822",
+                "#d7d0bb",
+                "#20252b"
+              ],
+              "gradientDirection": "diagonal",
+              "frameHueCustomized": false
+            },
+            "artwork": {
+              "x": 50,
+              "y": 50,
+              "url": "/v1/media/med_493b8c74-6c4c-4604-9771-bfb628deeeab/content",
+              "scale": 1,
+              "assetId": null
+            },
+            "palette": {
+              "accent": "#20252b",
+              "primary": "#6d1822",
+              "secondary": "#d7d0bb"
+            },
+            "frozenAt": null,
+            "material": "glass-vitrine",
+            "optionId": "pack-glass",
+            "editionId": "launch-nexmarketsreplacementlivereplacement1789047559621",
+            "colorwayId": "colourway-01",
+            "seriesName": "CERT-2026",
+            "editionName": "Clean Replacement Edition",
+            "holderState": null,
+            "projectName": "NexMarkets Replacement Live replacement-1789047559621",
+            "colorwayName": "Crimson Archive",
+            "rendererVersion": "pass-renderer-v1",
+            "randomAssignment": {
+              "seed": null,
+              "frozen": false,
+              "enabled": true,
+              "combinationIndex": 30
+            },
+            "authorityAssignment": {
+              "frame": "obsidian",
+              "label": "Museum Glass Archive",
+              "artKey": "",
+              "packId": "pack-glass",
+              "serial": 2,
+              "palette": [
+                "#6d1822",
+                "#d7d0bb",
+                "#20252b"
+              ],
+              "passDesign": "pack-glass",
+              "colourIndex": 0,
+              "poolVersion": "v1"
+            }
+          },
+          {
+            "logo": {
+              "url": null,
+              "assetId": null
+            },
+            "family": "classic",
+            "frozen": false,
+            "passId": null,
+            "serial": 3,
+            "supply": 3,
+            "visual": {
+              "color": "#2d5d49",
+              "frame": "gilt",
+              "texture": "none",
+              "material": "gilt",
+              "gradientA": "#2d5d49",
+              "gradientB": "#f4ebd1",
+              "themeMode": "random",
+              "colorStyle": "solid",
+              "frameColor": "#c8a84e",
+              "packFamily": "classic",
+              "packOption": "classic-gilt",
+              "passDesign": "classic",
+              "customColor": "#2d5d49",
+              "textureTint": "#9b9b94",
+              "randomPalette": [
+                "#2d5d49",
+                "#f4ebd1",
+                "#161916"
+              ],
+              "gradientDirection": "diagonal",
+              "frameHueCustomized": false
+            },
+            "artwork": {
+              "x": 50,
+              "y": 50,
+              "url": "/v1/media/med_493b8c74-6c4c-4604-9771-bfb628deeeab/content",
+              "scale": 1,
+              "assetId": null
+            },
+            "palette": {
+              "accent": "#161916",
+              "primary": "#2d5d49",
+              "secondary": "#f4ebd1"
+            },
+            "frozenAt": null,
+            "material": "gilt",
+            "optionId": "classic-gilt",
+            "editionId": "launch-nexmarketsreplacementlivereplacement1789047559621",
+            "colorwayId": "colourway-04",
+            "seriesName": "CERT-2026",
+            "editionName": "Clean Replacement Edition",
+            "holderState": null,
+            "projectName": "NexMarkets Replacement Live replacement-1789047559621",
+            "colorwayName": "Ochre Study",
+            "rendererVersion": "pass-renderer-v1",
+            "randomAssignment": {
+              "seed": null,
+              "frozen": false,
+              "enabled": true,
+              "combinationIndex": 13
+            },
+            "authorityAssignment": {
+              "frame": "gilt",
+              "label": "Classic · Gilt",
+              "artKey": "",
+              "packId": "classic-gilt",
+              "serial": 3,
+              "palette": [
+                "#2d5d49",
+                "#f4ebd1",
+                "#161916"
+              ],
+              "passDesign": "classic",
+              "colourIndex": 3,
+              "poolVersion": "v1"
+            }
+          }
+        ],
+        "rendererVersion": "pass-renderer-v1",
+        "gradientDirection": "diagonal",
+        "randomPoolVersion": "v1",
+        "frameHueCustomized": false,
+        "selectedSerialIndex": 0
+      },
+      "review": {
+        "preview": false,
+        "evidence": false,
+        "advantages": false
+      },
+      "status": "DRAFT",
+      "draftId": "draft-5db38efc-22e7-4dfb-aee6-f9ee0e990277",
+      "edition": {
+        "name": "Clean Replacement Edition",
+        "price": 1,
+        "series": "CERT-2026",
+        "supply": 3,
+        "network": "base",
+        "royalty": 3
+      },
+      "network": "base",
+      "preview": {
+        "hours": 48,
+        "debutAt": "2026-09-12T13:46:00.000Z",
+        "opensAt": "2026-09-12T13:46:00.000Z",
+        "startsAt": null,
+        "timezone": "Africa/Lagos",
+        "localOpensAt": "2026-09-12T14:46",
+        "termsVersion": "v1.0"
+      },
+      "project": {
+        "desc": "A clean replacement Base Sepolia product proving the complete NexMarkets Pass lifecycle.",
+        "name": "NexMarkets Replacement Live replacement-1789047559621",
+        "about": "This clean replacement product verifies the real Builder, Preview, Debut, primary acquisition, immutable Pass artwork, Advantage, listing, replacement-order, secondary purchase, royalty, and public social flows on Base Sepolia.",
+        "banner": {
+          "src": "",
+          "assetId": "",
+          "palette": [
+            "#5f6f50",
+            "#30483d",
+            "#111512"
+          ],
+          "logoPosition": "tl"
+        },
+        "builder": "NexMarkets Certification Builder",
+        "network": "base",
+        "category": "tools",
+        "evidence": {
+          "url": "https://docs.nexmarkets.fun/",
+          "type": "Docs",
+          "label": "View docs"
+        },
+        "videoUrl": "",
+        "supportUrl": "https://nexmarkets.fun/",
+        "productState": "Beta",
+        "builderHandle": "@nexmarkets-cert"
+      },
+      "referral": {
+        "rate": 0,
+        "enabled": false,
+        "settlement": "Builder Settled"
+      },
+      "economics": {
+        "maxPrimary": 3,
+        "nexMarketsFee": 0.15,
+        "afterPlatformFee": 2.85,
+        "nexMarketsFeeRate": 0.05
+      },
+      "advantages": [
+        {
+          "id": "adv-discount",
+          "benefit": "10% off Pass vault",
+          "covered": "Pass vault",
+          "summary": "10% off Pass vault · Ongoing",
+          "duration": "Ongoing",
+          "mechanism": "Connected"
+        },
+        {
+          "id": "adv-basket",
+          "benefit": "Pass Vault enabled. The builder can send tokens, rewards, or future drops directly into each pass. Whatever is inside tr",
+          "covered": "Pass vault",
+          "summary": "Pass Vault enabled. The builder can send tokens, rewards, or future drops directly into each pass. Whatever is inside travels with the pass if it is sold. · Ongoing",
+          "duration": "Ongoing",
+          "mechanism": "Connected"
+        }
+      ],
+      "mintAccess": {
+        "root": "0x0000000000000000000000000000000000000000000000000000000000000000",
+        "hours": 0,
+        "supply": 0,
+        "enabled": false,
+        "addresses": []
+      }
+    },
+    "status": "DRAFT",
+    "published_at": null,
+    "created_at": "2026-09-09T06:10:31.550Z",
+    "updated_at": "2026-09-10T13:40:11.806Z",
+    "builder_id": "bld_e1ac9bff-a27d-40a0-bd49-f6d08bc8dfd6"
+  },
+  "dbEdition": {
+    "id": "ed_6484e7bf33386d928d956a2a",
+    "project_id": "prj_2f80a309-b7d5-4714-b88c-ae730132f63c",
+    "chain_id": "84532",
+    "edition_address": "0x2854c071ecbc74b3487fad3a83a3d87bb9e55b68",
+    "edition_id_hash": "0xf04e445ec9529b959582a6a357272ae8178a6ca8509c43a9271fc0108203eb83",
+    "factory_address": "0xc5cdfcc91719379a778c16b2ab9190c004186e0c",
+    "publisher_address": "0xd83defba240568040b39bb2c8b4db7db02d40593",
+    "absolute_supply_cap": 3,
+    "artwork_commitment": "0xe607325b4f216d0466ced9ab2a5e0c6b578d1a3adde515dcdd0149deabaf03a3",
+    "disabled": false,
+    "source_block_number": "46639654",
+    "source_block_hash": "0x3bbf0930153de570c953b6130422efc33e808ade85a0abb6a429e782f505f445",
+    "source_tx_hash": "0x3649befb3e83ef1401969c44a98cfcea2fd7020157d25c60d395dc09b5423120",
+    "source_log_index": 151,
+    "finalized": false,
+    "orphaned_at": null,
+    "created_at": "2026-09-10T13:39:56.698Z"
+  },
+  "finishedAt": "2026-09-10T13:40:19.171Z"
+}

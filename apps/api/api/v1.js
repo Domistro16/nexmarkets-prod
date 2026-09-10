@@ -1081,11 +1081,11 @@ function bytes(b2, ...lengths) {
   if (lengths.length > 0 && !lengths.includes(b2.length))
     throw new Error(`Expected Uint8Array of length ${lengths}, not of length=${b2.length}`);
 }
-function hash(hash5) {
-  if (typeof hash5 !== "function" || typeof hash5.create !== "function")
+function hash(hash4) {
+  if (typeof hash4 !== "function" || typeof hash4.create !== "function")
     throw new Error("Hash should be wrapped by utils.wrapConstructor");
-  number(hash5.outputLen);
-  number(hash5.blockLen);
+  number(hash4.outputLen);
+  number(hash4.blockLen);
 }
 function exists(instance, checkFinished = true) {
   if (instance.destroyed)
@@ -1698,24 +1698,24 @@ var init_hmac = __esm({
     init_assert();
     init_utils2();
     HMAC = class extends Hash {
-      constructor(hash5, _key) {
+      constructor(hash4, _key) {
         super();
         this.finished = false;
         this.destroyed = false;
-        hash(hash5);
+        hash(hash4);
         const key = toBytes(_key);
-        this.iHash = hash5.create();
+        this.iHash = hash4.create();
         if (typeof this.iHash.update !== "function")
           throw new Error("Expected instance of class which extends utils.Hash");
         this.blockLen = this.iHash.blockLen;
         this.outputLen = this.iHash.outputLen;
         const blockLen = this.blockLen;
         const pad = new Uint8Array(blockLen);
-        pad.set(key.length > blockLen ? hash5.create().update(key).digest() : key);
+        pad.set(key.length > blockLen ? hash4.create().update(key).digest() : key);
         for (let i = 0; i < pad.length; i++)
           pad[i] ^= 54;
         this.iHash.update(pad);
-        this.oHash = hash5.create();
+        this.oHash = hash4.create();
         for (let i = 0; i < pad.length; i++)
           pad[i] ^= 54 ^ 92;
         this.oHash.update(pad);
@@ -1758,8 +1758,8 @@ var init_hmac = __esm({
         this.iHash.destroy();
       }
     };
-    hmac = (hash5, key, message) => new HMAC(hash5, key).update(message).digest();
-    hmac.create = (hash5, key) => new HMAC(hash5, key);
+    hmac = (hash4, key, message) => new HMAC(hash4, key).update(message).digest();
+    hmac.create = (hash4, key) => new HMAC(hash4, key);
   }
 });
 
@@ -3010,13 +3010,13 @@ function weierstrass(curveDef) {
   function prepSig(msgHash, privateKey, opts = defaultSigOpts) {
     if (["recovered", "canonical"].some((k) => k in opts))
       throw new Error("sign() legacy options not supported");
-    const { hash: hash5, randomBytes: randomBytes5 } = CURVE;
+    const { hash: hash4, randomBytes: randomBytes5 } = CURVE;
     let { lowS, prehash, extraEntropy: ent } = opts;
     if (lowS == null)
       lowS = true;
     msgHash = ensureBytes("msgHash", msgHash);
     if (prehash)
-      msgHash = ensureBytes("prehashed msgHash", hash5(msgHash));
+      msgHash = ensureBytes("prehashed msgHash", hash4(msgHash));
     const h1int = bits2int_modN(msgHash);
     const d = normPrivateKeyToScalar(privateKey);
     const seedArgs = [int2octets(d), int2octets(h1int)];
@@ -3182,15 +3182,15 @@ var init_weierstrass = __esm({
 });
 
 // node_modules/@noble/curves/esm/_shortw_utils.js
-function getHash(hash5) {
+function getHash(hash4) {
   return {
-    hash: hash5,
-    hmac: (key, ...msgs) => hmac(hash5, key, concatBytes(...msgs)),
+    hash: hash4,
+    hmac: (key, ...msgs) => hmac(hash4, key, concatBytes(...msgs)),
     randomBytes
   };
 }
 function createCurve(curveDef, defHash) {
-  const create = (hash5) => weierstrass({ ...curveDef, ...getHash(hash5) });
+  const create = (hash4) => weierstrass({ ...curveDef, ...getHash(hash4) });
   return Object.freeze({ ...create(defHash), create });
 }
 var init_shortw_utils = __esm({
@@ -7319,8 +7319,8 @@ var init_interface = __esm({
       /**
        *  @_ignore:
        */
-      constructor(hash5) {
-        defineProperties(this, { hash: hash5, _isIndexed: true });
+      constructor(hash4) {
+        defineProperties(this, { hash: hash4, _isIndexed: true });
       }
     };
     PanicReasons2 = {
@@ -8722,23 +8722,36 @@ var init_transaction_calldata = __esm({
 });
 
 // packages/domain/src/pass-design.mjs
-import { createHash as createHash3 } from "node:crypto";
-function hash3(value) {
-  return createHash3("sha256").update(String(value ?? "")).digest("hex");
+function authorityRandomHash(value) {
+  let hash4 = 2166136261;
+  const input = String(value ?? "");
+  for (let index = 0; index < input.length; index += 1) {
+    hash4 ^= input.charCodeAt(index);
+    hash4 = Math.imul(hash4, 16777619);
+  }
+  return hash4 >>> 0;
 }
-function permutation(length, seed) {
+function authoritySeededPermutation(length, seed) {
   const values = Array.from({ length }, (_, index) => index);
-  values.sort((a, b2) => hash3(`${seed}|${a}`).localeCompare(hash3(`${seed}|${b2}`)));
+  let hash4 = authorityRandomHash(seed) || 1;
+  for (let index = values.length - 1; index > 0; index -= 1) {
+    hash4 ^= hash4 << 13;
+    hash4 ^= hash4 >>> 17;
+    hash4 ^= hash4 << 5;
+    const swapIndex = (hash4 >>> 0) % (index + 1);
+    [values[index], values[swapIndex]] = [values[swapIndex], values[index]];
+  }
   return values;
-}
-function buildPassAssignmentDeck(seed) {
-  const order = permutation(PASS_ASSIGNMENT_POOL.length, seed || "nexmarkets-pass-seed");
-  return order.map((index) => PASS_ASSIGNMENT_POOL[index]);
 }
 function resolvePassAssignment({ seed, serial, artworkId = null } = {}) {
   const serialNumber = Math.max(1, Math.floor(Number(serial) || 1));
-  const deck = buildPassAssignmentDeck(seed);
-  const selected = deck[(serialNumber - 1) % deck.length];
+  const stableSeed = String(seed || "nexmarkets-pass-seed");
+  const slot = serialNumber - 1;
+  const packOrder = authoritySeededPermutation(PASS_DESIGN_OPTIONS.length, `${stableSeed}|packs-v1`);
+  const option = PASS_DESIGN_OPTIONS[packOrder[slot % PASS_DESIGN_OPTIONS.length]] || PASS_DESIGN_OPTIONS[0];
+  const colourOrder = authoritySeededPermutation(PASS_COLORWAYS.length, `${stableSeed}|colours-v1|${option.id}`);
+  const colourIndex = colourOrder[(slot + Math.floor(slot / PASS_DESIGN_OPTIONS.length)) % PASS_COLORWAYS.length];
+  const selected = PASS_ASSIGNMENT_POOL.find((entry) => entry.optionId === option.id && entry.colorwayId === PASS_COLORWAYS[colourIndex].id);
   return {
     rendererVersion: PASS_RENDERER_VERSION,
     serial: serialNumber,
@@ -8749,6 +8762,17 @@ function resolvePassAssignment({ seed, serial, artworkId = null } = {}) {
     colorwayName: selected.colorwayName,
     palette: { ...selected.palette },
     artworkId: artworkId ?? null,
+    authorityAssignment: {
+      poolVersion: "v1",
+      serial: serialNumber,
+      packId: selected.optionId,
+      passDesign: selected.optionId.startsWith("classic-") ? "classic" : selected.optionId.startsWith("glass-") ? "glass" : selected.optionId,
+      frame: selected.optionId.startsWith("classic-") || selected.optionId.startsWith("glass-") ? selected.material : "obsidian",
+      label: selected.label,
+      colourIndex,
+      palette: [selected.palette.primary, selected.palette.secondary, selected.palette.accent],
+      artKey: artworkId ?? ""
+    },
     frozen: false
   };
 }
@@ -8767,35 +8791,21 @@ function createPassRenderConfig({ editionId, passId = null, serial, supply, proj
     colorwayId: selected.colorwayId,
     colorwayName: selected.colorwayName || PASS_COLORWAYS.find((item) => item.id === selected.colorwayId)?.name || selected.colorwayId,
     palette: { ...selected.palette },
+    visual: selected.visual ? structuredClone(selected.visual) : null,
+    authorityAssignment: selected.authorityAssignment ? structuredClone(selected.authorityAssignment) : null,
     artwork: { assetId: artwork.assetId ?? artwork.assetKey ?? artwork.id ?? selected.artworkId ?? null, url: artwork.url ?? artwork.src ?? null, x: Number(artwork.x ?? 50), y: Number(artwork.y ?? 50), scale: Number(artwork.scale ?? 1) },
     logo: { assetId: logo.assetId ?? null, url: logo.url ?? null },
     projectName: String(projectName ?? ""),
     editionName: String(editionName ?? ""),
     seriesName: String(seriesName ?? ""),
     holderState: holderState ? { ...holderState } : null,
+    frozen: Boolean(selected.frozen),
+    frozenAt: selected.frozenAt ?? null,
     randomAssignment: { enabled: selected.randomAssignment?.enabled ?? true, seed: selected.seed ?? null, combinationIndex: PASS_ASSIGNMENT_POOL.findIndex((item) => item.optionId === selected.optionId && item.colorwayId === selected.colorwayId), frozen: Boolean(selected.frozen) }
   };
 }
-function freezePassAssignments({ editionId, supply, seed, artworkBySerial = {}, projectName = "", editionName = "", seriesName = "", logo = {}, rendererVersion = PASS_RENDERER_VERSION, frozenAt = (/* @__PURE__ */ new Date()).toISOString() } = {}) {
-  const count = Math.max(1, Math.floor(Number(supply) || 1));
-  return Array.from({ length: count }, (_, index) => {
-    const serial = index + 1;
-    const artworkForSerial = artworkBySerial[serial] || {};
-    const artworkId = artworkForSerial.assetId ?? artworkForSerial.assetKey ?? artworkForSerial.id ?? null;
-    const assignment = resolvePassAssignment({ seed: seed || editionId, serial, artworkId });
-    assignment.rendererVersion = rendererVersion;
-    assignment.frozen = true;
-    assignment.frozenAt = frozenAt;
-    assignment.seed = String(seed || editionId);
-    assignment.artwork = artworkBySerial[serial] ? { ...artworkBySerial[serial], assetId: artworkId } : null;
-    return createPassRenderConfig({ editionId, serial, supply: count, projectName, editionName, seriesName, assignment, artwork: assignment.artwork || {}, logo });
-  });
-}
 function isApprovedPassOption(value) {
   return OPTION_MAP.has(String(value));
-}
-function isApprovedColorway(value) {
-  return PASS_COLORWAYS.some((item) => item.id === String(value));
 }
 var PASS_RENDERER_VERSION, PASS_DESIGN_OPTIONS, PASS_COLORWAYS, PALETTES, PASS_ASSIGNMENT_POOL, OPTION_MAP;
 var init_pass_design = __esm({
@@ -9123,14 +9133,13 @@ function normalizeLaunchDraft(draft = {}, defaults = {}) {
   }
   const requestedPackOption = String(designInput.packOption ?? designInput.packId ?? (isApprovedPassOption(rawPassDesign) ? rawPassDesign : "")).trim().toLowerCase();
   const familyMaterial = passDesign === "glass" ? ["obsidian", "carbon"].includes(String(designInput.frame).toLowerCase()) ? String(designInput.frame).toLowerCase() : "obsidian" : ["obsidian", "carbon", "gilt"].includes(String(designInput.frame).toLowerCase()) ? String(designInput.frame).toLowerCase() : "obsidian";
-  const packOption = isApprovedPassOption(requestedPackOption) ? requestedPackOption : ["classic", "glass"].includes(passDesign) ? `${passDesign}-${familyMaterial}` : null;
-  if (!packOption || !isApprovedPassOption(packOption)) {
+  const randomPassMode = Boolean(designInput.randomPassMode);
+  const packOption = randomPassMode ? null : isApprovedPassOption(requestedPackOption) ? requestedPackOption : ["classic", "glass"].includes(passDesign) ? `${passDesign}-${familyMaterial}` : null;
+  if (!randomPassMode && (!packOption || !isApprovedPassOption(packOption))) {
     throw Object.assign(new Error("INVALID_PASS_DESIGN"), { status: 400 });
   }
-  const selectedPack = PASS_DESIGN_OPTIONS.find((option) => option.id === packOption) || PASS_DESIGN_OPTIONS[0];
-  const colorwayId = isApprovedColorway(designInput.colorwayId) ? String(designInput.colorwayId) : "colourway-01";
-  const poolEntry = PASS_ASSIGNMENT_POOL.find((entry) => entry.optionId === packOption && entry.colorwayId === colorwayId) || PASS_ASSIGNMENT_POOL[0];
-  const randomPassMode = Boolean(designInput.randomPassMode);
+  const selectedPack = randomPassMode ? null : PASS_DESIGN_OPTIONS.find((option) => option.id === packOption);
+  const colorwayId = randomPassMode ? null : MANUAL_PHASE4_COLORWAY_ID;
   const randomPassSeed = String(designInput.randomPassSeed ?? draftId).trim().slice(0, 160) || draftId;
   const editionId = String(draft.editionId ?? draft.id ?? `launch-${slug}`).slice(0, 160);
   const artworkBySerial = {};
@@ -9139,21 +9148,92 @@ function normalizeLaunchDraft(draft = {}, defaults = {}) {
   } else if (designInput.artSrc) {
     for (let serial = 1; serial <= supply; serial += 1) artworkBySerial[serial] = { url: sanitizeMediaUrl(designInput.artSrc), x: artX, y: artY };
   }
+  const manualVisual = randomPassMode ? null : {
+    passDesign,
+    packOption,
+    packFamily: selectedPack.family,
+    material: selectedPack.material,
+    themeMode,
+    color,
+    customColor,
+    colorStyle,
+    gradientA,
+    gradientB,
+    gradientDirection,
+    frame,
+    frameColor,
+    frameHueCustomized,
+    texture,
+    textureTint,
+    randomPalette: null
+  };
+  const manualPalette = randomPassMode ? null : {
+    primary: colorStyle === "gradient" ? gradientA : color,
+    secondary: colorStyle === "gradient" ? gradientB : color,
+    accent: frameColor
+  };
+  const submittedAssignments = Array.isArray(designInput.passAssignments) ? designInput.passAssignments : [];
+  const submittedBySerial = new Map(submittedAssignments.map((assignment) => [Number(assignment?.serial), assignment]));
+  const hasCompleteSubmittedAssignments = submittedAssignments.length === supply && submittedBySerial.size === supply && Array.from({ length: supply }, (_, index) => submittedBySerial.has(index + 1)).every(Boolean);
+  if (randomPassMode && isFullDraft && !hasCompleteSubmittedAssignments) {
+    throw Object.assign(new Error("RANDOM_PASS_ASSIGNMENTS_REQUIRED"), { status: 400 });
+  }
   const assignmentRows = Array.from({ length: supply }, (_, index) => {
     const serial = index + 1;
-    if (randomPassMode) return resolvePassAssignment({ seed: randomPassSeed, serial, artworkId: artworkBySerial[serial]?.assetId ?? artworkBySerial[serial]?.assetKey ?? null });
-    return {
+    const submitted = submittedBySerial.get(serial);
+    const artworkId = artworkBySerial[serial]?.assetId ?? artworkBySerial[serial]?.assetKey ?? artworkBySerial[serial]?.filename ?? null;
+    const expected = randomPassMode ? resolvePassAssignment({ seed: randomPassSeed, serial, artworkId }) : {
       rendererVersion: PASS_RENDERER_VERSION,
       serial,
       optionId: packOption,
       family: selectedPack.family,
       material: selectedPack.material,
-      colorwayId: poolEntry.colorwayId,
-      colorwayName: poolEntry.colorwayName,
-      palette: { ...poolEntry.palette },
-      artworkId: artworkBySerial[serial]?.assetId ?? artworkBySerial[serial]?.assetKey ?? null,
+      colorwayId: MANUAL_PHASE4_COLORWAY_ID,
+      colorwayName: "Manual Phase 4",
+      palette: { ...manualPalette },
+      artworkId,
+      visual: { ...manualVisual },
+      authorityAssignment: null,
       frozen: false
     };
+    if (submitted) {
+      if (String(submitted.optionId) !== expected.optionId || String(submitted.colorwayId) !== expected.colorwayId) {
+        throw Object.assign(new Error(`PHASE4_ASSIGNMENT_MISMATCH:${serial}`), { status: 400 });
+      }
+      const submittedPalette = submitted.palette || {};
+      if ([expected.palette.primary, expected.palette.secondary, expected.palette.accent].some((value, paletteIndex) => value !== [submittedPalette.primary, submittedPalette.secondary, submittedPalette.accent][paletteIndex])) {
+        throw Object.assign(new Error(`PHASE4_PALETTE_MISMATCH:${serial}`), { status: 400 });
+      }
+      if (randomPassMode) {
+        const authority = submitted.authorityAssignment;
+        const expectedAuthority = expected.authorityAssignment;
+        if (!authority || authority.poolVersion !== expectedAuthority.poolVersion || Number(authority.serial) !== expectedAuthority.serial || authority.packId !== expectedAuthority.packId || authority.passDesign !== expectedAuthority.passDesign || authority.frame !== expectedAuthority.frame || authority.label !== expectedAuthority.label || Number(authority.colourIndex) !== Number(expectedAuthority.colourIndex) || JSON.stringify(authority.palette) !== JSON.stringify(expectedAuthority.palette) || String(authority.artKey ?? "") !== String(expectedAuthority.artKey ?? "")) {
+          throw Object.assign(new Error(`RANDOM_AUTHORITY_ASSIGNMENT_MISMATCH:${serial}`), { status: 400 });
+        }
+      }
+    }
+    const randomPalette = randomPassMode ? [expected.palette.primary, expected.palette.secondary, expected.palette.accent] : null;
+    const expectedFrame = expected.optionId.startsWith("classic-") || expected.optionId.startsWith("glass-") ? expected.material : "obsidian";
+    const visual = randomPassMode ? {
+      passDesign: expected.optionId.startsWith("classic-") ? "classic" : expected.optionId.startsWith("glass-") ? "glass" : expected.optionId,
+      packOption: expected.optionId,
+      packFamily: expected.family,
+      material: expected.material,
+      themeMode: "random",
+      color: randomPalette[0],
+      customColor: randomPalette[0],
+      colorStyle: "solid",
+      gradientA: randomPalette[0],
+      gradientB: randomPalette[1],
+      gradientDirection: "diagonal",
+      frame: expectedFrame,
+      frameColor: expectedFrame === "gilt" ? "#c8a84e" : expectedFrame === "carbon" ? "#313337" : "#2a2725",
+      frameHueCustomized: false,
+      texture: "none",
+      textureTint: "#9b9b94",
+      randomPalette
+    } : manualVisual;
+    return { ...expected, visual, authorityAssignment: expected.authorityAssignment ?? null };
   });
   const draftAssignments = assignmentRows.map((assignment) => {
     const config = createPassRenderConfig({
@@ -9168,16 +9248,8 @@ function normalizeLaunchDraft(draft = {}, defaults = {}) {
     });
     return { ...config, randomAssignment: { ...config.randomAssignment, enabled: randomPassMode } };
   });
-  const canonicalAssignments = defaults.freezeAssignments ? randomPassMode ? freezePassAssignments({
-    editionId,
-    supply,
-    seed: randomPassSeed,
-    artworkBySerial,
-    projectName: name,
-    editionName,
-    seriesName: series,
-    rendererVersion: PASS_RENDERER_VERSION
-  }) : draftAssignments.map((assignment) => ({ ...assignment, randomAssignment: { ...assignment.randomAssignment, enabled: false, frozen: true }, frozen: true, frozenAt: (/* @__PURE__ */ new Date()).toISOString() })) : draftAssignments;
+  const frozenAt = (/* @__PURE__ */ new Date()).toISOString();
+  const canonicalAssignments = defaults.freezeAssignments ? draftAssignments.map((assignment) => ({ ...assignment, randomAssignment: { ...assignment.randomAssignment, enabled: randomPassMode, frozen: true }, frozen: true, frozenAt })) : draftAssignments;
   const design = {
     passDesign,
     themeMode,
@@ -9207,10 +9279,10 @@ function normalizeLaunchDraft(draft = {}, defaults = {}) {
     randomPassSeed,
     randomPoolVersion: "v1",
     packOption,
-    packFamily: selectedPack.family,
-    material: selectedPack.material,
+    packFamily: randomPassMode ? "random" : selectedPack.family,
+    material: randomPassMode ? "authority-assigned" : selectedPack.material,
     colorwayId,
-    palette: { ...poolEntry.palette },
+    palette: manualPalette ? { ...manualPalette } : null,
     passAssignments: canonicalAssignments
   };
   const previewInput = draft.preview ?? {};
@@ -9316,7 +9388,7 @@ function normalizeLaunchDraft(draft = {}, defaults = {}) {
     status
   };
 }
-var ALLOWED_CATEGORIES, ALLOWED_PRODUCT_STATES, ALLOWED_NETWORKS, ALLOWED_PROJECT_STATUSES, ALLOWED_ADVANTAGE_MECHANISMS, ALLOWED_REFERRAL_RATES, ALLOWED_PASS_DESIGNS, ALLOWED_PACK_OPTIONS, ALLOWED_THEME_MODES, ALLOWED_COLOR_STYLES, ALLOWED_GRADIENT_DIRECTIONS, ALLOWED_FRAMES, ALLOWED_TEXTURES, ALLOWED_ART_MODES, HEX_COLOR_REGEX, SLUG_REGEX, USDG_PRICE_REGEX;
+var ALLOWED_CATEGORIES, ALLOWED_PRODUCT_STATES, ALLOWED_NETWORKS, ALLOWED_PROJECT_STATUSES, ALLOWED_ADVANTAGE_MECHANISMS, ALLOWED_REFERRAL_RATES, ALLOWED_PASS_DESIGNS, ALLOWED_PACK_OPTIONS, ALLOWED_THEME_MODES, ALLOWED_COLOR_STYLES, ALLOWED_GRADIENT_DIRECTIONS, ALLOWED_FRAMES, ALLOWED_TEXTURES, ALLOWED_ART_MODES, MANUAL_PHASE4_COLORWAY_ID, HEX_COLOR_REGEX, SLUG_REGEX, USDG_PRICE_REGEX;
 var init_launch_draft = __esm({
   "packages/domain/src/launch-draft.mjs"() {
     init_pass_design();
@@ -9415,8 +9487,10 @@ var init_launch_draft = __esm({
     ]);
     ALLOWED_ART_MODES = Object.freeze([
       "single",
-      "collection"
+      "collection",
+      "random"
     ]);
+    MANUAL_PHASE4_COLORWAY_ID = "phase4-manual";
     HEX_COLOR_REGEX = /^#[0-9a-fA-F]{6}$/;
     SLUG_REGEX = /^[a-z0-9-]{3,80}$/;
     USDG_PRICE_REGEX = /^\d+(\.\d{1,6})?$/;
@@ -9561,7 +9635,7 @@ var postgres_store_exports = {};
 __export(postgres_store_exports, {
   PostgresStore: () => PostgresStore
 });
-import { createHash as createHash4, randomUUID as randomUUID2 } from "node:crypto";
+import { createHash as createHash3, randomUUID as randomUUID2 } from "node:crypto";
 async function getPg() {
   if (!pgModule) {
     try {
@@ -9573,7 +9647,7 @@ async function getPg() {
   return pgModule.default ?? pgModule;
 }
 function sha2563(value) {
-  return createHash4("sha256").update(value).digest("hex");
+  return createHash3("sha256").update(value).digest("hex");
 }
 function builderError(code, status = 403) {
   return Object.assign(new Error(code), { status });
@@ -9772,7 +9846,7 @@ var init_postgres_store = __esm({
           `SELECT p.slug,p.builder_account_id,p.content,p.status,p.published_at,COALESCE(p.name,e.edition_id_hash) AS name,COALESCE(p.summary,'Permissionless on-chain Edition') AS summary,e.edition_address,e.absolute_supply_cap,t.price_usdg,t.mint_starts_at,t.mint_ends_at
        FROM edition e LEFT JOIN project p ON e.project_id=p.id
        LEFT JOIN LATERAL (SELECT * FROM terms_version tv WHERE tv.edition_id=e.id AND tv.orphaned_at IS NULL ORDER BY version DESC LIMIT 1) t ON true
-       WHERE (p.status='PUBLISHED' OR p.id IS NULL) AND e.orphaned_at IS NULL ORDER BY p.published_at DESC NULLS LAST,e.created_at DESC LIMIT 100`
+       WHERE (p.status='PUBLISHED' OR p.id IS NULL) AND e.orphaned_at IS NULL AND e.disabled IS NOT TRUE ORDER BY p.published_at DESC NULLS LAST,e.created_at DESC LIMIT 100`
         );
         return rows;
       }
@@ -10580,9 +10654,9 @@ var init_postgres_store = __esm({
 });
 
 // apps/api/src/memory-store.mjs
-import { createHash as createHash6, randomUUID as randomUUID4 } from "node:crypto";
-function hash4(value) {
-  return createHash6("sha256").update(value).digest("hex");
+import { createHash as createHash5, randomUUID as randomUUID4 } from "node:crypto";
+function hash3(value) {
+  return createHash5("sha256").update(value).digest("hex");
 }
 function builderError2(code, status = 403) {
   return Object.assign(new Error(code), { status });
@@ -10631,13 +10705,13 @@ var init_memory_store = __esm({
         if (!stored || stored.consumedAt) throw new Error("CHALLENGE_ALREADY_USED_OR_EXPIRED");
         stored.consumedAt = Date.now();
         stored.signature = signature;
-        const accountId = `acct_${hash4(challenge.address).slice(0, 24)}`;
-        const walletId = `wal_${hash4(`${challenge.chainId}:${challenge.address}`).slice(0, 24)}`;
+        const accountId = `acct_${hash3(challenge.address).slice(0, 24)}`;
+        const walletId = `wal_${hash3(`${challenge.chainId}:${challenge.address}`).slice(0, 24)}`;
         this.sessions.set(session.tokenHash, { ...session, accountId, walletId, walletAddress: challenge.address, chainId: challenge.chainId });
         return { accountId, walletId };
       }
       async sessionByToken(token) {
-        return structuredClone(this.sessions.get(hash4(token)) ?? null);
+        return structuredClone(this.sessions.get(hash3(token)) ?? null);
       }
       async revokeSession(id2) {
         for (const session of this.sessions.values()) if (session.id === id2) session.revokedAt = Date.now();
@@ -10736,7 +10810,7 @@ var init_memory_store = __esm({
         if (existingMembership && this.builders.has(existingMembership.builder_id)) return this.builders.get(existingMembership.builder_id);
         const legacyProfile = this.builderProfiles.get(accountId);
         if (!create && !legacyProfile) return null;
-        const id2 = legacyProfile?.builder_id ?? `bld_${hash4(accountId).slice(0, 24)}`;
+        const id2 = legacyProfile?.builder_id ?? `bld_${hash3(accountId).slice(0, 24)}`;
         let builder = this.builders.get(id2);
         if (!builder) {
           builder = { id: id2, owner_account_id: accountId, created_at: legacyProfile?.created_at ?? (/* @__PURE__ */ new Date()).toISOString(), updated_at: (/* @__PURE__ */ new Date()).toISOString() };
@@ -10774,7 +10848,7 @@ var init_memory_store = __esm({
           if (existing.grossAmountUsdg !== sale.grossAmountUsdg || existing.quantity !== sale.quantity || String(existing.editionId ?? "") !== String(sale.editionId ?? "")) throw new Error("PRIMARY_SALE_EVENT_CONFLICT");
           return structuredClone(existing);
         }
-        this.primarySales.set(key, { id: `psa_${hash4(key).slice(0, 24)}`, ...sale });
+        this.primarySales.set(key, { id: `psa_${hash3(key).slice(0, 24)}`, ...sale });
         return structuredClone(this.primarySales.get(key));
       }
       async primarySalesForBuilder(builderIdentifier) {
@@ -10854,7 +10928,7 @@ var init_memory_store = __esm({
         const address2 = String(edition?.edition ?? edition?.editionAddress ?? "").toLowerCase();
         const existing = this.editions.find((row2) => String(row2.editionAddress ?? row2.edition_address ?? "").toLowerCase() === address2);
         if (existing?.projectId && existing.projectId !== project.id) throw Object.assign(new Error("EDITION_ALREADY_LINKED"), { status: 409 });
-        const row = existing ?? { id: `ed_${hash4(`${Number(edition.chainId)}:${address2}`).slice(0, 24)}` };
+        const row = existing ?? { id: `ed_${hash3(`${Number(edition.chainId)}:${address2}`).slice(0, 24)}` };
         Object.assign(row, { projectId: project.id, project_id: project.id, chainId: Number(edition.chainId), chain_id: Number(edition.chainId), editionAddress: address2, edition_address: address2, editionIdHash: String(edition.editionId).toLowerCase(), edition_id_hash: String(edition.editionId).toLowerCase(), factoryAddress: String(edition.factoryAddress).toLowerCase(), factory_address: String(edition.factoryAddress).toLowerCase(), publisherAddress: String(edition.publisher ?? edition.publisherAddress).toLowerCase(), publisher_address: String(edition.publisher ?? edition.publisherAddress).toLowerCase(), absoluteSupplyCap: Number(edition.absoluteSupplyCap), absolute_supply_cap: Number(edition.absoluteSupplyCap), artworkCommitment: String(edition.artworkCommitment).toLowerCase(), artwork_commitment: String(edition.artworkCommitment).toLowerCase(), sourceBlockNumber: Number(edition.blockNumber), source_block_number: Number(edition.blockNumber), sourceBlockHash: String(edition.blockHash).toLowerCase(), source_block_hash: String(edition.blockHash).toLowerCase(), sourceTxHash: String(edition.txHash).toLowerCase(), source_tx_hash: String(edition.txHash).toLowerCase(), sourceLogIndex: Number(edition.logIndex), source_log_index: Number(edition.logIndex), finalized: false });
         if (!existing) this.editions.push(row);
         return structuredClone(row);
@@ -11653,12 +11727,12 @@ function productionReadinessFromEnv(env = process.env) {
 }
 
 // apps/api/src/object-storage.mjs
-import { createHash as createHash5, createHmac } from "node:crypto";
+import { createHash as createHash4, createHmac } from "node:crypto";
 var SERVICE = "s3";
 var ALGORITHM = "AWS4-HMAC-SHA256";
 var UNSIGNED_PAYLOAD = "UNSIGNED-PAYLOAD";
 function sha2564(value) {
-  return createHash5("sha256").update(value).digest("hex");
+  return createHash4("sha256").update(value).digest("hex");
 }
 function hmac2(key, value, encoding = void 0) {
   return createHmac("sha256", key).update(value).digest(encoding);
@@ -12295,6 +12369,10 @@ function createApiServer({
         const data = (await Promise.all((raw ?? []).map(async (project) => {
           let source = project;
           const editionAddress = project.edition_address ?? project.editionAddress ?? project.address;
+          if (editionAddress && store.editionByAddress) {
+            const edRow = await store.editionByAddress(editionAddress);
+            if (edRow?.disabled) return null;
+          }
           if (!project.content && editionAddress && store.projectByEditionAddress) {
             const linkedProject = await store.projectByEditionAddress(editionAddress);
             if (linkedProject) source = { ...project, slug: linkedProject.slug ?? project.slug, project_id: linkedProject.id, project_name: linkedProject.name, builder_account_id: linkedProject.builder_account_id ?? linkedProject.builderAccountId, content: linkedProject.content, project: linkedProject };
@@ -12337,7 +12415,7 @@ function createApiServer({
           const watcherCount = readModelDisabled ? 0 : await store.getWatchlistCount?.(source.project_id ?? source.id ?? source.slug) ?? 0;
           const links = source.content?.links ?? source.launchDraft?.links ?? source.links ?? {};
           return { ...source, statusTag, watcherCount, links };
-        }))).filter((project) => project.statusTag !== "DRAFT");
+        }))).filter((project) => project && project.statusTag !== "DRAFT");
         return json(res, 200, { data, authority: subgraph2?.enabled ? "GOLDSKY_SUBGRAPH_READ_MODEL" : "POSTGRES_READ_MODEL" });
       }
       if (req.method === "GET" && url.pathname === "/v1/market/listings") {
@@ -12359,8 +12437,8 @@ function createApiServer({
         if (indexed && commitments.length) {
           const byHash = new Map(commitments.map((row) => [String(row.advantagesHash).toLowerCase(), row]));
           const enrich = (term) => {
-            const hash5 = String(term?.advantagesHash ?? term?.advantages_hash ?? "").toLowerCase();
-            const commitment = hash5 ? byHash.get(hash5) : null;
+            const hash4 = String(term?.advantagesHash ?? term?.advantages_hash ?? "").toLowerCase();
+            const commitment = hash4 ? byHash.get(hash4) : null;
             return commitment ? { ...commitment.termsPayload ?? {}, ...term, advantageConfigs: commitment.configs } : term;
           };
           indexed.currentTerms = enrich(indexed.currentTerms ?? indexed.current_terms);
@@ -12611,8 +12689,8 @@ function createApiServer({
         return json(res, 200, { data: updated });
       }
       if (req.method === "POST" && url.pathname === "/v1/builder/projects") {
-        const input = await readBody(req);
-        const draftIntent = String(input.intent ?? input.status ?? "").trim().toUpperCase() === "DRAFT";
+        const input = await readBody(req, 16777216);
+        const draftIntent = String(input.status ?? input.intent ?? "").trim().toUpperCase() === "DRAFT" && String(input.status ?? "").trim().toUpperCase() !== "PUBLISHED";
         if (draftIntent) {
           const normalized2 = validateAndNormalizeProjectPayload(input, { status: "DRAFT", allowIncomplete: true, freezeAssignments: false });
           const project2 = await store.createProject({
@@ -12655,7 +12733,7 @@ function createApiServer({
         return json(res, 201, { data: project });
       }
       if (req.method === "POST" && url.pathname === "/v1/builder/drafts" || req.method === "PUT" && /^\/v1\/builder\/drafts\/[^/]+$/.test(url.pathname)) {
-        const input = await readBody(req);
+        const input = await readBody(req, 16777216);
         const routeDraftId = req.method === "PUT" ? decodeURIComponent(url.pathname.split("/")[4]) : null;
         const draftId = String(routeDraftId ?? input.draftId ?? input.launchDraft?.draftId ?? `draft-${randomUUID3()}`).slice(0, 120);
         const launchDraft = { ...input.launchDraft ?? {}, draftId, status: "DRAFT" };

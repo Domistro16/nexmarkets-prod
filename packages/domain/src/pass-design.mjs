@@ -1,5 +1,3 @@
-import { createHash } from 'node:crypto';
-
 // This is the single server-side authority for issued Pass appearance.  The
 // browser prototype has the same option and palette IDs, but an issued Pass
 // must never be regenerated from prototype defaults after publication.
@@ -54,23 +52,49 @@ export const PASS_ASSIGNMENT_POOL = Object.freeze(PASS_DESIGN_OPTIONS.flatMap((o
 
 const OPTION_MAP = new Map(PASS_DESIGN_OPTIONS.map((option) => [option.id, option]));
 
-function hash(value) { return createHash('sha256').update(String(value ?? '')).digest('hex'); }
+// Keep this byte-for-byte algorithmically equivalent to nmStableRandomHash /
+// nmSeededPermutation in the immutable V2 authority. The server validates and
+// freezes the choices produced in Phase 4; it must not reroll them with a
+// separate implementation.
+export function authorityRandomHash(value) {
+  let hash = 2166136261;
+  const input = String(value ?? '');
+  for (let index = 0; index < input.length; index += 1) {
+    hash ^= input.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
+}
 
-function permutation(length, seed) {
+export function authoritySeededPermutation(length, seed) {
   const values = Array.from({ length }, (_, index) => index);
-  values.sort((a, b) => hash(`${seed}|${a}`).localeCompare(hash(`${seed}|${b}`)));
+  let hash = authorityRandomHash(seed) || 1;
+  for (let index = values.length - 1; index > 0; index -= 1) {
+    hash ^= hash << 13;
+    hash ^= hash >>> 17;
+    hash ^= hash << 5;
+    const swapIndex = (hash >>> 0) % (index + 1);
+    [values[index], values[swapIndex]] = [values[swapIndex], values[index]];
+  }
   return values;
 }
 
 export function buildPassAssignmentDeck(seed) {
-  const order = permutation(PASS_ASSIGNMENT_POOL.length, seed || 'nexmarkets-pass-seed');
-  return order.map((index) => PASS_ASSIGNMENT_POOL[index]);
+  return Array.from({ length: PASS_ASSIGNMENT_POOL.length }, (_, index) => {
+    const { serial: _serial, rendererVersion: _rendererVersion, artworkId: _artworkId, frozen: _frozen, ...assignment } = resolvePassAssignment({ seed, serial: index + 1 });
+    return assignment;
+  });
 }
 
 export function resolvePassAssignment({ seed, serial, artworkId = null } = {}) {
   const serialNumber = Math.max(1, Math.floor(Number(serial) || 1));
-  const deck = buildPassAssignmentDeck(seed);
-  const selected = deck[(serialNumber - 1) % deck.length];
+  const stableSeed = String(seed || 'nexmarkets-pass-seed');
+  const slot = serialNumber - 1;
+  const packOrder = authoritySeededPermutation(PASS_DESIGN_OPTIONS.length, `${stableSeed}|packs-v1`);
+  const option = PASS_DESIGN_OPTIONS[packOrder[slot % PASS_DESIGN_OPTIONS.length]] || PASS_DESIGN_OPTIONS[0];
+  const colourOrder = authoritySeededPermutation(PASS_COLORWAYS.length, `${stableSeed}|colours-v1|${option.id}`);
+  const colourIndex = colourOrder[(slot + Math.floor(slot / PASS_DESIGN_OPTIONS.length)) % PASS_COLORWAYS.length];
+  const selected = PASS_ASSIGNMENT_POOL.find((entry) => entry.optionId === option.id && entry.colorwayId === PASS_COLORWAYS[colourIndex].id);
   return {
     rendererVersion: PASS_RENDERER_VERSION,
     serial: serialNumber,
@@ -81,6 +105,17 @@ export function resolvePassAssignment({ seed, serial, artworkId = null } = {}) {
     colorwayName: selected.colorwayName,
     palette: { ...selected.palette },
     artworkId: artworkId ?? null,
+    authorityAssignment: {
+      poolVersion: 'v1',
+      serial: serialNumber,
+      packId: selected.optionId,
+      passDesign: selected.optionId.startsWith('classic-') ? 'classic' : selected.optionId.startsWith('glass-') ? 'glass' : selected.optionId,
+      frame: selected.optionId.startsWith('classic-') || selected.optionId.startsWith('glass-') ? selected.material : 'obsidian',
+      label: selected.label,
+      colourIndex,
+      palette: [selected.palette.primary, selected.palette.secondary, selected.palette.accent],
+      artKey: artworkId ?? ''
+    },
     frozen: false
   };
 }
@@ -100,12 +135,16 @@ export function createPassRenderConfig({ editionId, passId = null, serial, suppl
     colorwayId: selected.colorwayId,
     colorwayName: selected.colorwayName || PASS_COLORWAYS.find((item) => item.id === selected.colorwayId)?.name || selected.colorwayId,
     palette: { ...selected.palette },
+    visual: selected.visual ? structuredClone(selected.visual) : null,
+    authorityAssignment: selected.authorityAssignment ? structuredClone(selected.authorityAssignment) : null,
     artwork: { assetId: artwork.assetId ?? artwork.assetKey ?? artwork.id ?? selected.artworkId ?? null, url: artwork.url ?? artwork.src ?? null, x: Number(artwork.x ?? 50), y: Number(artwork.y ?? 50), scale: Number(artwork.scale ?? 1) },
     logo: { assetId: logo.assetId ?? null, url: logo.url ?? null },
     projectName: String(projectName ?? ''),
     editionName: String(editionName ?? ''),
     seriesName: String(seriesName ?? ''),
     holderState: holderState ? { ...holderState } : null,
+    frozen: Boolean(selected.frozen),
+    frozenAt: selected.frozenAt ?? null,
     randomAssignment: { enabled: selected.randomAssignment?.enabled ?? true, seed: selected.seed ?? null, combinationIndex: PASS_ASSIGNMENT_POOL.findIndex((item) => item.optionId === selected.optionId && item.colorwayId === selected.colorwayId), frozen: Boolean(selected.frozen) }
   };
 }

@@ -5,11 +5,14 @@ import { createServer } from 'node:http';
 import v1Handler, { normalizeV1RequestUrl } from '../api-src/v1.js';
 
 test('Vercel forwards every public V1 path through one concrete function', async () => {
-  const config = JSON.parse(await readFile(new URL('../vercel.json', import.meta.url), 'utf8'));
-  assert.deepEqual(
-    config.rewrites.find(({ source }) => source === '/v1/:match*'),
-    { source: '/v1/:match*', destination: '/api/v1?path=:match*' }
-  );
+  for (const relativePath of ['../vercel.json', '../apps/web/vercel.json', '../apps/api/vercel.json']) {
+    const config = JSON.parse(await readFile(new URL(relativePath, import.meta.url), 'utf8'));
+    assert.deepEqual(
+      config.rewrites.find(({ source }) => source === '/v1/:match*'),
+      { source: '/v1/:match*', destination: '/api/v1?path=:match*' },
+      `${relativePath} must route V1 traffic through the concrete query-path function`
+    );
+  }
   assert.equal(
     normalizeV1RequestUrl({ url: '/api/v1?path=auth%2Fchallenge', query: { path: 'auth/challenge' } }),
     '/v1/auth/challenge'

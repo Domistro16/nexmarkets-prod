@@ -18,6 +18,7 @@
       }
     }
   },
+  "protocolVersion": 1,
   "network": "base-sepolia",
   "displayName": "Base Sepolia",
   "family": "base",
@@ -80,6 +81,7 @@
   "productionReady": false,
   "networks": {
     "robinhood-testnet": {
+      "protocolVersion": 1,
       "network": "robinhood-testnet",
       "displayName": "Robinhood",
       "family": "robinhood",
@@ -149,6 +151,7 @@
       }
     },
     "base-sepolia": {
+      "protocolVersion": 1,
       "network": "base-sepolia",
       "displayName": "Base Sepolia",
       "family": "base",

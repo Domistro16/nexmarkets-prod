@@ -1,0 +1,78 @@
+{
+  "status": "PASS_ALL_CONTINUITY_VERIFIED",
+  "timestamp": "2026-09-10T14:54:05.615Z",
+  "apiChecks": {
+    "discover": {
+      "status": 200,
+      "totalProjects": 1,
+      "newEditionPresent": true,
+      "oldEditionHidden": true
+    },
+    "edition": {
+      "status": 200,
+      "editionAddress": "0x2854c071ecbc74b3487fad3a83a3d87bb9e55b68",
+      "supplyCap": "3",
+      "randomPassMode": true,
+      "randomPassSeed": "nexmarkets-random-v1",
+      "assignmentsCount": 3,
+      "assignments": [
+        {
+          "serial": 1,
+          "optionId": "pack-ceramic",
+          "colorwayId": "colourway-04",
+          "colorwayName": "Ochre Study",
+          "palette": {
+            "accent": "#ece7d3",
+            "primary": "#2f3f85",
+            "secondary": "#d9e0f1"
+          }
+        },
+        {
+          "serial": 2,
+          "optionId": "pack-glass",
+          "colorwayId": "colourway-01",
+          "colorwayName": "Crimson Archive",
+          "palette": {
+            "accent": "#20252b",
+            "primary": "#6d1822",
+            "secondary": "#d7d0bb"
+          }
+        },
+        {
+          "serial": 3,
+          "optionId": "classic-gilt",
+          "colorwayId": "colourway-04",
+          "colorwayName": "Ochre Study",
+          "palette": {
+            "accent": "#161916",
+            "primary": "#2d5d49",
+            "secondary": "#f4ebd1"
+          }
+        }
+      ]
+    },
+    "media": {
+      "status": 307,
+      "location": "[PRESIGNED_URL]"
+    }
+  },
+  "uiChecks": {
+    "pngExport": {
+      "validPng": true,
+      "ihdr": "IHDR",
+      "width": 2048,
+      "height": 2048,
+      "byteSize": 1361061
+    }
+  },
+  "screenshots": [
+    "artifacts/verification/continuity/01-discover-replacement.png",
+    "artifacts/verification/continuity/02-launch-preview.png",
+    "artifacts/verification/continuity/03-launch-holder-side.png",
+    "artifacts/verification/continuity/04-serial-1-rendered.png",
+    "artifacts/verification/continuity/04-serial-2-rendered.png",
+    "artifacts/verification/continuity/04-serial-3-rendered.png",
+    "artifacts/verification/continuity/07-market-view.png",
+    "artifacts/verification/continuity/08-dashboard-view.png"
+  ]
+}

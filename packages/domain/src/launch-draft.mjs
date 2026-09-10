@@ -2,12 +2,9 @@ import { createHash } from 'node:crypto';
 import {
   PASS_RENDERER_VERSION,
   PASS_DESIGN_OPTIONS,
-  PASS_ASSIGNMENT_POOL,
   createPassRenderConfig,
-  freezePassAssignments,
   resolvePassAssignment,
-  isApprovedPassOption,
-  isApprovedColorway
+  isApprovedPassOption
 } from './pass-design.mjs';
 import { buildAllowlist } from './allowlist.mjs';
 
@@ -70,8 +67,10 @@ export const ALLOWED_TEXTURES = Object.freeze([
 ]);
 
 export const ALLOWED_ART_MODES = Object.freeze([
-  'single', 'collection'
+  'single', 'collection', 'random'
 ]);
+
+export const MANUAL_PHASE4_COLORWAY_ID = 'phase4-manual';
 
 const HEX_COLOR_REGEX = /^#[0-9a-fA-F]{6}$/;
 const SLUG_REGEX = /^[a-z0-9-]{3,80}$/;
@@ -364,16 +363,17 @@ export function normalizeLaunchDraft(draft = {}, defaults = {}) {
   const familyMaterial = passDesign === 'glass'
     ? (['obsidian', 'carbon'].includes(String(designInput.frame).toLowerCase()) ? String(designInput.frame).toLowerCase() : 'obsidian')
     : (['obsidian', 'carbon', 'gilt'].includes(String(designInput.frame).toLowerCase()) ? String(designInput.frame).toLowerCase() : 'obsidian');
-  const packOption = isApprovedPassOption(requestedPackOption)
-    ? requestedPackOption
-    : (['classic', 'glass'].includes(passDesign) ? `${passDesign}-${familyMaterial}` : null);
-  if (!packOption || !isApprovedPassOption(packOption)) {
+  const randomPassMode = Boolean(designInput.randomPassMode);
+  const packOption = randomPassMode
+    ? null
+    : (isApprovedPassOption(requestedPackOption)
+      ? requestedPackOption
+      : (['classic', 'glass'].includes(passDesign) ? `${passDesign}-${familyMaterial}` : null));
+  if (!randomPassMode && (!packOption || !isApprovedPassOption(packOption))) {
     throw Object.assign(new Error('INVALID_PASS_DESIGN'), { status: 400 });
   }
-  const selectedPack = PASS_DESIGN_OPTIONS.find((option) => option.id === packOption) || PASS_DESIGN_OPTIONS[0];
-  const colorwayId = isApprovedColorway(designInput.colorwayId) ? String(designInput.colorwayId) : 'colourway-01';
-  const poolEntry = PASS_ASSIGNMENT_POOL.find((entry) => entry.optionId === packOption && entry.colorwayId === colorwayId) || PASS_ASSIGNMENT_POOL[0];
-  const randomPassMode = Boolean(designInput.randomPassMode);
+  const selectedPack = randomPassMode ? null : PASS_DESIGN_OPTIONS.find((option) => option.id === packOption);
+  const colorwayId = randomPassMode ? null : MANUAL_PHASE4_COLORWAY_ID;
   const randomPassSeed = String(designInput.randomPassSeed ?? draftId).trim().slice(0, 160) || draftId;
   const editionId = String(draft.editionId ?? draft.id ?? `launch-${slug}`).slice(0, 160);
 
@@ -383,21 +383,105 @@ export function normalizeLaunchDraft(draft = {}, defaults = {}) {
   } else if (designInput.artSrc) {
     for (let serial = 1; serial <= supply; serial += 1) artworkBySerial[serial] = { url: sanitizeMediaUrl(designInput.artSrc), x: artX, y: artY };
   }
+
+  const manualVisual = randomPassMode ? null : {
+    passDesign,
+    packOption,
+    packFamily: selectedPack.family,
+    material: selectedPack.material,
+    themeMode,
+    color,
+    customColor,
+    colorStyle,
+    gradientA,
+    gradientB,
+    gradientDirection,
+    frame,
+    frameColor,
+    frameHueCustomized,
+    texture,
+    textureTint,
+    randomPalette: null
+  };
+  const manualPalette = randomPassMode ? null : {
+    primary: colorStyle === 'gradient' ? gradientA : color,
+    secondary: colorStyle === 'gradient' ? gradientB : color,
+    accent: frameColor
+  };
+  const submittedAssignments = Array.isArray(designInput.passAssignments) ? designInput.passAssignments : [];
+  const submittedBySerial = new Map(submittedAssignments.map((assignment) => [Number(assignment?.serial), assignment]));
+  const hasCompleteSubmittedAssignments = submittedAssignments.length === supply
+    && submittedBySerial.size === supply
+    && Array.from({ length: supply }, (_, index) => submittedBySerial.has(index + 1)).every(Boolean);
+  if (randomPassMode && isFullDraft && !hasCompleteSubmittedAssignments) {
+    throw Object.assign(new Error('RANDOM_PASS_ASSIGNMENTS_REQUIRED'), { status: 400 });
+  }
+
   const assignmentRows = Array.from({ length: supply }, (_, index) => {
     const serial = index + 1;
-    if (randomPassMode) return resolvePassAssignment({ seed: randomPassSeed, serial, artworkId: artworkBySerial[serial]?.assetId ?? artworkBySerial[serial]?.assetKey ?? null });
-    return {
+    const submitted = submittedBySerial.get(serial);
+    const artworkId = artworkBySerial[serial]?.assetId ?? artworkBySerial[serial]?.assetKey ?? artworkBySerial[serial]?.filename ?? null;
+    const expected = randomPassMode ? resolvePassAssignment({ seed: randomPassSeed, serial, artworkId }) : {
       rendererVersion: PASS_RENDERER_VERSION,
       serial,
       optionId: packOption,
       family: selectedPack.family,
       material: selectedPack.material,
-      colorwayId: poolEntry.colorwayId,
-      colorwayName: poolEntry.colorwayName,
-      palette: { ...poolEntry.palette },
-      artworkId: artworkBySerial[serial]?.assetId ?? artworkBySerial[serial]?.assetKey ?? null,
+      colorwayId: MANUAL_PHASE4_COLORWAY_ID,
+      colorwayName: 'Manual Phase 4',
+      palette: { ...manualPalette },
+      artworkId,
+      visual: { ...manualVisual },
+      authorityAssignment: null,
       frozen: false
     };
+    if (submitted) {
+      if (String(submitted.optionId) !== expected.optionId || String(submitted.colorwayId) !== expected.colorwayId) {
+        throw Object.assign(new Error(`PHASE4_ASSIGNMENT_MISMATCH:${serial}`), { status: 400 });
+      }
+      const submittedPalette = submitted.palette || {};
+      if ([expected.palette.primary, expected.palette.secondary, expected.palette.accent].some((value, paletteIndex) => value !== [submittedPalette.primary, submittedPalette.secondary, submittedPalette.accent][paletteIndex])) {
+        throw Object.assign(new Error(`PHASE4_PALETTE_MISMATCH:${serial}`), { status: 400 });
+      }
+      if (randomPassMode) {
+        const authority = submitted.authorityAssignment;
+        const expectedAuthority = expected.authorityAssignment;
+        if (!authority
+          || authority.poolVersion !== expectedAuthority.poolVersion
+          || Number(authority.serial) !== expectedAuthority.serial
+          || authority.packId !== expectedAuthority.packId
+          || authority.passDesign !== expectedAuthority.passDesign
+          || authority.frame !== expectedAuthority.frame
+          || authority.label !== expectedAuthority.label
+          || Number(authority.colourIndex) !== Number(expectedAuthority.colourIndex)
+          || JSON.stringify(authority.palette) !== JSON.stringify(expectedAuthority.palette)
+          || String(authority.artKey ?? '') !== String(expectedAuthority.artKey ?? '')) {
+          throw Object.assign(new Error(`RANDOM_AUTHORITY_ASSIGNMENT_MISMATCH:${serial}`), { status: 400 });
+        }
+      }
+    }
+    const randomPalette = randomPassMode ? [expected.palette.primary, expected.palette.secondary, expected.palette.accent] : null;
+    const expectedFrame = expected.optionId.startsWith('classic-') || expected.optionId.startsWith('glass-') ? expected.material : 'obsidian';
+    const visual = randomPassMode ? {
+      passDesign: expected.optionId.startsWith('classic-') ? 'classic' : expected.optionId.startsWith('glass-') ? 'glass' : expected.optionId,
+      packOption: expected.optionId,
+      packFamily: expected.family,
+      material: expected.material,
+      themeMode: 'random',
+      color: randomPalette[0],
+      customColor: randomPalette[0],
+      colorStyle: 'solid',
+      gradientA: randomPalette[0],
+      gradientB: randomPalette[1],
+      gradientDirection: 'diagonal',
+      frame: expectedFrame,
+      frameColor: expectedFrame === 'gilt' ? '#c8a84e' : expectedFrame === 'carbon' ? '#313337' : '#2a2725',
+      frameHueCustomized: false,
+      texture: 'none',
+      textureTint: '#9b9b94',
+      randomPalette
+    } : manualVisual;
+    return { ...expected, visual, authorityAssignment: expected.authorityAssignment ?? null };
   });
   const draftAssignments = assignmentRows.map((assignment) => {
     const config = createPassRenderConfig({
@@ -412,17 +496,9 @@ export function normalizeLaunchDraft(draft = {}, defaults = {}) {
     });
     return { ...config, randomAssignment: { ...config.randomAssignment, enabled: randomPassMode } };
   });
+  const frozenAt = new Date().toISOString();
   const canonicalAssignments = defaults.freezeAssignments
-    ? (randomPassMode ? freezePassAssignments({
-      editionId,
-      supply,
-      seed: randomPassSeed,
-      artworkBySerial,
-      projectName: name,
-      editionName,
-      seriesName: series,
-      rendererVersion: PASS_RENDERER_VERSION
-    }) : draftAssignments.map((assignment) => ({ ...assignment, randomAssignment: { ...assignment.randomAssignment, enabled: false, frozen: true }, frozen: true, frozenAt: new Date().toISOString() })))
+    ? draftAssignments.map((assignment) => ({ ...assignment, randomAssignment: { ...assignment.randomAssignment, enabled: randomPassMode, frozen: true }, frozen: true, frozenAt }))
     : draftAssignments;
 
   const design = {
@@ -454,10 +530,10 @@ export function normalizeLaunchDraft(draft = {}, defaults = {}) {
     randomPassSeed,
     randomPoolVersion: 'v1',
     packOption,
-    packFamily: selectedPack.family,
-    material: selectedPack.material,
+    packFamily: randomPassMode ? 'random' : selectedPack.family,
+    material: randomPassMode ? 'authority-assigned' : selectedPack.material,
     colorwayId,
-    palette: { ...poolEntry.palette },
+    palette: manualPalette ? { ...manualPalette } : null,
     passAssignments: canonicalAssignments
   };
 

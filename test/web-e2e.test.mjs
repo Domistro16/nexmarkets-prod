@@ -12,6 +12,7 @@ test('built V2 web shell serves responsive routes with the runtime data bridge',
     const response = await fetch(`http://127.0.0.1:${server.address().port}${route}`);
     assert.equal(response.status, 200);
     const body = await response.text();
+    assert.match(body, /<meta name="base:app_id" content="6aa1dbf93ee3d6b47f7f0528" \/>/);
     assert.match(body, /id="nm-v2-data-bridge"/);
     assert.match(body, /src="\/v2-app\.mjs"/);
   }

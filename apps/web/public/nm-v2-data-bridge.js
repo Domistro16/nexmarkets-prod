@@ -86,6 +86,11 @@
   window.__nmV2GetCreateData = function getCreateData() {
     return createData;
   };
+  window.__nmV2RandomPassAssignment = function randomPassAssignment(source, serial, artwork) {
+    if (typeof nmRandomPassAssignment !== 'function') return null;
+    const assignment = nmRandomPassAssignment(source || createData, serial, artwork || null);
+    return assignment ? JSON.parse(JSON.stringify(assignment)) : null;
+  };
   window.__nmV2UpdateCreateData = function updateCreateData(patch, options) {
     Object.assign(createData, patch && typeof patch === 'object' ? patch : {});
     if (options?.render !== false && typeof renderCreate === 'function') renderCreate();
