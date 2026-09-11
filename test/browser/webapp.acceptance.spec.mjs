@@ -314,7 +314,7 @@ test('Create wizard submits full draft to API with CSRF, retains DRAFT status, a
   }, { address: signer.address });
 
   await goto(page, '/create');
-  await page.getByRole('button', { name: 'Connect wallet' }).first().click();
+  await page.getByRole('button', { name: /Connect wallet|Log in \/ Connect/ }).first().click();
   await expect(page.locator('.account-label').first()).toContainText('0x');
   await expect.poll(() => page.evaluate(() => window.nexmarketsV2.state.authenticated)).toBe(true);
   await expect.poll(() => page.evaluate(() => !window.nexmarketsV2.state.hydrating)).toBe(true);
@@ -439,7 +439,7 @@ test('browser media upload prepares, uploads, verifies, and binds a stable artwo
   }, { address: signer.address });
 
   await goto(page, '/create');
-  await page.getByRole('button', { name: 'Connect wallet' }).first().click();
+  await page.getByRole('button', { name: /Connect wallet|Log in \/ Connect/ }).first().click();
   await expect.poll(() => page.evaluate(() => window.nexmarketsV2.state.authenticated)).toBe(true);
 
   const asset = await page.evaluate(async () => {
@@ -535,7 +535,7 @@ test('live mint flow sends committed Terms and broadcasts the prepared transacti
   }, { address: signer.address, txHash });
 
   await goto(page, '/discover');
-  await page.getByRole('button', { name: 'Connect wallet' }).first().click();
+  await page.getByRole('button', { name: /Connect wallet|Log in \/ Connect/ }).first().click();
   await expect.poll(() => page.evaluate(() => window.nexmarketsV2.state.authenticated)).toBe(true);
   await expect.poll(() => page.evaluate(() => !window.nexmarketsV2.state.hydrating)).toBe(true);
   await page.evaluate((name) => window.openProjectMint(name), data.edition.name);
@@ -681,7 +681,7 @@ test('live buy flow requires the signed listing and broadcasts Seaport fulfillme
   }, { address: signer.address, txHash });
 
   await goto(page, '/market');
-  await page.getByRole('button', { name: 'Connect wallet' }).first().click();
+  await page.getByRole('button', { name: /Connect wallet|Log in \/ Connect/ }).first().click();
   await expect.poll(() => page.evaluate(() => window.nexmarketsV2.state.authenticated)).toBe(true);
   await expect.poll(() => page.evaluate(() => !window.nexmarketsV2.state.hydrating)).toBe(true);
   await page.evaluate(() => window.buySelectedListing());
@@ -867,5 +867,55 @@ test('login and signing flows show loading animation and progress message while 
   await expect(page.getByRole('button', { name: 'Account' }).first()).toBeVisible();
   await expect(page.locator('.nm-connecting')).toHaveCount(0);
 });
+
+test('changing network while disconnected opens network selector modal and switches network without wallet prompt', async ({ page }) => {
+  await installFixtureApi(page);
+  await goto(page, '/discover');
+
+  // Verify initial state on base-sepolia
+  const networkSelector = page.locator('.nm-network-switcher-button:visible').first();
+  await expect(networkSelector).toBeVisible();
+  await expect(networkSelector).toHaveAttribute('data-network', 'base-sepolia');
+  await expect(networkSelector).toContainText('Base Sepolia');
+
+  // Click network switcher button while disconnected
+  await networkSelector.click();
+
+  // Verify network modal is opened and Connect Wallet dialog is NOT opened
+  const networkModal = page.locator('#nmNetworkModal');
+  await expect(networkModal).toBeVisible();
+  await expect(networkModal.locator('#nmNetworkModalTitle')).toContainText('Select Network');
+  await expect(page.locator('[role="dialog"]:visible').filter({ hasText: 'Connect a Wallet' })).toHaveCount(0);
+
+  // Both networks are listed
+  const robinhoodOption = networkModal.locator('button.nm-network-option-item[data-network="robinhood-testnet"]');
+  const baseOption = networkModal.locator('button.nm-network-option-item[data-network="base-sepolia"]');
+  await expect(robinhoodOption).toBeVisible();
+  await expect(baseOption).toBeVisible();
+  await expect(baseOption).toHaveClass(/active/);
+
+  // Select Robinhood Testnet
+  await robinhoodOption.click();
+
+  // Modal closes and network switches to robinhood-testnet
+  await expect(networkModal).not.toHaveClass(/open/);
+  await expect.poll(() => page.evaluate(() => window.nexmarketsV2.state.networkKey)).toBe('robinhood-testnet');
+  await expect.poll(() => page.evaluate(() => window.nexmarketsV2.state.wallet)).toBe(null);
+
+  // Switcher button updates to reflect Robinhood Testnet
+  await expect(networkSelector).toHaveAttribute('data-network', 'robinhood-testnet');
+  await expect(networkSelector).toContainText('Robinhood');
+
+  // Runtime banner indicates successful network switch
+  await expect(page.locator('#nm-v2-runtime-banner')).toContainText(/Robinhood/i);
+
+  // User can open modal again and switch back to Base Sepolia
+  await networkSelector.click();
+  await expect(networkModal).toBeVisible();
+  await networkModal.locator('button.nm-network-option-item[data-network="base-sepolia"]').click();
+  await expect.poll(() => page.evaluate(() => window.nexmarketsV2.state.networkKey)).toBe('base-sepolia');
+  await expect(networkSelector).toHaveAttribute('data-network', 'base-sepolia');
+});
+
 
 

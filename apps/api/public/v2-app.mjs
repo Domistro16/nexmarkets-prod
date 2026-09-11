@@ -1433,19 +1433,43 @@ function networkSelectorLabel(config, key) {
   const name = config?.displayName || config?.name || key || 'Network';
   return `${name}${config?.testnetOnly || /testnet|sepolia/i.test(key || '') ? ' Testnet' : ''}`;
 }
-async function openNetworkSelector() {
-  try {
-    // RainbowKit only exposes its chain modal for a connected account. Keep
-    // the navbar control useful while disconnected by taking the user to the
-    // same RainbowKit connect flow first; a second click opens ChainModal.
-    if (!state.wallet) {
-      await (connectWalletFromUi ? connectWalletFromUi() : authenticateOnce());
-      return;
-    }
-    await openChainModal({ chainIds: availableChainIds() });
-  } catch (error) {
-    showRuntimeBanner(error.message, true);
+function ensureNetworkModal() {
+  let modal = document.getElementById('nmNetworkModal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'nmNetworkModal';
+    modal.className = 'dash-modal-backdrop nm-network-modal-backdrop';
+    modal.setAttribute('role', 'dialog');
+    modal.setAttribute('aria-modal', 'true');
+    modal.setAttribute('aria-labelledby', 'nmNetworkModalTitle');
+    modal.addEventListener('click', (event) => {
+      if (event.target === modal) closeNetworkModal();
+    });
+    document.body.appendChild(modal);
   }
+  return modal;
+}
+function closeNetworkModal() {
+  const modal = document.getElementById('nmNetworkModal');
+  if (modal) {
+    modal.classList.remove('open');
+  }
+}
+function openNetworkSelector() {
+  const modal = ensureNetworkModal();
+  const options = networkOptions();
+  const currentKey = state.networkKey;
+  const optionsHtml = options.map(({ key, config }) => {
+    const isActive = key === currentKey;
+    const label = networkSelectorLabel(config, key);
+    const family = config?.family || (/^base-/i.test(key) ? 'base' : 'robinhood');
+    const chainId = config?.chainId || '';
+    const isTestnet = Boolean(config?.testnetOnly || /testnet|sepolia/i.test(key));
+    const badgeText = isActive ? (state.wallet ? 'Connected' : 'Active') : '';
+    return `<button type="button" class="nm-network-option-item ${isActive ? 'active' : ''}" data-network="${escapeHtml(key)}" onclick="window.__nmSelectNetwork('${escapeHtml(key)}')"><div class="nm-network-option-info"><span class="nm-network-switcher-mark" data-family="${escapeHtml(family)}" aria-hidden="true"></span><div><span class="nm-network-option-name">${escapeHtml(label)}</span><span class="nm-network-option-meta">Chain ID ${escapeHtml(String(chainId))}${isTestnet ? ' · Testnet' : ''}</span></div></div>${isActive ? `<span class="nm-network-option-badge">${escapeHtml(badgeText)}</span>` : '<span class="nm-network-option-arrow" aria-hidden="true">→</span>'}</button>`;
+  }).join('');
+  modal.innerHTML = `<div class="dash-modal nm-network-modal"><button class="dash-modal-x" type="button" aria-label="Close" onclick="closeNetworkModal()" style="cursor:pointer">×</button><div class="nm-network-modal-head"><span class="nm-network-modal-kicker">NETWORK</span><h3 id="nmNetworkModalTitle">Select Network</h3><p class="dash-modal-copy">Choose the network to view, mint, or trade Editions on NexMarkets.</p></div><div class="nm-network-options-list">${optionsHtml}</div></div>`;
+  modal.classList.add('open');
 }
 function ensureNetworkSelectors() {
   const options = networkOptions();
@@ -1469,8 +1493,8 @@ function ensureNetworkSelectors() {
     button.dataset.network = state.networkKey;
     button.dataset.family = current?.family || (/^base-/i.test(state.networkKey) ? 'base' : 'robinhood');
     button.dataset.connected = state.wallet ? 'true' : 'false';
-    button.setAttribute('aria-label', state.wallet ? `Switch network, current network ${label}` : `Connect wallet to switch networks. Current network ${label}`);
-    button.title = state.wallet ? 'Switch network' : 'Connect wallet to switch networks';
+    button.setAttribute('aria-label', `Switch network, current network ${label}`);
+    button.title = `Switch network (current: ${label})`;
   });
 }
 async function checkSessionOnServer(networkKey = state.networkKey) {
@@ -1603,87 +1627,23 @@ function injectLiveDataStyle() {
     .nm-account-menu{min-width:176px!important;z-index:1000!important}
     .nm-account-menu button{text-align:left!important;padding:9px 12px!important;font-size:11.5px!important;display:block!important;width:100%!important;background:transparent!important;border:0!important;color:#cfd8cc!important;cursor:pointer!important;box-sizing:border-box!important}
     .nm-account-menu button:hover{background:rgba(255,255,255,.08)!important;color:#fff!important}
-
-    /* ----------------------------------------------------
-       SITE-WIDE TYPOGRAPHY ENHANCEMENT:
-       Enlarge microscopic text across all surfaces
-       ---------------------------------------------------- */
-    .eyebrow, .stage-kicker, .kicker, .page-title span, .section-label span, .preview-note, .stage-label {
-      font-size: 10px !important;
-      letter-spacing: .12em !important;
-    }
-    .brand { font-size: 12px !important; }
-    .nav-normal button { font-size: 12px !important; }
-    .account-chip { font-size: 10.5px !important; }
-    .menu-btn, .menu-pop button { font-size: 11px !important; }
-    .filter-strip select, .sticky-search input { font-size: 10px !important; }
-
-    .hero-copy p { font-size: 13px !important; line-height: 1.55 !important; }
-    .hero-mini b, .hero-mini strong { font-size: 11px !important; }
-    .hero-mini span, .hero-mini small { font-size: 9px !important; }
-    .bento-copy small { font-size: 9.5px !important; letter-spacing: .12em !important; }
-    .bento-copy p { font-size: 11.5px !important; line-height: 1.55 !important; }
-    .utility-node, .utility-caption { font-size: 9.5px !important; }
-    .micro-status { font-size: 8px !important; }
-    .micro-project span, .micro-foot { font-size: 8.5px !important; }
-
-    .project-list-head, .listing-head { font-size: 9.5px !important; letter-spacing: .09em !important; }
-    .project-row > span, .project-row > strong, .listing-row > span, .listing-row > strong { font-size: 11px !important; }
-    .row-project span, .serial-id span { font-size: 9.5px !important; }
-    .row-project b, .serial-id b { font-size: 11.5px !important; }
-    .row-logo { font-size: 9.5px !important; }
-
-    .collection-info b { font-size: 11.5px !important; }
-    .collection-info > span { font-size: 9.5px !important; }
-    .collection-stats label { font-size: 8.5px !important; }
-    .collection-stats strong { font-size: 11px !important; }
-    .launch-logo { font-size: 10px !important; }
-    .launch-state { font-size: 8.5px !important; letter-spacing: .10em !important; padding: 5px 8px !important; }
-    .launch-bottom h3 { font-size: 19px !important; }
-    .launch-bottom p { font-size: 10px !important; line-height: 1.45 !important; height: 42px !important; }
-    .launch-meta { font-size: 9px !important; }
-    .launch-meta strong { font-size: 9.5px !important; }
-
-    .stage-btn { font-size: 10px !important; }
-    .form-stage > p { font-size: 10.5px !important; line-height: 1.5 !important; }
-    .field label { font-size: 9.5px !important; letter-spacing: .08em !important; }
-    .choice b, .switch-copy b, .upload-box b { font-size: 11px !important; }
-    .choice span, .switch-copy span, .upload-box span { font-size: 9.5px !important; line-height: 1.4 !important; }
-    .schedule-options button { font-size: 10px !important; }
-    .preview-stats { font-size: 9.5px !important; }
-    #create .nm-pack-family b { font-size: 12px !important; }
-    #create .nm-pack-family span { font-size: 10.5px !important; }
-
-    .dash-person span { font-size: 9.5px !important; }
-    .dash-person b { font-size: 11.5px !important; }
-    .dash-tabs button { font-size: 10.5px !important; }
-    .metric span { font-size: 9px !important; letter-spacing: .09em !important; }
-    .dash-head span { font-size: 9px !important; }
-    .holding-copy b { font-size: 11px !important; }
-    .holding-copy span, .holding-copy .nm-pass-state { font-size: 9.5px !important; }
-    .holding-meta { font-size: 9.5px !important; }
-    .feed-row b { font-size: 10px !important; }
-    .feed-row span { font-size: 9px !important; }
-    .feed-row strong { font-size: 10px !important; }
-    .creator-row b { font-size: 11px !important; }
-    .creator-row span { font-size: 9.5px !important; }
-    .creator-row label { font-size: 8.5px !important; }
-    .creator-row strong { font-size: 10px !important; }
-    .plain-row { font-size: 9.5px !important; }
-
-    .back-link { font-size: 10.5px !important; }
-    .detail-status { font-size: 9px !important; }
-    .detail-info > p { font-size: 11px !important; line-height: 1.55 !important; }
-    .detail-stat span { font-size: 8.5px !important; }
-    .advantage-row b { font-size: 11px !important; }
-    .advantage-row span { font-size: 9.5px !important; }
-    .advantage-row > strong { font-size: 10.5px !important; }
-
-    .sheet-head b { font-size: 12px !important; }
-    .compact-filter-row label { font-size: 8.5px !important; }
-    .compact-filter-row select { font-size: 10px !important; }
-    .sheet-reset, .sheet-done { font-size: 10px !important; }
-    .mobile-search-box input { font-size: 10.5px !important; }
+    .nm-network-modal-backdrop{z-index:9999!important}
+    .nm-network-modal-backdrop.open{display:flex!important}
+    .nm-network-modal{width:min(420px,calc(100vw - 32px))!important;border:1px solid rgba(255,255,255,.14)!important;border-radius:20px!important;background:#101512!important;box-shadow:0 35px 100px rgba(0,0,0,.7)!important;padding:24px!important;position:relative!important;box-sizing:border-box!important}
+    .nm-network-modal-head{margin-bottom:16px}
+    .nm-network-modal-kicker{font:600 10px/1.2 system-ui,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:var(--amber,#ffb000);display:block;margin-bottom:6px}
+    .nm-network-modal-head h3{font-size:20px;font-weight:600;color:#fff;margin:0 0 6px}
+    .nm-network-options-list{display:grid;gap:8px}
+    .nm-network-option-item{display:flex!important;align-items:center!important;justify-content:space-between!important;padding:12px 14px!important;background:rgba(255,255,255,.04)!important;border:1px solid rgba(255,255,255,.10)!important;border-radius:14px!important;cursor:pointer!important;transition:all .16s ease!important;width:100%!important;text-align:left!important;color:#e7ece4!important;box-sizing:border-box!important}
+    .nm-network-option-item:hover{background:rgba(255,255,255,.08)!important;border-color:rgba(255,255,255,.22)!important;color:#fff!important}
+    .nm-network-option-item.active{border-color:var(--amber,#ffb000)!important;background:rgba(255,176,0,.08)!important}
+    .nm-network-option-info{display:flex;align-items:center;gap:12px;min-width:0}
+    .nm-network-option-name{display:block;font-size:13px;font-weight:600;color:#fff}
+    .nm-network-option-meta{display:block;font-size:10.5px;color:#8e958b;margin-top:2px}
+    .nm-network-option-badge{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;padding:3px 8px;border-radius:6px;background:rgba(255,176,0,.18);color:var(--amber,#ffb000);flex-shrink:0}
+    .nm-network-option-arrow{font-size:14px;color:#6f766d;flex-shrink:0}
+    .nm-network-switcher-mark[data-family="base"]{background:#7ea8ff!important;box-shadow:0 0 0 4px rgba(126,168,255,.10)!important}
+    .nm-network-switcher-mark[data-family="robinhood"]{background:var(--green,#9bc99c)!important;box-shadow:0 0 0 4px rgba(155,201,156,.08)!important}
   `; document.head.appendChild(style);
 }
 function renderDetailPanel(mode) {
@@ -3816,10 +3776,24 @@ function exposeRuntime() {
       console.warn('Switch wallet modal error:', e);
     }
   };
+  window.__nmSelectNetwork = async (key) => {
+    closeNetworkModal();
+    if (key === state.networkKey) return;
+    try {
+      await switchNetwork(key, { switchWallet: Boolean(state.wallet) });
+    } catch (error) {
+      showRuntimeBanner(error.message, true);
+    }
+  };
+  window.closeNetworkModal = closeNetworkModal;
+  window.nmOpenNetworkModal = openNetworkSelector;
   window.nmOpenNetworkSwitcher = () => {
     document.querySelectorAll('.nm-account-menu.open').forEach((m) => m.classList.remove('open'));
     openNetworkSelector();
   };
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') closeNetworkModal();
+  });
   window.nmAccountTap = () => state.wallet
     ? (state.authenticated
         ? (typeof go === 'function' ? go('dashboard') : openAccountModal())
@@ -3876,7 +3850,7 @@ function exposeRuntime() {
   };
 }
 
-installHistoryRouting(); wireWallet(); installLiveActions(); installLifecycleAuthority(); installCanonicalPassRuntime(); guardMutations(); exposeRuntime(); installCreateDraftAutosave(); installMintAccessCreateFields(); installSocialRuntime(); installMediaRuntime(); injectLiveDataStyle();
+installHistoryRouting(); wireWallet(); installLiveActions(); installLifecycleAuthority(); installCanonicalPassRuntime(); guardMutations(); exposeRuntime(); installCreateDraftAutosave(); installMintAccessCreateFields(); installSocialRuntime(); installMediaRuntime();
 addEventListener('popstate', () => { presentRoute(routeInfo()).catch(() => goView(routeInfo())); });
 (async () => {
   try {
