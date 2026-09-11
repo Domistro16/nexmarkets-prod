@@ -1603,6 +1603,128 @@ function injectLiveDataStyle() {
     .nm-account-menu{min-width:176px!important;z-index:1000!important}
     .nm-account-menu button{text-align:left!important;padding:9px 12px!important;font-size:11.5px!important;display:block!important;width:100%!important;background:transparent!important;border:0!important;color:#cfd8cc!important;cursor:pointer!important;box-sizing:border-box!important}
     .nm-account-menu button:hover{background:rgba(255,255,255,.08)!important;color:#fff!important}
+
+    /* ----------------------------------------------------
+       SITE-WIDE TYPOGRAPHY ENHANCEMENT:
+       Enlarge microscopic text across all surfaces
+       ---------------------------------------------------- */
+    .eyebrow, .stage-kicker, .kicker, .page-title span, .section-label span, .preview-note, .stage-label {
+      font-size: 10px !important;
+      letter-spacing: .12em !important;
+    }
+    .brand { font-size: 12px !important; }
+    .nav-normal button { font-size: 12px !important; }
+    .account-chip { font-size: 10.5px !important; }
+    .menu-btn, .menu-pop button { font-size: 11px !important; }
+    .filter-strip select, .sticky-search input { font-size: 10px !important; }
+
+    .hero-copy p { font-size: 13px !important; line-height: 1.55 !important; }
+    .hero-mini b, .hero-mini strong { font-size: 11px !important; }
+    .hero-mini span, .hero-mini small { font-size: 9px !important; }
+    .bento-copy small { font-size: 9.5px !important; letter-spacing: .12em !important; }
+    .bento-copy p { font-size: 11.5px !important; line-height: 1.55 !important; }
+    .utility-node, .utility-caption { font-size: 9.5px !important; }
+    .micro-status { font-size: 8px !important; }
+    .micro-project span, .micro-foot { font-size: 8.5px !important; }
+
+    .project-list-head, .listing-head { font-size: 9.5px !important; letter-spacing: .09em !important; }
+    .project-row > span, .project-row > strong, .listing-row > span, .listing-row > strong { font-size: 11px !important; }
+    .row-project span, .serial-id span { font-size: 9.5px !important; }
+    .row-project b, .serial-id b { font-size: 11.5px !important; }
+    .row-logo { font-size: 9.5px !important; }
+
+    .collection-info b { font-size: 11.5px !important; }
+    .collection-info > span { font-size: 9.5px !important; }
+    .collection-stats label { font-size: 8.5px !important; }
+    .collection-stats strong { font-size: 11px !important; }
+    .launch-logo { font-size: 10px !important; }
+    .launch-state { font-size: 8.5px !important; letter-spacing: .10em !important; padding: 5px 8px !important; }
+    .launch-bottom h3 { font-size: 19px !important; }
+    .launch-bottom p { font-size: 10px !important; line-height: 1.45 !important; height: 42px !important; }
+    .launch-meta { font-size: 9px !important; }
+    .launch-meta strong { font-size: 9.5px !important; }
+
+    .stage-btn { font-size: 10px !important; }
+    .form-stage > p { font-size: 10.5px !important; line-height: 1.5 !important; }
+    .field label { font-size: 9.5px !important; letter-spacing: .08em !important; }
+    .choice b, .switch-copy b, .upload-box b { font-size: 11px !important; }
+    .choice span, .switch-copy span, .upload-box span { font-size: 9.5px !important; line-height: 1.4 !important; }
+    .schedule-options button { font-size: 10px !important; }
+    .preview-stats { font-size: 9.5px !important; }
+    #create .nm-pack-family b { font-size: 12px !important; }
+    #create .nm-pack-family span { font-size: 10.5px !important; }
+
+    .dash-person span { font-size: 9.5px !important; }
+    .dash-person b { font-size: 11.5px !important; }
+    .dash-tabs button { font-size: 10.5px !important; }
+    .metric span { font-size: 9px !important; letter-spacing: .09em !important; }
+    .dash-head span { font-size: 9px !important; }
+    .holding-copy b { font-size: 11px !important; }
+    .holding-copy span, .holding-copy .nm-pass-state { font-size: 9.5px !important; }
+    .holding-meta { font-size: 9.5px !important; }
+    .feed-row b { font-size: 10px !important; }
+    .feed-row span { font-size: 9px !important; }
+    .feed-row strong { font-size: 10px !important; }
+    .creator-row b { font-size: 11px !important; }
+    .creator-row span { font-size: 9.5px !important; }
+    .creator-row label { font-size: 8.5px !important; }
+    .creator-row strong { font-size: 10px !important; }
+    .plain-row { font-size: 9.5px !important; }
+
+    .back-link { font-size: 10.5px !important; }
+    .detail-status { font-size: 9px !important; }
+    .detail-info > p { font-size: 11px !important; line-height: 1.55 !important; }
+    .detail-stat span { font-size: 8.5px !important; }
+    .advantage-row b { font-size: 11px !important; }
+    .advantage-row span { font-size: 9.5px !important; }
+    .advantage-row > strong { font-size: 10.5px !important; }
+
+    .sheet-head b { font-size: 12px !important; }
+    .compact-filter-row label { font-size: 8.5px !important; }
+    .compact-filter-row select { font-size: 10px !important; }
+    .sheet-reset, .sheet-done { font-size: 10px !important; }
+    .mobile-search-box input { font-size: 10.5px !important; }
+
+    /* ----------------------------------------------------
+       CLASSIC / GLASS PASS TYPOGRAPHY (.nm-pass):
+       ---------------------------------------------------- */
+    .nm-pass .pass-brand-copy span { font-size: 8px !important; letter-spacing: .10em !important; }
+    .nm-pass .pass-brand-copy b { font-size: 11px !important; }
+    .nm-pass .pass-type { font-size: 8px !important; letter-spacing: .12em !important; }
+    .nm-pass .pass-cat { font-size: 8px !important; letter-spacing: .12em !important; }
+    .nm-pass .pass-serial { font-size: 9.5px !important; }
+    .nm-pass .pass-desc { font-size: 9px !important; line-height: 1.45 !important; }
+    .nm-pass .pass-meta-block label { font-size: 7.5px !important; letter-spacing: .12em !important; }
+    .nm-pass .pass-meta-block strong { font-size: 9.5px !important; }
+    .nm-pass .pass-prov { font-size: 7.5px !important; letter-spacing: .10em !important; }
+    .nm-pass .back-top { font-size: 8px !important; letter-spacing: .11em !important; }
+    .nm-pass .back-status b { font-size: 10.5px !important; }
+    .nm-pass .back-status span { font-size: 8.5px !important; }
+    .nm-pass .back-covered { font-size: 7.5px !important; }
+    .nm-pass .back-benefit label { font-size: 7px !important; }
+    .nm-pass .back-benefit span { font-size: 7.5px !important; }
+    .nm-pass .back-support { font-size: 7.5px !important; }
+    .nm-pass .back-note { font-size: 7.2px !important; }
+
+    /* ----------------------------------------------------
+       PACK SIZING & GEOMETRY:
+       ---------------------------------------------------- */
+    .hero-pass .nm-pass { width: 312px !important; max-width: min(312px, 85vw) !important; }
+    @media (max-width: 980px) { .hero-pass .nm-pass { width: 154px !important; } }
+    @media (max-width: 390px) { .hero-pass .nm-pass { width: 138px !important; } }
+    #create .create-preview { min-height: 650px !important; }
+    #create .create-preview .nm-pass { width: 352px !important; max-width: min(352px, 88vw) !important; }
+    #create .create-preview .nm-fast-native-pack { max-width: min(352px, 88vw) !important; }
+    .detail-object .nm-pass { width: 360px !important; max-width: min(360px, 88vw) !important; }
+    @media (max-width: 980px) { .detail-object .nm-pass { width: 248px !important; max-width: min(248px, 85vw) !important; } }
+    .launch-card { min-height: 345px !important; }
+    .launch-visual { min-height: 126px !important; }
+    .discover-rail .launch-card { width: 255px !important; min-width: 255px !important; min-height: 345px !important; }
+    .holding-card { min-width: 215px !important; }
+    .holding-art { height: 144px !important; }
+    @media (max-width: 980px) {
+      .discover-rail-wrap, .market-collections, .holding-grid { overflow-x: auto !important; -webkit-overflow-scrolling: touch !important; }
+    }
   `; document.head.appendChild(style);
 }
 function renderDetailPanel(mode) {
@@ -2148,6 +2270,7 @@ async function hydrate({ authenticatedOverride = null } = {}) {
   try {
     document.documentElement.classList.remove('nm-v2-loading'); document.documentElement.classList.add('nm-v2-ready');
     injectLiveDataStyle();
+    installPackScaleAndTypography();
     goView(routeInfo());
   } finally {
     state.hydrating = false;
@@ -3582,6 +3705,104 @@ function installCanonicalPassRuntime() {
     return assignment ? { ...assignment, palette: { ...(assignment.palette || {}) } } : null;
   };
 }
+
+function injectPackShadowStyles(shadow) {
+  if (!shadow || shadow.querySelector?.('#nm-pack-enhanced-style')) return;
+  const style = document.createElement('style');
+  style.id = 'nm-pack-enhanced-style';
+  style.textContent = `
+    .v13-eyebrow{font-size:9.5px!important}
+    .v13-code{font-size:9px!important}
+    .v13-copy{font-size:10.5px!important;line-height:1.35!important}
+    .v13-brand{font-size:9.5px!important}
+    .v13-title{font-size:1.15em!important}
+    .pack-slab .v13-slab-label .v13-title{font-size:13.5px!important}
+    .pack-slab .v13-slab-label .v13-copy{font-size:9.5px!important}
+    .pack-slab .v13-slab-grade .v13-code{font-size:8.5px!important}
+    .pack-glass .v13-accession .v13-tab{font-size:9px!important}
+    .pack-glass .v13-curator-main .v13-copy{font-size:10px!important}
+    .pack-glass .v13-curator-foot span{font-size:8.8px!important}
+    .pack-metal .v13-metal-copy .v13-copy{font-size:10px!important}
+    .pack-metal .v13-metal-id strong{font-size:10px!important}
+    .pack-blister .v27-head-brand{font-size:9px!important}
+    .pack-blister .v27-head-sub{font-size:8.8px!important}
+    .pack-blister .v27-seal{font-size:8.8px!important}
+    .pack-carbon .v13-carbon-head .v13-eyebrow{font-size:9px!important}
+    .pack-carbon .v13-carbon-foot .v13-copy{font-size:10px!important}
+    .pack-paper .v27-deed-title small{font-size:9px!important}
+    .pack-paper .v27-reg-stamp{font-size:8.8px!important}
+    .pack-paper .v27-deed-copy p{font-size:10px!important}
+    .pack-paper .v27-foot-reg{font-size:9px!important}
+    .pack-resin .v27-resin-inlay small{font-size:9px!important}
+    .pack-resin .v27-resin-etch p{font-size:10px!important}
+    .pack-resin .v27-resin-id{font-size:9px!important}
+    .back-brand-copy small, .back-status small, .back-name-kicker, .back-edition span,
+    .back-benefit small, .back-support div span, .back-registry span, .back-note{font-size:9px!important}
+  `;
+  shadow.appendChild(style);
+}
+
+function installPackScaleAndTypography() {
+  if (typeof Element !== 'undefined' && Element.prototype && !Element.prototype.attachShadow?.__nmHooked) {
+    const origAttachShadow = Element.prototype.attachShadow;
+    Element.prototype.attachShadow = function (init) {
+      const shadow = origAttachShadow.call(this, init);
+      const self = this;
+      setTimeout(() => {
+        if (self.classList?.contains('nm-fast-native-pack') || self.className === 'nm-fast-native-pack') {
+          injectPackShadowStyles(shadow);
+        }
+      }, 0);
+      return shadow;
+    };
+    Element.prototype.attachShadow.__nmHooked = true;
+  }
+
+  function scaleMountWidth(width) {
+    const num = Number(width);
+    if (!Number.isFinite(num) || num <= 0 || num >= 500) return width;
+    const maxAllowed = typeof window !== 'undefined' && window.innerWidth ? Math.max(110, Math.floor(window.innerWidth * 0.85)) : 380;
+    return Math.min(Math.round(num * 1.14), maxAllowed);
+  }
+
+  const origFastMount = window.nmFastMountEightPack;
+  if (typeof origFastMount === 'function' && !origFastMount.__nmScaled) {
+    const wrappedFastMount = function (hostOrId, p, c, serialLabelText, width = 280, interactive = false) {
+      const scaledWidth = scaleMountWidth(width);
+      const result = origFastMount.call(this, hostOrId, p, c, serialLabelText, scaledWidth, interactive);
+      setTimeout(() => {
+        const host = typeof hostOrId === 'string' ? document.getElementById(hostOrId) : hostOrId;
+        const native = host?.querySelector?.('.nm-fast-native-pack');
+        if (native?.shadowRoot) injectPackShadowStyles(native.shadowRoot);
+      }, 0);
+      return result;
+    };
+    wrappedFastMount.__nmScaled = true;
+    window.nmFastMountEightPack = wrappedFastMount;
+    window.nmMountEightPack = wrappedFastMount;
+  }
+
+  const origFinalMount = window.nmFinalMountPass;
+  if (typeof origFinalMount === 'function' && !origFinalMount.__nmScaled) {
+    const wrappedFinalMount = function (hostOrId, p, c, serialLabelText, width = 280, interactive = false) {
+      const scaledWidth = scaleMountWidth(width);
+      const result = origFinalMount.call(this, hostOrId, p, c, serialLabelText, scaledWidth, interactive);
+      setTimeout(() => {
+        const host = typeof hostOrId === 'string' ? document.getElementById(hostOrId) : hostOrId;
+        const native = host?.querySelector?.('.nm-fast-native-pack');
+        if (native?.shadowRoot) injectPackShadowStyles(native.shadowRoot);
+      }, 0);
+      return result;
+    };
+    wrappedFinalMount.__nmScaled = true;
+    window.nmFinalMountPass = wrappedFinalMount;
+    try { finalMountPass = wrappedFinalMount; } catch {}
+  }
+
+  document.querySelectorAll('.nm-fast-native-pack').forEach((el) => {
+    if (el.shadowRoot) injectPackShadowStyles(el.shadowRoot);
+  });
+}
 function guardMutations() {}
 
 // The V2 template uses a single static document and renders its surfaces in
@@ -3795,7 +4016,7 @@ function exposeRuntime() {
   };
 }
 
-installHistoryRouting(); wireWallet(); installLiveActions(); installLifecycleAuthority(); installCanonicalPassRuntime(); guardMutations(); exposeRuntime(); installCreateDraftAutosave(); installMintAccessCreateFields(); installSocialRuntime(); installMediaRuntime();
+installHistoryRouting(); wireWallet(); installLiveActions(); installLifecycleAuthority(); installCanonicalPassRuntime(); installPackScaleAndTypography(); guardMutations(); exposeRuntime(); installCreateDraftAutosave(); installMintAccessCreateFields(); installSocialRuntime(); installMediaRuntime(); injectLiveDataStyle();
 addEventListener('popstate', () => { presentRoute(routeInfo()).catch(() => goView(routeInfo())); });
 (async () => {
   try {
