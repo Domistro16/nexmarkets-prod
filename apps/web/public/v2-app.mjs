@@ -649,7 +649,7 @@ async function fileSha256(file) {
 async function uploadMediaFile(file) {
   const mimeType = inferredMediaType(file);
   if (!ALLOWED_MEDIA_TYPES.has(mimeType)) throw new Error('Choose a PNG, JPG, WebP or AVIF image');
-  if (!Number.isInteger(file.size) || file.size <= 0 || file.size > 25 * 1024 * 1024) throw new Error('Image must be between 1 byte and 25 MB');
+  if (!Number.isInteger(file.size) || file.size <= 0 || file.size > 3 * 1024 * 1024) throw new Error('Image must be between 1 byte and 3 MB');
   await requireSession();
   const checksum = await fileSha256(file);
   const prepared = await read('/v1/media/uploads', {

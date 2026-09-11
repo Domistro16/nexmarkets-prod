@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { prepareBuilderSettledReferral, qualifyReferral, referralTierForQualifiedSales, serialArtworkCommitment, validateUpload } from '../packages/domain/src/index.mjs';
+import { MEDIA_POLICY, prepareBuilderSettledReferral, qualifyReferral, referralTierForQualifiedSales, serialArtworkCommitment, validateUpload } from '../packages/domain/src/index.mjs';
 
 test('certified referral tiers require explicit threshold policy and remain Builder Settled', () => {
   const policy = { thresholds: [0, 10, 50, 100] };
@@ -18,7 +18,9 @@ test('referral hint is noncanonical and self-referral is rejected', () => {
 
 test('media validation and serial artwork commitment are deterministic', () => {
   const media = validateUpload({ ownerAccountId: 'a', filename: 'one.png', mimeType: 'image/png', bytes: new Uint8Array([1,2,3]) });
-  assert.equal(media.byteSize, 3); assert.throws(() => validateUpload({ ownerAccountId: 'a', filename: 'one.jpg', mimeType: 'image/png', bytes: new Uint8Array([1]) }), /MIME/);
+  assert.equal(media.byteSize, 3);
+  assert.throws(() => validateUpload({ ownerAccountId: 'a', filename: 'one.jpg', mimeType: 'image/png', bytes: new Uint8Array([1]) }), /MIME/);
+  assert.throws(() => validateUpload({ ownerAccountId: 'a', filename: 'large.png', mimeType: 'image/png', bytes: new Uint8Array(MEDIA_POLICY.maxBytes + 1) }), /invalid media size/);
   const commitment = serialArtworkCommitment([{ tokenId: 1, sha256: 'a'.repeat(64) }, { tokenId: 2, sha256: 'b'.repeat(64) }]);
   assert.equal(commitment.length, 64); assert.throws(() => serialArtworkCommitment([{ tokenId: 2, sha256: 'a'.repeat(64) }]));
 });

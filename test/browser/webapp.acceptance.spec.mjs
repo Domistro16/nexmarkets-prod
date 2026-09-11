@@ -457,6 +457,16 @@ test('browser media upload prepares, uploads, verifies, and binds a stable artwo
   const createData = await page.evaluate(() => window.__nmV2GetCreateData());
   expect(createData.artAssetId).toBe(mediaId);
   expect(createData.artSrc).toBe(stableUrl);
+  const oversizedRejection = await page.evaluate(async () => {
+    try {
+      const largeBlob = new Blob([new Uint8Array(3 * 1024 * 1024 + 1)], { type: 'image/png' });
+      await window.__nmV2UploadCreateAsset(new File([largeBlob], 'too-large.png', { type: 'image/png' }), 'art');
+      return null;
+    } catch (err) {
+      return err.message;
+    }
+  });
+  expect(oversizedRejection).toBe('Image must be between 1 byte and 3 MB');
 });
 
 test('Owned Pass download produces a 2048 by 2048 PNG from the rendered Pass', async ({ page }) => {

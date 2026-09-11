@@ -8647,7 +8647,7 @@ var MEDIA_POLICY;
 var init_media_provenance = __esm({
   "packages/domain/src/media-provenance.mjs"() {
     MEDIA_POLICY = Object.freeze({
-      maxBytes: 25 * 1024 * 1024,
+      maxBytes: 3 * 1024 * 1024,
       minDimension: 64,
       maxDimension: 16384,
       maxPixels: 1e8,

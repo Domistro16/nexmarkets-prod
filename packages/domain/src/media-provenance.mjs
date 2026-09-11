@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 
 export const MEDIA_POLICY = Object.freeze({
-  maxBytes: 25 * 1024 * 1024,
+  maxBytes: 3 * 1024 * 1024,
   minDimension: 64,
   maxDimension: 16_384,
   maxPixels: 100_000_000,

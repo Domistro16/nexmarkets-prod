@@ -6,7 +6,7 @@ import { Wallet } from 'ethers';
 import { createApiServer } from '../apps/api/src/server.mjs';
 import { MemoryStore } from '../apps/api/src/memory-store.mjs';
 import { S3ObjectStorage, createObjectStorageFromEnv } from '../apps/api/src/object-storage.mjs';
-import { inspectImageBytes } from '../packages/domain/src/index.mjs';
+import { inspectImageBytes, MEDIA_POLICY } from '../packages/domain/src/index.mjs';
 
 function pngHeader(width = 64, height = 64) {
   const bytes = new Uint8Array(24);
@@ -57,6 +57,7 @@ test('S3/R2 upload URLs bind object, content type and checksum without exposing 
 });
 
 test('image inspection verifies MIME, dimensions and checksum from object bytes', () => {
+  assert.equal(MEDIA_POLICY.maxBytes, 3 * 1024 * 1024);
   const bytes = pngHeader(512, 384);
   const inspected = inspectImageBytes({ bytes, mimeType: 'image/png' });
   assert.equal(inspected.width, 512);
@@ -64,6 +65,7 @@ test('image inspection verifies MIME, dimensions and checksum from object bytes'
   assert.equal(inspected.sha256, createHash('sha256').update(bytes).digest('hex'));
   assert.throws(() => inspectImageBytes({ bytes, mimeType: 'image/jpeg' }), /MIME_CONTENT_MISMATCH/);
   assert.throws(() => inspectImageBytes({ bytes: pngHeader(16, 16), mimeType: 'image/png' }), /INVALID_IMAGE_DIMENSIONS/);
+  assert.throws(() => inspectImageBytes({ bytes: new Uint8Array(3 * 1024 * 1024 + 1), mimeType: 'image/png' }), /INVALID_MEDIA_SIZE/);
 });
 
 test('media upload completion verifies stored bytes before exposing a stable public asset URL', async (t) => {
@@ -84,6 +86,8 @@ test('media upload completion verifies stored bytes before exposing a stable pub
   const headers = { cookie: auth.cookie, 'x-csrf-token': auth.csrf, 'content-type': 'application/json', origin: 'https://nexmarkets.fun' };
   const preparedResponse = await fetch(`${base}/v1/media/uploads`, { method: 'POST', headers, body: JSON.stringify({ filename: 'edition.png', mimeType: 'image/png', byteSize: bytes.length, sha256: checksum }) });
   assert.equal(preparedResponse.status, 201);
+  const oversizedResponse = await fetch(`${base}/v1/media/uploads`, { method: 'POST', headers, body: JSON.stringify({ filename: 'edition.png', mimeType: 'image/png', byteSize: 3 * 1024 * 1024 + 1, sha256: checksum }) });
+  assert.equal(oversizedResponse.status, 400);
   const prepared = (await preparedResponse.json()).data;
   assert.equal(prepared.asset.safetyStatus, 'PENDING');
   assert.equal(prepared.upload.method, 'PUT');
