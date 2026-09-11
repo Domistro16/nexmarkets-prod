@@ -4,8 +4,8 @@ NexMarkets V1 is an exact-serial Pass market for Robinhood Chain and Base.
 Base Sepolia (chain `84532`) is the default current testnet and uses canonical
 USDC; Robinhood testnet remains selectable and uses isolated MockUSDG. ETH is
 gas only. The certified product authority is
-`NEXMARKETS_V2_BUILDER_PROFILE_ELITE.html` with SHA-256
-`4863df4a8829b6ced1672248e1fd0336e577d6c13c80f1dbd7fe99d73bc821d5`.
+`NEXMARKETS_HOMEPAGE_DISCOVER_MARKET_COLLECTIBLE_ROTATION_PASS_TEXT_FIT_UX_FIXED.html` with SHA-256
+`4109892076bb332b8a882dc3226f22a9c45bd99a5cb906b05baf6a57bbf55e23`.
 
 ## Implemented boundaries
 

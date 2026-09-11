@@ -1,6 +1,7 @@
 import { cp, mkdir, readFile, writeFile, rm, readdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { PRODUCT_AUTHORITY } from '../packages/config/src/networks.mjs';
 
 const root = new URL('../', import.meta.url);
 const rootPath = fileURLToPath(root);
@@ -12,7 +13,7 @@ const outputs = [
   new URL('./dist/', root),
   new URL('./public/', root)
 ];
-const authoritySource = new URL('./NEXMARKETS_V2_BUILDER_PROFILE_ELITE.html', root);
+const authoritySource = new URL(`./${PRODUCT_AUTHORITY.file}`, root);
 const authorityBodyClose = '</body>';
 const authorityHtmlSource = await readFile(authoritySource, 'utf8');
 const fixtureMode = process.env.NEXMARKETS_FIXTURE_MODE === 'true';
