@@ -24,7 +24,12 @@ if (!unfrozenTestnet && (plan.sourceCommit !== '8790b635ba55512e5d0e295fb1217a39
 if (planShaArg && planShaArg !== planSha256) throw new Error(`SAFE_BUNDLE_PLAN_SHA_MISMATCH expected ${planShaArg} actual ${planSha256}`);
 if (broadcast && !planShaArg) throw new Error('SAFE_BUNDLE_PLAN_SHA_REQUIRED');
 if (bundle.meta?.description && !bundle.meta.description.includes(plan.sourceCommit)) throw new Error('SAFE_BUNDLE_SOURCE_METADATA_MISMATCH');
-if (!Array.isArray(bundle.transactions) || bundle.transactions.length !== (phase === 'deploy' ? 10 : 6)) throw new Error('SAFE_BUNDLE_TRANSACTION_COUNT_MISMATCH');
+const expectedTransactionCount = phase === 'deploy'
+  ? Object.keys(plan.contracts ?? {}).length
+  : (plan.wiring ?? []).length;
+if (!Array.isArray(bundle.transactions) || bundle.transactions.length !== expectedTransactionCount) {
+  throw new Error('SAFE_BUNDLE_TRANSACTION_COUNT_MISMATCH');
+}
 
 const chainId = network === 'base-sepolia' ? 84532 : 46630;
 const rpcUrl = (network === 'base-sepolia' ? process.env.BASE_SEPOLIA_RPC_URL : process.env.RH_TESTNET_RPC_URL)?.trim()
