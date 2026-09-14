@@ -69,6 +69,7 @@ contract CallbackTermsPublisherReceiver {
                     allowlistRoot: bytes32(0),
                     allowlistEndsAt: 0,
                     allowlistSupply: 0,
+                    walletAllowance: 0,
                     primaryRecipient: address(0xCAFE),
                     royaltyReceiver: address(0xCAFE),
                     royaltyBps: 0,
@@ -152,6 +153,7 @@ contract PrimaryLaunchTrioTest is Test {
             allowlistRoot: bytes32(0),
             allowlistEndsAt: 0,
             allowlistSupply: 0,
+            walletAllowance: 0,
             primaryRecipient: BUILDER,
             royaltyReceiver: BUILDER,
             royaltyBps: 500,
@@ -328,9 +330,10 @@ contract PrimaryLaunchTrioTest is Test {
         uint64 previewStartsAt = uint64(block.timestamp);
         uint64 mintStartsAt = previewStartsAt + 1 days;
         NexLaunchRegistry.Terms memory terms = _terms(5, previewStartsAt, mintStartsAt);
-        terms.allowlistRoot = controller.allowlistLeaf(ALICE);
+        terms.allowlistRoot = controller.allowlistLeaf(address(edition), ALICE, 2);
         terms.allowlistEndsAt = mintStartsAt + 1 days;
         terms.allowlistSupply = 2;
+        terms.walletAllowance = 2;
         vm.prank(PUBLISHER);
         bytes32 termsHash = registry.publishTerms(address(edition), terms);
 
@@ -354,17 +357,18 @@ contract PrimaryLaunchTrioTest is Test {
 
         vm.prank(BOB);
         vm.expectRevert(NexMintController.NotAllowlisted.selector);
-        controller.mintAllowlisted(request, proof);
+        controller.mintAllowlisted(request, 2, proof);
 
         vm.prank(ALICE);
-        controller.mintAllowlisted(request, proof);
+        controller.mintAllowlisted(request, 2, proof);
         assertEq(controller.allowlistMinted(address(edition), termsHash), 2);
+        assertEq(controller.allowlistWalletMinted(address(edition), termsHash, ALICE), 2);
 
         request.quantity = 1;
         request.intentId = keccak256("allowlist:cap");
         vm.prank(ALICE);
         vm.expectRevert(NexMintController.AllowlistSupplyExceeded.selector);
-        controller.mintAllowlisted(request, proof);
+        controller.mintAllowlisted(request, 2, proof);
 
         vm.warp(terms.allowlistEndsAt);
         assertFalse(registry.isAllowlistMintOpen(address(edition), termsHash));
@@ -380,9 +384,10 @@ contract PrimaryLaunchTrioTest is Test {
         uint64 previewStartsAt = uint64(block.timestamp);
         uint64 mintStartsAt = previewStartsAt + 1 days;
         NexLaunchRegistry.Terms memory terms = _terms(5, previewStartsAt, mintStartsAt);
-        terms.allowlistRoot = controller.allowlistLeaf(ALICE);
+        terms.allowlistRoot = controller.allowlistLeaf(address(edition), ALICE, 5);
         terms.allowlistEndsAt = mintStartsAt + 1 days;
         terms.allowlistSupply = 0;
+        terms.walletAllowance = 0;
         vm.prank(PUBLISHER);
         bytes32 termsHash = registry.publishTerms(address(edition), terms);
 
@@ -397,7 +402,7 @@ contract PrimaryLaunchTrioTest is Test {
         });
         vm.warp(mintStartsAt);
         vm.prank(ALICE);
-        controller.mintAllowlisted(request, new bytes32[](0));
+        controller.mintAllowlisted(request, 5, new bytes32[](0));
         assertEq(edition.totalMinted(), 5);
     }
 

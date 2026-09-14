@@ -40,6 +40,9 @@ contract NexLaunchRegistry is Ownable, Pausable {
         bytes32 allowlistRoot;
         uint64 allowlistEndsAt;
         uint256 allowlistSupply;
+        /// @notice Edition-wide Early Access cap per wallet. Zero means the
+        ///         per-wallet cap is carried solely by the allowlist leaf.
+        uint256 walletAllowance;
         address primaryRecipient;
         address royaltyReceiver;
         uint96 royaltyBps;
@@ -108,7 +111,8 @@ contract NexLaunchRegistry is Ownable, Pausable {
         bytes32 indexed termsVersionHash,
         bytes32 allowlistRoot,
         uint64 allowlistEndsAt,
-        uint256 allowlistSupply
+        uint256 allowlistSupply,
+        uint256 walletAllowance
     );
 
     modifier onlyFactory() {
@@ -180,7 +184,12 @@ contract NexLaunchRegistry is Ownable, Pausable {
 
         _emitTermsPublished(edition, termsVersionHash, version, terms);
         emit MintAccessPublished(
-            edition, termsVersionHash, terms.allowlistRoot, terms.allowlistEndsAt, terms.allowlistSupply
+            edition,
+            termsVersionHash,
+            terms.allowlistRoot,
+            terms.allowlistEndsAt,
+            terms.allowlistSupply,
+            terms.walletAllowance
         );
     }
 
@@ -294,11 +303,13 @@ contract NexLaunchRegistry is Ownable, Pausable {
         }
         if (terms.mintEndsAt <= terms.mintStartsAt) revert InvalidMintWindow();
         if (terms.allowlistRoot == bytes32(0)) {
-            if (terms.allowlistEndsAt != 0 || terms.allowlistSupply != 0) revert InvalidAllowlistPhase();
+            if (terms.allowlistEndsAt != 0 || terms.allowlistSupply != 0 || terms.walletAllowance != 0) {
+                revert InvalidAllowlistPhase();
+            }
         } else {
             if (
                 terms.allowlistEndsAt <= terms.mintStartsAt || terms.allowlistEndsAt > terms.mintEndsAt
-                    || terms.allowlistSupply > terms.activeSupply
+                    || terms.allowlistSupply > terms.activeSupply || terms.walletAllowance > terms.activeSupply
             ) revert InvalidAllowlistPhase();
         }
         if (terms.activeSupply < INexPassEditionLaunchView(edition).totalMinted()) {

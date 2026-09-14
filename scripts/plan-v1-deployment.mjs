@@ -79,6 +79,20 @@ function normalizeImmutables(bytecode, immutableReferences = {}) {
   }
   return `0x${bytes.join('')}`;
 }
+// Inverse of normalizeImmutables: bakes the value a constructor will burn in, so
+// a runtime code hash that depends on a deploy-time address can still be pinned
+// before deployment rather than observed after it.
+function materializeImmutables(bytecode, immutableReferences, word) {
+  const astIds = Object.keys(immutableReferences);
+  if (astIds.length !== 1) throw new Error('IMMUTABLE_MATERIALIZATION_EXPECTS_ONE_IMMUTABLE');
+  const bytes = bytecode.slice(2).split('');
+  const value = word.slice(2).split('');
+  for (const { start, length } of immutableReferences[astIds[0]]) {
+    if (length !== 32) throw new Error('IMMUTABLE_MATERIALIZATION_EXPECTS_32_BYTE_SLOT');
+    bytes.splice(start * 2, length * 2, ...value);
+  }
+  return `0x${bytes.join('')}`;
+}
 async function add(name, file, types, args) {
   const compiled = await artifact(file, name); const bytecode = compiled.bytecode.object;
   if (!bytecode || bytecode === '0x') throw new Error(`missing compiled bytecode for ${name}`);
@@ -113,9 +127,26 @@ const initializer = await add('NexAdvantageInitializer','NexAdvantageInitializer
 const vault = await add('NexRoyaltyVault','NexRoyaltyVault',['address','address'],[safe,settlementToken]);
 const listing = await add('NexListingRegistry','NexListingRegistry',['address','address','address','address','address','address'],[safe,launch,advantage,vault,inputs.secondaryFeeRecipient,bootstrap.primitives.seaport16.address]);
 const zone = await add('NexMarketsZone','NexMarketsZone',['address','address','address'],[safe,listing,bootstrap.primitives.seaport16.address]);
-const account = await add('NexPassAccount','NexPassAccount',[],[]);
+// Must follow NexListingRegistry: the Pass Vault lock oracle is an immutable
+// constructor argument and the constructor rejects an address with no code.
+const account = await add('NexPassAccount','NexPassAccount',['address'],[listing]);
 const erc6551 = JSON.parse(await readFile(new URL(`deployments/erc6551.${network}.json`, root), 'utf8'));
-const resolver = await add('NexTBAResolver','NexTBAResolver',['address','address','address','bytes32','bytes32'],[factory,erc6551.registry.address,account,erc6551.registry.expectedRuntimeCodeHash,erc6551.accountImplementation.expectedBuildRuntimeCodeHash]);
+// NexTBAResolver rejects an implementation whose codehash differs from this, and
+// the account's runtime code now carries the listing address, so the pin is
+// network-specific and must be recomputed rather than read from the build alone.
+const accountArtifact = await artifact('NexPassAccount', 'NexPassAccount');
+const accountRuntimeCodeHash = keccak256(materializeImmutables(
+  accountArtifact.deployedBytecode.object,
+  accountArtifact.deployedBytecode.immutableReferences ?? {},
+  coder.encode(['address'], [listing])
+));
+if (erc6551.accountImplementation.expectedBuildRuntimeCodeHash.toLowerCase() !== accountRuntimeCodeHash.toLowerCase()) {
+  throw new Error(`TBA_ACCOUNT_RUNTIME_PIN_STALE expected ${accountRuntimeCodeHash} in deployments/erc6551.${network}.json`);
+}
+const accountSpec = specs.find((spec) => spec.name === 'NexPassAccount');
+accountSpec.expectedRuntimeCodeHash = accountRuntimeCodeHash;
+accountSpec.runtimeVerificationStatus = 'EXACT_BUILD_HASH_PINNED';
+const resolver = await add('NexTBAResolver','NexTBAResolver',['address','address','address','bytes32','bytes32'],[factory,erc6551.registry.address,account,erc6551.registry.expectedRuntimeCodeHash,accountRuntimeCodeHash]);
 const frozenMainnetAddresses = {
   NexLaunchRegistry: '0xD3eB84F0B832747C257bDA424160b3DA12256719',
   NexMintController: '0x528fdeE55A903E3297838f3Fb96854b7e9684A13',
@@ -142,7 +173,7 @@ const plan = {
   governance: { safe, owners: inputs.safeOwners.map(getAddress), ownerCount: inputs.safeOwners.length, threshold: inputs.safeThreshold, plannedTransition: inputs.governanceTransition },
   primitives: { settlementToken, settlementSymbol: inputs.settlementTokenSymbol ?? bootstrap.policy?.settlementAsset ?? 'USDG', usdg: settlementToken, seaport16: bootstrap.primitives.seaport16.address, conduitController: bootstrap.primitives.conduitController.address, erc6551Registry: erc6551.registry.address, immutableCreate2Factory: create2Factory },
   contractInputs: { primaryFeeRecipient: getAddress(inputs.primaryFeeRecipient), secondaryFeeRecipient: getAddress(inputs.secondaryFeeRecipient) },
-  erc6551: { registryRuntimeCodeHash: erc6551.registry.expectedRuntimeCodeHash, accountRuntimeCodeHash: erc6551.accountImplementation.expectedBuildRuntimeCodeHash },
+  erc6551: { registryRuntimeCodeHash: erc6551.registry.expectedRuntimeCodeHash, accountRuntimeCodeHash },
   contracts: Object.fromEntries(specs.map((spec) => [spec.name, spec])),
   wiring: [
     { target: launch, call: 'setFactory(address)', args: [factory] }, { target: advantage, call: 'setInitializer(address)', args: [initializer] },

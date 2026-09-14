@@ -44,6 +44,8 @@ contract NexMintController is Ownable, Pausable, ReentrancyGuard {
 
     mapping(address => mapping(bytes32 => bool)) private _consumedIntent;
     mapping(address => mapping(bytes32 => uint256)) public allowlistMinted;
+    /// @notice edition => termsVersionHash => wallet => Early Access units minted.
+    mapping(address => mapping(bytes32 => mapping(address => uint256))) public allowlistWalletMinted;
 
     struct MintRequest {
         address edition;
@@ -69,6 +71,8 @@ contract NexMintController is Ownable, Pausable, ReentrancyGuard {
     error MintClosed();
     error AllowlistSupplyExceeded();
     error NotAllowlisted();
+    error WalletAllowanceExceeded();
+    error WalletAllowanceRequired();
     error QuantityRequired();
     error TermsChangedDuringMint();
     error TermsNotActive();
@@ -145,7 +149,10 @@ contract NexMintController is Ownable, Pausable, ReentrancyGuard {
     }
 
     /// @notice Mint during the private phase using a proof for the transaction payer.
-    function mintAllowlisted(MintRequest calldata request, bytes32[] calldata proof)
+    /// @param allowance The exact per-wallet Early Access allowance committed by
+    ///        the allowlist leaf. It is proven, not asserted, so a wallet cannot
+    ///        inflate its own cap.
+    function mintAllowlisted(MintRequest calldata request, uint256 allowance, bytes32[] calldata proof)
         external
         whenNotPaused
         nonReentrant
@@ -154,20 +161,46 @@ contract NexMintController is Ownable, Pausable, ReentrancyGuard {
         if (!launchRegistry.isAllowlistMintOpen(request.edition, request.termsVersionHash)) {
             revert MintClosed();
         }
+        if (allowance == 0) revert WalletAllowanceRequired();
         (, NexLaunchRegistry.Terms memory terms) = launchRegistry.activeTerms(request.edition);
-        bytes32 leaf = keccak256(bytes.concat(keccak256(abi.encode(msg.sender))));
+        bytes32 leaf = allowlistLeaf(request.edition, msg.sender, allowance);
         if (!MerkleProof.verifyCalldata(proof, terms.allowlistRoot, leaf)) revert NotAllowlisted();
+
         uint256 phaseMinted = allowlistMinted[request.edition][request.termsVersionHash];
         if (
             terms.allowlistSupply != 0
                 && (phaseMinted >= terms.allowlistSupply || request.quantity > terms.allowlistSupply - phaseMinted)
         ) revert AllowlistSupplyExceeded();
+
+        // The proven leaf allowance and any Edition-wide cap both bind.
+        uint256 cap = allowance;
+        if (terms.walletAllowance != 0 && terms.walletAllowance < cap) cap = terms.walletAllowance;
+        uint256 walletMinted = allowlistWalletMinted[request.edition][request.termsVersionHash][msg.sender];
+        if (walletMinted >= cap || request.quantity > cap - walletMinted) revert WalletAllowanceExceeded();
+
         firstTokenId = _mint(request);
         allowlistMinted[request.edition][request.termsVersionHash] = phaseMinted + request.quantity;
+        allowlistWalletMinted[request.edition][request.termsVersionHash][msg.sender] = walletMinted + request.quantity;
     }
 
-    function allowlistLeaf(address account) external pure returns (bytes32) {
-        return keccak256(bytes.concat(keccak256(abi.encode(account))));
+    /// @notice Canonical Early Access leaf. Binding the chain and the exact
+    ///         Edition prevents a proof from being replayed against another
+    ///         Edition or another deployment that reuses the same root.
+    function allowlistLeaf(address edition, address account, uint256 allowance) public view returns (bytes32) {
+        return keccak256(bytes.concat(keccak256(abi.encode(block.chainid, address(this), edition, account, allowance))));
+    }
+
+    /// @notice Remaining Early Access units for a wallet under the active Terms.
+    function allowlistRemaining(address edition, bytes32 termsVersionHash, address account, uint256 allowance)
+        external
+        view
+        returns (uint256)
+    {
+        (, NexLaunchRegistry.Terms memory terms) = launchRegistry.activeTerms(edition);
+        uint256 cap = allowance;
+        if (terms.walletAllowance != 0 && terms.walletAllowance < cap) cap = terms.walletAllowance;
+        uint256 minted = allowlistWalletMinted[edition][termsVersionHash][account];
+        return minted >= cap ? 0 : cap - minted;
     }
 
     function _mint(MintRequest calldata request) internal returns (uint256 firstTokenId) {

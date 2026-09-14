@@ -145,6 +145,7 @@ contract NexListingRegistryTest is Test {
             allowlistRoot: bytes32(0),
             allowlistEndsAt: 0,
             allowlistSupply: 0,
+            walletAllowance: 0,
             primaryRecipient: BUILDER,
             royaltyReceiver: BUILDER,
             royaltyBps: 500,

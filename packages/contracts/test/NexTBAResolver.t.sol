@@ -32,6 +32,40 @@ contract TBATarget {
     }
 }
 
+/// @dev Stands in for NexListingRegistry's lock surface so the Vault value lock
+///      can be driven directly in tests.
+contract TBAListingLockMock {
+    mapping(address => mapping(uint256 => bytes32)) internal _active;
+    mapping(bytes32 => bool) internal _live;
+
+    function setListed(address edition, uint256 tokenId, bool listed) external {
+        if (listed) {
+            bytes32 orderHash = keccak256(abi.encode(edition, tokenId));
+            _active[edition][tokenId] = orderHash;
+            _live[orderHash] = true;
+        } else {
+            bytes32 orderHash = _active[edition][tokenId];
+            delete _active[edition][tokenId];
+            _live[orderHash] = false;
+        }
+    }
+
+    /// @dev Simulates an order that is recorded but no longer executable (expired).
+    function setStaleListing(address edition, uint256 tokenId) external {
+        bytes32 orderHash = keccak256(abi.encode(edition, tokenId));
+        _active[edition][tokenId] = orderHash;
+        _live[orderHash] = false;
+    }
+
+    function activeListingFor(address edition, uint256 tokenId) external view returns (bytes32) {
+        return _active[edition][tokenId];
+    }
+
+    function isListingActive(bytes32 orderHash) external view returns (bool) {
+        return _live[orderHash];
+    }
+}
+
 contract NexTBAResolverTest is Test {
     TBAUSDG internal usdg;
     NexLaunchRegistry internal launchRegistry;
@@ -41,6 +75,7 @@ contract NexTBAResolverTest is Test {
     ERC6551Registry internal canonicalRegistry;
     NexPassAccount internal implementation;
     NexTBAResolver internal resolver;
+    TBAListingLockMock internal listingLock;
 
     address internal constant PUBLISHER = address(0xBEEF);
     address internal constant BUILDER = address(0xCAFE);
@@ -76,6 +111,7 @@ contract NexTBAResolverTest is Test {
             allowlistRoot: bytes32(0),
             allowlistEndsAt: 0,
             allowlistSupply: 0,
+            walletAllowance: 0,
             primaryRecipient: BUILDER,
             royaltyReceiver: BUILDER,
             royaltyBps: 0,
@@ -101,7 +137,8 @@ contract NexTBAResolverTest is Test {
         mintController.mint(request);
 
         canonicalRegistry = new ERC6551Registry();
-        implementation = new NexPassAccount();
+        listingLock = new TBAListingLockMock();
+        implementation = new NexPassAccount(address(listingLock));
         resolver = new NexTBAResolver(
             factory,
             canonicalRegistry,
@@ -179,7 +216,7 @@ contract NexTBAResolverTest is Test {
             address(implementation).codehash
         );
 
-        NexPassAccount wrongImplementation = new NexPassAccount();
+        NexPassAccount wrongImplementation = new NexPassAccount(address(listingLock));
         vm.expectRevert(NexTBAResolver.InvalidCodeHash.selector);
         new NexTBAResolver(
             factory,
