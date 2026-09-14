@@ -107,9 +107,9 @@ allowance → proofs replayable across Editions sharing a root.
 
 ### Not fixed
 
-**S2-01 — Reward Policy / Reward Cycle model: MISSING at every layer.** Zero occurrences
-of `RewardPolicy`/`RewardCycle` in `packages/`, `services/`, `subgraph/schema.graphql`,
-or the contracts. Brief §13/§14 entirely unimplemented.
+**S2-01 — Reward Policy / Reward Cycle model: IMPLEMENTED, UNDEPLOYED.** See §7.
+`NexRewardDistributor` separates Policy (a rule) from Cycle (funded money), credits
+the Pass Vault, and is covered by 23 passing tests. Not on Base Sepolia yet.
 
 **S2-02 — Multi-asset Vault claim: MOCKED.** UI advertises per-asset 25/50/75/100%,
 mixed percentages, select-all, ERC-721 whole-only. No claim endpoint exists in the 38,
@@ -235,7 +235,12 @@ planner already orders them correctly.
 
 ### Blocked on the user
 
-1. **Reward model design** — pull vs push, Merkle distributor vs per-Pass accrual, snapshot semantics, funding custody, claim expiry. A proposed shape is in `NEXMARKETS_BASE_TESTNET_GAPS.md` §S2-01 (recommendation: credit the **Pass Vault/TBA**, not the holder wallet, so rewards follow the Pass and inherit the listing lock — which is now a real deployed lock, so the recommendation is stronger than when first written). **This is the only remaining decision blocker.**
+1. ~~**Reward model design**~~ — **built 2026-09-14.** `NexRewardDistributor` is in
+   source, tested (23/23), indexed, and exposed on the API. It is **not deployed**.
+   The remaining decision is whether to deploy it onto Base Sepolia as an 11th
+   protocol contract (planner already includes it; `FROZEN_V1_*` still untouched).
+   ERC-721 collectibles, royalty-percentage enforcement, and claim expiry were
+   explicitly declined by the defaults you allowed to stand.
 
 *(The V2 release decision is resolved for testnet — see §6. It returns only for mainnet.)*
 
@@ -243,8 +248,8 @@ planner already orders them correctly.
 
 | Item | Sev | State |
 |---|---|---|
-| Reward Policy + Reward Cycle (contracts, API, subgraph entities) | S2 | MISSING everywhere — zero code references outside these audit docs |
-| Multi-asset Vault claim path (endpoint + tx builder, BigInt base units, standard-derived controls, must respect `isVaultLocked()`) | S2 | MOCKED — largest buildable item needing no decision |
+| Reward Policy + Reward Cycle (contracts, API, subgraph entities) | S2 | **IMPLEMENTED, UNDEPLOYED** — `NexRewardDistributor` + subgraph entities + read/prepare endpoints. Dashboard still needs to render funded cycles. Collectibles out of scope. |
+| Multi-asset Vault claim path (endpoint + tx builder, BigInt base units, standard-derived controls, must respect `isVaultLocked()`) | S2 | MOCKED — largest remaining buildable item needing no decision |
 | Remove frontend false attestation + `setTimeout` purchase simulation (lines 15570 / 15568) | S2 | Located, untouched. `listedVaultLock: true` is now genuinely true; the rest are not |
 | ~~API rate limiting~~ | ~~S3~~ | **Withdrawn — it exists.** 300 req / 60 s in `server.mjs`, with a passing test |
 
@@ -259,7 +264,7 @@ planner already orders them correctly.
 
 - `deployments/erc6551.*.json` pins for the other three networks are now stale; the planner fails closed there until re-pinned.
 - `subgraph/subgraph.yaml` (robinhood-testnet) still declares the 5-parameter `MintAccessPublished` while sharing the regenerated 6-parameter ABIs, so it will not rebuild until reconciled.
-- A stray untracked file named `0` sits in the repo root.
+- `NexRewardDistributor` is in the planner as an 11th contract. The subgraph datasource currently points at the zero address until that deploy fills it.
 
 ### Governance
 
@@ -278,12 +283,12 @@ event topic hashes).
 
 | Domain | At handover | Now |
 |---|---:|---:|
-| Contracts | 82/100 | **88/100** |
-| Backend / API | 45/100 | **52/100** |
-| Indexer | 50/100 | **62/100** |
+| Contracts | 82/100 | **90/100** |
+| Backend / API | 45/100 | **56/100** |
+| Indexer | 50/100 | **66/100** |
 | Frontend integration | 55/100 | **57/100** |
 | Base Sepolia deployment | 35/100 | **70/100** |
-| **End-to-end product completeness** | **40/100** | **55/100** |
+| **End-to-end product completeness** | **40/100** | **58/100** |
 
 Verdict: still **NOT CERTIFIED**, but no longer for the original reason. Both S1
 defects are closed on chain. Certification is now withheld for product completeness —
@@ -311,11 +316,11 @@ Three live options:
 |---|---|---|---|
 | **A. V2 re-freeze + Sepolia redeploy** | **Yes** — release decision + TBA migration plan | Deployment, public tx evidence, closes both S1s for real | ✅ **DONE.** Needed neither a re-freeze nor a migration; see §6 |
 | **B. Seaport fulfilment fork test** | No | Closes S3-06, the biggest unverified money path | ✅ **DONE.** 5 passing tests |
-| **C. Reward model design doc** | **Yes** — product/economic decisions | Unblocks the largest missing subsystem (S2-01) | ⬜ **STILL OPEN — the only live item here** |
+| **C. Reward model design doc** | **Yes** — product/economic decisions | Unblocks the largest missing subsystem (S2-01) | ✅ **DONE.** Built as `NexRewardDistributor` rather than a doc; ERC-20 equal-split into the Pass Vault, never reclaimable, allocation % is a published commitment. **Not deployed.** |
 
-**C is now the question.** It is the last thing genuinely blocked on the user. If they
-defer again, the correct default is the **multi-asset Vault claim path** (S2-02): the
-largest remaining buildable item that needs no decision from them.
+The original A/B/C question is closed. The highest-leverage remaining work is **deploy
+the distributor** (if you want rewards live on Base Sepolia) or **S2-02, the multi-asset
+Vault claim path**, which still needs no decision.
 
 ---
 

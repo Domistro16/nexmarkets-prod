@@ -16,14 +16,22 @@ const JSON_HEADERS = { 'content-type': 'application/json; charset=utf-8' };
 const INTENT_TYPE = Object.freeze({
   '/v1/mints/prepare': 'MINT', '/v1/terms/prepare': 'TERMS_PUBLISH', '/v1/listings/prepare': 'LISTING_CREATE',
   '/v1/listings/cancel': 'LISTING_CANCEL', '/v1/advantages/consume': 'ADVANTAGE_USE',
-  '/v1/royalties/withdraw': 'ROYALTY_WITHDRAW'
+  '/v1/royalties/withdraw': 'ROYALTY_WITHDRAW',
+  '/v1/rewards/policies/prepare': 'REWARD_POLICY_PUBLISH',
+  '/v1/rewards/cycles/prepare': 'REWARD_CYCLE_FUND',
+  '/v1/rewards/claim': 'REWARD_CLAIM',
+  '/v1/rewards/policies/retire': 'REWARD_POLICY_RETIRE'
 });
 const INTENT_SELECTORS = Object.freeze({
   MINT: [id('mint((address,bytes32,address,uint256,bytes32,address,(bytes32,uint8,uint64,uint64,uint256,bytes32)[]))').slice(0, 10), id('mintAllowlisted((address,bytes32,address,uint256,bytes32,address,(bytes32,uint8,uint64,uint64,uint256,bytes32)[]),bytes32[])').slice(0, 10)],
   TERMS_PUBLISH: [id('publishTerms(address,(uint256,uint256,uint64,uint64,uint64,address,address,uint96,bytes32,bytes32))').slice(0, 10), id('publishTerms(address,(uint256,uint256,uint64,uint64,uint64,bytes32,uint64,uint256,address,address,uint96,bytes32,bytes32))').slice(0, 10)],
   LISTING_CANCEL: [id('cancelListing(bytes32)').slice(0, 10)],
   ADVANTAGE_USE: [id('consumeQuantity(address,uint256,bytes32,uint256,bytes32)').slice(0, 10), id('redeem(address,uint256,bytes32,bytes32)').slice(0, 10), id('redeemAmount(address,uint256,bytes32,uint256,bytes32)').slice(0, 10), id('useAmount(address,uint256,bytes32,bytes32)').slice(0, 10)],
-  ROYALTY_WITHDRAW: [id('withdraw(bytes32)').slice(0, 10)]
+  ROYALTY_WITHDRAW: [id('withdraw(bytes32)').slice(0, 10)],
+  REWARD_POLICY_PUBLISH: [id('publishPolicy(address,(uint8,uint16,address,bool,uint64))').slice(0, 10)],
+  REWARD_CYCLE_FUND: [id('fundCycle(bytes32,address,uint256)').slice(0, 10)],
+  REWARD_CLAIM: [id('claim(bytes32,uint256)').slice(0, 10), id('claimMany(bytes32,uint256[])').slice(0, 10)],
+  REWARD_POLICY_RETIRE: [id('retirePolicy(bytes32)').slice(0, 10)]
 });
 const MINT_OPEN_SELECTOR = id('isMintOpen(address,bytes32)').slice(0, 10);
 const ADVANTAGES_DOMAIN = keccak256(toUtf8Bytes('NEXMARKETS_ADVANTAGES_V1'));
@@ -115,7 +123,11 @@ export function productionOrderPolicy(env = process.env) {
       TERMS_PUBLISH: env.NEX_LAUNCH_REGISTRY_ADDRESS,
       LISTING_CANCEL: env.NEX_LISTING_REGISTRY_ADDRESS,
       ADVANTAGE_USE: env.NEX_ADVANTAGE_REGISTRY_ADDRESS,
-      ROYALTY_WITHDRAW: env.NEX_ROYALTY_VAULT_ADDRESS
+      ROYALTY_WITHDRAW: env.NEX_ROYALTY_VAULT_ADDRESS,
+      REWARD_POLICY_PUBLISH: env.NEX_REWARD_DISTRIBUTOR_ADDRESS,
+      REWARD_CYCLE_FUND: env.NEX_REWARD_DISTRIBUTOR_ADDRESS,
+      REWARD_CLAIM: env.NEX_REWARD_DISTRIBUTOR_ADDRESS,
+      REWARD_POLICY_RETIRE: env.NEX_REWARD_DISTRIBUTOR_ADDRESS
     }
   };
 }
@@ -164,7 +176,8 @@ function networkPolicyEnv(env, prefix, settlementAddress, seaportAddress, fallba
     NEX_MINT_CONTROLLER_ADDRESS: 'NEX_MINT_CONTROLLER_ADDRESS',
     NEX_PASS_FACTORY_ADDRESS: 'NEX_PASS_FACTORY_ADDRESS',
     NEX_LAUNCH_REGISTRY_ADDRESS: 'NEX_LAUNCH_REGISTRY_ADDRESS',
-    NEX_ADVANTAGE_REGISTRY_ADDRESS: 'NEX_ADVANTAGE_REGISTRY_ADDRESS'
+    NEX_ADVANTAGE_REGISTRY_ADDRESS: 'NEX_ADVANTAGE_REGISTRY_ADDRESS',
+    NEX_REWARD_DISTRIBUTOR_ADDRESS: 'NEX_REWARD_DISTRIBUTOR_ADDRESS'
   };
   for (const [target, suffix] of Object.entries(mappings)) {
     policyEnv[target] = env[`${prefix}_${suffix}`]
@@ -633,6 +646,27 @@ export function createApiServer({
         let project = readModelDisabled ? null : await store.projectBySlug(identifier);
         if (!project && /^0x[0-9a-f]{40}$/i.test(identifier) && store.projectByEditionAddress) project = await store.projectByEditionAddress(identifier);
         return json(res, 200, { data: project });
+      }
+      const editionRewards = url.pathname.match(/^\/v1\/editions\/(0x[a-fA-F0-9]{40})\/rewards$/);
+      if (req.method === 'GET' && editionRewards) {
+        let policies = [];
+        if (!readModelDisabled && subgraph?.enabled && subgraph.rewardPolicies) {
+          try { policies = await subgraph.rewardPolicies(editionRewards[1]); }
+          catch (error) { logger.info?.({ event: 'reward_policies_unavailable', error: error.message }); }
+        }
+        return json(res, 200, {
+          data: { policies, note: 'Actual asset amounts appear only on funded cycles. allocationBps is a published commitment, not an enforced payout.' },
+          authority: subgraph?.enabled ? 'GOLDSKY_SUBGRAPH_READ_MODEL' : 'REWARD_INDEX_UNAVAILABLE'
+        });
+      }
+      const passRewards = url.pathname.match(/^\/v1\/passes\/(0x[a-fA-F0-9]{40})\/(\d+)\/rewards$/);
+      if (req.method === 'GET' && passRewards) {
+        let payload = { claims: [], cycles: [] };
+        if (!readModelDisabled && subgraph?.enabled && subgraph.rewardClaims) {
+          try { payload = await subgraph.rewardClaims(passRewards[1], passRewards[2]); }
+          catch (error) { logger.info?.({ event: 'reward_claims_unavailable', error: error.message }); }
+        }
+        return json(res, 200, { data: payload, authority: subgraph?.enabled ? 'GOLDSKY_SUBGRAPH_READ_MODEL' : 'REWARD_INDEX_UNAVAILABLE' });
       }
       if (req.method === 'GET' && url.pathname.startsWith('/v1/editions/')) {
         const address = url.pathname.slice(13);
@@ -1129,6 +1163,13 @@ export function createApiServer({
         }
         const transaction = await store.prepareTransaction({ accountId: session.accountId, walletAddress: session.walletAddress, chainId: session.chainId, intentType: INTENT_TYPE[url.pathname], intentId: input.intentId ?? idempotencyKey, idempotencyKey, correlationId, requestId, toAddress: prepared.to ?? prepared.registryTransaction?.to ?? null, calldata: prepared.data ?? prepared.registryTransaction?.data ?? null });
         await store.recordAudit?.({ accountId: session.accountId, walletAddress: session.walletAddress, action: 'TRANSACTION_PREPARED', objectType: 'CHAIN_TRANSACTION', objectId: transaction.id, requestId, correlationId, metadata: { intentType: INTENT_TYPE[url.pathname] } });
+        if (INTENT_TYPE[url.pathname] === 'REWARD_CYCLE_FUND' && isAddress(input.asset ?? '')) {
+          prepared.requiresPriorApproval = {
+            token: getAddress(input.asset),
+            spender: prepared.to,
+            note: 'Approve amountPerPass × eligibleSupply on the reward asset before broadcasting fundCycle. allocationBps is not collected by this call.'
+          };
+        }
         return json(res, 201, { transaction, prepared, walletMustSign: true, serverCustodiesKey: false });
       }
       return json(res, 404, { error: { code: 'NOT_FOUND', requestId } });

@@ -14,7 +14,7 @@ test('Goldsky testnet manifest is frozen at the NexMarkets deployment block', ()
 });
 
 test('Subgraph schema exposes normalized NexMarkets read entities', () => {
-  for (const entity of ['Edition', 'TermsVersion', 'Pass', 'AdvantageState', 'Listing', 'RoyaltyClaim', 'TokenBoundAccount']) {
+  for (const entity of ['Edition', 'TermsVersion', 'Pass', 'AdvantageState', 'Listing', 'RoyaltyClaim', 'TokenBoundAccount', 'RewardPolicy', 'RewardCycle', 'RewardClaim']) {
     assert.match(schema, new RegExp(`type ${entity} `));
   }
 });

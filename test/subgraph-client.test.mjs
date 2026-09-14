@@ -56,3 +56,40 @@ test('edition reads attach exact committed Advantage configs to each Terms versi
   assert.equal(result.termsHistory[0].advantageConfigs[0].kind, 2);
   assert.equal(result.termsHistory[0].advantageConfigs[0].advantageId, `0x${'11'.repeat(32)}`);
 });
+
+test('reward policies distinguish published rules from funded cycles', async () => {
+  const edition = '0x1111111111111111111111111111111111111111';
+  const client = new SubgraphClient({ endpoint: 'https://example.invalid/graphql', fetchImpl: async (_url, init) => {
+    const body = JSON.parse(init.body);
+    assert.match(body.query, /rewardPolicies/);
+    return { ok: true, async json() { return { data: { rewardPolicies: [{
+      id: `0x${'aa'.repeat(32)}`,
+      policyId: `0x${'aa'.repeat(32)}`,
+      publisher: '0x2222222222222222222222222222222222222222',
+      source: 'BUILDER_FUNDED',
+      sourceCode: 3,
+      allocationBps: 0,
+      rewardAsset: '0x0000000000000000000000000000000000000000',
+      ongoing: true,
+      endsAt: '0',
+      status: 'ACTIVE',
+      publishedTimestamp: '1700000000',
+      cycles: [{
+        id: `0x${'bb'.repeat(32)}`,
+        cycleId: `0x${'bb'.repeat(32)}`,
+        asset: '0x036cbd53842c5426634e7929541ec2318f3dcf7e',
+        amountPerPass: '20500000',
+        eligibleSupply: '3',
+        fundedAmount: '61500000',
+        claimedAmount: '0',
+        claimedCount: '0',
+        snapshotBlock: '10',
+        fundedAt: '1700000100'
+      }]
+    }] } }; } };
+  } });
+  const policies = await client.rewardPolicies(edition);
+  assert.equal(policies[0].source, 'BUILDER_FUNDED');
+  assert.equal(policies[0].cycles[0].status, 'FUNDED');
+  assert.equal(policies[0].cycles[0].amountPerPass, '20500000');
+});

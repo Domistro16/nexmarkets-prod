@@ -147,6 +147,7 @@ const accountSpec = specs.find((spec) => spec.name === 'NexPassAccount');
 accountSpec.expectedRuntimeCodeHash = accountRuntimeCodeHash;
 accountSpec.runtimeVerificationStatus = 'EXACT_BUILD_HASH_PINNED';
 const resolver = await add('NexTBAResolver','NexTBAResolver',['address','address','address','bytes32','bytes32'],[factory,erc6551.registry.address,account,erc6551.registry.expectedRuntimeCodeHash,accountRuntimeCodeHash]);
+const distributor = await add('NexRewardDistributor','NexRewardDistributor',['address','address','address'],[safe,launch,resolver]);
 const frozenMainnetAddresses = {
   NexLaunchRegistry: '0xD3eB84F0B832747C257bDA424160b3DA12256719',
   NexMintController: '0x528fdeE55A903E3297838f3Fb96854b7e9684A13',
@@ -180,7 +181,7 @@ const plan = {
     { target: mint, call: 'setAdvantageInitializer(address)', args: [initializer] }, { target: vault, call: 'setListingRegistry(address)', args: [listing] },
     { target: listing, call: 'setZone(address)', args: [zone] }, { target: advantage, call: 'setListingAuthority(address)', args: [listing] }
   ],
-  abortRule: 'ABORT_BEFORE_ANY_ONE_TIME_WIRING_IF_CODEHASH_OR_IMMUTABLE_CHECK_FAILS', resolver
+  abortRule: 'ABORT_BEFORE_ANY_ONE_TIME_WIRING_IF_CODEHASH_OR_IMMUTABLE_CHECK_FAILS', resolver, rewardDistributor: distributor
 };
 await mkdir(new URL('artifacts/deployment-plan/', root), { recursive: true });
 const output = new URL(`artifacts/deployment-plan/${network}.json`, root); await writeFile(output, `${JSON.stringify(plan, null, 2)}\n`);

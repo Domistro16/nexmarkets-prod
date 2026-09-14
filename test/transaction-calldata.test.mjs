@@ -52,3 +52,37 @@ test('structured listing cancellation, Advantage use, and royalty withdrawal emi
   assert.match(buildProtocolCalldata('ADVANTAGE_USE', { operation: 'USE_AMOUNT', edition: '0x2222222222222222222222222222222222222222', tokenId: 1, advantageId, useId }, context), /^0x/);
   assert.throws(() => buildProtocolCalldata('ADVANTAGE_USE', { edition: '0x2222222222222222222222222222222222222222' }, context), /OPERATION/);
 });
+
+test('reward policy, cycle and claim calldata match the distributor selectors', () => {
+  const context = { walletAddress: '0x1111111111111111111111111111111111111111', idempotencyKey: 'reward-1' };
+  const edition = '0x2222222222222222222222222222222222222222';
+  const policyId = `0x${'aa'.repeat(32)}`;
+  const cycleId = `0x${'bb'.repeat(32)}`;
+  const asset = '0x3333333333333333333333333333333333333333';
+
+  const publish = buildProtocolCalldata('REWARD_POLICY_PUBLISH', {
+    edition, source: 'manual', allocationBps: 0, rewardAsset: '0x0000000000000000000000000000000000000000', ongoing: true, endsAt: 0
+  }, context);
+  const publishAbi = new Interface(['function publishPolicy(address,(uint8,uint16,address,bool,uint64))']);
+  const [, input] = publishAbi.decodeFunctionData('publishPolicy', publish);
+  assert.equal(input[0], 3n);
+  assert.equal(input[1], 0n);
+  assert.equal(input[3], true);
+
+  const fund = buildProtocolCalldata('REWARD_CYCLE_FUND', { policyId, asset, amountPerPass: '20500000' }, context);
+  const fundAbi = new Interface(['function fundCycle(bytes32,address,uint256)']);
+  const decodedFund = fundAbi.decodeFunctionData('fundCycle', fund);
+  assert.equal(decodedFund[0], policyId);
+  assert.equal(decodedFund[2], 20500000n);
+
+  const claim = buildProtocolCalldata('REWARD_CLAIM', { cycleId, tokenId: 1 }, context);
+  const claimAbi = new Interface(['function claim(bytes32,uint256)']);
+  assert.equal(claimAbi.decodeFunctionData('claim', claim)[1], 1n);
+
+  const claimMany = buildProtocolCalldata('REWARD_CLAIM', { cycleId, tokenIds: [1, 2, 3] }, context);
+  const manyAbi = new Interface(['function claimMany(bytes32,uint256[])']);
+  assert.deepEqual(manyAbi.decodeFunctionData('claimMany', claimMany)[1].map(Number), [1, 2, 3]);
+
+  assert.match(buildProtocolCalldata('REWARD_POLICY_RETIRE', { policyId }, context), /^0x/);
+  assert.throws(() => buildProtocolCalldata('REWARD_POLICY_PUBLISH', { edition, source: 'not-a-source' }, context), /REWARD_SOURCE_INVALID/);
+});

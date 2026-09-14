@@ -232,6 +232,34 @@ dataSources:
       eventHandlers:
         - event: OrderFulfilled(indexed bytes32,indexed address,indexed address,address,(uint8,address,uint256,uint256)[],(uint8,address,uint256,uint256,address)[])
           handler: handleOrderFulfilled
+  - kind: ethereum
+    name: NexRewardDistributor
+    network: robinhood-testnet
+    source:
+      address: "0x0000000000000000000000000000000000000000"
+      abi: NexRewardDistributor
+      startBlock: 104607055
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.9
+      language: wasm/assemblyscript
+      file: ./src/mapping.ts
+      entities:
+        - RewardPolicy
+        - RewardCycle
+        - RewardClaim
+      abis:
+        - name: NexRewardDistributor
+          file: ./abis/NexRewardDistributor.json
+      eventHandlers:
+        - event: RewardPolicyPublished(indexed bytes32,indexed address,indexed address,uint8,uint16,address,bool,uint64)
+          handler: handleRewardPolicyPublished
+        - event: RewardPolicyRetired(indexed bytes32,indexed address)
+          handler: handleRewardPolicyRetired
+        - event: RewardCycleFunded(indexed bytes32,indexed bytes32,indexed address,address,uint256,uint256,uint256,uint64)
+          handler: handleRewardCycleFunded
+        - event: RewardClaimed(indexed bytes32,indexed address,indexed uint256,address,address,uint256)
+          handler: handleRewardClaimed
 templates:
   - kind: ethereum
     name: NexPassEdition

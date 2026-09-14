@@ -55,32 +55,47 @@ and any Edition-wide cap both bind; oversized batches cannot straddle the cap.
 
 ## S2 — Product promise unbacked
 
-### S2-01 · Reward Policy / Reward Cycle model · MISSING
+### S2-01 · Reward Policy / Reward Cycle model · IMPLEMENTED, UNDEPLOYED
 
-Zero occurrences of `RewardPolicy` / `RewardCycle` across `packages/`, `services/`,
-`subgraph/schema.graphql` and the contracts. §13 and §14 of the brief are entirely
-unimplemented: no policy record, no funded cycle, no snapshot block, no distribution
-root, no funding/distribution transaction, no status.
+The missing subsystem now exists at every layer that does not require a live address.
 
-Consequently the product cannot distinguish "30% of Builder Royalty → tokenized-stock
-rewards, ongoing" (a rule) from "20.5 NVDAc per holder" (a funded amount) — which is
-the exact distinction the brief requires.
+`NexRewardDistributor` publishes a Policy (a rule, no money) and funds a Cycle (an
+exact per-Pass amount, escrowed 1:1). Entitlement is keyed to the serial, never to a
+wallet: serials are sequential from 1, so eligible set is `1..totalMinted()` at
+funding. Claims are permissionless and credit the Pass Vault, so rewards follow the
+Pass through sale and can land in a listed Vault without letting the seller drain it.
+The listing lock still gates outbound `execute` only.
 
-**Not fixed in this session, deliberately.** Designing a reward distribution protocol
-is a product and economic decision (pull vs push, Merkle distributor vs per-Pass
-accrual, snapshot semantics, funding custody, claim expiry). Inventing one unilaterally
-would be the wrong call.
+**Three product decisions, recorded rather than hidden:**
 
-**Required to close — proposed shape:**
-1. `RewardPolicy` — policy id, edition, source (`BUILDER_ROYALTY` / `EXTERNAL`),
-   allocation bps, reward asset, cadence, status.
-2. `RewardCycle` — cycle id, policy id, snapshot block, eligible supply, funded amount,
-   asset, actual asset amount, distribution root, funding tx, distribution tx, status.
-3. A pull-based `NexRewardDistributor` keyed by `(cycleId, tokenId)` with Merkle proof,
-   crediting the **Pass Vault (TBA)**, not the current holder wallet — so rewards
-   follow the Pass and inherit the listing lock.
-4. Subgraph entities + `rewardDeposited` event so the exact-Pass chart can render.
-5. Dashboard must surface an asset only once a cycle is `FUNDED`/`CONFIRMED`.
+1. **ERC-20 only.** Tokenized stocks, stablecoins and the future-token airdrop share
+   this equal-split path. ERC-721 collectible drops are explicitly out of scope —
+   unique NFTs cannot be split equally and would need a separate assignment mechanism.
+2. **Never reclaimable.** Once funded, escrow belongs to the Passes forever. There is
+   no Builder sweep, no claim expiry, and pause never blocks claims.
+3. **`allocationBps` is a published commitment, not an enforced mechanism.** "30% of
+   Builder royalty" is stored and indexed so the Edition page can show the promise.
+   Nothing intercepts `NexRoyaltyVault` to collect it. Do not render the percentage as
+   a protocol guarantee. Enforcing it would mean redeploying the royalty and listing
+   authorities.
+
+There is no Merkle tree. The brief's own example ("20.5 NVDAc per holder") is an equal
+split over sequential IDs, which is just division. A fee-on-transfer or rebasing asset
+is rejected at funding so entitlements cannot be silently unbacked.
+
+Covered by `test/NexRewardDistributor.t.sol` (23 tests, including a 256-run fuzz that
+every serial receives exactly `amountPerPass` and the distributor ends at zero).
+Subgraph entities `RewardPolicy` / `RewardCycle` / `RewardClaim` and API reads
+`GET /v1/editions/:address/rewards` and `GET /v1/passes/:edition/:tokenId/rewards`
+are wired. Prepare endpoints exist for publish / fund / claim / retire; fund notes
+that the Builder must `approve` `amountPerPass × eligibleSupply` first.
+
+**Still required to close on chain:** deploy `NexRewardDistributor` via the existing
+`--unfrozen-dev` planner path (it is already in `plan-v1-deployment.mjs`), fill the
+zero-address datasource in `subgraph.base-sepolia.yaml`, set
+`NEX_REWARD_DISTRIBUTOR_ADDRESS`, and point the dashboard at funded cycles only.
+The frontend still reads reward *rules* from the create payload, which is correct
+until a cycle is funded.
 
 ### S2-02 · Multi-asset Vault claim has no product path · MOCKED
 

@@ -177,6 +177,47 @@ export class SubgraphClient {
     if (!listing) return null;
     return normalizeListing(listing);
   }
+
+  async rewardPolicies(edition) {
+    const data = await this.query(
+      `query($edition:ID!){ rewardPolicies(where:{edition:$edition},orderBy:publishedBlock,orderDirection:desc){ id policyId publisher source sourceCode allocationBps rewardAsset ongoing endsAt status publishedTimestamp cycles(orderBy:fundedBlock,orderDirection:desc){ id cycleId asset amountPerPass eligibleSupply fundedAmount claimedAmount claimedCount snapshotBlock fundedAt fundedTimestamp } } }`,
+      { edition: lower(edition) }
+    );
+    return (data.rewardPolicies ?? []).map(normalizeRewardPolicy);
+  }
+
+  async rewardClaims(edition, tokenId) {
+    const data = await this.query(
+      `query($edition:ID!,$tokenId:BigInt!){ rewardClaims(where:{edition:$edition,tokenId:$tokenId},orderBy:timestamp,orderDirection:desc){ id tokenId passVault asset amount timestamp transactionHash cycle { id cycleId asset amountPerPass eligibleSupply fundedAmount claimedAmount } } rewardCycles(where:{edition:$edition},orderBy:fundedBlock,orderDirection:desc){ id cycleId asset amountPerPass eligibleSupply fundedAmount claimedAmount claimedCount snapshotBlock fundedAt policy { id policyId source status } } }`,
+      { edition: lower(edition), tokenId: String(tokenId) }
+    );
+    const claimed = new Set((data.rewardClaims ?? []).map((row) => lower(row.cycle?.id)));
+    const cycles = (data.rewardCycles ?? []).map((cycle) => {
+      const eligible = Number(cycle.eligibleSupply ?? 0);
+      const serial = Number(tokenId);
+      const inRange = serial > 0 && serial <= eligible;
+      return {
+        ...normalizeRewardCycle(cycle),
+        policyId: lower(cycle.policy?.policyId ?? cycle.policy?.id),
+        source: cycle.policy?.source ?? null,
+        policyStatus: cycle.policy?.status ?? null,
+        claimed: claimed.has(lower(cycle.id)),
+        claimable: inRange && !claimed.has(lower(cycle.id))
+      };
+    });
+    return {
+      claims: (data.rewardClaims ?? []).map((row) => ({
+        id: row.id,
+        cycleId: lower(row.cycle?.cycleId ?? row.cycle?.id),
+        passVault: lower(row.passVault),
+        asset: lower(row.asset),
+        amount: row.amount,
+        timestamp: unix(row.timestamp),
+        transactionHash: lower(row.transactionHash)
+      })),
+      cycles
+    };
+  }
 }
 
 function normalizeTerms(terms) {
@@ -191,6 +232,39 @@ function iso(value) { return value == null ? null : new Date(Number(value) * 100
 
 function normalizeListing(listing) {
   return { ...listing, order_hash: lower(listing.orderHash), edition_address: lower(listing.edition.address), token_id: listing.tokenId, seller_address: lower(listing.seller), terms_hash: lower(listing.termsHash), price_usdg: listing.price, royalty_receiver: lower(listing.royaltyReceiver), royalty_bps: listing.royaltyBps, starts_at: unix(listing.startTime), expires_at: unix(listing.expiry), zone_hash: lower(listing.zoneHash), buyer: lower(listing.buyer) };
+}
+
+function normalizeRewardCycle(cycle) {
+  return {
+    id: lower(cycle.id),
+    cycleId: lower(cycle.cycleId ?? cycle.id),
+    asset: lower(cycle.asset),
+    amountPerPass: cycle.amountPerPass,
+    eligibleSupply: cycle.eligibleSupply,
+    fundedAmount: cycle.fundedAmount,
+    claimedAmount: cycle.claimedAmount,
+    claimedCount: cycle.claimedCount,
+    snapshotBlock: cycle.snapshotBlock,
+    fundedAt: unix(cycle.fundedAt ?? cycle.fundedTimestamp),
+    status: 'FUNDED'
+  };
+}
+
+function normalizeRewardPolicy(policy) {
+  return {
+    id: lower(policy.id),
+    policyId: lower(policy.policyId ?? policy.id),
+    publisher: lower(policy.publisher),
+    source: policy.source,
+    sourceCode: policy.sourceCode,
+    allocationBps: policy.allocationBps,
+    rewardAsset: lower(policy.rewardAsset),
+    ongoing: policy.ongoing,
+    endsAt: unix(policy.endsAt),
+    status: policy.status,
+    publishedAt: unix(policy.publishedTimestamp),
+    cycles: (policy.cycles ?? []).map(normalizeRewardCycle)
+  };
 }
 
 export { advantageRemaining };

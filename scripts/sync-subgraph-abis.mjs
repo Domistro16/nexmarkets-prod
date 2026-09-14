@@ -6,7 +6,7 @@ const names = [
   'NexPassFactory', 'NexLaunchRegistry', 'NexMintController',
   'NexPassEdition', 'NexAdvantageRegistry', 'NexAdvantageInitializer',
   'NexListingRegistry', 'NexRoyaltyVault', 'NexTBAResolver',
-  'ERC6551Registry'
+  'ERC6551Registry', 'NexRewardDistributor'
 ];
 const destination = new URL('../subgraph/abis/', import.meta.url);
 await mkdir(destination, { recursive: true });

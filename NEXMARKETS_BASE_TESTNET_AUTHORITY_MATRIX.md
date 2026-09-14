@@ -129,10 +129,13 @@ between the approved snapshot and the served build.
 
 | Capability | Status | Evidence |
 |---|---|---|
-| Reward Policy model | **MISSING** | 0 occurrences of `RewardPolicy` in `packages/`, `services/`, `subgraph/` |
-| Reward Cycle model | **MISSING** | 0 occurrences of `RewardCycle`; no funded-cycle entity |
-| Tokenized Stocks / Airdrop / Tokens / Collectibles channels | **MISSING** | No schema, no contract, no indexer entity |
-| Distinction policy vs guaranteed amount | **MISSING** | Not modelled anywhere |
+| Reward Policy model | **IMPLEMENTED BUT UNDEPLOYED** | `NexRewardDistributor.publishPolicy`; subgraph `RewardPolicy`; `GET /v1/editions/:address/rewards` |
+| Reward Cycle model | **IMPLEMENTED BUT UNDEPLOYED** | `fundCycle` escrows `amountPerPass × eligibleSupply`; subgraph `RewardCycle`; status is `FUNDED` by construction |
+| Claim into Pass Vault | **VERIFIED** (unit) | Permissionless `claim` / `claimMany`; credits the TBA, including while listed; 23/23 tests |
+| Tokenized stocks / tokens / airdrop (ERC-20) | **IMPLEMENTED BUT UNDEPLOYED** | Equal-split ERC-20 path. Fee-on-transfer rejected |
+| Collectible drops (ERC-721) | **OUT OF SCOPE** | Unique NFTs cannot be split equally; not modelled |
+| Allocation % enforcement | **PUBLISHED COMMITMENT ONLY** | `allocationBps` is indexed, not collected from `NexRoyaltyVault` |
+| Distinction policy vs guaranteed amount | **VERIFIED** (unit) | `testPublishPolicyCommitsNoFunds` / `testFundCycleEscrowsExactEqualSplit` |
 
 ## 9. Market / Seaport
 
@@ -158,7 +161,7 @@ between the approved snapshot and the served build.
 | 14 indexed entities | **VERIFIED** (schema) | `subgraph/schema.graphql`, now including `TermsVersion.walletAllowance` |
 | Deterministic event identity | **IMPLEMENTED BUT UNVERIFIED** | `chainId:txHash:logIndex` in `projector.mjs` / `runtime.mjs` — correct design |
 | Reorg / orphan handling | **IMPLEMENTED BUT UNVERIFIED** | `orphaned_at`, watermarks, finality block in `runtime.mjs` |
-| Dashboard surfaces | **PARTIAL** | Passes/Advantages/Listings/Activity have real endpoints; Vault assets and Rewards do not |
+| Dashboard surfaces | **PARTIAL** | Passes/Advantages/Listings/Activity have real endpoints; Vault assets still do not. Reward *reads* exist; the dashboard does not consume them yet |
 | Collection & exact-Pass charts | **IMPLEMENTED BUT UNVERIFIED** | Backed by indexed entities; `rewardDeposited` / `vaultClaim` event types absent |
 
 ## 11. Backend / API
