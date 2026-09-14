@@ -16,11 +16,15 @@
     "compiler": "solc-0.8.30",
     "optimizerRuns": 20000,
     "runtimeCodeHashDependsOn": "listingRegistry immutable, so this pin is network-specific and changes with the planned NexListingRegistry address",
-    "expectedBuildRuntimeCodeHash": "0x683989caaae1ecef626ee570d0265e73ede82c023859f05fec21d92b5dbd4535",
-    "deployedAddress": null,
-    "deployedRuntimeCodeHash": null
+    "expectedBuildRuntimeCodeHash": "0x56d0799950f5333fe084be24f3afbbd21981d991bfb3a35bf68239b5c5fcadd5",
+    "deployedAddress": "0x8F48738e4BB35F5F6Dc0E40cf939040364AD3682",
+    "deployedRuntimeCodeHash": "0x56d0799950f5333fe084be24f3afbbd21981d991bfb3a35bf68239b5c5fcadd5"
   },
-  "resolver": { "accountSaltDomain": "NEXMARKETS_PASS_TBA_V1", "deployedAddress": null },
-  "runtimeVerification": "REGISTRY_VERIFIED_ACCOUNT_AND_RESOLVER_NOT_DEPLOYED",
+  "resolver": {
+    "accountSaltDomain": "NEXMARKETS_PASS_TBA_V1",
+    "deployedAddress": "0x6B53e133DA10d456296930c041d17606d9283DaF",
+    "deployedRuntimeCodeHash": "0x699579d96c490b2982a5d87cc1c07539f3bd51b34ac65249a5d22453ccf114a7"
+  },
+  "runtimeVerification": "REGISTRY_ACCOUNT_AND_RESOLVER_VERIFIED_2026-09-14",
   "mainnetDeploymentPerformed": false
 }

@@ -5,7 +5,7 @@ Base Sepolia (chain `84532`) is the default current testnet and uses canonical
 USDC; Robinhood testnet remains selectable and uses isolated MockUSDG. ETH is
 gas only. The certified product authority is
 `NEXMARKETS_HOMEPAGE_DISCOVER_MARKET_COLLECTIBLE_ROTATION_PASS_TEXT_FIT_UX_FIXED.html` with SHA-256
-`4109892076bb332b8a882dc3226f22a9c45bd99a5cb906b05baf6a57bbf55e23`.
+`61d808e570d0da8834471b2b24e620dd9fc28aebb29628171126e307f54f359d`.
 
 ## Implemented boundaries
 

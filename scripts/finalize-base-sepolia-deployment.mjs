@@ -6,6 +6,11 @@ const manifestUrl = new URL('deployments/base-sepolia.v1-deployment.json', root)
 const archiveUrl = new URL('deployments/base-sepolia.v1-deployment.legacy-safe.json', root);
 const previous = JSON.parse(await readFile(manifestUrl, 'utf8'));
 try { await access(archiveUrl); } catch { await copyFile(manifestUrl, archiveUrl); }
+const previousSourceCommit = previous.deploymentSourceCommit;
+if (/^[0-9a-f]{40}$/iu.test(previousSourceCommit ?? '')) {
+  const sourceArchiveUrl = new URL(`deployments/base-sepolia.v1-deployment.${previousSourceCommit.slice(0, 7)}.json`, root);
+  try { await access(sourceArchiveUrl); } catch { await copyFile(manifestUrl, sourceArchiveUrl); }
+}
 
 const plan = JSON.parse(await readFile(new URL('artifacts/deployment-plan/base-sepolia.json', root), 'utf8'));
 const deployed = JSON.parse(await readFile(new URL('artifacts/deployment-plan/base-sepolia.deploy.execution.json', root), 'utf8'));
@@ -60,8 +65,12 @@ const manifest = {
   productionReady: false,
   mainnetCustomDeploymentPerformed: false,
   replaces: {
-    manifest: 'deployments/base-sepolia.v1-deployment.legacy-safe.json',
-    reason: 'Legacy Safe-only Factory was incompatible with permissionless Builder Edition publication.'
+    manifest: /^[0-9a-f]{40}$/iu.test(previousSourceCommit ?? '')
+      ? `deployments/base-sepolia.v1-deployment.${previousSourceCommit.slice(0, 7)}.json`
+      : 'deployments/base-sepolia.v1-deployment.legacy-safe.json',
+    reason: Object.hasOwn(plan.contracts, 'NexRewardDistributor') && !Object.hasOwn(previous.contracts ?? {}, 'NexRewardDistributor')
+      ? 'Adds the funded Reward Policy and Reward Cycle distributor to the coherent CREATE2 deployment graph.'
+      : 'Supersedes the prior coherent deployment graph with the verified source plan.'
   },
   recordedAt: new Date().toISOString()
 };

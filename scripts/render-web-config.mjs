@@ -30,7 +30,8 @@ function contractsFromDeployment(deployment) {
     listingRegistry: value('NexListingRegistry'),
     zone: value('NexMarketsZone'),
     passAccount: value('NexPassAccount'),
-    tbaResolver: value('NexTBAResolver')
+    tbaResolver: value('NexTBAResolver'),
+    rewardDistributor: value('NexRewardDistributor')
   };
 }
 

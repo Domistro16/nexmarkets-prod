@@ -74,10 +74,10 @@ remain process-environment/secret-manager inputs and were never committed.
 5. Populate `deployments/nexmarkets-v1.inputs.robinhood-testnet.json` with the
    verified Safe, both fee recipients set to that Safe, owners, threshold and
    MockUSDG address.
-6. Run the frozen-source planner and inspect all ten predicted addresses,
+6. Run the frozen-source planner and inspect all eleven predicted addresses,
    init-code hashes and immutable wiring. Do not continue if any address is
    occupied unexpectedly.
-7. Deploy and independently verify the ten contracts in dependency order,
+7. Deploy and independently verify the eleven contracts in dependency order,
    then execute the six one-time wiring calls only after every verification
    passes.
 8. Run the complete post-deployment verifier, build and deploy the official

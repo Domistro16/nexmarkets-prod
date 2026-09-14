@@ -196,9 +196,11 @@ Stated plainly, because these gaps matter:
 3. **The backend was never in the loop.** No API call and no database write was
    exercised. This is a pure contract-authority certification. *(The subgraph has since
    been deployed and queried, but not as part of this journey.)*
-4. **Rewards were not tested** — the Reward Policy / Reward Cycle model does not exist.
-5. **Vault claim went direct to the TBA.** There is no product claim path (endpoint or
-   transaction builder) to exercise; step 7 called `execute()` directly.
+4. **Rewards were not tested in this journey.** The Reward Policy / Reward Cycle model
+   now exists and is deployed/indexed, but this older fork journey predates it.
+5. **Vault claim went direct to the TBA.** The API/browser product path now exists, but
+   step 7 predates it and called `execute()` directly, so this journey is not evidence
+   for the HTTP/wallet orchestration.
 6. ~~**The tested contracts are not the deployed contracts.**~~ **No longer true.** The
    fixed source in this journey was deployed to Base Sepolia on 2026-09-14. The
    addresses in `NEXMARKETS_BASE_TESTNET_DEPLOYMENTS.md` now host this bytecode.

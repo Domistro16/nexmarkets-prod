@@ -18,5 +18,9 @@ export class JsonRpcClient {
   getTransactionByHash(txHash) { return this.call('eth_getTransactionByHash', [txHash]); }
   getCode(address, block='latest') { return this.call('eth_getCode',[address,block]); }
   getStorageAt(address, slot, block='latest') { return this.call('eth_getStorageAt',[address,slot,block]); }
-  ethCall(to, data, block='latest') { return this.call('eth_call',[{to,data},block]); }
+  ethCall(to, data, block='latest', from=null) {
+    const request = { to, data };
+    if (from) request.from = from;
+    return this.call('eth_call',[request,block]);
+  }
 }

@@ -5,7 +5,7 @@ Foundry run, and a forked-chain certification journey.
 
 **Frontend authority (user-designated):**
 `NEXMARKETS_HOMEPAGE_DISCOVER_MARKET_COLLECTIBLE_ROTATION_PASS_TEXT_FIT_UX_FIXED.html`
-`sha256 4109892076bb332b8a882dc3226f22a9c45bd99a5cb906b05baf6a57bbf55e23`
+`sha256 61d808e570d0da8834471b2b24e620dd9fc28aebb29628171126e307f54f359d`
 
 > The file named in the original brief, `NEXMARKETS_HOMEPAGE_HERO_LOAD_OPTIMIZED_FINAL.html`,
 > **does not exist** anywhere in the workspace. The file above is the latest named snapshot.
@@ -123,16 +123,16 @@ between the approved snapshot and the served build.
 | **Vault locked while listed** | **VERIFIED — FIXED THIS SESSION** | Was **MISSING** — vanilla ERC-6551 account allowed the seller to drain a listed Pass. Now `PassVaultLockedWhileListed` |
 | Deposits allowed while listed | **VERIFIED** | `receive()` and inbound transfers unaffected |
 | Expired listing does not brick Vault | **VERIFIED** | `testExpiredListingDoesNotPermanentlyLockTheVault` |
-| **Multi-asset claim UI → backend/tx** | **MOCKED** | No claim endpoint, no claim tx builder in `v2-app.mjs`. Per-asset 25/50/75/100% exists only as a frontend capability claim |
+| **Multi-asset claim UI → backend/tx** | **IMPLEMENTED + TESTED** | `POST /v1/vault/claims/prepare` resolves the TBA, verifies Pass owner, `isVaultLocked()`, asset balance/owner and builds one confirmed `execute` per asset; browser uses BigInt base units and ERC-721 whole-only controls |
 
 ## 8. Rewards
 
 | Capability | Status | Evidence |
 |---|---|---|
-| Reward Policy model | **IMPLEMENTED BUT UNDEPLOYED** | `NexRewardDistributor.publishPolicy`; subgraph `RewardPolicy`; `GET /v1/editions/:address/rewards` |
-| Reward Cycle model | **IMPLEMENTED BUT UNDEPLOYED** | `fundCycle` escrows `amountPerPass × eligibleSupply`; subgraph `RewardCycle`; status is `FUNDED` by construction |
+| Reward Policy model | **DEPLOYED + INDEXED** | `NexRewardDistributor.publishPolicy` at `0x2453c5FC…EB91`; subgraph `RewardPolicy`; `GET /v1/editions/:address/rewards` |
+| Reward Cycle model | **DEPLOYED + INDEXED** | `fundCycle` escrows `amountPerPass × eligibleSupply`; live subgraph `RewardCycle`; status is `FUNDED` by construction |
 | Claim into Pass Vault | **VERIFIED** (unit) | Permissionless `claim` / `claimMany`; credits the TBA, including while listed; 23/23 tests |
-| Tokenized stocks / tokens / airdrop (ERC-20) | **IMPLEMENTED BUT UNDEPLOYED** | Equal-split ERC-20 path. Fee-on-transfer rejected |
+| Tokenized stocks / tokens / airdrop (ERC-20) | **DEPLOYED** | Equal-split ERC-20 path. Fee-on-transfer rejected |
 | Collectible drops (ERC-721) | **OUT OF SCOPE** | Unique NFTs cannot be split equally; not modelled |
 | Allocation % enforcement | **PUBLISHED COMMITMENT ONLY** | `allocationBps` is indexed, not collected from `NexRoyaltyVault` |
 | Distinction policy vs guaranteed amount | **VERIFIED** (unit) | `testPublishPolicyCommitsNoFunds` / `testFundCycleEscrowsExactEqualSplit` |
@@ -157,8 +157,8 @@ between the approved snapshot and the served build.
 
 | Capability | Status | Evidence |
 |---|---|---|
-| Subgraph deployed | **VERIFIED** | Rebuilt and redeployed to Goldsky against the new address set from block 46,818,316; queried live, `hasIndexingErrors: false` |
-| 14 indexed entities | **VERIFIED** (schema) | `subgraph/schema.graphql`, now including `TermsVersion.walletAllowance` |
+| Subgraph deployed | **VERIFIED** | Rebuilt and redeployed to Goldsky against the 11-contract address set from block 46,827,960; Active/100% synced with no indexing errors |
+| 17 indexed entities | **VERIFIED** (schema) | `subgraph/schema.graphql`, including `TermsVersion.walletAllowance`, `RewardPolicy`, `RewardCycle` and `RewardClaim` |
 | Deterministic event identity | **IMPLEMENTED BUT UNVERIFIED** | `chainId:txHash:logIndex` in `projector.mjs` / `runtime.mjs` — correct design |
 | Reorg / orphan handling | **IMPLEMENTED BUT UNVERIFIED** | `orphaned_at`, watermarks, finality block in `runtime.mjs` |
 | Dashboard surfaces | **PARTIAL** | Passes/Advantages/Listings/Activity have real endpoints; Vault assets still do not. Reward *reads* exist; the dashboard does not consume them yet |
@@ -168,33 +168,17 @@ between the approved snapshot and the served build.
 
 | Capability | Status | Evidence |
 |---|---|---|
-| 38 `/v1` endpoints | **IMPLEMENTED BUT UNVERIFIED** | `apps/api/src/server.mjs` (1200 lines) |
+| 39 `/v1` endpoints | **IMPLEMENTED BUT UNVERIFIED** | `apps/api/src/server.mjs`, including authenticated Vault claim preparation |
 | 28 called by the frontend | **VERIFIED** (static) | Enumerated in `v2-app.mjs` — real integration, not stubs |
 | Postgres store | **IMPLEMENTED BUT UNVERIFIED** | `PostgresStore`; `MemoryStore` fallback only when `DATABASE_URL` unset |
 | Production guard on DB | **VERIFIED** (static) | `DATABASE_URL_REQUIRED_FOR_PRODUCTION` |
 | SIWE-style session + CSRF | **IMPLEMENTED BUT UNVERIFIED** | 97 session refs, 13 CSRF refs |
 | Rate limiting | **VERIFIED** (static + test) | **Earlier "MISSING" was wrong.** `RateLimiter` in `server.mjs` throws 429 `RATE_LIMITED`, applied per request keyed on remote address, 300 req / 60,000 ms; covered by the passing test "same-origin and rate-limit controls fail closed" |
 
-## 12. Known false attestation
+## 12. Removed false attestation
 
-`nmVaultClaimAudit()` in the approved UI (line 15570) hardcodes:
-
-```js
-supports:{ unlimitedAssetRows:true, selectAny:true, selectAll:true,
-           perAssetPercentages:[25,50,75,100], mixedPercentages:true,
-           erc721WholeOnly:true, listedVaultLock:true,
-           buyerVisibleContents:true, purchaseTransfersVault:true,
-           stringBigIntMath:true }
-```
-
-`listedVaultLock: true` was false on chain when this was written; it is **now genuinely
-true**, since the fixed `NexPassAccount` is deployed. The percentage-claim capabilities
-still have no backend or contract path.
-
-That correction does not rehabilitate the object. It reports capability rather than
-measuring it, so it happened to become right rather than being made right, and it must
-still not be used as evidence.
-
-Line 15568 wraps `completeSelectedMarketPurchase` to locally mutate `ownedPasses`
-and clear `l.vault` via `setTimeout(apply, 0)` — a client-side simulation of vault
-transfer on purchase.
+The former hardcoded `nmVaultClaimAudit()` capability object and the
+`completeSelectedMarketPurchase`/`setTimeout` local Vault transfer simulation have
+been deleted. Neither is evidence. Current Vault claim evidence comes from API builder
+tests, contract tests, and confirmed wallet receipts; public Base Sepolia claim
+transactions are still outstanding.

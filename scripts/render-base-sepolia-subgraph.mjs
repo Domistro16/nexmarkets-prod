@@ -16,11 +16,12 @@ const sources = {
   NexListingRegistry: ['NexListingRegistry', deployment.contracts.NexListingRegistry.deploymentBlock],
   NexRoyaltyVault: ['NexRoyaltyVault', deployment.contracts.NexRoyaltyVault.deploymentBlock],
   NexTBAResolver: ['NexTBAResolver', deployment.contracts.NexTBAResolver.deploymentBlock],
+  NexRewardDistributor: ['NexRewardDistributor', deployment.contracts.NexRewardDistributor.deploymentBlock],
   ERC6551Registry: [null, deployment.contracts.NexPassFactory.deploymentBlock],
   Seaport16: [null, deployment.contracts.NexListingRegistry.deploymentBlock]
 };
 
-let manifest = await readFile(resolve(sourceDir, 'subgraph.yaml'), 'utf8');
+let manifest = await readFile(resolve(sourceDir, 'subgraph.base-sepolia.yaml'), 'utf8');
 manifest = manifest
   .replace('NexMarkets V1 Robinhood testnet indexed read model', 'NexMarkets V1 Base Sepolia indexed read model')
   .replaceAll('network: robinhood-testnet', 'network: base-sepolia');

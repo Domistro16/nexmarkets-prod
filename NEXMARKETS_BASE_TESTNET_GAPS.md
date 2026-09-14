@@ -55,7 +55,7 @@ and any Edition-wide cap both bind; oversized batches cannot straddle the cap.
 
 ## S2 — Product promise unbacked
 
-### S2-01 · Reward Policy / Reward Cycle model · IMPLEMENTED, UNDEPLOYED
+### S2-01 · Reward Policy / Reward Cycle model · FIXED AND DEPLOYED
 
 The missing subsystem now exists at every layer that does not require a live address.
 
@@ -90,29 +90,32 @@ Subgraph entities `RewardPolicy` / `RewardCycle` / `RewardClaim` and API reads
 are wired. Prepare endpoints exist for publish / fund / claim / retire; fund notes
 that the Builder must `approve` `amountPerPass × eligibleSupply` first.
 
-**Still required to close on chain:** deploy `NexRewardDistributor` via the existing
-`--unfrozen-dev` planner path (it is already in `plan-v1-deployment.mjs`), fill the
-zero-address datasource in `subgraph.base-sepolia.yaml`, set
-`NEX_REWARD_DISTRIBUTOR_ADDRESS`, and point the dashboard at funded cycles only.
-The frontend still reads reward *rules* from the create payload, which is correct
-until a cycle is funded.
+**Closed on chain 2026-09-14.** `NexRewardDistributor` is deployed at
+`0x2453c5FCef787D076ff21614E54C50344FD1EB91` as the eleventh contract in the
+coherent Base Sepolia graph. The Goldsky `1.0.1` datasource was redeployed from block
+`46,827,960`, reached Active/100% synced with no indexing errors, and the API/browser
+configuration now exposes the live address. The dashboard still needs a funded-cycle
+surface; that is a presentation gap, not an absent reward authority.
 
-### S2-02 · Multi-asset Vault claim has no product path · MOCKED
+### S2-02 · Multi-asset Vault claim has no product path · IMPLEMENTED
 
-The UI advertises per-asset 25/50/75/100% selection, mixed percentages, select-all and
-ERC-721 whole-only. There is no claim endpoint in the 38-endpoint API and no claim
-transaction builder in `v2-app.mjs`. The only "Vault" flows wired are the Builder
-**Royalty** Vault withdrawal and Advantage redemption — different features.
+The UI's per-asset 25/50/75/100% selection now feeds
+`POST /v1/vault/claims/prepare`. The API resolves the exact TBA, verifies current
+ERC-721 Pass ownership against the authenticated wallet, checks deployed-account code,
+calls `isVaultLocked()`, verifies each ERC-20 balance or ERC-721 owner, and emits one
+owner-signed TBA `execute` transaction per selected asset. ERC-20 quantities cross the
+API boundary only as decimal-free uint256 base-unit strings; ERC-721s are whole-only.
 
 The journey's step 7 partial claim worked only because the test called
 `IERC6551Executable.execute()` directly.
 
-**Required to close:** a Vault claim transaction builder that derives the TBA, batches
-per-asset transfers with BigInt base-unit math, derives controls from token standard
-(no percentages for ERC-721), simulates before signing, and refreshes from chain after
-confirmation. Must respect `isVaultLocked()`.
+If the counterfactual account has not been created, the endpoint first prepares the
+permissionless resolver `createAccount` call, then revalidates lock and balances after
+confirmation. The browser waits for every receipt and refreshes from authority rather
+than mutating a local balance. Contract-level multi-asset journey coverage remains on
+the fork; no public Base Sepolia holder claim has yet produced explorer evidence.
 
-### S2-03 · Frontend asserts capabilities it does not measure · S2
+### S2-03 · Frontend asserts capabilities it does not measure · CLOSED
 
 `nmVaultClaimAudit()` (approved UI line 15570) returns a hardcoded `supports` object
 including `listedVaultLock: true` — false on chain until this session — plus
@@ -123,9 +126,10 @@ Line 15568 wraps `completeSelectedMarketPurchase` to locally mutate `ownedPasses
 copy `listingVault(l)` onto the owned Pass, clear `l.vault`, and re-render via
 `setTimeout(apply, 0)` — a client-side simulation of vault transfer on purchase.
 
-**Required to close:** delete the hardcoded `supports` object or compute each field
-from live authority; remove the local purchase mutation in favour of post-confirmation
-chain reads.
+**Closed 2026-09-14.** The hardcoded `nmVaultClaimAudit()` attestation and the
+`completeSelectedMarketPurchase`/`setTimeout` local Vault transfer mutation were
+deleted. The fallback claim handler no longer edits balances or reports success; the
+live runtime reports completion only after confirmed wallet transactions.
 
 ---
 
@@ -161,7 +165,7 @@ still needs an explicit V2 release decision and a `FROZEN_V2_*` re-freeze.
 ### S3-03 · Protocol admin Safe is 1-of-2 · S3 · OPEN
 
 Live read: owners `0x7ec76611…` and `0xD83deFbA…`, **threshold 1**. Either key alone
-controls pause/unpause and the one-time authority slots on all eight ownable contracts.
+controls pause/unpause and the one-time authority slots on all nine ownable contracts.
 `0xD83deFbA…` is also `DEPLOYER_PRIVATE_KEY` in the local plaintext `.env`.
 
 The deployment manifest records `governanceTransition: "RAISE_THRESHOLD_TO_2_PLUS"` as

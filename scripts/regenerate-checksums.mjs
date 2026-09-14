@@ -3,8 +3,9 @@ import { execFileSync } from 'node:child_process';
 import { readFile, writeFile } from 'node:fs/promises';
 
 const root = new URL('../', import.meta.url);
+const excluded = new Set(['SHA256SUMS', 'NEXMARKETS_CHAT_HANDOVER.md']);
 const files = execFileSync('git', ['ls-files','--cached','--others','--exclude-standard'], { cwd: root, encoding: 'utf8' })
-  .split(/\r?\n/).filter((file) => file && file !== 'SHA256SUMS').sort();
+  .split(/\r?\n/).filter((file) => file && !excluded.has(file)).sort();
 const lines = [];
 for (const file of files) {
   const content = await readFile(new URL(file, root), 'utf8');

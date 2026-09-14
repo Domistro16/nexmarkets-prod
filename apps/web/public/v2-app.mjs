@@ -434,7 +434,8 @@ function ownedModel(raw, pass, edition) {
     royaltyBps: number(pass?.royalty_bps ?? raw?.royalty_bps),
     advantages,
     listed: Boolean(pass?.listed || raw?.listing?.status === 'ACTIVE'),
-    tokenBoundAccount: pass?.token_bound_account || null
+    tokenBoundAccount: pass?.token_bound_account || null,
+    vault: Array.isArray(pass?.vault) ? pass.vault : (Array.isArray(raw?.vault) ? raw.vault : [])
   };
 }
 function emptyDashboard(projects) {
@@ -3349,6 +3350,69 @@ async function liveDashWithdrawRoyalty() {
     window.openDashModal?.(`Withdraw ${formatUnits(claim.amount_usdg ?? claim.amountUsdg ?? claim.amount ?? 0)} ${activeSettlementSymbol()}`, '<p class="dash-modal-copy">Your wallet will sign a withdrawal for this released Royalty Vault claim.</p>', 'Withdraw', () => { actionState('dashboard', 'Preparing withdrawal', 'The API is checking the claim release and builder ownership.'); requireSession().then(() => mutation('/v1/royalties/withdraw', { orderHash })).then((response) => submitPrepared(response, { label: 'Royalty withdrawal' })).then((result) => actionSuccess('dashboard', 'Royalty withdrawal', result)).catch((error) => actionError('dashboard', error)); });
   } catch (error) { actionError('dashboard', error); }
 }
+
+function selectedVaultClaimAssets() {
+  const selected = typeof window.selectedEntries === 'function' ? window.selectedEntries() : [];
+  if (!Array.isArray(selected) || selected.length === 0) throw new Error('VAULT_ASSETS_REQUIRED');
+  return selected.map(({ a: asset, pct }) => {
+    const standard = String(asset?.standard || '').toUpperCase().replace('-', '');
+    const tokenAddress = address(asset?.tokenAddress || asset?.contractAddress || asset?.contract || asset?.address);
+    if (!tokenAddress) throw new Error(`VAULT_ASSET_ADDRESS_REQUIRED_${String(asset?.token || asset?.name || '').toUpperCase()}`);
+    if (standard === 'ERC721') {
+      if (Number(pct) !== 100 || asset?.tokenId == null || !/^\d+$/.test(String(asset.tokenId))) throw new Error('ERC721_WHOLE_ASSET_REQUIRED');
+      return { standard, tokenAddress, tokenId: String(asset.tokenId), amount: '1' };
+    }
+    if (standard !== 'ERC20') throw new Error('VAULT_ASSET_STANDARD_UNSUPPORTED');
+    const decimals = Number(asset?.decimals);
+    if (!Number.isInteger(decimals) || decimals < 0 || decimals > 36) throw new Error('VAULT_ASSET_DECIMALS_INVALID');
+    const total = parseUnits(String(asset?.amount ?? '').replace(/,/g, ''), decimals);
+    const percentageValue = Number(pct);
+    if (!Number.isInteger(percentageValue) || percentageValue < 1 || percentageValue > 100) throw new Error('VAULT_CLAIM_PERCENTAGE_INVALID');
+    const percentage = BigInt(percentageValue);
+    const amount = total * percentage / 100n;
+    if (amount <= 0n) throw new Error('VAULT_ASSET_AMOUNT_INVALID');
+    return { standard, tokenAddress, amount: amount.toString() };
+  });
+}
+
+async function liveVaultConfirmClaim() {
+  let confirmed = 0;
+  try {
+    const key = window.__nmMIActiveVaultKey;
+    if (!key) throw new Error('OWNED_PASS_REQUIRED');
+    const assets = selectedVaultClaimAssets();
+    actionState('dashboard', 'Preparing Vault claim', `Checking ownership, ${assets.length} asset${assets.length === 1 ? '' : 's'}, balances, and the on-chain listing lock.`);
+    await requireSession();
+    const context = await resolveOwnedPass(key);
+    const payload = { edition: context.pass.edition_address, tokenId: String(context.pass.token_id), assets };
+    let response = await mutation('/v1/vault/claims/prepare', payload);
+    if (response.phase === 'ACCOUNT_CREATION_REQUIRED') {
+      showRuntimeBanner('Create this Pass Account in your wallet before claiming its assets');
+      const created = await submitPrepared(response, { label: 'Pass Account creation' });
+      await wallet.waitForReceipt(created.txHash);
+      response = await mutation('/v1/vault/claims/prepare', payload);
+    }
+    if (response.phase !== 'CLAIM_READY' || !Array.isArray(response.claims) || response.claims.length !== assets.length) throw new Error('VAULT_CLAIM_PREPARATION_INCOMPLETE');
+    const results = [];
+    for (let index = 0; index < response.claims.length; index += 1) {
+      showRuntimeBanner(`Confirm Vault claim ${index + 1} of ${response.claims.length} in your wallet`);
+      const result = await submitPrepared(response.claims[index], { label: `Vault claim ${index + 1}/${response.claims.length}` });
+      await wallet.waitForReceipt(result.txHash);
+      results.push(result);
+      confirmed += 1;
+    }
+    await hydrate();
+    const links = results.map((result, index) => {
+      const href = explorerTransactionUrl(result.txHash);
+      return `<div class="nm-vault-success-row"><span>Asset ${index + 1}</span><b>${href ? `<a href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">${escapeHtml(short(result.txHash))} ↗</a>` : escapeHtml(short(result.txHash))}</b></div>`;
+    }).join('');
+    window.openDashModal?.('Claim complete', `<div class="nm-vault-success"><div class="nm-vault-success-mark">✓</div><h4>Claim complete</h4><p>${results.length} on-chain Vault transaction${results.length === 1 ? '' : 's'} confirmed. The indexed Pass view will update after Goldsky catches up.</p><div class="nm-vault-success-list">${links}</div></div>`, 'Done', () => window.closeDashModal?.());
+  } catch (error) {
+    if (confirmed > 0) await hydrate().catch(() => {});
+    actionError('dashboard', confirmed > 0 ? new Error(`VAULT_CLAIM_PARTIAL_${confirmed}_CONFIRMED: ${error.message}`) : error);
+  }
+}
+
 async function createEditionOnchain(input = {}) {
   await requireConnectedWallet();
   const factory = address(activeContracts().passFactory);
@@ -3520,6 +3584,8 @@ function installLiveActions() {
   window.dashUsePassAdvantage = (key) => liveOwnedUse(key).catch((error) => actionError('dashboard', error));
   window.nmOwnedUse = window.dashUsePassAdvantage;
   window.dashWithdrawRoyalty = () => liveDashWithdrawRoyalty().catch((error) => actionError('dashboard', error));
+  window.nmVaultConfirmClaim = liveVaultConfirmClaim;
+  try { delete window.nmVaultClaimAudit; } catch { window.nmVaultClaimAudit = undefined; }
   window.dashManageLaunch = liveManageLaunch;
   window.nmMintSignIn = window.openProjectMint;
   window.nmMintConnectWallet = window.openProjectMint;

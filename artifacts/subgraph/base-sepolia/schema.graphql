@@ -33,6 +33,7 @@ type Edition @entity(immutable: false) {
   terms: [TermsVersion!]! @derivedFrom(field: "edition")
   passes: [Pass!]! @derivedFrom(field: "edition")
   listings: [Listing!]! @derivedFrom(field: "edition")
+  rewardPolicies: [RewardPolicy!]! @derivedFrom(field: "edition")
 }
 
 type TermsVersion @entity(immutable: false) {
@@ -45,6 +46,10 @@ type TermsVersion @entity(immutable: false) {
   previewStartsAt: BigInt!
   mintStartsAt: BigInt!
   mintEndsAt: BigInt!
+  allowlistRoot: Bytes
+  allowlistEndsAt: BigInt
+  allowlistSupply: BigInt
+  walletAllowance: BigInt
   primaryRecipient: Bytes!
   royaltyReceiver: Bytes!
   royaltyBps: BigInt!
@@ -71,6 +76,7 @@ type Pass @entity(immutable: false) {
   tba: TokenBoundAccount
   advantages: [AdvantageState!]! @derivedFrom(field: "pass")
   transfers: [PassTransfer!]! @derivedFrom(field: "pass")
+  rewardClaims: [RewardClaim!]! @derivedFrom(field: "pass")
 }
 
 type PassTransfer @entity(immutable: true) {
@@ -213,6 +219,60 @@ type TokenBoundAccount @entity(immutable: false) {
   createdBlock: BigInt!
   createdTimestamp: BigInt!
   createdTransactionHash: Bytes!
+}
+
+type RewardPolicy @entity(immutable: false) {
+  id: ID!
+  policyId: Bytes!
+  edition: Edition!
+  publisher: Bytes!
+  source: String!
+  sourceCode: Int!
+  allocationBps: Int!
+  rewardAsset: Bytes!
+  ongoing: Boolean!
+  endsAt: BigInt!
+  status: String!
+  publishedBlock: BigInt!
+  publishedTimestamp: BigInt!
+  publishedTransactionHash: Bytes!
+  retiredBlock: BigInt
+  retiredTimestamp: BigInt
+  retiredTransactionHash: Bytes
+  cycles: [RewardCycle!]! @derivedFrom(field: "policy")
+}
+
+type RewardCycle @entity(immutable: false) {
+  id: ID!
+  cycleId: Bytes!
+  policy: RewardPolicy!
+  edition: Edition!
+  asset: Bytes!
+  amountPerPass: BigInt!
+  eligibleSupply: BigInt!
+  fundedAmount: BigInt!
+  claimedAmount: BigInt!
+  claimedCount: BigInt!
+  snapshotBlock: BigInt!
+  fundedAt: BigInt!
+  fundedBlock: BigInt!
+  fundedTimestamp: BigInt!
+  fundedTransactionHash: Bytes!
+  claims: [RewardClaim!]! @derivedFrom(field: "cycle")
+}
+
+type RewardClaim @entity(immutable: true) {
+  id: ID!
+  cycle: RewardCycle!
+  edition: Edition!
+  tokenId: BigInt!
+  pass: Pass
+  passVault: Bytes!
+  asset: Bytes!
+  amount: BigInt!
+  blockNumber: BigInt!
+  timestamp: BigInt!
+  transactionHash: Bytes!
 }
 
 type SettlementEvidence @entity(immutable: true) {

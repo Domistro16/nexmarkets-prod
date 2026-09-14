@@ -3,13 +3,27 @@
 **Session date:** 2026-09-14
 **Repo:** `C:\Users\USER\NEXMARKETS\nexmarkets-production` (git remote `Domistro16/nexmarkets-prod`, branch `main`)
 **Status at handover:** audit + contract fixes complete and tested; deployment blocked pending a human decision.
-**Status now (updated 2026-09-14, later session):** **deployed, wired, verified, and pushed.**
+**Status now (updated 2026-09-14, latest session):** **11-contract reward graph deployed,
+wired, verified and indexed; multi-asset Vault claim path implemented.** Latest work is
+local until explicitly pushed.
 
 Read this top to bottom before touching anything.
 
 ---
 
 ## 0a. UPDATE — what changed after this handover was written
+
+### Latest completion note
+
+The later options recorded in §7/§9 are now closed: reward work was committed,
+`NexRewardDistributor` was deployed at `0x2453c5FCef787D076ff21614E54C50344FD1EB91`,
+all 11 coherent CREATE2 contracts and six wires were verified, and Goldsky `1.0.1` was
+redeployed Active/100% synced from block `46,827,960`. S2-02 now has an authenticated
+claim endpoint plus a `v2-app.mjs` wallet flow with BigInt base units, ERC-721
+whole-only enforcement, balance/owner checks, `isVaultLocked()` fail-closed behavior,
+and counterfactual account creation. The hardcoded claim audit and local purchase
+simulation were removed. Treat the older “not deployed” / “mocked” passages below as
+historical chronology; the current status is in the gap register and final-status file.
 
 Both open decisions in §9 were resolved, and **neither turned out to be a real blocker.**
 
@@ -56,7 +70,7 @@ record.
 Asked as a 4-part question at session start; answers were:
 
 1. **Frontend authority** = `NEXMARKETS_HOMEPAGE_DISCOVER_MARKET_COLLECTIBLE_ROTATION_PASS_TEXT_FIT_UX_FIXED.html`
-   `sha256 4109892076bb332b8a882dc3226f22a9c45bd99a5cb906b05baf6a57bbf55e23`
+   `sha256 61d808e570d0da8834471b2b24e620dd9fc28aebb29628171126e307f54f359d`
    (The file named in the original brief, `NEXMARKETS_HOMEPAGE_HERO_LOAD_OPTIMIZED_FINAL.html`, **does not exist** anywhere in the workspace.)
 2. **Contract fixes** = "Fix, test, and redeploy to Sepolia" — fixes and tests are done; redeploy is blocked, see §6.
 3. **E2E method** = Anvil/forge fork with time-warp (not a 48h public run).

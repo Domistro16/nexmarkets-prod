@@ -40,6 +40,10 @@ const FACTORY_CONFIG_TUPLE = 'tuple(string name,string symbol,address initialOwn
 const FACTORY_LEGACY_INTERFACE = new Interface([`function createEdition(${FACTORY_CONFIG_TUPLE} config,address publisher,bytes32 salt) returns(address)`]);
 const SAFE_EXEC_INTERFACE = new Interface(['function execTransaction(address to,uint256 value,bytes data,uint8 operation,uint256 safeTxGas,uint256 baseGas,uint256 gasPrice,address gasToken,address refundReceiver,bytes signatures) payable returns(bool)']);
 const SAFE_HASH_INTERFACE = new Interface(['function getTransactionHash(address to,uint256 value,bytes data,uint8 operation,uint256 safeTxGas,uint256 baseGas,uint256 gasPrice,address gasToken,address refundReceiver,uint256 nonce) view returns(bytes32)']);
+const VAULT_RESOLVER_INTERFACE = new Interface(['function account(address edition,uint256 tokenId) view returns(address)', 'function createAccount(address edition,uint256 tokenId) returns(address)']);
+const VAULT_ACCOUNT_INTERFACE = new Interface(['function isVaultLocked() view returns(bool)', 'function execute(address to,uint256 value,bytes data,uint8 operation) payable returns(bytes)']);
+const ERC20_VAULT_INTERFACE = new Interface(['function balanceOf(address account) view returns(uint256)', 'function transfer(address to,uint256 amount) returns(bool)']);
+const ERC721_VAULT_INTERFACE = new Interface(['function ownerOf(uint256 tokenId) view returns(address)', 'function safeTransferFrom(address from,address to,uint256 tokenId)']);
 const SAFE_NONCE_SELECTOR = '0xaffed0e0';
 const SAFE_EXECUTION_SUCCESS_TOPIC = id('ExecutionSuccess(bytes32,uint256)').toLowerCase();
 // Event topic hashes use the canonical ABI signature without the `indexed`
@@ -68,6 +72,127 @@ export function predictEditionAddress({ factoryAddress, name, symbol, initialOwn
 
 function quantity(value, label) {
   try { return Number(BigInt(value)); } catch { throw Object.assign(new Error(`${label}_REQUIRED`), { status: 400 }); }
+}
+
+const MAX_UINT256 = (1n << 256n) - 1n;
+function vaultUint(value, label, { positive = false, requireString = false } = {}) {
+  if (requireString && typeof value !== 'string') throw Object.assign(new Error(`${label}_BASE_UNITS_REQUIRED`), { status: 400 });
+  if (!/^\d+$/.test(String(value ?? ''))) throw Object.assign(new Error(`${label}_INVALID`), { status: 400 });
+  const parsed = BigInt(value);
+  if ((positive && parsed === 0n) || parsed > MAX_UINT256) throw Object.assign(new Error(`${label}_INVALID`), { status: 400 });
+  return parsed;
+}
+function vaultCallError(code, status = 409) { return Object.assign(new Error(code), { status }); }
+async function decodedVaultCall(chain, contract, iface, functionName, args, failureCode) {
+  try {
+    const result = await chain.ethCall(contract, iface.encodeFunctionData(functionName, args));
+    return iface.decodeFunctionResult(functionName, result);
+  } catch {
+    throw vaultCallError(failureCode);
+  }
+}
+
+/**
+ * Validate an exact Pass Vault claim against chain state and build the owner-
+ * signed ERC-6551 calls. Amounts are accepted and returned only as uint256
+ * base-unit strings; no floating-point conversion occurs in this boundary.
+ */
+export async function buildVaultClaimPlan({ chain, resolverAddress, edition, tokenId, walletAddress, assets }) {
+  if (!chain?.ethCall || !chain?.getCode) throw vaultCallError('CHAIN_RPC_REQUIRED', 503);
+  if (!isAddress(resolverAddress ?? '')) throw vaultCallError('TBA_RESOLVER_CONFIGURATION_REQUIRED', 503);
+  if (!isAddress(edition ?? '') || !isAddress(walletAddress ?? '')) throw vaultCallError('PASS_IDENTITY_REQUIRED', 400);
+  if (!Array.isArray(assets) || assets.length === 0 || assets.length > 50) throw vaultCallError('VAULT_ASSETS_REQUIRED', 400);
+  for (const source of assets) {
+    const standard = String(source?.standard ?? '').toUpperCase().replace('-', '');
+    const tokenAddress = source?.tokenAddress ?? source?.contractAddress ?? source?.contract ?? source?.address;
+    if (!['ERC20', 'ERC721'].includes(standard)) throw vaultCallError('VAULT_ASSET_STANDARD_UNSUPPORTED', 400);
+    if (!isAddress(tokenAddress ?? '')) throw vaultCallError('VAULT_ASSET_ADDRESS_REQUIRED', 400);
+    if (standard === 'ERC20') vaultUint(source.amount, 'VAULT_ASSET_AMOUNT', { positive: true, requireString: true });
+    else {
+      vaultUint(source.tokenId, 'VAULT_ASSET_TOKEN_ID');
+      if (source.amount !== undefined && String(source.amount) !== '1') throw vaultCallError('ERC721_WHOLE_ASSET_REQUIRED', 400);
+    }
+  }
+
+  const canonicalEdition = getAddress(edition);
+  const canonicalWallet = getAddress(walletAddress);
+  const passTokenId = vaultUint(tokenId, 'PASS_TOKEN_ID');
+  const [owner] = await decodedVaultCall(chain, canonicalEdition, ERC721_VAULT_INTERFACE, 'ownerOf', [passTokenId], 'PASS_OWNER_UNAVAILABLE');
+  if (getAddress(owner) !== canonicalWallet) throw vaultCallError('PASS_OWNER_SESSION_MISMATCH', 403);
+  const [resolvedAccount] = await decodedVaultCall(chain, getAddress(resolverAddress), VAULT_RESOLVER_INTERFACE, 'account', [canonicalEdition, passTokenId], 'PASS_VAULT_RESOLUTION_FAILED');
+  const vaultAddress = getAddress(resolvedAccount);
+  let code;
+  try { code = await chain.getCode(vaultAddress); }
+  catch { throw vaultCallError('PASS_VAULT_CODE_UNAVAILABLE'); }
+  if (!code || code === '0x' || /^0x0*$/.test(code)) {
+    return {
+      phase: 'ACCOUNT_CREATION_REQUIRED',
+      vaultAddress,
+      accountCreation: {
+        to: getAddress(resolverAddress),
+        data: VAULT_RESOLVER_INTERFACE.encodeFunctionData('createAccount', [canonicalEdition, passTokenId]),
+        value: '0x0'
+      },
+      transfers: []
+    };
+  }
+
+  const [locked] = await decodedVaultCall(chain, vaultAddress, VAULT_ACCOUNT_INTERFACE, 'isVaultLocked', [], 'VAULT_LOCK_STATUS_UNAVAILABLE');
+  if (locked) throw vaultCallError('PASS_VAULT_LOCKED_WHILE_LISTED', 409);
+
+  const seen = new Set();
+  const transfers = [];
+  for (let index = 0; index < assets.length; index += 1) {
+    const source = assets[index] ?? {};
+    const standard = String(source.standard ?? '').toUpperCase().replace('-', '');
+    if (!['ERC20', 'ERC721'].includes(standard)) throw vaultCallError('VAULT_ASSET_STANDARD_UNSUPPORTED', 400);
+    const tokenAddress = source.tokenAddress ?? source.contractAddress ?? source.contract ?? source.address;
+    if (!isAddress(tokenAddress ?? '')) throw vaultCallError('VAULT_ASSET_ADDRESS_REQUIRED', 400);
+    const token = getAddress(tokenAddress);
+    let assetTokenId = null;
+    let amount;
+    let tokenData;
+    let identity;
+
+    if (standard === 'ERC20') {
+      amount = vaultUint(source.amount, 'VAULT_ASSET_AMOUNT', { positive: true, requireString: true });
+      identity = `${standard}:${token.toLowerCase()}`;
+      const [balance] = await decodedVaultCall(chain, token, ERC20_VAULT_INTERFACE, 'balanceOf', [vaultAddress], 'VAULT_ASSET_BALANCE_UNAVAILABLE');
+      if (balance < amount) throw vaultCallError('VAULT_ASSET_BALANCE_INSUFFICIENT', 409);
+      tokenData = ERC20_VAULT_INTERFACE.encodeFunctionData('transfer', [canonicalWallet, amount]);
+    } else {
+      assetTokenId = vaultUint(source.tokenId, 'VAULT_ASSET_TOKEN_ID');
+      if (source.amount !== undefined && String(source.amount) !== '1') throw vaultCallError('ERC721_WHOLE_ASSET_REQUIRED', 400);
+      amount = 1n;
+      identity = `${standard}:${token.toLowerCase()}:${assetTokenId}`;
+      const [assetOwner] = await decodedVaultCall(chain, token, ERC721_VAULT_INTERFACE, 'ownerOf', [assetTokenId], 'VAULT_ASSET_OWNER_UNAVAILABLE');
+      if (getAddress(assetOwner) !== vaultAddress) throw vaultCallError('VAULT_ASSET_OWNER_MISMATCH', 409);
+      tokenData = ERC721_VAULT_INTERFACE.encodeFunctionData('safeTransferFrom', [vaultAddress, canonicalWallet, assetTokenId]);
+    }
+    if (seen.has(identity)) throw vaultCallError('VAULT_ASSET_DUPLICATE', 400);
+    seen.add(identity);
+    try {
+      const simulation = await chain.ethCall(token, tokenData, 'latest', vaultAddress);
+      if (standard === 'ERC20' && simulation !== '0x') {
+        const [transferred] = ERC20_VAULT_INTERFACE.decodeFunctionResult('transfer', simulation);
+        if (!transferred) throw new Error('ERC20_TRANSFER_FALSE');
+      }
+    } catch {
+      throw vaultCallError('VAULT_ASSET_TRANSFER_SIMULATION_FAILED', 409);
+    }
+    transfers.push({
+      standard,
+      token,
+      tokenId: assetTokenId?.toString() ?? null,
+      amount: amount.toString(),
+      prepared: {
+        to: vaultAddress,
+        data: VAULT_ACCOUNT_INTERFACE.encodeFunctionData('execute', [token, 0n, tokenData, 0]),
+        value: '0x0'
+      }
+    });
+  }
+  return { phase: 'CLAIM_READY', vaultAddress, accountCreation: null, transfers };
 }
 
 // Parse only the canonical Factory event. The receipt and transaction target
@@ -115,6 +240,7 @@ export function productionOrderPolicy(env = process.env) {
     royaltyVault: env.NEX_ROYALTY_VAULT_ADDRESS,
     zone: env.NEX_MARKETS_ZONE_ADDRESS,
     listingRegistry: env.NEX_LISTING_REGISTRY_ADDRESS,
+    tbaResolver: env.NEX_TBA_RESOLVER_ADDRESS,
     seaport: env.SEAPORT_16_ADDRESS ?? '0x0000000000000068F116a894984e2DB1123eB395',
     protocolAdminSafe: env.PROTOCOL_ADMIN_SAFE_ADDRESS,
     transactionTargets: {
@@ -150,18 +276,21 @@ const VERIFIED_TESTNET_POLICIES = Object.freeze({
     NEX_MINT_CONTROLLER_ADDRESS: '0x0ea6F883808447f115C7b6C037902361C365555A',
     NEX_PASS_FACTORY_ADDRESS: '0x957DE0de07D33c9a89c791B876074657a7fFeEb6',
     NEX_LAUNCH_REGISTRY_ADDRESS: '0xeE3C8F330C0B2738201fDb2F1720D06c0D27620d',
-    NEX_ADVANTAGE_REGISTRY_ADDRESS: '0x1e265Fee39d75b5211895820926B4ff77B4f1cDd'
+    NEX_ADVANTAGE_REGISTRY_ADDRESS: '0x1e265Fee39d75b5211895820926B4ff77B4f1cDd',
+    NEX_TBA_RESOLVER_ADDRESS: '0x55b64D8c1f17ba08a39c939D3248E7A2731Fa8b8'
   }),
   'base-sepolia': Object.freeze({
     PROTOCOL_ADMIN_SAFE_ADDRESS: '0xE6D0846e6C0b51C61FdDb593A1914b85181E5783',
     SECONDARY_FEE_RECIPIENT: '0xE6D0846e6C0b51C61FdDb593A1914b85181E5783',
-    NEX_ROYALTY_VAULT_ADDRESS: '0x91bCDfE16D54a697755ceb6e218D1cC799de31Ef',
-    NEX_MARKETS_ZONE_ADDRESS: '0xeAD4f17D5f65bE9D0a2F6367F9E258b04300982a',
-    NEX_LISTING_REGISTRY_ADDRESS: '0x3a1894d0aB2089445814afb7b6ebE98da541Db39',
-    NEX_MINT_CONTROLLER_ADDRESS: '0xdbca332e01aa90E4576b5A3CBB5E12e479BE3a6D',
-    NEX_PASS_FACTORY_ADDRESS: '0x6596aAb23E2085E63c1211D7d66cE22051Ab81dB',
-    NEX_LAUNCH_REGISTRY_ADDRESS: '0x76D3B6F0b14CC1075717cE0BeE71daA91DDE1764',
-    NEX_ADVANTAGE_REGISTRY_ADDRESS: '0x385B81a3539724FACA5c93639e50800D0FE97f23'
+    NEX_ROYALTY_VAULT_ADDRESS: '0xCbf82F765c80446baa753a56C563ED0291374614',
+    NEX_MARKETS_ZONE_ADDRESS: '0x490d55643F2CAf4D5A178FC84cA01792952C8458',
+    NEX_LISTING_REGISTRY_ADDRESS: '0x21C397F20Db8da540d22F798d7EC7f7c16CE9241',
+    NEX_MINT_CONTROLLER_ADDRESS: '0x8de2eD8bCB4216aF0b1a07D65A6dF229677BD758',
+    NEX_PASS_FACTORY_ADDRESS: '0xcF0802892749fAD109c3B841b2a0D922D4DBD6ED',
+    NEX_LAUNCH_REGISTRY_ADDRESS: '0x83125b7a5e8d4e79134D74f8E8b5052a58E054B5',
+    NEX_ADVANTAGE_REGISTRY_ADDRESS: '0x6D4Db1939D322411EdE8970eCB14b729788f75Aa',
+    NEX_TBA_RESOLVER_ADDRESS: '0x6B53e133DA10d456296930c041d17606d9283DaF',
+    NEX_REWARD_DISTRIBUTOR_ADDRESS: '0x2453c5FCef787D076ff21614E54C50344FD1EB91'
   })
 });
 
@@ -177,6 +306,7 @@ function networkPolicyEnv(env, prefix, settlementAddress, seaportAddress, fallba
     NEX_PASS_FACTORY_ADDRESS: 'NEX_PASS_FACTORY_ADDRESS',
     NEX_LAUNCH_REGISTRY_ADDRESS: 'NEX_LAUNCH_REGISTRY_ADDRESS',
     NEX_ADVANTAGE_REGISTRY_ADDRESS: 'NEX_ADVANTAGE_REGISTRY_ADDRESS',
+    NEX_TBA_RESOLVER_ADDRESS: 'NEX_TBA_RESOLVER_ADDRESS',
     NEX_REWARD_DISTRIBUTOR_ADDRESS: 'NEX_REWARD_DISTRIBUTOR_ADDRESS'
   };
   for (const [target, suffix] of Object.entries(mappings)) {
@@ -1079,6 +1209,58 @@ export function createApiServer({
         let data;
         try { data = buildAllowlist(input.addresses); } catch { throw Object.assign(new Error('ALLOWLIST_ADDRESS_INVALID'), { status: 400 }); }
         return json(res, 200, { data, authority: 'DETERMINISTIC_MERKLE_COMMITMENT' });
+      }
+
+      if (req.method === 'POST' && url.pathname === '/v1/vault/claims/prepare') {
+        const input = await readBody(req);
+        const idempotencyKey = req.headers['idempotency-key']?.toString();
+        if (!idempotencyKey || idempotencyKey.length > 128) throw Object.assign(new Error('IDEMPOTENCY_KEY_REQUIRED'), { status: 400 });
+        if (Number(session.chainId) !== Number(chainId)) throw Object.assign(new Error('SESSION_NETWORK_MISMATCH'), { status: 409 });
+        const plan = await buildVaultClaimPlan({
+          chain,
+          resolverAddress: orderPolicy.tbaResolver,
+          edition: input.edition,
+          tokenId: input.tokenId,
+          walletAddress: session.walletAddress,
+          assets: input.assets
+        });
+        const derivedKey = (part) => `vault:${createHash('sha256').update(`${idempotencyKey}:${part}`).digest('hex')}`;
+        if (plan.phase === 'ACCOUNT_CREATION_REQUIRED') {
+          const prepared = plan.accountCreation;
+          const transaction = await store.prepareTransaction({
+            accountId: session.accountId,
+            walletAddress: session.walletAddress,
+            chainId: session.chainId,
+            intentType: 'VAULT_ACCOUNT_CREATE',
+            intentId: `${input.edition}:${input.tokenId}`,
+            idempotencyKey: derivedKey('account'),
+            correlationId,
+            requestId,
+            toAddress: prepared.to,
+            calldata: prepared.data
+          });
+          await store.recordAudit?.({ accountId: session.accountId, walletAddress: session.walletAddress, action: 'TRANSACTION_PREPARED', objectType: 'CHAIN_TRANSACTION', objectId: transaction.id, requestId, correlationId, metadata: { intentType: 'VAULT_ACCOUNT_CREATE', vaultAddress: plan.vaultAddress } });
+          return json(res, 201, { phase: plan.phase, vaultAddress: plan.vaultAddress, transaction, prepared, claims: [], walletMustSign: true, serverCustodiesKey: false });
+        }
+        const claims = [];
+        for (let index = 0; index < plan.transfers.length; index += 1) {
+          const transfer = plan.transfers[index];
+          const transaction = await store.prepareTransaction({
+            accountId: session.accountId,
+            walletAddress: session.walletAddress,
+            chainId: session.chainId,
+            intentType: 'VAULT_CLAIM',
+            intentId: `${input.edition}:${input.tokenId}:${transfer.standard}:${transfer.token}:${transfer.tokenId ?? ''}`,
+            idempotencyKey: derivedKey(`${index}:${transfer.standard}:${transfer.token}:${transfer.tokenId ?? ''}`),
+            correlationId,
+            requestId,
+            toAddress: transfer.prepared.to,
+            calldata: transfer.prepared.data
+          });
+          await store.recordAudit?.({ accountId: session.accountId, walletAddress: session.walletAddress, action: 'TRANSACTION_PREPARED', objectType: 'CHAIN_TRANSACTION', objectId: transaction.id, requestId, correlationId, metadata: { intentType: 'VAULT_CLAIM', vaultAddress: plan.vaultAddress, standard: transfer.standard, token: transfer.token, tokenId: transfer.tokenId, amount: transfer.amount } });
+          claims.push({ transaction, prepared: transfer.prepared, asset: { standard: transfer.standard, token: transfer.token, tokenId: transfer.tokenId, amount: transfer.amount } });
+        }
+        return json(res, 201, { phase: plan.phase, vaultAddress: plan.vaultAddress, claims, walletMustSign: true, serverCustodiesKey: false });
       }
 
       if (req.method === 'POST' && INTENT_TYPE[url.pathname]) {

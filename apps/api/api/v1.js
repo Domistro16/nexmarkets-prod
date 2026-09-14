@@ -8683,6 +8683,12 @@ var init_notification = __esm({
 });
 
 // packages/domain/src/transaction-calldata.mjs
+function encodeRewardSource(value) {
+  if (Number.isInteger(value) && value >= 0 && value <= 3) return value;
+  const mapped = REWARD_SOURCE[value];
+  if (mapped == null) throw new Error("REWARD_SOURCE_INVALID");
+  return mapped;
+}
 function buildProtocolCalldata(intentType, input, { walletAddress, idempotencyKey }) {
   const abi = interfaces[intentType];
   if (!abi) throw new Error("UNSUPPORTED_PROTOCOL_INTENT");
@@ -8702,9 +8708,23 @@ function buildProtocolCalldata(intentType, input, { walletAddress, idempotencyKe
   if (intentType === "ADVANTAGE_USE" && input.operation === "REDEEM_AMOUNT") return abi.encodeFunctionData("redeemAmount", [input.edition, input.tokenId, input.advantageId, input.amount, input.useId]);
   if (intentType === "ADVANTAGE_USE" && input.operation === "CONSUME_QUANTITY") return abi.encodeFunctionData("consumeQuantity", [input.edition, input.tokenId, input.advantageId, input.amount, input.useId]);
   if (intentType === "ADVANTAGE_USE" && input.operation === "USE_AMOUNT") return abi.encodeFunctionData("useAmount", [input.edition, input.tokenId, input.advantageId, input.useId]);
+  if (intentType === "REWARD_POLICY_PUBLISH") {
+    return abi.encodeFunctionData("publishPolicy", [input.edition, [
+      encodeRewardSource(input.source),
+      Number(input.allocationBps ?? 0),
+      input.rewardAsset ?? ZeroAddress,
+      Boolean(input.ongoing ?? true),
+      Number(input.endsAt ?? 0)
+    ]]);
+  }
+  if (intentType === "REWARD_CYCLE_FUND") return abi.encodeFunctionData("fundCycle", [input.policyId, input.asset, input.amountPerPass]);
+  if (intentType === "REWARD_CLAIM") {
+    return Array.isArray(input.tokenIds) ? abi.encodeFunctionData("claimMany", [input.cycleId, input.tokenIds]) : abi.encodeFunctionData("claim", [input.cycleId, input.tokenId]);
+  }
+  if (intentType === "REWARD_POLICY_RETIRE") return abi.encodeFunctionData("retirePolicy", [input.policyId]);
   throw new Error("ADVANTAGE_OPERATION_REQUIRED");
 }
-var MINT_REQUEST, interfaces;
+var MINT_REQUEST, interfaces, REWARD_SOURCE;
 var init_transaction_calldata = __esm({
   "packages/domain/src/transaction-calldata.mjs"() {
     init_lib();
@@ -8716,8 +8736,22 @@ var init_transaction_calldata = __esm({
       TERMS_PUBLISH: new Interface(["function publishTerms(address edition,(uint256 activeSupply,uint256 pricePerPass,uint64 previewStartsAt,uint64 mintStartsAt,uint64 mintEndsAt,bytes32 allowlistRoot,uint64 allowlistEndsAt,uint256 allowlistSupply,address primaryRecipient,address royaltyReceiver,uint96 royaltyBps,bytes32 advantagesHash,bytes32 referralTermsHash) terms) returns (bytes32)"]),
       LISTING_CANCEL: new Interface(["function cancelListing(bytes32 orderHash)"]),
       ADVANTAGE_USE: new Interface(["function consumeQuantity(address edition,uint256 tokenId,bytes32 advantageId,uint256 amount,bytes32 useId)", "function redeem(address edition,uint256 tokenId,bytes32 advantageId,bytes32 redemptionId)", "function redeemAmount(address edition,uint256 tokenId,bytes32 advantageId,uint256 amount,bytes32 redemptionId)", "function useAmount(address edition,uint256 tokenId,bytes32 advantageId,bytes32 useId) returns (uint256)"]),
-      ROYALTY_WITHDRAW: new Interface(["function withdraw(bytes32 orderHash)"])
+      ROYALTY_WITHDRAW: new Interface(["function withdraw(bytes32 orderHash)"]),
+      REWARD_POLICY_PUBLISH: new Interface(["function publishPolicy(address edition,(uint8 source,uint16 allocationBps,address rewardAsset,bool ongoing,uint64 endsAt) input) returns (bytes32)"]),
+      REWARD_CYCLE_FUND: new Interface(["function fundCycle(bytes32 policyId,address asset,uint256 amountPerPass) returns (bytes32)"]),
+      REWARD_CLAIM: new Interface(["function claim(bytes32 cycleId,uint256 tokenId) returns (uint256)", "function claimMany(bytes32 cycleId,uint256[] tokenIds) returns (uint256)"]),
+      REWARD_POLICY_RETIRE: new Interface(["function retirePolicy(bytes32 policyId)"])
     };
+    REWARD_SOURCE = Object.freeze({
+      BUILDER_ROYALTY: 0,
+      PRIMARY_SALES: 1,
+      OTHER_BUILDER_REVENUE: 2,
+      BUILDER_FUNDED: 3,
+      royalty: 0,
+      primary: 1,
+      other: 2,
+      manual: 3
+    });
   }
 });
 
@@ -11413,8 +11447,10 @@ var JsonRpcClient = class {
   getStorageAt(address2, slot, block = "latest") {
     return this.call("eth_getStorageAt", [address2, slot, block]);
   }
-  ethCall(to, data, block = "latest") {
-    return this.call("eth_call", [{ to, data }, block]);
+  ethCall(to, data, block = "latest", from = null) {
+    const request = { to, data };
+    if (from) request.from = from;
+    return this.call("eth_call", [request, block]);
   }
 };
 
@@ -11589,6 +11625,45 @@ var SubgraphClient = class {
     if (!listing) return null;
     return normalizeListing(listing);
   }
+  async rewardPolicies(edition) {
+    const data = await this.query(
+      `query($edition:ID!){ rewardPolicies(where:{edition:$edition},orderBy:publishedBlock,orderDirection:desc){ id policyId publisher source sourceCode allocationBps rewardAsset ongoing endsAt status publishedTimestamp cycles(orderBy:fundedBlock,orderDirection:desc){ id cycleId asset amountPerPass eligibleSupply fundedAmount claimedAmount claimedCount snapshotBlock fundedAt fundedTimestamp } } }`,
+      { edition: lower(edition) }
+    );
+    return (data.rewardPolicies ?? []).map(normalizeRewardPolicy);
+  }
+  async rewardClaims(edition, tokenId) {
+    const data = await this.query(
+      `query($edition:ID!,$tokenId:BigInt!){ rewardClaims(where:{edition:$edition,tokenId:$tokenId},orderBy:timestamp,orderDirection:desc){ id tokenId passVault asset amount timestamp transactionHash cycle { id cycleId asset amountPerPass eligibleSupply fundedAmount claimedAmount } } rewardCycles(where:{edition:$edition},orderBy:fundedBlock,orderDirection:desc){ id cycleId asset amountPerPass eligibleSupply fundedAmount claimedAmount claimedCount snapshotBlock fundedAt policy { id policyId source status } } }`,
+      { edition: lower(edition), tokenId: String(tokenId) }
+    );
+    const claimed = new Set((data.rewardClaims ?? []).map((row) => lower(row.cycle?.id)));
+    const cycles = (data.rewardCycles ?? []).map((cycle) => {
+      const eligible = Number(cycle.eligibleSupply ?? 0);
+      const serial = Number(tokenId);
+      const inRange = serial > 0 && serial <= eligible;
+      return {
+        ...normalizeRewardCycle(cycle),
+        policyId: lower(cycle.policy?.policyId ?? cycle.policy?.id),
+        source: cycle.policy?.source ?? null,
+        policyStatus: cycle.policy?.status ?? null,
+        claimed: claimed.has(lower(cycle.id)),
+        claimable: inRange && !claimed.has(lower(cycle.id))
+      };
+    });
+    return {
+      claims: (data.rewardClaims ?? []).map((row) => ({
+        id: row.id,
+        cycleId: lower(row.cycle?.cycleId ?? row.cycle?.id),
+        passVault: lower(row.passVault),
+        asset: lower(row.asset),
+        amount: row.amount,
+        timestamp: unix(row.timestamp),
+        transactionHash: lower(row.transactionHash)
+      })),
+      cycles
+    };
+  }
 };
 function normalizeTerms(terms) {
   const previewStartsAt = unix(terms.previewStartsAt);
@@ -11603,11 +11678,42 @@ function iso(value) {
 function normalizeListing(listing) {
   return { ...listing, order_hash: lower(listing.orderHash), edition_address: lower(listing.edition.address), token_id: listing.tokenId, seller_address: lower(listing.seller), terms_hash: lower(listing.termsHash), price_usdg: listing.price, royalty_receiver: lower(listing.royaltyReceiver), royalty_bps: listing.royaltyBps, starts_at: unix(listing.startTime), expires_at: unix(listing.expiry), zone_hash: lower(listing.zoneHash), buyer: lower(listing.buyer) };
 }
+function normalizeRewardCycle(cycle) {
+  return {
+    id: lower(cycle.id),
+    cycleId: lower(cycle.cycleId ?? cycle.id),
+    asset: lower(cycle.asset),
+    amountPerPass: cycle.amountPerPass,
+    eligibleSupply: cycle.eligibleSupply,
+    fundedAmount: cycle.fundedAmount,
+    claimedAmount: cycle.claimedAmount,
+    claimedCount: cycle.claimedCount,
+    snapshotBlock: cycle.snapshotBlock,
+    fundedAt: unix(cycle.fundedAt ?? cycle.fundedTimestamp),
+    status: "FUNDED"
+  };
+}
+function normalizeRewardPolicy(policy) {
+  return {
+    id: lower(policy.id),
+    policyId: lower(policy.policyId ?? policy.id),
+    publisher: lower(policy.publisher),
+    source: policy.source,
+    sourceCode: policy.sourceCode,
+    allocationBps: policy.allocationBps,
+    rewardAsset: lower(policy.rewardAsset),
+    ongoing: policy.ongoing,
+    endsAt: unix(policy.endsAt),
+    status: policy.status,
+    publishedAt: unix(policy.publishedTimestamp),
+    cycles: (policy.cycles ?? []).map(normalizeRewardCycle)
+  };
+}
 
 // packages/config/src/networks.mjs
 var PRODUCT_AUTHORITY = Object.freeze({
   file: "NEXMARKETS_HOMEPAGE_DISCOVER_MARKET_COLLECTIBLE_ROTATION_PASS_TEXT_FIT_UX_FIXED.html",
-  sha256: "4109892076bb332b8a882dc3226f22a9c45bd99a5cb906b05baf6a57bbf55e23"
+  sha256: "61d808e570d0da8834471b2b24e620dd9fc28aebb29628171126e307f54f359d"
 });
 var PRIMITIVES = Object.freeze({
   seaport16: "0x0000000000000068F116a894984e2DB1123eB395",
@@ -11858,14 +11964,22 @@ var INTENT_TYPE = Object.freeze({
   "/v1/listings/prepare": "LISTING_CREATE",
   "/v1/listings/cancel": "LISTING_CANCEL",
   "/v1/advantages/consume": "ADVANTAGE_USE",
-  "/v1/royalties/withdraw": "ROYALTY_WITHDRAW"
+  "/v1/royalties/withdraw": "ROYALTY_WITHDRAW",
+  "/v1/rewards/policies/prepare": "REWARD_POLICY_PUBLISH",
+  "/v1/rewards/cycles/prepare": "REWARD_CYCLE_FUND",
+  "/v1/rewards/claim": "REWARD_CLAIM",
+  "/v1/rewards/policies/retire": "REWARD_POLICY_RETIRE"
 });
 var INTENT_SELECTORS = Object.freeze({
   MINT: [id("mint((address,bytes32,address,uint256,bytes32,address,(bytes32,uint8,uint64,uint64,uint256,bytes32)[]))").slice(0, 10), id("mintAllowlisted((address,bytes32,address,uint256,bytes32,address,(bytes32,uint8,uint64,uint64,uint256,bytes32)[]),bytes32[])").slice(0, 10)],
   TERMS_PUBLISH: [id("publishTerms(address,(uint256,uint256,uint64,uint64,uint64,address,address,uint96,bytes32,bytes32))").slice(0, 10), id("publishTerms(address,(uint256,uint256,uint64,uint64,uint64,bytes32,uint64,uint256,address,address,uint96,bytes32,bytes32))").slice(0, 10)],
   LISTING_CANCEL: [id("cancelListing(bytes32)").slice(0, 10)],
   ADVANTAGE_USE: [id("consumeQuantity(address,uint256,bytes32,uint256,bytes32)").slice(0, 10), id("redeem(address,uint256,bytes32,bytes32)").slice(0, 10), id("redeemAmount(address,uint256,bytes32,uint256,bytes32)").slice(0, 10), id("useAmount(address,uint256,bytes32,bytes32)").slice(0, 10)],
-  ROYALTY_WITHDRAW: [id("withdraw(bytes32)").slice(0, 10)]
+  ROYALTY_WITHDRAW: [id("withdraw(bytes32)").slice(0, 10)],
+  REWARD_POLICY_PUBLISH: [id("publishPolicy(address,(uint8,uint16,address,bool,uint64))").slice(0, 10)],
+  REWARD_CYCLE_FUND: [id("fundCycle(bytes32,address,uint256)").slice(0, 10)],
+  REWARD_CLAIM: [id("claim(bytes32,uint256)").slice(0, 10), id("claimMany(bytes32,uint256[])").slice(0, 10)],
+  REWARD_POLICY_RETIRE: [id("retirePolicy(bytes32)").slice(0, 10)]
 });
 var MINT_OPEN_SELECTOR = id("isMintOpen(address,bytes32)").slice(0, 10);
 var ADVANTAGES_DOMAIN = keccak256(toUtf8Bytes("NEXMARKETS_ADVANTAGES_V1"));
@@ -11874,6 +11988,10 @@ var FACTORY_CONFIG_TUPLE = "tuple(string name,string symbol,address initialOwner
 var FACTORY_LEGACY_INTERFACE = new Interface([`function createEdition(${FACTORY_CONFIG_TUPLE} config,address publisher,bytes32 salt) returns(address)`]);
 var SAFE_EXEC_INTERFACE = new Interface(["function execTransaction(address to,uint256 value,bytes data,uint8 operation,uint256 safeTxGas,uint256 baseGas,uint256 gasPrice,address gasToken,address refundReceiver,bytes signatures) payable returns(bool)"]);
 var SAFE_HASH_INTERFACE = new Interface(["function getTransactionHash(address to,uint256 value,bytes data,uint8 operation,uint256 safeTxGas,uint256 baseGas,uint256 gasPrice,address gasToken,address refundReceiver,uint256 nonce) view returns(bytes32)"]);
+var VAULT_RESOLVER_INTERFACE = new Interface(["function account(address edition,uint256 tokenId) view returns(address)", "function createAccount(address edition,uint256 tokenId) returns(address)"]);
+var VAULT_ACCOUNT_INTERFACE = new Interface(["function isVaultLocked() view returns(bool)", "function execute(address to,uint256 value,bytes data,uint8 operation) payable returns(bytes)"]);
+var ERC20_VAULT_INTERFACE = new Interface(["function balanceOf(address account) view returns(uint256)", "function transfer(address to,uint256 amount) returns(bool)"]);
+var ERC721_VAULT_INTERFACE = new Interface(["function ownerOf(uint256 tokenId) view returns(address)", "function safeTransferFrom(address from,address to,uint256 tokenId)"]);
 var SAFE_NONCE_SELECTOR = "0xaffed0e0";
 var SAFE_EXECUTION_SUCCESS_TOPIC = id("ExecutionSuccess(bytes32,uint256)").toLowerCase();
 var EDITION_CREATED_TOPIC = id("EditionCreated(address,bytes32,address,bytes32,address,address,uint32,bytes32)").toLowerCase();
@@ -11883,6 +12001,121 @@ function quantity(value, label) {
   } catch {
     throw Object.assign(new Error(`${label}_REQUIRED`), { status: 400 });
   }
+}
+var MAX_UINT256 = (1n << 256n) - 1n;
+function vaultUint(value, label, { positive = false, requireString = false } = {}) {
+  if (requireString && typeof value !== "string") throw Object.assign(new Error(`${label}_BASE_UNITS_REQUIRED`), { status: 400 });
+  if (!/^\d+$/.test(String(value ?? ""))) throw Object.assign(new Error(`${label}_INVALID`), { status: 400 });
+  const parsed = BigInt(value);
+  if (positive && parsed === 0n || parsed > MAX_UINT256) throw Object.assign(new Error(`${label}_INVALID`), { status: 400 });
+  return parsed;
+}
+function vaultCallError(code, status = 409) {
+  return Object.assign(new Error(code), { status });
+}
+async function decodedVaultCall(chain, contract, iface, functionName, args, failureCode) {
+  try {
+    const result = await chain.ethCall(contract, iface.encodeFunctionData(functionName, args));
+    return iface.decodeFunctionResult(functionName, result);
+  } catch {
+    throw vaultCallError(failureCode);
+  }
+}
+async function buildVaultClaimPlan({ chain, resolverAddress, edition, tokenId, walletAddress, assets }) {
+  if (!chain?.ethCall || !chain?.getCode) throw vaultCallError("CHAIN_RPC_REQUIRED", 503);
+  if (!isAddress(resolverAddress ?? "")) throw vaultCallError("TBA_RESOLVER_CONFIGURATION_REQUIRED", 503);
+  if (!isAddress(edition ?? "") || !isAddress(walletAddress ?? "")) throw vaultCallError("PASS_IDENTITY_REQUIRED", 400);
+  if (!Array.isArray(assets) || assets.length === 0 || assets.length > 50) throw vaultCallError("VAULT_ASSETS_REQUIRED", 400);
+  for (const source of assets) {
+    const standard = String(source?.standard ?? "").toUpperCase().replace("-", "");
+    const tokenAddress = source?.tokenAddress ?? source?.contractAddress ?? source?.contract ?? source?.address;
+    if (!["ERC20", "ERC721"].includes(standard)) throw vaultCallError("VAULT_ASSET_STANDARD_UNSUPPORTED", 400);
+    if (!isAddress(tokenAddress ?? "")) throw vaultCallError("VAULT_ASSET_ADDRESS_REQUIRED", 400);
+    if (standard === "ERC20") vaultUint(source.amount, "VAULT_ASSET_AMOUNT", { positive: true, requireString: true });
+    else {
+      vaultUint(source.tokenId, "VAULT_ASSET_TOKEN_ID");
+      if (source.amount !== void 0 && String(source.amount) !== "1") throw vaultCallError("ERC721_WHOLE_ASSET_REQUIRED", 400);
+    }
+  }
+  const canonicalEdition = getAddress(edition);
+  const canonicalWallet = getAddress(walletAddress);
+  const passTokenId = vaultUint(tokenId, "PASS_TOKEN_ID");
+  const [owner] = await decodedVaultCall(chain, canonicalEdition, ERC721_VAULT_INTERFACE, "ownerOf", [passTokenId], "PASS_OWNER_UNAVAILABLE");
+  if (getAddress(owner) !== canonicalWallet) throw vaultCallError("PASS_OWNER_SESSION_MISMATCH", 403);
+  const [resolvedAccount] = await decodedVaultCall(chain, getAddress(resolverAddress), VAULT_RESOLVER_INTERFACE, "account", [canonicalEdition, passTokenId], "PASS_VAULT_RESOLUTION_FAILED");
+  const vaultAddress = getAddress(resolvedAccount);
+  let code;
+  try {
+    code = await chain.getCode(vaultAddress);
+  } catch {
+    throw vaultCallError("PASS_VAULT_CODE_UNAVAILABLE");
+  }
+  if (!code || code === "0x" || /^0x0*$/.test(code)) {
+    return {
+      phase: "ACCOUNT_CREATION_REQUIRED",
+      vaultAddress,
+      accountCreation: {
+        to: getAddress(resolverAddress),
+        data: VAULT_RESOLVER_INTERFACE.encodeFunctionData("createAccount", [canonicalEdition, passTokenId]),
+        value: "0x0"
+      },
+      transfers: []
+    };
+  }
+  const [locked2] = await decodedVaultCall(chain, vaultAddress, VAULT_ACCOUNT_INTERFACE, "isVaultLocked", [], "VAULT_LOCK_STATUS_UNAVAILABLE");
+  if (locked2) throw vaultCallError("PASS_VAULT_LOCKED_WHILE_LISTED", 409);
+  const seen = /* @__PURE__ */ new Set();
+  const transfers = [];
+  for (let index = 0; index < assets.length; index += 1) {
+    const source = assets[index] ?? {};
+    const standard = String(source.standard ?? "").toUpperCase().replace("-", "");
+    if (!["ERC20", "ERC721"].includes(standard)) throw vaultCallError("VAULT_ASSET_STANDARD_UNSUPPORTED", 400);
+    const tokenAddress = source.tokenAddress ?? source.contractAddress ?? source.contract ?? source.address;
+    if (!isAddress(tokenAddress ?? "")) throw vaultCallError("VAULT_ASSET_ADDRESS_REQUIRED", 400);
+    const token = getAddress(tokenAddress);
+    let assetTokenId = null;
+    let amount;
+    let tokenData;
+    let identity;
+    if (standard === "ERC20") {
+      amount = vaultUint(source.amount, "VAULT_ASSET_AMOUNT", { positive: true, requireString: true });
+      identity = `${standard}:${token.toLowerCase()}`;
+      const [balance] = await decodedVaultCall(chain, token, ERC20_VAULT_INTERFACE, "balanceOf", [vaultAddress], "VAULT_ASSET_BALANCE_UNAVAILABLE");
+      if (balance < amount) throw vaultCallError("VAULT_ASSET_BALANCE_INSUFFICIENT", 409);
+      tokenData = ERC20_VAULT_INTERFACE.encodeFunctionData("transfer", [canonicalWallet, amount]);
+    } else {
+      assetTokenId = vaultUint(source.tokenId, "VAULT_ASSET_TOKEN_ID");
+      if (source.amount !== void 0 && String(source.amount) !== "1") throw vaultCallError("ERC721_WHOLE_ASSET_REQUIRED", 400);
+      amount = 1n;
+      identity = `${standard}:${token.toLowerCase()}:${assetTokenId}`;
+      const [assetOwner] = await decodedVaultCall(chain, token, ERC721_VAULT_INTERFACE, "ownerOf", [assetTokenId], "VAULT_ASSET_OWNER_UNAVAILABLE");
+      if (getAddress(assetOwner) !== vaultAddress) throw vaultCallError("VAULT_ASSET_OWNER_MISMATCH", 409);
+      tokenData = ERC721_VAULT_INTERFACE.encodeFunctionData("safeTransferFrom", [vaultAddress, canonicalWallet, assetTokenId]);
+    }
+    if (seen.has(identity)) throw vaultCallError("VAULT_ASSET_DUPLICATE", 400);
+    seen.add(identity);
+    try {
+      const simulation = await chain.ethCall(token, tokenData, "latest", vaultAddress);
+      if (standard === "ERC20" && simulation !== "0x") {
+        const [transferred] = ERC20_VAULT_INTERFACE.decodeFunctionResult("transfer", simulation);
+        if (!transferred) throw new Error("ERC20_TRANSFER_FALSE");
+      }
+    } catch {
+      throw vaultCallError("VAULT_ASSET_TRANSFER_SIMULATION_FAILED", 409);
+    }
+    transfers.push({
+      standard,
+      token,
+      tokenId: assetTokenId?.toString() ?? null,
+      amount: amount.toString(),
+      prepared: {
+        to: vaultAddress,
+        data: VAULT_ACCOUNT_INTERFACE.encodeFunctionData("execute", [token, 0n, tokenData, 0]),
+        value: "0x0"
+      }
+    });
+  }
+  return { phase: "CLAIM_READY", vaultAddress, accountCreation: null, transfers };
 }
 function parseFactoryEditionCreatedReceipt(receipt, { factoryAddress, publisherAddress = null, editionAddress = null } = {}) {
   const factory = getAddress(factoryAddress ?? "");
@@ -11930,6 +12163,7 @@ function productionOrderPolicy(env = process.env) {
     royaltyVault: env.NEX_ROYALTY_VAULT_ADDRESS,
     zone: env.NEX_MARKETS_ZONE_ADDRESS,
     listingRegistry: env.NEX_LISTING_REGISTRY_ADDRESS,
+    tbaResolver: env.NEX_TBA_RESOLVER_ADDRESS,
     seaport: env.SEAPORT_16_ADDRESS ?? "0x0000000000000068F116a894984e2DB1123eB395",
     protocolAdminSafe: env.PROTOCOL_ADMIN_SAFE_ADDRESS,
     transactionTargets: {
@@ -11938,7 +12172,11 @@ function productionOrderPolicy(env = process.env) {
       TERMS_PUBLISH: env.NEX_LAUNCH_REGISTRY_ADDRESS,
       LISTING_CANCEL: env.NEX_LISTING_REGISTRY_ADDRESS,
       ADVANTAGE_USE: env.NEX_ADVANTAGE_REGISTRY_ADDRESS,
-      ROYALTY_WITHDRAW: env.NEX_ROYALTY_VAULT_ADDRESS
+      ROYALTY_WITHDRAW: env.NEX_ROYALTY_VAULT_ADDRESS,
+      REWARD_POLICY_PUBLISH: env.NEX_REWARD_DISTRIBUTOR_ADDRESS,
+      REWARD_CYCLE_FUND: env.NEX_REWARD_DISTRIBUTOR_ADDRESS,
+      REWARD_CLAIM: env.NEX_REWARD_DISTRIBUTOR_ADDRESS,
+      REWARD_POLICY_RETIRE: env.NEX_REWARD_DISTRIBUTOR_ADDRESS
     }
   };
 }
@@ -11955,18 +12193,21 @@ var VERIFIED_TESTNET_POLICIES = Object.freeze({
     NEX_MINT_CONTROLLER_ADDRESS: "0x0ea6F883808447f115C7b6C037902361C365555A",
     NEX_PASS_FACTORY_ADDRESS: "0x957DE0de07D33c9a89c791B876074657a7fFeEb6",
     NEX_LAUNCH_REGISTRY_ADDRESS: "0xeE3C8F330C0B2738201fDb2F1720D06c0D27620d",
-    NEX_ADVANTAGE_REGISTRY_ADDRESS: "0x1e265Fee39d75b5211895820926B4ff77B4f1cDd"
+    NEX_ADVANTAGE_REGISTRY_ADDRESS: "0x1e265Fee39d75b5211895820926B4ff77B4f1cDd",
+    NEX_TBA_RESOLVER_ADDRESS: "0x55b64D8c1f17ba08a39c939D3248E7A2731Fa8b8"
   }),
   "base-sepolia": Object.freeze({
     PROTOCOL_ADMIN_SAFE_ADDRESS: "0xE6D0846e6C0b51C61FdDb593A1914b85181E5783",
     SECONDARY_FEE_RECIPIENT: "0xE6D0846e6C0b51C61FdDb593A1914b85181E5783",
-    NEX_ROYALTY_VAULT_ADDRESS: "0x91bCDfE16D54a697755ceb6e218D1cC799de31Ef",
-    NEX_MARKETS_ZONE_ADDRESS: "0xeAD4f17D5f65bE9D0a2F6367F9E258b04300982a",
-    NEX_LISTING_REGISTRY_ADDRESS: "0x3a1894d0aB2089445814afb7b6ebE98da541Db39",
-    NEX_MINT_CONTROLLER_ADDRESS: "0xdbca332e01aa90E4576b5A3CBB5E12e479BE3a6D",
-    NEX_PASS_FACTORY_ADDRESS: "0x6596aAb23E2085E63c1211D7d66cE22051Ab81dB",
-    NEX_LAUNCH_REGISTRY_ADDRESS: "0x76D3B6F0b14CC1075717cE0BeE71daA91DDE1764",
-    NEX_ADVANTAGE_REGISTRY_ADDRESS: "0x385B81a3539724FACA5c93639e50800D0FE97f23"
+    NEX_ROYALTY_VAULT_ADDRESS: "0xCbf82F765c80446baa753a56C563ED0291374614",
+    NEX_MARKETS_ZONE_ADDRESS: "0x490d55643F2CAf4D5A178FC84cA01792952C8458",
+    NEX_LISTING_REGISTRY_ADDRESS: "0x21C397F20Db8da540d22F798d7EC7f7c16CE9241",
+    NEX_MINT_CONTROLLER_ADDRESS: "0x8de2eD8bCB4216aF0b1a07D65A6dF229677BD758",
+    NEX_PASS_FACTORY_ADDRESS: "0xcF0802892749fAD109c3B841b2a0D922D4DBD6ED",
+    NEX_LAUNCH_REGISTRY_ADDRESS: "0x83125b7a5e8d4e79134D74f8E8b5052a58E054B5",
+    NEX_ADVANTAGE_REGISTRY_ADDRESS: "0x6D4Db1939D322411EdE8970eCB14b729788f75Aa",
+    NEX_TBA_RESOLVER_ADDRESS: "0x6B53e133DA10d456296930c041d17606d9283DaF",
+    NEX_REWARD_DISTRIBUTOR_ADDRESS: "0x2453c5FCef787D076ff21614E54C50344FD1EB91"
   })
 });
 function networkPolicyEnv(env, prefix, settlementAddress, seaportAddress, fallback = {}) {
@@ -11980,7 +12221,9 @@ function networkPolicyEnv(env, prefix, settlementAddress, seaportAddress, fallba
     NEX_MINT_CONTROLLER_ADDRESS: "NEX_MINT_CONTROLLER_ADDRESS",
     NEX_PASS_FACTORY_ADDRESS: "NEX_PASS_FACTORY_ADDRESS",
     NEX_LAUNCH_REGISTRY_ADDRESS: "NEX_LAUNCH_REGISTRY_ADDRESS",
-    NEX_ADVANTAGE_REGISTRY_ADDRESS: "NEX_ADVANTAGE_REGISTRY_ADDRESS"
+    NEX_ADVANTAGE_REGISTRY_ADDRESS: "NEX_ADVANTAGE_REGISTRY_ADDRESS",
+    NEX_TBA_RESOLVER_ADDRESS: "NEX_TBA_RESOLVER_ADDRESS",
+    NEX_REWARD_DISTRIBUTOR_ADDRESS: "NEX_REWARD_DISTRIBUTOR_ADDRESS"
   };
   for (const [target, suffix] of Object.entries(mappings)) {
     policyEnv[target] = env[`${prefix}_${suffix}`] ?? (prefix === "ROBINHOOD_TESTNET" ? env[suffix] : void 0) ?? fallback[suffix];
@@ -12434,6 +12677,33 @@ function createApiServer({
         if (!project && /^0x[0-9a-f]{40}$/i.test(identifier) && store.projectByEditionAddress) project = await store.projectByEditionAddress(identifier);
         return json(res, 200, { data: project });
       }
+      const editionRewards = url.pathname.match(/^\/v1\/editions\/(0x[a-fA-F0-9]{40})\/rewards$/);
+      if (req.method === "GET" && editionRewards) {
+        let policies = [];
+        if (!readModelDisabled && subgraph2?.enabled && subgraph2.rewardPolicies) {
+          try {
+            policies = await subgraph2.rewardPolicies(editionRewards[1]);
+          } catch (error) {
+            logger.info?.({ event: "reward_policies_unavailable", error: error.message });
+          }
+        }
+        return json(res, 200, {
+          data: { policies, note: "Actual asset amounts appear only on funded cycles. allocationBps is a published commitment, not an enforced payout." },
+          authority: subgraph2?.enabled ? "GOLDSKY_SUBGRAPH_READ_MODEL" : "REWARD_INDEX_UNAVAILABLE"
+        });
+      }
+      const passRewards = url.pathname.match(/^\/v1\/passes\/(0x[a-fA-F0-9]{40})\/(\d+)\/rewards$/);
+      if (req.method === "GET" && passRewards) {
+        let payload = { claims: [], cycles: [] };
+        if (!readModelDisabled && subgraph2?.enabled && subgraph2.rewardClaims) {
+          try {
+            payload = await subgraph2.rewardClaims(passRewards[1], passRewards[2]);
+          } catch (error) {
+            logger.info?.({ event: "reward_claims_unavailable", error: error.message });
+          }
+        }
+        return json(res, 200, { data: payload, authority: subgraph2?.enabled ? "GOLDSKY_SUBGRAPH_READ_MODEL" : "REWARD_INDEX_UNAVAILABLE" });
+      }
       if (req.method === "GET" && url.pathname.startsWith("/v1/editions/")) {
         const address2 = url.pathname.slice(13);
         const indexed = readModelDisabled ? null : subgraph2?.enabled ? await subgraph2.editionByAddress(address2) : await store.editionByAddress(address2);
@@ -12848,6 +13118,57 @@ function createApiServer({
         }
         return json(res, 200, { data, authority: "DETERMINISTIC_MERKLE_COMMITMENT" });
       }
+      if (req.method === "POST" && url.pathname === "/v1/vault/claims/prepare") {
+        const input = await readBody(req);
+        const idempotencyKey = req.headers["idempotency-key"]?.toString();
+        if (!idempotencyKey || idempotencyKey.length > 128) throw Object.assign(new Error("IDEMPOTENCY_KEY_REQUIRED"), { status: 400 });
+        if (Number(session.chainId) !== Number(chainId2)) throw Object.assign(new Error("SESSION_NETWORK_MISMATCH"), { status: 409 });
+        const plan = await buildVaultClaimPlan({
+          chain: chain2,
+          resolverAddress: orderPolicy2.tbaResolver,
+          edition: input.edition,
+          tokenId: input.tokenId,
+          walletAddress: session.walletAddress,
+          assets: input.assets
+        });
+        const derivedKey = (part) => `vault:${createHash5("sha256").update(`${idempotencyKey}:${part}`).digest("hex")}`;
+        if (plan.phase === "ACCOUNT_CREATION_REQUIRED") {
+          const prepared = plan.accountCreation;
+          const transaction = await store.prepareTransaction({
+            accountId: session.accountId,
+            walletAddress: session.walletAddress,
+            chainId: session.chainId,
+            intentType: "VAULT_ACCOUNT_CREATE",
+            intentId: `${input.edition}:${input.tokenId}`,
+            idempotencyKey: derivedKey("account"),
+            correlationId,
+            requestId,
+            toAddress: prepared.to,
+            calldata: prepared.data
+          });
+          await store.recordAudit?.({ accountId: session.accountId, walletAddress: session.walletAddress, action: "TRANSACTION_PREPARED", objectType: "CHAIN_TRANSACTION", objectId: transaction.id, requestId, correlationId, metadata: { intentType: "VAULT_ACCOUNT_CREATE", vaultAddress: plan.vaultAddress } });
+          return json(res, 201, { phase: plan.phase, vaultAddress: plan.vaultAddress, transaction, prepared, claims: [], walletMustSign: true, serverCustodiesKey: false });
+        }
+        const claims = [];
+        for (let index = 0; index < plan.transfers.length; index += 1) {
+          const transfer = plan.transfers[index];
+          const transaction = await store.prepareTransaction({
+            accountId: session.accountId,
+            walletAddress: session.walletAddress,
+            chainId: session.chainId,
+            intentType: "VAULT_CLAIM",
+            intentId: `${input.edition}:${input.tokenId}:${transfer.standard}:${transfer.token}:${transfer.tokenId ?? ""}`,
+            idempotencyKey: derivedKey(`${index}:${transfer.standard}:${transfer.token}:${transfer.tokenId ?? ""}`),
+            correlationId,
+            requestId,
+            toAddress: transfer.prepared.to,
+            calldata: transfer.prepared.data
+          });
+          await store.recordAudit?.({ accountId: session.accountId, walletAddress: session.walletAddress, action: "TRANSACTION_PREPARED", objectType: "CHAIN_TRANSACTION", objectId: transaction.id, requestId, correlationId, metadata: { intentType: "VAULT_CLAIM", vaultAddress: plan.vaultAddress, standard: transfer.standard, token: transfer.token, tokenId: transfer.tokenId, amount: transfer.amount } });
+          claims.push({ transaction, prepared: transfer.prepared, asset: { standard: transfer.standard, token: transfer.token, tokenId: transfer.tokenId, amount: transfer.amount } });
+        }
+        return json(res, 201, { phase: plan.phase, vaultAddress: plan.vaultAddress, claims, walletMustSign: true, serverCustodiesKey: false });
+      }
       if (req.method === "POST" && INTENT_TYPE[url.pathname]) {
         const input = await readBody(req);
         const idempotencyKey = req.headers["idempotency-key"]?.toString();
@@ -12933,6 +13254,13 @@ function createApiServer({
         }
         const transaction = await store.prepareTransaction({ accountId: session.accountId, walletAddress: session.walletAddress, chainId: session.chainId, intentType: INTENT_TYPE[url.pathname], intentId: input.intentId ?? idempotencyKey, idempotencyKey, correlationId, requestId, toAddress: prepared.to ?? prepared.registryTransaction?.to ?? null, calldata: prepared.data ?? prepared.registryTransaction?.data ?? null });
         await store.recordAudit?.({ accountId: session.accountId, walletAddress: session.walletAddress, action: "TRANSACTION_PREPARED", objectType: "CHAIN_TRANSACTION", objectId: transaction.id, requestId, correlationId, metadata: { intentType: INTENT_TYPE[url.pathname] } });
+        if (INTENT_TYPE[url.pathname] === "REWARD_CYCLE_FUND" && isAddress(input.asset ?? "")) {
+          prepared.requiresPriorApproval = {
+            token: getAddress(input.asset),
+            spender: prepared.to,
+            note: "Approve amountPerPass \xD7 eligibleSupply on the reward asset before broadcasting fundCycle. allocationBps is not collected by this call."
+          };
+        }
         return json(res, 201, { transaction, prepared, walletMustSign: true, serverCustodiesKey: false });
       }
       return json(res, 404, { error: { code: "NOT_FOUND", requestId } });

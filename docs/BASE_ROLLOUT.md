@@ -34,12 +34,13 @@ hash for the off-chain signature step.
 
 Base Sepolia V1 is deployed, wired and verified. The public evidence record is
 `deployments/base-sepolia.v1-deployment.json`; it contains the Safe
-deployment, all ten protocol contract deployments, transaction/block evidence,
+deployment, all eleven protocol contract deployments, transaction/block evidence,
 runtime hashes and the six one-time wiring transactions.
 
 The protocol Safe is
-`0xE6D0846e6C0b51C61FdDb593A1914b85181E5783`. The deployment source is frozen
-to commit `8790b635ba55512e5d0e295fb1217a3993ecdafb`.
+`0xE6D0846e6C0b51C61FdDb593A1914b85181E5783`. The current testnet deployment
+source is commit `c7622359da498a9bb8ea3ce4e0cb3224d5d63c18`; the mainnet frozen-source
+constant remains unchanged.
 
 Regenerate the testnet browser configuration after changing deployment
 records:

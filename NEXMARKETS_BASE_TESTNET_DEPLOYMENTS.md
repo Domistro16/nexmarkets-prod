@@ -8,14 +8,14 @@ from documentation.
 - **RPC used:** `https://sepolia.base.org`
 - **Explorer:** `https://sepolia.basescan.org`
 - **Head block at audit:** `46,813,867` → `46,816,862`
-- **Head block at redeploy verification:** `46,820,895`
+- **Head block at reward redeploy verification:** `46,828,032`
 - **Settlement token:** canonical Base Sepolia USDC, 6 decimals, **not** a mock
 
-> **Superseded addresses.** The fixed contracts were deployed on 2026-09-14 at blocks
-> `46,818,316`–`46,818,334` and wired at `46,818,356`–`46,818,364`. Every address in
-> this document is the **new** set. The pre-fix set is retained only in
-> `deployments/base-sepolia.v1-deployment.legacy-safe.json` and in the superseded table
-> at the end of this file.
+> **Current addresses.** The 11-contract reward-capable graph was deployed on
+> 2026-09-14 at blocks `46,827,960`–`46,827,982` and wired through `46,828,032`.
+> The preceding permissionless 10-contract graph is retained in
+> `deployments/base-sepolia.v1-deployment.e53f5d9.json`; the pre-fix Safe-only graph
+> remains in `deployments/base-sepolia.v1-deployment.legacy-safe.json`.
 
 ## Chain consistency
 
@@ -29,20 +29,22 @@ isolated behind `availableNetworks` and `NEXMARKETS_DEFAULT_NETWORK`.
 
 ## Deployed contracts — bytecode confirmed present
 
-| Contract | Address | Runtime bytes | Owner |
-|---|---|---|---|
-| NexLaunchRegistry | `0x76D3B6F0b14CC1075717cE0BeE71daA91DDE1764` | 11,865 | Safe |
-| NexMintController | `0xdbca332e01aa90E4576b5A3CBB5E12e479BE3a6D` | 10,445 | Safe |
-| NexPassFactory | `0x6596aAb23E2085E63c1211D7d66cE22051Ab81dB` | 14,599 | Safe |
-| NexAdvantageRegistry | `0x385B81a3539724FACA5c93639e50800D0FE97f23` | 14,038 | Safe |
-| NexAdvantageInitializer | `0x181c489F1f1A4aE2b78EACD1682a76E2aE59fBb8` | 2,590 | Safe |
-| NexRoyaltyVault | `0x91bCDfE16D54a697755ceb6e218D1cC799de31Ef` | 4,783 | Safe |
-| NexListingRegistry | `0x3a1894d0aB2089445814afb7b6ebE98da541Db39` | 12,706 | Safe |
-| NexMarketsZone | `0xeAD4f17D5f65bE9D0a2F6367F9E258b04300982a` | 3,439 | Safe |
-| NexPassAccount | `0xE96a2D7CBf0a6315D678B7E32000799d6d113b6a` | 3,945 | *(no owner — implementation)* |
-| NexTBAResolver | `0x8f49eC4c6ccE15dEa202b5bD1d1978737f6CD1E5` | 1,999 | *(no owner — immutable)* |
+| Contract | Address | Deployment block | Owner |
+|---|---|---:|---|
+| NexLaunchRegistry | `0x83125b7a5e8d4e79134D74f8E8b5052a58E054B5` | 46,827,960 | Safe |
+| NexMintController | `0x8de2eD8bCB4216aF0b1a07D65A6dF229677BD758` | 46,827,962 | Safe |
+| NexPassFactory | `0xcF0802892749fAD109c3B841b2a0D922D4DBD6ED` | 46,827,964 | Safe |
+| NexAdvantageRegistry | `0x6D4Db1939D322411EdE8970eCB14b729788f75Aa` | 46,827,966 | Safe |
+| NexAdvantageInitializer | `0x9b2f41F9602E3C1AA41a079893386E65AB130c1C` | 46,827,968 | Safe |
+| NexRoyaltyVault | `0xCbf82F765c80446baa753a56C563ED0291374614` | 46,827,970 | Safe |
+| NexListingRegistry | `0x21C397F20Db8da540d22F798d7EC7f7c16CE9241` | 46,827,972 | Safe |
+| NexMarketsZone | `0x490d55643F2CAf4D5A178FC84cA01792952C8458` | 46,827,974 | Safe |
+| NexPassAccount | `0x8F48738e4BB35F5F6Dc0E40cf939040364AD3682` | 46,827,978 | *(no owner — implementation)* |
+| NexTBAResolver | `0x6B53e133DA10d456296930c041d17606d9283DaF` | 46,827,980 | *(no owner — immutable)* |
+| NexRewardDistributor | `0x2453c5FCef787D076ff21614E54C50344FD1EB91` | 46,827,982 | Safe |
 
-All ten addresses returned non-empty bytecode. None are proxies; every contract is
+All eleven addresses returned non-empty bytecode and matched planned runtime hashes.
+None are proxies; every contract is
 non-upgradeable by design, so there is no implementation/ProxyAdmin layer to audit.
 
 ## Canonical primitives (verified present on Base Sepolia)
@@ -65,7 +67,7 @@ non-upgradeable by design, so there is no implementation/ProxyAdmin layer to aud
 | Owner 2 | `0xD83deFbA240568040b39bb2C8B4DB7dB02d40593` |
 | **Threshold** | **1 of 2** |
 
-All eight ownable contracts return the Safe as `owner()`.
+All nine ownable contracts return the Safe as `owner()`.
 
 > **Governance finding.** A 1-of-2 threshold means either owner acting alone holds full
 > protocol admin authority: pause/unpause, and the one-time authority slots. Owner 2 is
@@ -74,8 +76,7 @@ All eight ownable contracts return the Safe as `owner()`.
 > `governanceTransition: "RAISE_THRESHOLD_TO_2_PLUS"` as outstanding.
 > **Do not describe this deployment as decentralised.**
 
-Deployer `0xD83deFbA240568040b39bb2C8B4DB7dB02d40593`: 0.0772 ETH, 40 USDC.
-The full redeploy (10 deployments plus 6 wiring calls) cost ~0.00011 ETH.
+Deployer: `0xD83deFbA240568040b39bb2C8B4DB7dB02d40593`.
 
 ## Wiring — one-time slots, confirmed consumed
 
@@ -95,8 +96,8 @@ Each slot is single-assignment and reverts on reuse.
 - **Provider:** Goldsky
 - **Subgraph:** `nexmarkets-v1-base-sepolia/1.0.1` (same tag, redeployed against the new
   address set; the endpoint URL is therefore unchanged)
-- **Start block:** `46,818,316`
-- Watches all ten contract addresses above.
+- **Start block:** `46,827,960`
+- Watches all eleven contract addresses above, including `NexRewardDistributor`.
 - `MintAccessPublished` gained `walletAllowance`, which changes the event topic. The
   manifest signature, `schema.graphql`, the handler and the generated ABIs were updated
   together — a partial update would have indexed no mint access at all, silently.
@@ -118,8 +119,9 @@ Both S1 defects are closed **on chain**, not only in source. Verified by live re
 
 | Check | Result |
 |---|---|
-| `NexPassAccount.listingRegistry()` | `0x3a1894d0…` — the new `NexListingRegistry` |
-| `NexTBAResolver.implementationRuntimeCodeHash()` | `0x683989ca…`, equal to the deployed account codehash |
+| `NexPassAccount.listingRegistry()` | `0x21C397F2…` — the current `NexListingRegistry` |
+| `NexTBAResolver.implementationRuntimeCodeHash()` | `0x56d07999…`, equal to the deployed account codehash |
+| `NexRewardDistributor` runtime | `0x2453c5FC…` has the planned `0x14012413…` runtime hash |
 | `NexMintController.allowlistRemaining(...)` | Present; reverts `EditionNotRegistered`, a domain error, not a missing selector |
 | `scripts/verify-v1-deployment.mjs --post-wire` | `PASS`, `oneTimeSlots: WIRED_AND_VERIFIED` |
 | `scripts/verify-production-config.mjs` | `PASS` |
@@ -136,7 +138,8 @@ had already used this path — its recorded `deploymentSourceCommit` was `7bb4d1
 which is not the frozen commit. So no compliance control needed overriding.
 
 The contract fixes were committed **before** planning, so the deployment's
-`sourceCommit` (`e53f5d9e…`) is source that actually contains them. In `--unfrozen-dev`
+`sourceCommit` (`c7622359…`) is source that actually contains the reward graph and
+deployment tooling. In `--unfrozen-dev`
 mode the salt embeds that commit, so deploying from a dirty working tree would have
 produced a permanent record citing a commit without the fixes.
 

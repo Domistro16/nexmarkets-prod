@@ -4,6 +4,7 @@ import { NexAdvantageRegistry as AdvantageRegistryContract } from "../generated/
 import { EditionCreated } from "../generated/NexPassFactory/NexPassFactory";
 import {
   EditionRegistered,
+  MintAccessPublished,
   TermsPublished
 } from "../generated/NexLaunchRegistry/NexLaunchRegistry";
 import {
@@ -29,6 +30,12 @@ import { PassAccountCreated } from "../generated/NexTBAResolver/NexTBAResolver";
 import { ERC6551AccountCreated } from "../generated/ERC6551Registry/ERC6551Registry";
 import { OrderFulfilled } from "../generated/Seaport16/Seaport16";
 import {
+  RewardPolicyPublished,
+  RewardPolicyRetired,
+  RewardCycleFunded,
+  RewardClaimed
+} from "../generated/NexRewardDistributor/NexRewardDistributor";
+import {
   Transfer,
   EditionMinted,
   EditionConfigured,
@@ -48,7 +55,10 @@ import {
   SecondarySale,
   RoyaltyClaim,
   TokenBoundAccount,
-  SettlementEvidence
+  SettlementEvidence,
+  RewardPolicy,
+  RewardCycle,
+  RewardClaim
 } from "../generated/schema";
 
 const CHAIN_ID = BigInt.fromI32(46630);
@@ -217,6 +227,17 @@ export function handleTermsPublished(event: TermsPublished): void {
   terms.save();
   edition.currentTerms = terms.id;
   edition.save();
+}
+
+export function handleMintAccessPublished(event: MintAccessPublished): void {
+  let id = `${addressId(event.params.edition)}-${bytesId(event.params.termsVersionHash)}`;
+  let terms = TermsVersion.load(id);
+  if (terms == null) return;
+  terms.allowlistRoot = event.params.allowlistRoot;
+  terms.allowlistEndsAt = event.params.allowlistEndsAt;
+  terms.allowlistSupply = event.params.allowlistSupply;
+  terms.walletAllowance = event.params.walletAllowance;
+  terms.save();
 }
 
 export function handlePrimaryMintSettled(event: PrimaryMintSettled): void {
@@ -488,4 +509,86 @@ export function handleOrderFulfilled(event: OrderFulfilled): void {
   evidence.timestamp = eventTimestamp(event);
   evidence.transactionHash = eventTx(event);
   evidence.save();
+}
+
+function rewardSourceLabel(source: i32): string {
+  if (source == 0) return "BUILDER_ROYALTY";
+  if (source == 1) return "PRIMARY_SALES";
+  if (source == 2) return "OTHER_BUILDER_REVENUE";
+  if (source == 3) return "BUILDER_FUNDED";
+  return "UNKNOWN";
+}
+
+export function handleRewardPolicyPublished(event: RewardPolicyPublished): void {
+  let edition = loadEdition(event.params.edition);
+  if (edition == null) return;
+  let policy = new RewardPolicy(bytesId(event.params.policyId));
+  policy.policyId = event.params.policyId;
+  policy.edition = edition.id;
+  policy.publisher = event.params.publisher;
+  policy.source = rewardSourceLabel(event.params.source);
+  policy.sourceCode = event.params.source;
+  policy.allocationBps = event.params.allocationBps;
+  policy.rewardAsset = event.params.rewardAsset;
+  policy.ongoing = event.params.ongoing;
+  policy.endsAt = event.params.endsAt;
+  policy.status = "ACTIVE";
+  policy.publishedBlock = eventBlock(event);
+  policy.publishedTimestamp = eventTimestamp(event);
+  policy.publishedTransactionHash = eventTx(event);
+  policy.save();
+}
+
+export function handleRewardPolicyRetired(event: RewardPolicyRetired): void {
+  let policy = RewardPolicy.load(bytesId(event.params.policyId));
+  if (policy == null) return;
+  policy.status = "RETIRED";
+  policy.retiredBlock = eventBlock(event);
+  policy.retiredTimestamp = eventTimestamp(event);
+  policy.retiredTransactionHash = eventTx(event);
+  policy.save();
+}
+
+export function handleRewardCycleFunded(event: RewardCycleFunded): void {
+  let edition = loadEdition(event.params.edition);
+  let policy = RewardPolicy.load(bytesId(event.params.policyId));
+  if (edition == null || policy == null) return;
+  let cycle = new RewardCycle(bytesId(event.params.cycleId));
+  cycle.cycleId = event.params.cycleId;
+  cycle.policy = policy.id;
+  cycle.edition = edition.id;
+  cycle.asset = event.params.asset;
+  cycle.amountPerPass = event.params.amountPerPass;
+  cycle.eligibleSupply = event.params.eligibleSupply;
+  cycle.fundedAmount = event.params.fundedAmount;
+  cycle.claimedAmount = BigInt.fromI32(0);
+  cycle.claimedCount = BigInt.fromI32(0);
+  cycle.snapshotBlock = event.params.snapshotBlock;
+  cycle.fundedAt = eventTimestamp(event);
+  cycle.fundedBlock = eventBlock(event);
+  cycle.fundedTimestamp = eventTimestamp(event);
+  cycle.fundedTransactionHash = eventTx(event);
+  cycle.save();
+}
+
+export function handleRewardClaimed(event: RewardClaimed): void {
+  let cycle = RewardCycle.load(bytesId(event.params.cycleId));
+  let edition = loadEdition(event.params.edition);
+  if (cycle == null || edition == null) return;
+  cycle.claimedAmount = cycle.claimedAmount.plus(event.params.amount);
+  cycle.claimedCount = cycle.claimedCount.plus(BigInt.fromI32(1));
+  cycle.save();
+  let claim = new RewardClaim(`${event.transaction.hash.toHexString()}-${event.logIndex.toString()}`);
+  claim.cycle = cycle.id;
+  claim.edition = edition.id;
+  claim.tokenId = event.params.tokenId;
+  let pass = Pass.load(passId(event.params.edition, event.params.tokenId));
+  if (pass != null) claim.pass = pass.id;
+  claim.passVault = event.params.passVault;
+  claim.asset = event.params.asset;
+  claim.amount = event.params.amount;
+  claim.blockNumber = eventBlock(event);
+  claim.timestamp = eventTimestamp(event);
+  claim.transactionHash = eventTx(event);
+  claim.save();
 }

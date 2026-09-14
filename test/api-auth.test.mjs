@@ -156,7 +156,9 @@ test('/readyz uses Goldsky Subgraph indexed progress against the RPC head', asyn
 test('API selects Base Sepolia by network header and does not serve Robinhood projections', async (t) => {
   const networkConfigs = createNetworkConfigs({});
   assert.equal(networkConfigs['base-sepolia'].orderPolicy.usdg.toLowerCase(), '0x036cbd53842c5426634e7929541ec2318f3dcf7e');
-  assert.equal(networkConfigs['base-sepolia'].orderPolicy.transactionTargets.MINT, '0xdbca332e01aa90E4576b5A3CBB5E12e479BE3a6D');
+  assert.equal(networkConfigs['base-sepolia'].orderPolicy.transactionTargets.MINT, '0x8de2eD8bCB4216aF0b1a07D65A6dF229677BD758');
+  assert.equal(networkConfigs['base-sepolia'].orderPolicy.tbaResolver, '0x6B53e133DA10d456296930c041d17606d9283DaF');
+  assert.equal(networkConfigs['base-sepolia'].orderPolicy.transactionTargets.REWARD_CLAIM, '0x2453c5FCef787D076ff21614E54C50344FD1EB91');
   assert.equal(networkConfigs['base-mainnet'].orderPolicy.transactionTargets.MINT, undefined);
   const isolatedNetworkConfigs = {
     ...networkConfigs,

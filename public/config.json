@@ -39,21 +39,22 @@
   "seaport16": "0x0000000000000068F116a894984e2DB1123eB395",
   "protocolAdminSafe": "0xE6D0846e6C0b51C61FdDb593A1914b85181E5783",
   "contracts": {
-    "launchRegistry": "0x76D3B6F0b14CC1075717cE0BeE71daA91DDE1764",
-    "mintController": "0xdbca332e01aa90E4576b5A3CBB5E12e479BE3a6D",
-    "passFactory": "0x6596aAb23E2085E63c1211D7d66cE22051Ab81dB",
-    "advantageRegistry": "0x385B81a3539724FACA5c93639e50800D0FE97f23",
-    "advantageInitializer": "0x181c489F1f1A4aE2b78EACD1682a76E2aE59fBb8",
-    "royaltyVault": "0x91bCDfE16D54a697755ceb6e218D1cC799de31Ef",
-    "listingRegistry": "0x3a1894d0aB2089445814afb7b6ebE98da541Db39",
-    "zone": "0xeAD4f17D5f65bE9D0a2F6367F9E258b04300982a",
-    "passAccount": "0xE96a2D7CBf0a6315D678B7E32000799d6d113b6a",
-    "tbaResolver": "0x8f49eC4c6ccE15dEa202b5bD1d1978737f6CD1E5"
+    "launchRegistry": "0x83125b7a5e8d4e79134D74f8E8b5052a58E054B5",
+    "mintController": "0x8de2eD8bCB4216aF0b1a07D65A6dF229677BD758",
+    "passFactory": "0xcF0802892749fAD109c3B841b2a0D922D4DBD6ED",
+    "advantageRegistry": "0x6D4Db1939D322411EdE8970eCB14b729788f75Aa",
+    "advantageInitializer": "0x9b2f41F9602E3C1AA41a079893386E65AB130c1C",
+    "royaltyVault": "0xCbf82F765c80446baa753a56C563ED0291374614",
+    "listingRegistry": "0x21C397F20Db8da540d22F798d7EC7f7c16CE9241",
+    "zone": "0x490d55643F2CAf4D5A178FC84cA01792952C8458",
+    "passAccount": "0x8F48738e4BB35F5F6Dc0E40cf939040364AD3682",
+    "tbaResolver": "0x6B53e133DA10d456296930c041d17606d9283DaF",
+    "rewardDistributor": "0x2453c5FCef787D076ff21614E54C50344FD1EB91"
   },
   "subgraph": {
     "name": "nexmarkets-v1-base-sepolia/1.0.1",
     "endpoint": "https://api.goldsky.com/api/public/project_cmt3es3z03t5101vr8ggx1j7e/subgraphs/nexmarkets-v1-base-sepolia/1.0.1/gn",
-    "startBlock": 46818316,
+    "startBlock": 46827960,
     "provider": "Goldsky"
   },
   "certificationEdition": null,
@@ -123,7 +124,8 @@
         "listingRegistry": "0xF8fD8D378F6a61Ecb207732F4f1d0c3E4Eb2c75c",
         "zone": "0xF21dA23d8928b320124fBc17bd678c7C48c55af6",
         "passAccount": "0x1d687CE71479cFa3e626ed604c48d65fd86D7923",
-        "tbaResolver": "0x55b64D8c1f17ba08a39c939D3248E7A2731Fa8b8"
+        "tbaResolver": "0x55b64D8c1f17ba08a39c939D3248E7A2731Fa8b8",
+        "rewardDistributor": null
       },
       "settlementToken": "0x6A4F8832c23C51ba626Eba9d50c8F862647C1679",
       "settlementSymbol": "MockUSDG",
@@ -172,21 +174,22 @@
       "seaport16": "0x0000000000000068F116a894984e2DB1123eB395",
       "protocolAdminSafe": "0xE6D0846e6C0b51C61FdDb593A1914b85181E5783",
       "contracts": {
-        "launchRegistry": "0x76D3B6F0b14CC1075717cE0BeE71daA91DDE1764",
-        "mintController": "0xdbca332e01aa90E4576b5A3CBB5E12e479BE3a6D",
-        "passFactory": "0x6596aAb23E2085E63c1211D7d66cE22051Ab81dB",
-        "advantageRegistry": "0x385B81a3539724FACA5c93639e50800D0FE97f23",
-        "advantageInitializer": "0x181c489F1f1A4aE2b78EACD1682a76E2aE59fBb8",
-        "royaltyVault": "0x91bCDfE16D54a697755ceb6e218D1cC799de31Ef",
-        "listingRegistry": "0x3a1894d0aB2089445814afb7b6ebE98da541Db39",
-        "zone": "0xeAD4f17D5f65bE9D0a2F6367F9E258b04300982a",
-        "passAccount": "0xE96a2D7CBf0a6315D678B7E32000799d6d113b6a",
-        "tbaResolver": "0x8f49eC4c6ccE15dEa202b5bD1d1978737f6CD1E5"
+        "launchRegistry": "0x83125b7a5e8d4e79134D74f8E8b5052a58E054B5",
+        "mintController": "0x8de2eD8bCB4216aF0b1a07D65A6dF229677BD758",
+        "passFactory": "0xcF0802892749fAD109c3B841b2a0D922D4DBD6ED",
+        "advantageRegistry": "0x6D4Db1939D322411EdE8970eCB14b729788f75Aa",
+        "advantageInitializer": "0x9b2f41F9602E3C1AA41a079893386E65AB130c1C",
+        "royaltyVault": "0xCbf82F765c80446baa753a56C563ED0291374614",
+        "listingRegistry": "0x21C397F20Db8da540d22F798d7EC7f7c16CE9241",
+        "zone": "0x490d55643F2CAf4D5A178FC84cA01792952C8458",
+        "passAccount": "0x8F48738e4BB35F5F6Dc0E40cf939040364AD3682",
+        "tbaResolver": "0x6B53e133DA10d456296930c041d17606d9283DaF",
+        "rewardDistributor": "0x2453c5FCef787D076ff21614E54C50344FD1EB91"
       },
       "subgraph": {
         "name": "nexmarkets-v1-base-sepolia/1.0.1",
         "endpoint": "https://api.goldsky.com/api/public/project_cmt3es3z03t5101vr8ggx1j7e/subgraphs/nexmarkets-v1-base-sepolia/1.0.1/gn",
-        "startBlock": 46818316,
+        "startBlock": 46827960,
         "provider": "Goldsky"
       },
       "certificationEdition": null,

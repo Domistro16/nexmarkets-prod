@@ -8,9 +8,9 @@ dataSources:
     name: NexPassFactory
     network: base-sepolia
     source:
-      address: "0x8fDE37c4C1A60733c9842f336fc331c4C7d8eB41"
+      address: "0xcF0802892749fAD109c3B841b2a0D922D4DBD6ED"
       abi: NexPassFactory
-      startBlock: 46502081
+      startBlock: 46827964
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.9
@@ -29,9 +29,9 @@ dataSources:
     name: NexLaunchRegistry
     network: base-sepolia
     source:
-      address: "0x811D7B04d37118F71002c4abe112bc41161e3D53"
+      address: "0x83125b7a5e8d4e79134D74f8E8b5052a58E054B5"
       abi: NexLaunchRegistry
-      startBlock: 46502050
+      startBlock: 46827960
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.9
@@ -48,13 +48,15 @@ dataSources:
           handler: handleEditionRegistered
         - event: TermsPublished(indexed address,indexed bytes32,indexed uint64,uint256,uint256,uint64,uint64,uint64,address,address,uint96,bytes32,bytes32)
           handler: handleTermsPublished
+        - event: MintAccessPublished(indexed address,indexed bytes32,bytes32,uint64,uint256,uint256)
+          handler: handleMintAccessPublished
   - kind: ethereum
     name: NexMintController
     network: base-sepolia
     source:
-      address: "0x38Ca185Bd179989bFCAa05aF61B0de837B8FcB97"
+      address: "0x8de2eD8bCB4216aF0b1a07D65A6dF229677BD758"
       abi: NexMintController
-      startBlock: 46502079
+      startBlock: 46827962
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.9
@@ -74,9 +76,9 @@ dataSources:
     name: NexAdvantageRegistry
     network: base-sepolia
     source:
-      address: "0xDe076a2D0F998a69A87226041E6075dAd534ECdD"
+      address: "0x6D4Db1939D322411EdE8970eCB14b729788f75Aa"
       abi: NexAdvantageRegistry
-      startBlock: 46502083
+      startBlock: 46827966
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.9
@@ -100,9 +102,9 @@ dataSources:
     name: NexAdvantageInitializer
     network: base-sepolia
     source:
-      address: "0x4c1F382354B83d6Eab5cc55c99015c232112c687"
+      address: "0x9b2f41F9602E3C1AA41a079893386E65AB130c1C"
       abi: NexAdvantageInitializer
-      startBlock: 46502085
+      startBlock: 46827968
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.9
@@ -121,9 +123,9 @@ dataSources:
     name: NexListingRegistry
     network: base-sepolia
     source:
-      address: "0x6F33B84325041d15443827540057763bCD3FEAD8"
+      address: "0x21C397F20Db8da540d22F798d7EC7f7c16CE9241"
       abi: NexListingRegistry
-      startBlock: 46502089
+      startBlock: 46827972
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.9
@@ -152,9 +154,9 @@ dataSources:
     name: NexRoyaltyVault
     network: base-sepolia
     source:
-      address: "0x2A75E1568703B3fd2B692889e08f1Da0949bE618"
+      address: "0xCbf82F765c80446baa753a56C563ED0291374614"
       abi: NexRoyaltyVault
-      startBlock: 46502087
+      startBlock: 46827970
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.9
@@ -174,9 +176,9 @@ dataSources:
     name: NexTBAResolver
     network: base-sepolia
     source:
-      address: "0x31c249C0DC9A45756A9A2578EC9e3E316a31A9cD"
+      address: "0x6B53e133DA10d456296930c041d17606d9283DaF"
       abi: NexTBAResolver
-      startBlock: 46502095
+      startBlock: 46827980
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.9
@@ -196,7 +198,7 @@ dataSources:
     source:
       address: "0x000000006551c19487814612e58FE06813775758"
       abi: ERC6551Registry
-      startBlock: 46502081
+      startBlock: 46827964
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.9
@@ -216,7 +218,7 @@ dataSources:
     source:
       address: "0x0000000000000068F116a894984e2DB1123eB395"
       abi: Seaport16
-      startBlock: 46502089
+      startBlock: 46827972
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.9
@@ -230,6 +232,34 @@ dataSources:
       eventHandlers:
         - event: OrderFulfilled(indexed bytes32,indexed address,indexed address,address,(uint8,address,uint256,uint256)[],(uint8,address,uint256,uint256,address)[])
           handler: handleOrderFulfilled
+  - kind: ethereum
+    name: NexRewardDistributor
+    network: base-sepolia
+    source:
+      address: "0x2453c5FCef787D076ff21614E54C50344FD1EB91"
+      abi: NexRewardDistributor
+      startBlock: 46827982
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.9
+      language: wasm/assemblyscript
+      file: ./src/mapping.ts
+      entities:
+        - RewardPolicy
+        - RewardCycle
+        - RewardClaim
+      abis:
+        - name: NexRewardDistributor
+          file: ./abis/NexRewardDistributor.json
+      eventHandlers:
+        - event: RewardPolicyPublished(indexed bytes32,indexed address,indexed address,uint8,uint16,address,bool,uint64)
+          handler: handleRewardPolicyPublished
+        - event: RewardPolicyRetired(indexed bytes32,indexed address)
+          handler: handleRewardPolicyRetired
+        - event: RewardCycleFunded(indexed bytes32,indexed bytes32,indexed address,address,uint256,uint256,uint256,uint64)
+          handler: handleRewardCycleFunded
+        - event: RewardClaimed(indexed bytes32,indexed address,indexed uint256,address,address,uint256)
+          handler: handleRewardClaimed
 templates:
   - kind: ethereum
     name: NexPassEdition
