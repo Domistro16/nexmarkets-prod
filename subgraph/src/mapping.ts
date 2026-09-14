@@ -227,6 +227,7 @@ export function handleMintAccessPublished(event: MintAccessPublished): void {
   terms.allowlistRoot = event.params.allowlistRoot;
   terms.allowlistEndsAt = event.params.allowlistEndsAt;
   terms.allowlistSupply = event.params.allowlistSupply;
+  terms.walletAllowance = event.params.walletAllowance;
   terms.save();
 }
 

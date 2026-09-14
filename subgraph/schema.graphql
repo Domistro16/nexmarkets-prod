@@ -48,6 +48,7 @@ type TermsVersion @entity(immutable: false) {
   allowlistRoot: Bytes
   allowlistEndsAt: BigInt
   allowlistSupply: BigInt
+  walletAllowance: BigInt
   primaryRecipient: Bytes!
   royaltyReceiver: Bytes!
   royaltyBps: BigInt!

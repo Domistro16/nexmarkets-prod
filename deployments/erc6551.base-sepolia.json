@@ -15,7 +15,8 @@
     "referenceCommit": "43a84573bb47b0df3ab543a20365f4974f56a809",
     "compiler": "solc-0.8.30",
     "optimizerRuns": 20000,
-    "expectedBuildRuntimeCodeHash": "0xc849f1d83cf1d83f7f1de0a071c117b32e94d59aacf3e8c3599ee7cc69e52963",
+    "runtimeCodeHashDependsOn": "listingRegistry immutable, so this pin is network-specific and changes with the planned NexListingRegistry address",
+    "expectedBuildRuntimeCodeHash": "0x683989caaae1ecef626ee570d0265e73ede82c023859f05fec21d92b5dbd4535",
     "deployedAddress": null,
     "deployedRuntimeCodeHash": null
   },
