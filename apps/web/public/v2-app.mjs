@@ -3413,6 +3413,77 @@ async function liveVaultConfirmClaim() {
   }
 }
 
+function decodeAbiString(hex) {
+  try {
+    const raw = String(hex).slice(2);
+    if (raw.length < 128) return null;
+    const len = Number(BigInt(`0x${raw.slice(64, 128)}`));
+    const bytes = Uint8Array.from(raw.slice(128, 128 + len * 2).match(/../g).map((b) => parseInt(b, 16)));
+    return new TextDecoder().decode(bytes);
+  } catch { return null; }
+}
+async function fetchPassRewards(editionAddress, tokenId) {
+  try {
+    const payload = await read(`/v1/passes/${editionAddress}/${encodeURIComponent(String(tokenId))}/rewards`);
+    return { claims: Array.isArray(payload?.claims) ? payload.claims : [], cycles: Array.isArray(payload?.cycles) ? payload.cycles : [] };
+  } catch { return { claims: [], cycles: [] }; }
+}
+async function rewardAssetMeta(asset) {
+  const target = address(asset);
+  if (!target || !wallet.provider) return { symbol: null, decimals: 18 };
+  try {
+    const [symbolData, decimalsData] = await Promise.all([
+      wallet.call(target, '0x95d89b41'),
+      wallet.call(target, '0x313ce567')
+    ]);
+    return { symbol: decodeAbiString(symbolData), decimals: Number(BigInt(decimalsData)) };
+  } catch { return { symbol: null, decimals: 18 }; }
+}
+async function attachPassRewards(key) {
+  const context = await resolveOwnedPass(key).catch(() => null);
+  if (!context?.view || context.view.key !== key) return;
+  const rewards = await fetchPassRewards(context.pass.edition_address, context.pass.token_id);
+  const metas = new Map();
+  for (const cycle of rewards.cycles) {
+    const asset = lower(cycle?.asset);
+    if (!asset || metas.has(asset)) continue;
+    metas.set(asset, await rewardAssetMeta(asset));
+  }
+  context.view.rewardCycles = rewards.cycles.map((cycle) => {
+    const meta = metas.get(lower(cycle?.asset)) ?? {};
+    let displayAmount = String(cycle?.amountPerPass ?? '');
+    try { displayAmount = formatUnits(BigInt(cycle?.amountPerPass ?? 0), meta.decimals ?? 18); } catch {}
+    return { ...cycle, assetLabel: meta.symbol || short(cycle?.asset || ''), displayAmount };
+  });
+  context.view.rewardClaims = rewards.claims;
+}
+async function liveRewardClaim(cycleId) {
+  try {
+    const key = window.__nmMIActiveVaultKey;
+    if (!key) throw new Error('OWNED_PASS_REQUIRED');
+    if (!/^0x[0-9a-fA-F]{64}$/.test(String(cycleId ?? ''))) throw new Error('REWARD_CYCLE_REQUIRED');
+    actionState('dashboard', 'Preparing reward claim', 'The API is checking the funded cycle and this serial\u2019s eligibility.');
+    await requireSession();
+    const context = await resolveOwnedPass(key);
+    const response = await mutation('/v1/rewards/claim', { cycleId, tokenId: String(context.pass.token_id) });
+    const result = await submitPrepared(response, { label: 'Reward claim' });
+    await wallet.waitForReceipt(result.txHash);
+    await attachPassRewards(key).catch(() => {});
+    await hydrate();
+    actionSuccess('dashboard', 'Reward claim', result);
+  } catch (error) { actionError('dashboard', error); }
+}
+function installRewardVaultBridge() {
+  const base = window.nmOpenPassVault;
+  if (typeof base !== 'function' || base.__nmRewardAware) return;
+  const wrapped = async function openPassVaultWithRewards(key, opts) {
+    try { await attachPassRewards(key); } catch {}
+    return base.call(this, key, opts);
+  };
+  wrapped.__nmRewardAware = true;
+  window.nmOpenPassVault = wrapped;
+}
+
 async function createEditionOnchain(input = {}) {
   await requireConnectedWallet();
   const factory = address(activeContracts().passFactory);
@@ -3585,6 +3656,8 @@ function installLiveActions() {
   window.nmOwnedUse = window.dashUsePassAdvantage;
   window.dashWithdrawRoyalty = () => liveDashWithdrawRoyalty().catch((error) => actionError('dashboard', error));
   window.nmVaultConfirmClaim = liveVaultConfirmClaim;
+  window.nmRewardClaim = liveRewardClaim;
+  installRewardVaultBridge();
   try { delete window.nmVaultClaimAudit; } catch { window.nmVaultClaimAudit = undefined; }
   window.dashManageLaunch = liveManageLaunch;
   window.nmMintSignIn = window.openProjectMint;
