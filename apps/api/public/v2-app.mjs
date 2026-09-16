@@ -416,6 +416,25 @@ function projectModel(edition, summary, pass) {
   };
   return { project, experience };
 }
+// Client-side navigation fetches the canonical Edition/Pass record after the
+// initial hydrate() has already published its models. Fold that detail model
+// back into the shared project/experience maps so the rendered page reflects
+// committed Terms, Advantage configs and per-Pass state rather than the
+// thinner Discover summary.
+function applyRequestedDetailModel(routeKind) {
+  if (!['project', 'edition', 'pass'].includes(routeKind)) return null;
+  if (!state.detailSummary && !state.detailEdition) return null;
+  const requestedModel = projectModel(state.detailEdition, state.detailSummary, state.detailPass);
+  if (!requestedModel?.project) return null;
+  state.detailProject = requestedModel.project;
+  const list = Array.isArray(state.projects) ? state.projects : (state.projects = []);
+  const existingIndex = list.findIndex((item) => item.name === requestedModel.project.name);
+  if (existingIndex >= 0) list[existingIndex] = requestedModel.project;
+  else list.unshift(requestedModel.project);
+  if (!state.projectExperience || typeof state.projectExperience !== 'object') state.projectExperience = {};
+  state.projectExperience[requestedModel.project.name] = requestedModel.experience;
+  return requestedModel;
+}
 function ownedModel(raw, pass, edition) {
   const token = String(raw?.token_id ?? raw?.tokenId ?? pass?.token_id ?? '0');
   const advantages = pass?.advantages || raw?.advantages || [];
@@ -1718,6 +1737,7 @@ async function presentRoute(route) {
   // serial or artwork data on an individual launch/Pass page.
   if (['project', 'edition', 'pass'].includes(route?.kind)) {
     try { await loadRequestedRouteData(route); } catch {}
+    applyRequestedDetailModel(route?.kind);
   }
   goView(route);
 }
@@ -1744,7 +1764,7 @@ function goView(route) {
   const project = state.projects?.find((item) => route.edition && lower(item.editionAddress) === lower(route.edition)) || state.projects?.find((item) => route.project && (item.name.toLowerCase() === String(route.project).toLowerCase() || lower(item.editionAddress) === lower(route.project))) || (detailRoute ? null : state.detailProject || state.projects?.[0]);
   if (project) {
     state.detailProject = project;
-    window.__nmV2SetData?.({ selectedProject: project.name, ...(route.edition ? { selectedEdition: route.edition } : {}), ...(route.listing ? { selectedListing: route.listing } : {}) });
+    window.__nmV2SetData?.({ selectedProject: project.name, projects: state.projects, projectExperience: state.projectExperience, ...(route.edition ? { selectedEdition: route.edition } : {}), ...(route.listing ? { selectedListing: route.listing } : {}) });
   }
   if (route.kind === 'listing') window.__nmV2SetData?.({ selectedListing: route.listing });
   if (route.kind === 'discover') window.go?.('discover');
@@ -2131,17 +2151,7 @@ async function hydrate({ authenticatedOverride = null } = {}) {
     if (!mappedProjects.length && (state.edition || first)) mappedProjects.push(projectModel(state.edition || first, null, state.pass));
     state.projects = mappedProjects.map((item) => item.project);
     state.projectExperience = Object.fromEntries(mappedProjects.map((item) => [item.project.name, item.experience]));
-    const requestedRoute = routeInfo();
-    const requestedModel = state.detailSummary || state.detailEdition
-      ? projectModel(state.detailEdition, state.detailSummary, state.detailPass)
-      : null;
-    if (requestedModel?.project && ['project', 'edition', 'pass'].includes(requestedRoute.kind)) {
-      state.detailProject = requestedModel.project;
-      const existingIndex = state.projects.findIndex((item) => item.name === requestedModel.project.name);
-      if (existingIndex >= 0) state.projects[existingIndex] = requestedModel.project;
-      else state.projects.unshift(requestedModel.project);
-      state.projectExperience[requestedModel.project.name] = requestedModel.experience;
-    }
+    applyRequestedDetailModel(routeInfo().kind);
     const accountData = await loadAuthenticatedData(hasAuthenticatedSession);
     const owned = accountData.owned.map((row) => {
       const rowEditionAddress = row.edition_address || row.editionAddress || row.edition?.address;
@@ -2153,7 +2163,7 @@ async function hydrate({ authenticatedOverride = null } = {}) {
     const collections = state.discover.map((edition) => {
       const relatedListings = state.listings.filter((item) => lower(item.edition_address) === lower(edition.address));
       const prices = relatedListings.map((item) => Number(item.price)).filter((value) => Number.isFinite(value) && value > 0);
-      const rawMechanisms = edition.advantages || edition.advantageConfigs || edition.advantage_configs || [];
+      const rawMechanisms = edition.advantages || edition.advantageConfigs || edition.advantage_configs || edition.currentTerms?.advantageConfigs || edition.currentTerms?.advantage_configs || [];
       const mechanism = Array.isArray(rawMechanisms) && rawMechanisms.some((item) => kind(item.kind) === 'REDEMPTION') ? 'Redemption' : 'Connected';
       const floor = Number(edition.floor ?? edition.floor_price ?? edition.floorPrice);
       const last = Number(edition.last ?? edition.last_price ?? edition.lastPrice ?? edition.last_sale_price ?? edition.lastSalePrice);
