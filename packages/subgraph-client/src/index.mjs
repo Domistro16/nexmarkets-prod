@@ -96,6 +96,12 @@ export class SubgraphClient {
     });
   }
 
+  async editionByEditionId(editionId) {
+    const data = await this.query(`query($editionId:Bytes!){ editions(where:{editionId:$editionId}){ id address editionId publisher name symbol absoluteSupplyCap totalMinted disabled } }`, { editionId: lower(editionId) });
+    const edition = data.editions?.[0];
+    return edition ? { ...edition, address: lower(edition.address), editionId: lower(edition.editionId) } : null;
+  }
+
   async editionByAddress(address) {
     const accessFields = this.protocolVersion >= 2 ? ' allowlistRoot allowlistEndsAt allowlistSupply' : '';
     const data = await this.query(`query($address:Bytes!,$editionId:ID!){ editions(where:{address:$address}){ id address editionId publisher mintController name symbol absoluteSupplyCap artworkCommitment totalMinted disabled currentTerms { id hash version activeSupply pricePerPass previewStartsAt mintStartsAt mintEndsAt${accessFields} primaryRecipient royaltyReceiver royaltyBps advantagesHash referralTermsHash blockNumber timestamp transactionHash } terms(orderBy:version,orderDirection:desc){ id hash version activeSupply pricePerPass previewStartsAt mintStartsAt mintEndsAt${accessFields} primaryRecipient royaltyReceiver royaltyBps advantagesHash referralTermsHash } } advantageDefinitions(where:{edition:$editionId}){ termsHash advantageId kind startsAt endsAt totalUnits definitionHash } }`, { address: lower(address), editionId: lower(address) });

@@ -9937,6 +9937,14 @@ var init_postgres_store = __esm({
         const kind = { TIME_BASED: 0, QUANTITY_BASED: 1, CONNECTED: 2, REDEMPTION: 3 };
         return { ...rows[0], termsHistory: terms.rows.map((term) => ({ ...term, advantageConfigs: advantages.rows.filter((advantage) => advantage.terms_hash === term.terms_hash).map((advantage) => ({ advantageId: advantage.advantage_id_hash, kind: kind[advantage.kind], startsAt: Math.floor(advantage.starts_at.getTime() / 1e3), endsAt: Math.floor(advantage.ends_at.getTime() / 1e3), totalUnits: advantage.total_units, definitionHash: advantage.definition_hash })) })) };
       }
+      async editionByEditionIdHash(editionIdHash) {
+        const { rows } = await (await this._getPool()).query(
+          `SELECT e.*,p.slug,COALESCE(p.name,e.edition_id_hash) AS name FROM edition e LEFT JOIN project p ON p.id=e.project_id
+       WHERE e.edition_id_hash=$1 AND e.orphaned_at IS NULL`,
+          [String(editionIdHash).toLowerCase()]
+        );
+        return rows[0] ?? null;
+      }
       async pass(editionAddress, tokenId) {
         const { rows } = await (await this._getPool()).query(
           `SELECT pt.*,e.edition_address,p.slug,COALESCE(p.name,e.edition_id_hash) AS name,t.royalty_receiver,t.royalty_bps FROM pass_token_projection pt
@@ -10799,6 +10807,10 @@ var init_memory_store = __esm({
       async editionByAddress(address2) {
         return structuredClone(this.editions.find((edition) => edition.editionAddress === address2.toLowerCase()) ?? null);
       }
+      async editionByEditionIdHash(hash4) {
+        const target = String(hash4 ?? "").toLowerCase();
+        return structuredClone(this.editions.find((edition) => String(edition.editionIdHash ?? edition.edition_id_hash ?? "").toLowerCase() === target) ?? null);
+      }
       async pass(edition, tokenId) {
         return structuredClone(this.passes.find((pass) => pass.editionAddress === edition.toLowerCase() && String(pass.tokenId) === String(tokenId)) ?? null);
       }
@@ -11550,6 +11562,11 @@ var SubgraphClient = class {
         created_tx: lower(edition.createdTx)
       };
     });
+  }
+  async editionByEditionId(editionId) {
+    const data = await this.query(`query($editionId:Bytes!){ editions(where:{editionId:$editionId}){ id address editionId publisher name symbol absoluteSupplyCap totalMinted disabled } }`, { editionId: lower(editionId) });
+    const edition = data.editions?.[0];
+    return edition ? { ...edition, address: lower(edition.address), editionId: lower(edition.editionId) } : null;
   }
   async editionByAddress(address2) {
     const accessFields = this.protocolVersion >= 2 ? " allowlistRoot allowlistEndsAt allowlistSupply" : "";
@@ -12725,6 +12742,51 @@ function createApiServer({
         }
         const data = indexed && linkedProject ? { ...indexed, project_id: linkedProject.id, project_slug: linkedProject.slug, project_name: linkedProject.name, builder_account_id: linkedProject.builder_account_id ?? linkedProject.builderAccountId, content: linkedProject.content, project: linkedProject } : indexed;
         return json(res, 200, { data, authority: subgraph2?.enabled ? "GOLDSKY_SUBGRAPH_READ_MODEL_PLUS_PROJECT_CONTENT" : "CHAIN_PROJECTION" });
+      }
+      const metadataMatch = url.pathname.match(/^\/v1\/metadata\/(0x[a-fA-F0-9]{40}|0x[a-fA-F0-9]{64})\/(\d{1,20})\/?$/);
+      if (req.method === "GET" && metadataMatch) {
+        const ref = metadataMatch[1].toLowerCase();
+        const tokenId = metadataMatch[2];
+        const tokenNumber = BigInt(tokenId);
+        let editionRow = null;
+        if (!readModelDisabled) {
+          if (ref.length === 66 && store.editionByEditionIdHash) editionRow = await store.editionByEditionIdHash(ref);
+          else if (ref.length === 42 && store.editionByAddress) editionRow = await store.editionByAddress(ref);
+        }
+        const editionAddress = String(editionRow?.edition_address ?? editionRow?.editionAddress ?? (ref.length === 42 ? ref : "")).toLowerCase();
+        let indexed = null;
+        if (subgraph2?.enabled) {
+          try {
+            if (editionAddress) indexed = await subgraph2.editionByAddress(editionAddress);
+            else if (ref.length === 66 && subgraph2.editionByEditionId) indexed = await subgraph2.editionByEditionId(ref);
+          } catch (error) {
+            logger.info?.({ event: "metadata_index_unavailable", error: error.message, ref });
+          }
+        }
+        if (!editionRow && !indexed) throw Object.assign(new Error("EDITION_NOT_FOUND"), { status: 404 });
+        const resolvedAddress = editionAddress || String(indexed?.address ?? indexed?.edition_address ?? "").toLowerCase();
+        const cap = BigInt(editionRow?.absolute_supply_cap ?? editionRow?.absoluteSupplyCap ?? indexed?.absolute_supply_cap ?? indexed?.absoluteSupplyCap ?? "0");
+        if (tokenNumber === 0n || cap > 0n && tokenNumber > cap) throw Object.assign(new Error("PASS_SERIAL_OUT_OF_RANGE"), { status: 404 });
+        const project = resolvedAddress && !readModelDisabled && store.projectByEditionAddress ? await store.projectByEditionAddress(resolvedAddress) : null;
+        const design = project?.content?.design ?? project?.launchDraft?.design ?? {};
+        const serialArt = design.artworkBySerial?.[tokenId] ?? design.artworkBySerial?.[Number(tokenId)] ?? null;
+        const image = serialArt?.url ?? serialArt?.src ?? design.artSrc ?? null;
+        const editionName = project?.name || indexed?.name || editionRow?.name || "NexPass Edition";
+        const attributes = [
+          { trait_type: "Edition", value: editionName },
+          { trait_type: "Serial", display_type: "number", value: Number(tokenNumber) }
+        ];
+        const symbol = indexed?.symbol ?? null;
+        if (symbol) attributes.push({ trait_type: "Symbol", value: symbol });
+        const body = {
+          name: `${editionName} #${tokenId}`,
+          description: String(project?.summary ?? project?.content?.project?.description ?? "").slice(0, 2e3),
+          ...image ? { image: String(image) } : {},
+          ...resolvedAddress ? { external_url: `${allowedOrigin.replace(/\/$/, "")}/editions/${resolvedAddress}` } : {},
+          attributes
+        };
+        res.writeHead(200, { ...JSON_HEADERS, "access-control-allow-origin": "*", "cache-control": "public, max-age=60" });
+        return res.end(JSON.stringify(body));
       }
       if (req.method === "GET" && url.pathname.startsWith("/v1/passes/")) {
         const [, , , edition, tokenId] = url.pathname.split("/");

@@ -57,6 +57,7 @@ export class MemoryStore {
     return structuredClone({ ...project, editions: this.editions.filter((item) => (item.projectId ?? item.project_id) === project.id) });
   }
   async editionByAddress(address) { return structuredClone(this.editions.find((edition) => edition.editionAddress === address.toLowerCase()) ?? null); }
+  async editionByEditionIdHash(hash) { const target = String(hash ?? '').toLowerCase(); return structuredClone(this.editions.find((edition) => String(edition.editionIdHash ?? edition.edition_id_hash ?? '').toLowerCase() === target) ?? null); }
   async pass(edition, tokenId) { return structuredClone(this.passes.find((pass) => pass.editionAddress === edition.toLowerCase() && String(pass.tokenId) === String(tokenId)) ?? null); }
   async listings() { return structuredClone(this.listingRows.filter((listing) => listing.status === 'ACTIVE')); }
   async storeSignedOrder(input) { this.signedOrders.set(input.orderHash.toLowerCase(), structuredClone(input)); return structuredClone(input); }

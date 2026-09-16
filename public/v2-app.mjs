@@ -2510,13 +2510,19 @@ function assertCreatePassFieldCoverage(draft) {
   return draft;
 }
 
+function nmMetadataBaseUri(editionId) {
+  const origin = String(state.config?.apiOrigin || (typeof location !== 'undefined' ? location.origin : '') || 'https://www.nexmarkets.xyz').replace(/\/$/, '');
+  return `${origin}/v1/metadata/${editionId}/`;
+}
+
 function buildCreateEditionInput(compiled, projectId) {
   const edition = compiled.edition || {};
   const rawName = String(edition.name || compiled.project?.name || 'NexMarkets Edition').trim();
   const symbol = (String(edition.series || rawName).replace(/[^a-z0-9]/gi, '').toUpperCase().slice(0, 12) || 'NEX');
   const art = compiled.design?.artEdition?.[0] || compiled.design?.artEditionView || {};
   const hash = String(art.sha256 || '').trim();
-  return { projectId, builderId: state.selectedBuilderId, name: rawName, symbol, editionId: randomBytes32(), absoluteSupplyCap: Number(edition.supply || 1), artworkCommitment: /^0x[0-9a-f]{64}$/i.test(hash) ? hash : randomBytes32(), baseTokenURI: String(compiled.design?.artSrc || compiled.project?.banner?.src || 'https://www.nexmarkets.xyz/v1/metadata/') };
+  const editionId = randomBytes32();
+  return { projectId, builderId: state.selectedBuilderId, name: rawName, symbol, editionId, absoluteSupplyCap: Number(edition.supply || 1), artworkCommitment: /^0x[0-9a-f]{64}$/i.test(hash) ? hash : randomBytes32(), baseTokenURI: nmMetadataBaseUri(editionId) };
 }
 
 async function buildCreateTermsInput(compiled, editionAddress) {
@@ -3611,14 +3617,16 @@ async function liveManageLaunch(id) {
     return;
   }
   window.openDashModal?.(`Create ${launch.project} onchain`, `<p class="dash-modal-copy">Your wallet will submit the permissionless Factory transaction. You will own the Edition and be its only Terms publisher.</p><div class="dash-modal-field"><label>Edition name</label><input id="nmLaunchEditionName" value="${escapeHtml(draft.edition?.name || launch.name || '')}" maxlength="120"></div><div class="dash-modal-field"><label>Symbol</label><input id="nmLaunchSymbol" placeholder="NEX" maxlength="12"></div><div class="dash-modal-field"><label>Edition ID (bytes32)</label><input id="nmLaunchEditionId" placeholder="0x…" maxlength="66"></div><div class="dash-modal-field"><label>Absolute supply cap</label><input id="nmLaunchSupply" type="number" min="1" value="${escapeHtml(draft.edition?.supply || '')}"></div><div class="dash-modal-field"><label>Artwork commitment (bytes32)</label><input id="nmLaunchArtworkCommitment" placeholder="0x…" maxlength="66"></div><div class="dash-modal-field"><label>Committed metadata base URI</label><input id="nmLaunchBaseTokenURI" type="url" placeholder="https://…"></div>`, 'Create with wallet', () => {
+    const typedEditionId = document.getElementById('nmLaunchEditionId')?.value?.trim();
+    const resolvedEditionId = /^0x[0-9a-fA-F]{64}$/.test(typedEditionId || '') ? typedEditionId : randomBytes32();
     const input = {
       projectId: launch.projectId,
       name: document.getElementById('nmLaunchEditionName')?.value?.trim(),
       symbol: document.getElementById('nmLaunchSymbol')?.value?.trim(),
-      editionId: document.getElementById('nmLaunchEditionId')?.value?.trim(),
+      editionId: resolvedEditionId,
       absoluteSupplyCap: Number(document.getElementById('nmLaunchSupply')?.value),
       artworkCommitment: document.getElementById('nmLaunchArtworkCommitment')?.value?.trim(),
-      baseTokenURI: document.getElementById('nmLaunchBaseTokenURI')?.value?.trim()
+      baseTokenURI: document.getElementById('nmLaunchBaseTokenURI')?.value?.trim() || nmMetadataBaseUri(resolvedEditionId)
     };
     actionState('dashboard', 'Creating your Edition', 'Confirm the permissionless Factory transaction in your wallet.');
     createEditionOnchain(input).then((result) => {

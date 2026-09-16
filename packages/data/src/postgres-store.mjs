@@ -245,6 +245,14 @@ export class PostgresStore {
     return { ...rows[0], termsHistory: terms.rows.map((term) => ({ ...term, advantageConfigs: advantages.rows.filter((advantage) => advantage.terms_hash === term.terms_hash).map((advantage) => ({ advantageId: advantage.advantage_id_hash, kind: kind[advantage.kind], startsAt: Math.floor(advantage.starts_at.getTime() / 1000), endsAt: Math.floor(advantage.ends_at.getTime() / 1000), totalUnits: advantage.total_units, definitionHash: advantage.definition_hash })) })) };
   }
 
+  async editionByEditionIdHash(editionIdHash) {
+    const { rows } = await (await this._getPool()).query(
+      `SELECT e.*,p.slug,COALESCE(p.name,e.edition_id_hash) AS name FROM edition e LEFT JOIN project p ON p.id=e.project_id
+       WHERE e.edition_id_hash=$1 AND e.orphaned_at IS NULL`, [String(editionIdHash).toLowerCase()]
+    );
+    return rows[0] ?? null;
+  }
+
   async pass(editionAddress, tokenId) {
     const { rows } = await (await this._getPool()).query(
       `SELECT pt.*,e.edition_address,p.slug,COALESCE(p.name,e.edition_id_hash) AS name,t.royalty_receiver,t.royalty_bps FROM pass_token_projection pt

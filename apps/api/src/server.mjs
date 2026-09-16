@@ -822,6 +822,55 @@ export function createApiServer({
           : indexed;
         return json(res, 200, { data, authority: subgraph?.enabled ? 'GOLDSKY_SUBGRAPH_READ_MODEL_PLUS_PROJECT_CONTENT' : 'CHAIN_PROJECTION' });
       }
+      const metadataMatch = url.pathname.match(/^\/v1\/metadata\/(0x[a-fA-F0-9]{40}|0x[a-fA-F0-9]{64})\/(\d{1,20})\/?$/);
+      if (req.method === 'GET' && metadataMatch) {
+        // Public ERC-721 metadata. tokenURI on the Edition contract is
+        // baseTokenURI + tokenId, and the base recorded at creation is this
+        // route keyed by the editionId the Builder generated before signing
+        // createEdition. Resolution order: Postgres edition link (Builder
+        // project owns artwork + copy), then the Goldsky read model (on-chain
+        // name/symbol for Editions never linked to a project record).
+        const ref = metadataMatch[1].toLowerCase();
+        const tokenId = metadataMatch[2];
+        const tokenNumber = BigInt(tokenId);
+        let editionRow = null;
+        if (!readModelDisabled) {
+          if (ref.length === 66 && store.editionByEditionIdHash) editionRow = await store.editionByEditionIdHash(ref);
+          else if (ref.length === 42 && store.editionByAddress) editionRow = await store.editionByAddress(ref);
+        }
+        const editionAddress = String(editionRow?.edition_address ?? editionRow?.editionAddress ?? (ref.length === 42 ? ref : '')).toLowerCase();
+        let indexed = null;
+        if (subgraph?.enabled) {
+          try {
+            if (editionAddress) indexed = await subgraph.editionByAddress(editionAddress);
+            else if (ref.length === 66 && subgraph.editionByEditionId) indexed = await subgraph.editionByEditionId(ref);
+          } catch (error) { logger.info?.({ event: 'metadata_index_unavailable', error: error.message, ref }); }
+        }
+        if (!editionRow && !indexed) throw Object.assign(new Error('EDITION_NOT_FOUND'), { status: 404 });
+        const resolvedAddress = editionAddress || String(indexed?.address ?? indexed?.edition_address ?? '').toLowerCase();
+        const cap = BigInt(editionRow?.absolute_supply_cap ?? editionRow?.absoluteSupplyCap ?? indexed?.absolute_supply_cap ?? indexed?.absoluteSupplyCap ?? '0');
+        if (tokenNumber === 0n || (cap > 0n && tokenNumber > cap)) throw Object.assign(new Error('PASS_SERIAL_OUT_OF_RANGE'), { status: 404 });
+        const project = resolvedAddress && !readModelDisabled && store.projectByEditionAddress ? await store.projectByEditionAddress(resolvedAddress) : null;
+        const design = project?.content?.design ?? project?.launchDraft?.design ?? {};
+        const serialArt = design.artworkBySerial?.[tokenId] ?? design.artworkBySerial?.[Number(tokenId)] ?? null;
+        const image = serialArt?.url ?? serialArt?.src ?? design.artSrc ?? null;
+        const editionName = project?.name || indexed?.name || editionRow?.name || 'NexPass Edition';
+        const attributes = [
+          { trait_type: 'Edition', value: editionName },
+          { trait_type: 'Serial', display_type: 'number', value: Number(tokenNumber) }
+        ];
+        const symbol = indexed?.symbol ?? null;
+        if (symbol) attributes.push({ trait_type: 'Symbol', value: symbol });
+        const body = {
+          name: `${editionName} #${tokenId}`,
+          description: String(project?.summary ?? project?.content?.project?.description ?? '').slice(0, 2000),
+          ...(image ? { image: String(image) } : {}),
+          ...(resolvedAddress ? { external_url: `${allowedOrigin.replace(/\/$/, '')}/editions/${resolvedAddress}` } : {}),
+          attributes
+        };
+        res.writeHead(200, { ...JSON_HEADERS, 'access-control-allow-origin': '*', 'cache-control': 'public, max-age=60' });
+        return res.end(JSON.stringify(body));
+      }
       if (req.method === 'GET' && url.pathname.startsWith('/v1/passes/')) {
         const [, , , edition, tokenId] = url.pathname.split('/');
         const rawPass = readModelDisabled ? null : subgraph?.enabled ? await subgraph.pass(edition, tokenId) : await store.pass(edition, tokenId);
