@@ -5,7 +5,7 @@ Foundry run, and a forked-chain certification journey.
 
 **Frontend authority (user-designated):**
 `NEXMARKETS_HOMEPAGE_DISCOVER_MARKET_COLLECTIBLE_ROTATION_PASS_TEXT_FIT_UX_FIXED.html`
-`sha256 7e67e10e8332677668baab0e5653e84c62556d57f816f5b09daa6337adf9858c`
+`sha256 637b7c606ef710f9966373f36238b779cd746303638d4fd46a7e01c92acd34b7`
 
 > The file named in the original brief, `NEXMARKETS_HOMEPAGE_HERO_LOAD_OPTIMIZED_FINAL.html`,
 > **does not exist** anywhere in the workspace. The file above is the latest named snapshot.

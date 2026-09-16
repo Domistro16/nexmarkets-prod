@@ -4,7 +4,7 @@ import { JsonRpcProvider, keccak256 } from 'ethers';
 const root = new URL('../', import.meta.url);
 const manifestUrl = new URL('deployments/robinhood-testnet.v1-deployment.json', root);
 const archiveUrl = new URL('deployments/robinhood-testnet.v1-deployment.legacy-v1.json', root);
-const subgraphVersion = process.argv.find((arg) => arg.startsWith('--subgraph-version='))?.split('=')[1] ?? '1.0.2';
+const subgraphVersion = process.argv.find((arg) => arg.startsWith('--subgraph-version='))?.split('=')[1] ?? '1.0.3';
 
 const previous = JSON.parse(await readFile(manifestUrl, 'utf8'));
 try { await access(archiveUrl); } catch { await copyFile(manifestUrl, archiveUrl); }

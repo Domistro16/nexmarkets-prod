@@ -354,13 +354,13 @@ export function createNetworkConfigs(env = process.env) {
   const rhTestnetSubgraph = networkSubgraph(
     env,
     'ROBINHOOD_TESTNET',
-    env.NEXMARKETS_SUBGRAPH_URL ?? 'https://api.goldsky.com/api/public/project_cmt3es3z03t5101vr8ggx1j7e/subgraphs/nexmarkets-v1-robinhood-testnet/1.0.2/gn',
+    env.NEXMARKETS_SUBGRAPH_URL ?? 'https://api.goldsky.com/api/public/project_cmt3es3z03t5101vr8ggx1j7e/subgraphs/nexmarkets-v1-robinhood-testnet/1.0.3/gn',
     env.CERTIFICATION_EDITION_ADDRESS ?? null,
     env.CERTIFICATION_EDITION_NAME ?? null,
     2
   );
   const rhMainnetSubgraph = networkSubgraph(env, 'ROBINHOOD_MAINNET', env.RH_MAINNET_SUBGRAPH_URL, env.RH_MAINNET_CERTIFICATION_EDITION_ADDRESS, env.RH_MAINNET_CERTIFICATION_EDITION_NAME);
-  const baseSepoliaSubgraph = networkSubgraph(env, 'BASE_SEPOLIA', env.BASE_SEPOLIA_SUBGRAPH_URL ?? env.BASE_SEPOLIA_NEXMARKETS_SUBGRAPH_URL ?? 'https://api.goldsky.com/api/public/project_cmt3es3z03t5101vr8ggx1j7e/subgraphs/nexmarkets-v1-base-sepolia/1.0.2/gn', env.BASE_SEPOLIA_CERTIFICATION_EDITION_ADDRESS, env.BASE_SEPOLIA_CERTIFICATION_EDITION_NAME, 2);
+  const baseSepoliaSubgraph = networkSubgraph(env, 'BASE_SEPOLIA', env.BASE_SEPOLIA_SUBGRAPH_URL ?? env.BASE_SEPOLIA_NEXMARKETS_SUBGRAPH_URL ?? 'https://api.goldsky.com/api/public/project_cmt3es3z03t5101vr8ggx1j7e/subgraphs/nexmarkets-v1-base-sepolia/1.0.3/gn', env.BASE_SEPOLIA_CERTIFICATION_EDITION_ADDRESS, env.BASE_SEPOLIA_CERTIFICATION_EDITION_NAME, 2);
   const baseMainnetSubgraph = networkSubgraph(env, 'BASE_MAINNET', env.BASE_MAINNET_SUBGRAPH_URL ?? env.BASE_MAINNET_NEXMARKETS_SUBGRAPH_URL, env.BASE_MAINNET_CERTIFICATION_EDITION_ADDRESS, env.BASE_MAINNET_CERTIFICATION_EDITION_NAME);
   const rhTestnetPolicy = networkPolicyEnv(env, 'ROBINHOOD_TESTNET', env.USDG_ADDRESS ?? '0x6A4F8832c23C51ba626Eba9d50c8F862647C1679', '0x0000000000000068F116a894984e2DB1123eB395', VERIFIED_TESTNET_POLICIES['robinhood-testnet']);
   const baseSepoliaPolicy = networkPolicyEnv(env, 'BASE_SEPOLIA', baseSepoliaUsdc, '0x0000000000000068F116a894984e2DB1123eB395', VERIFIED_TESTNET_POLICIES['base-sepolia']);

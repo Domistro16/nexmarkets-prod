@@ -36,6 +36,7 @@ import {
   RewardClaimed
 } from "../generated/NexRewardDistributor/NexRewardDistributor";
 import {
+  NexPassEdition as NexPassEditionContract,
   Transfer,
   EditionMinted,
   EditionConfigured,
@@ -184,6 +185,11 @@ export function handleEditionCreated(event: EditionCreated): void {
   edition.mintController = event.params.mintController;
   edition.absoluteSupplyCap = event.params.absoluteSupplyCap;
   edition.artworkCommitment = event.params.artworkCommitment;
+  const editionContract = NexPassEditionContract.bind(event.params.edition);
+  const nameResult = editionContract.try_name();
+  const symbolResult = editionContract.try_symbol();
+  edition.name = nameResult.reverted ? null : nameResult.value;
+  edition.symbol = symbolResult.reverted ? null : symbolResult.value;
   edition.totalMinted = BigInt.zero();
   edition.disabled = false;
   edition.createdBlock = eventBlock(event);

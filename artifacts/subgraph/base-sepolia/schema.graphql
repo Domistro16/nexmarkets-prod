@@ -22,6 +22,8 @@ type Edition @entity(immutable: false) {
   publisher: Bytes!
   editionOwner: Bytes!
   mintController: Bytes!
+  name: String
+  symbol: String
   absoluteSupplyCap: BigInt!
   artworkCommitment: Bytes!
   totalMinted: BigInt!

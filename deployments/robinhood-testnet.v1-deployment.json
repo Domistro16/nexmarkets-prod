@@ -284,8 +284,8 @@
   "mainnetCustomDeploymentPerformed": false,
   "recordedAt": "2026-09-15T22:21:54.612Z",
   "subgraph": {
-    "name": "nexmarkets-v1-robinhood-testnet/1.0.2",
-    "endpoint": "https://api.goldsky.com/api/public/project_cmt3es3z03t5101vr8ggx1j7e/subgraphs/nexmarkets-v1-robinhood-testnet/1.0.2/gn",
+    "name": "nexmarkets-v1-robinhood-testnet/1.0.3",
+    "endpoint": "https://api.goldsky.com/api/public/project_cmt3es3z03t5101vr8ggx1j7e/subgraphs/nexmarkets-v1-robinhood-testnet/1.0.3/gn",
     "startBlock": 120137047,
     "provider": "Goldsky"
   },

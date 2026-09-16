@@ -11525,10 +11525,10 @@ var SubgraphClient = class {
   }
   async discover({ first = 100 } = {}) {
     const accessFields = this.protocolVersion >= 2 ? " allowlistRoot allowlistEndsAt allowlistSupply" : "";
-    const data = await this.query(`query($first:Int!){ editions(first:$first,orderBy:createdBlock,orderDirection:desc){ id address editionId publisher absoluteSupplyCap totalMinted disabled currentTerms { hash pricePerPass previewStartsAt mintStartsAt mintEndsAt${accessFields} } createdBlock createdTimestamp createdTx } }`, { first });
+    const data = await this.query(`query($first:Int!){ editions(first:$first,orderBy:createdBlock,orderDirection:desc){ id address editionId publisher name symbol absoluteSupplyCap totalMinted disabled currentTerms { hash pricePerPass previewStartsAt mintStartsAt mintEndsAt${accessFields} } createdBlock createdTimestamp createdTx } }`, { first });
     return (data.editions ?? []).map((edition) => {
       const address2 = lower(edition.address);
-      const name = address2 === this.certificationEditionAddress && this.certificationEditionName ? this.certificationEditionName : `NexPass Edition ${address2?.slice(0, 10) ?? ""}`;
+      const name = edition.name || (address2 === this.certificationEditionAddress && this.certificationEditionName ? this.certificationEditionName : `NexPass Edition ${address2?.slice(0, 10) ?? ""}`);
       const currentTerms = normalizeTerms(edition.currentTerms ?? {});
       return {
         slug: address2,
@@ -11553,7 +11553,7 @@ var SubgraphClient = class {
   }
   async editionByAddress(address2) {
     const accessFields = this.protocolVersion >= 2 ? " allowlistRoot allowlistEndsAt allowlistSupply" : "";
-    const data = await this.query(`query($address:Bytes!,$editionId:ID!){ editions(where:{address:$address}){ id address editionId publisher mintController absoluteSupplyCap artworkCommitment totalMinted disabled currentTerms { id hash version activeSupply pricePerPass previewStartsAt mintStartsAt mintEndsAt${accessFields} primaryRecipient royaltyReceiver royaltyBps advantagesHash referralTermsHash blockNumber timestamp transactionHash } terms(orderBy:version,orderDirection:desc){ id hash version activeSupply pricePerPass previewStartsAt mintStartsAt mintEndsAt${accessFields} primaryRecipient royaltyReceiver royaltyBps advantagesHash referralTermsHash } } advantageDefinitions(where:{edition:$editionId}){ termsHash advantageId kind startsAt endsAt totalUnits definitionHash } }`, { address: lower(address2), editionId: lower(address2) });
+    const data = await this.query(`query($address:Bytes!,$editionId:ID!){ editions(where:{address:$address}){ id address editionId publisher mintController name symbol absoluteSupplyCap artworkCommitment totalMinted disabled currentTerms { id hash version activeSupply pricePerPass previewStartsAt mintStartsAt mintEndsAt${accessFields} primaryRecipient royaltyReceiver royaltyBps advantagesHash referralTermsHash blockNumber timestamp transactionHash } terms(orderBy:version,orderDirection:desc){ id hash version activeSupply pricePerPass previewStartsAt mintStartsAt mintEndsAt${accessFields} primaryRecipient royaltyReceiver royaltyBps advantagesHash referralTermsHash } } advantageDefinitions(where:{edition:$editionId}){ termsHash advantageId kind startsAt endsAt totalUnits definitionHash } }`, { address: lower(address2), editionId: lower(address2) });
     const edition = data.editions?.[0];
     if (!edition) return null;
     const normalizedAddress = lower(edition.address);
@@ -11575,7 +11575,7 @@ var SubgraphClient = class {
     return {
       ...edition,
       id: normalizedAddress,
-      name: normalizedAddress === this.certificationEditionAddress && this.certificationEditionName ? this.certificationEditionName : `NexPass Edition ${normalizedAddress.slice(0, 10)}`,
+      name: edition.name || (normalizedAddress === this.certificationEditionAddress && this.certificationEditionName ? this.certificationEditionName : `NexPass Edition ${normalizedAddress.slice(0, 10)}`),
       address: normalizedAddress,
       edition_address: normalizedAddress,
       editionId: lower(edition.editionId),
@@ -11713,7 +11713,7 @@ function normalizeRewardPolicy(policy) {
 // packages/config/src/networks.mjs
 var PRODUCT_AUTHORITY = Object.freeze({
   file: "NEXMARKETS_HOMEPAGE_DISCOVER_MARKET_COLLECTIBLE_ROTATION_PASS_TEXT_FIT_UX_FIXED.html",
-  sha256: "7e67e10e8332677668baab0e5653e84c62556d57f816f5b09daa6337adf9858c"
+  sha256: "637b7c606ef710f9966373f36238b779cd746303638d4fd46a7e01c92acd34b7"
 });
 var PRIMITIVES = Object.freeze({
   seaport16: "0x0000000000000068F116a894984e2DB1123eB395",
@@ -12263,13 +12263,13 @@ function createNetworkConfigs(env = process.env) {
   const rhTestnetSubgraph = networkSubgraph(
     env,
     "ROBINHOOD_TESTNET",
-    env.NEXMARKETS_SUBGRAPH_URL ?? "https://api.goldsky.com/api/public/project_cmt3es3z03t5101vr8ggx1j7e/subgraphs/nexmarkets-v1-robinhood-testnet/1.0.2/gn",
+    env.NEXMARKETS_SUBGRAPH_URL ?? "https://api.goldsky.com/api/public/project_cmt3es3z03t5101vr8ggx1j7e/subgraphs/nexmarkets-v1-robinhood-testnet/1.0.3/gn",
     env.CERTIFICATION_EDITION_ADDRESS ?? null,
     env.CERTIFICATION_EDITION_NAME ?? null,
     2
   );
   const rhMainnetSubgraph = networkSubgraph(env, "ROBINHOOD_MAINNET", env.RH_MAINNET_SUBGRAPH_URL, env.RH_MAINNET_CERTIFICATION_EDITION_ADDRESS, env.RH_MAINNET_CERTIFICATION_EDITION_NAME);
-  const baseSepoliaSubgraph = networkSubgraph(env, "BASE_SEPOLIA", env.BASE_SEPOLIA_SUBGRAPH_URL ?? env.BASE_SEPOLIA_NEXMARKETS_SUBGRAPH_URL ?? "https://api.goldsky.com/api/public/project_cmt3es3z03t5101vr8ggx1j7e/subgraphs/nexmarkets-v1-base-sepolia/1.0.2/gn", env.BASE_SEPOLIA_CERTIFICATION_EDITION_ADDRESS, env.BASE_SEPOLIA_CERTIFICATION_EDITION_NAME, 2);
+  const baseSepoliaSubgraph = networkSubgraph(env, "BASE_SEPOLIA", env.BASE_SEPOLIA_SUBGRAPH_URL ?? env.BASE_SEPOLIA_NEXMARKETS_SUBGRAPH_URL ?? "https://api.goldsky.com/api/public/project_cmt3es3z03t5101vr8ggx1j7e/subgraphs/nexmarkets-v1-base-sepolia/1.0.3/gn", env.BASE_SEPOLIA_CERTIFICATION_EDITION_ADDRESS, env.BASE_SEPOLIA_CERTIFICATION_EDITION_NAME, 2);
   const baseMainnetSubgraph = networkSubgraph(env, "BASE_MAINNET", env.BASE_MAINNET_SUBGRAPH_URL ?? env.BASE_MAINNET_NEXMARKETS_SUBGRAPH_URL, env.BASE_MAINNET_CERTIFICATION_EDITION_ADDRESS, env.BASE_MAINNET_CERTIFICATION_EDITION_NAME);
   const rhTestnetPolicy = networkPolicyEnv(env, "ROBINHOOD_TESTNET", env.USDG_ADDRESS ?? "0x6A4F8832c23C51ba626Eba9d50c8F862647C1679", "0x0000000000000068F116a894984e2DB1123eB395", VERIFIED_TESTNET_POLICIES["robinhood-testnet"]);
   const baseSepoliaPolicy = networkPolicyEnv(env, "BASE_SEPOLIA", baseSepoliaUsdc, "0x0000000000000068F116a894984e2DB1123eB395", VERIFIED_TESTNET_POLICIES["base-sepolia"]);

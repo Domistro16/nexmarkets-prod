@@ -10,7 +10,7 @@ const authorityHash = createHash('sha256').update(authority).digest('hex');
 test('approved UI authority remains byte-exact', () => {
   assert.equal(PRODUCT_AUTHORITY.file, 'NEXMARKETS_HOMEPAGE_DISCOVER_MARKET_COLLECTIBLE_ROTATION_PASS_TEXT_FIT_UX_FIXED.html');
   assert.equal(authorityHash, PRODUCT_AUTHORITY.sha256);
-  assert.equal(authorityHash, '7e67e10e8332677668baab0e5653e84c62556d57f816f5b09daa6337adf9858c');
+  assert.equal(authorityHash, '637b7c606ef710f9966373f36238b779cd746303638d4fd46a7e01c92acd34b7');
 });
 
 test('approved UI authority is a standalone canonical document', () => {

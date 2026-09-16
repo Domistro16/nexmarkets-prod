@@ -1,0 +1,306 @@
+specVersion: 1.3.0
+description: NexMarkets V1 Base Sepolia indexed read model. Chain/RPC remains canonical.
+repository: https://github.com/Domistro16/nexmarkets-prod
+schema:
+  file: schema.graphql
+dataSources:
+  - kind: ethereum
+    name: NexPassFactory
+    network: base-sepolia
+    source:
+      address: "0xcF0802892749fAD109c3B841b2a0D922D4DBD6ED"
+      abi: NexPassFactory
+      startBlock: 46827964
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.9
+      language: wasm/assemblyscript
+      file: NexPassFactory\NexPassFactory.wasm
+      entities:
+        - ProtocolDeployment
+        - Edition
+      abis:
+        - name: NexPassFactory
+          file: NexPassFactory\NexPassFactory.json
+        - name: NexPassEdition
+          file: NexPassFactory\NexPassEdition.json
+      eventHandlers:
+        - event: EditionCreated(indexed address,indexed bytes32,indexed
+            address,bytes32,address,address,uint32,bytes32)
+          handler: handleEditionCreated
+  - kind: ethereum
+    name: NexLaunchRegistry
+    network: base-sepolia
+    source:
+      address: "0x83125b7a5e8d4e79134D74f8E8b5052a58E054B5"
+      abi: NexLaunchRegistry
+      startBlock: 46827960
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.9
+      language: wasm/assemblyscript
+      file: NexPassFactory\NexPassFactory.wasm
+      entities:
+        - Edition
+        - TermsVersion
+      abis:
+        - name: NexLaunchRegistry
+          file: NexLaunchRegistry\NexLaunchRegistry.json
+      eventHandlers:
+        - event: EditionRegistered(indexed address,indexed bytes32,indexed address,uint32)
+          handler: handleEditionRegistered
+        - event: TermsPublished(indexed address,indexed bytes32,indexed
+            uint64,uint256,uint256,uint64,uint64,uint64,address,address,uint96,bytes32,bytes32)
+          handler: handleTermsPublished
+        - event: MintAccessPublished(indexed address,indexed bytes32,bytes32,uint64,uint256,uint256)
+          handler: handleMintAccessPublished
+  - kind: ethereum
+    name: NexMintController
+    network: base-sepolia
+    source:
+      address: "0x8de2eD8bCB4216aF0b1a07D65A6dF229677BD758"
+      abi: NexMintController
+      startBlock: 46827962
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.9
+      language: wasm/assemblyscript
+      file: NexPassFactory\NexPassFactory.wasm
+      entities:
+        - PrimaryMint
+      abis:
+        - name: NexMintController
+          file: NexMintController\NexMintController.json
+      eventHandlers:
+        - event: PrimaryMintSettled(indexed address,indexed address,indexed
+            address,bytes32,bytes32,uint256,uint256,uint256,uint256)
+          handler: handlePrimaryMintSettled
+        - event: ReferralHintSubmitted(indexed bytes32,indexed address,indexed address,address)
+          handler: handleReferralHintSubmitted
+  - kind: ethereum
+    name: NexAdvantageRegistry
+    network: base-sepolia
+    source:
+      address: "0x6D4Db1939D322411EdE8970eCB14b729788f75Aa"
+      abi: NexAdvantageRegistry
+      startBlock: 46827966
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.9
+      language: wasm/assemblyscript
+      file: NexPassFactory\NexPassFactory.wasm
+      entities:
+        - Pass
+        - AdvantageState
+        - AdvantageConsumption
+      abis:
+        - name: NexAdvantageRegistry
+          file: NexAdvantageRegistry\NexAdvantageRegistry.json
+      eventHandlers:
+        - event: PassAdvantagesInitialized(indexed address,indexed uint256,indexed
+            bytes32,bytes32,uint256)
+          handler: handlePassAdvantagesInitialized
+        - event: PassListingStateSet(indexed address,indexed uint256,bool)
+          handler: handlePassListingStateSet
+        - event: AdvantageConsumed(indexed address,indexed uint256,indexed
+            bytes32,address,bytes32,uint256,uint256)
+          handler: handleAdvantageConsumed
+  - kind: ethereum
+    name: NexAdvantageInitializer
+    network: base-sepolia
+    source:
+      address: "0x9b2f41F9602E3C1AA41a079893386E65AB130c1C"
+      abi: NexAdvantageInitializer
+      startBlock: 46827968
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.9
+      language: wasm/assemblyscript
+      file: NexPassFactory\NexPassFactory.wasm
+      entities:
+        - Pass
+        - AdvantageState
+      abis:
+        - name: NexAdvantageInitializer
+          file: NexAdvantageInitializer\NexAdvantageInitializer.json
+      eventHandlers:
+        - event: MintAdvantagesInitialized(indexed address,indexed uint256,uint256,indexed
+            bytes32,bytes32)
+          handler: handleMintAdvantagesInitialized
+  - kind: ethereum
+    name: NexListingRegistry
+    network: base-sepolia
+    source:
+      address: "0x21C397F20Db8da540d22F798d7EC7f7c16CE9241"
+      abi: NexListingRegistry
+      startBlock: 46827972
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.9
+      language: wasm/assemblyscript
+      file: NexPassFactory\NexPassFactory.wasm
+      entities:
+        - Listing
+        - SecondarySale
+      abis:
+        - name: NexListingRegistry
+          file: NexListingRegistry\NexListingRegistry.json
+      eventHandlers:
+        - event: ListingCreated(indexed bytes32,indexed address,indexed
+            uint256,address,bytes32,uint256,address,uint96,uint64,uint64,bytes32)
+          handler: handleListingCreated
+        - event: ListingCancelled(indexed bytes32,indexed address)
+          handler: handleListingCancelled
+        - event: ListingFilled(indexed bytes32,indexed address)
+          handler: handleListingFilled
+        - event: SecondarySaleSettled(indexed bytes32,indexed
+            address,uint256,uint256,uint256,uint256)
+          handler: handleSecondarySaleSettled
+        - event: ListingExpired(indexed bytes32)
+          handler: handleListingExpired
+        - event: ListingStale(indexed bytes32,indexed address)
+          handler: handleListingStale
+  - kind: ethereum
+    name: NexRoyaltyVault
+    network: base-sepolia
+    source:
+      address: "0xCbf82F765c80446baa753a56C563ED0291374614"
+      abi: NexRoyaltyVault
+      startBlock: 46827970
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.9
+      language: wasm/assemblyscript
+      file: NexPassFactory\NexPassFactory.wasm
+      entities:
+        - RoyaltyClaim
+      abis:
+        - name: NexRoyaltyVault
+          file: NexRoyaltyVault\NexRoyaltyVault.json
+      eventHandlers:
+        - event: RoyaltyRecorded(indexed bytes32,indexed address,indexed
+            uint256,address,uint256,uint64)
+          handler: handleRoyaltyRecorded
+        - event: RoyaltyWithdrawn(indexed bytes32,indexed address,uint256)
+          handler: handleRoyaltyWithdrawn
+  - kind: ethereum
+    name: NexTBAResolver
+    network: base-sepolia
+    source:
+      address: "0x6B53e133DA10d456296930c041d17606d9283DaF"
+      abi: NexTBAResolver
+      startBlock: 46827980
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.9
+      language: wasm/assemblyscript
+      file: NexPassFactory\NexPassFactory.wasm
+      entities:
+        - TokenBoundAccount
+      abis:
+        - name: NexTBAResolver
+          file: NexTBAResolver\NexTBAResolver.json
+      eventHandlers:
+        - event: PassAccountCreated(indexed address,indexed uint256,indexed address)
+          handler: handlePassAccountCreated
+  - kind: ethereum
+    name: ERC6551Registry
+    network: base-sepolia
+    source:
+      address: "0x000000006551c19487814612e58FE06813775758"
+      abi: ERC6551Registry
+      startBlock: 46827964
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.9
+      language: wasm/assemblyscript
+      file: NexPassFactory\NexPassFactory.wasm
+      entities:
+        - TokenBoundAccount
+      abis:
+        - name: ERC6551Registry
+          file: ERC6551Registry\ERC6551Registry.json
+      eventHandlers:
+        - event: ERC6551AccountCreated(address,indexed address,bytes32,uint256,indexed
+            address,indexed uint256)
+          handler: handleERC6551AccountCreated
+  - kind: ethereum
+    name: Seaport16
+    network: base-sepolia
+    source:
+      address: "0x0000000000000068F116a894984e2DB1123eB395"
+      abi: Seaport16
+      startBlock: 46827972
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.9
+      language: wasm/assemblyscript
+      file: NexPassFactory\NexPassFactory.wasm
+      entities:
+        - SettlementEvidence
+      abis:
+        - name: Seaport16
+          file: Seaport16\Seaport16.json
+      eventHandlers:
+        - event: OrderFulfilled(indexed bytes32,indexed address,indexed
+            address,address,(uint8,address,uint256,uint256)[],(uint8,address,uint256,uint256,address)[])
+          handler: handleOrderFulfilled
+  - kind: ethereum
+    name: NexRewardDistributor
+    network: base-sepolia
+    source:
+      address: "0x2453c5FCef787D076ff21614E54C50344FD1EB91"
+      abi: NexRewardDistributor
+      startBlock: 46827982
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.9
+      language: wasm/assemblyscript
+      file: NexPassFactory\NexPassFactory.wasm
+      entities:
+        - RewardPolicy
+        - RewardCycle
+        - RewardClaim
+      abis:
+        - name: NexRewardDistributor
+          file: NexRewardDistributor\NexRewardDistributor.json
+      eventHandlers:
+        - event: RewardPolicyPublished(indexed bytes32,indexed address,indexed
+            address,uint8,uint16,address,bool,uint64)
+          handler: handleRewardPolicyPublished
+        - event: RewardPolicyRetired(indexed bytes32,indexed address)
+          handler: handleRewardPolicyRetired
+        - event: RewardCycleFunded(indexed bytes32,indexed bytes32,indexed
+            address,address,uint256,uint256,uint256,uint64)
+          handler: handleRewardCycleFunded
+        - event: RewardClaimed(indexed bytes32,indexed address,indexed
+            uint256,address,address,uint256)
+          handler: handleRewardClaimed
+templates:
+  - kind: ethereum
+    name: NexPassEdition
+    network: base-sepolia
+    source:
+      abi: NexPassEdition
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.9
+      language: wasm/assemblyscript
+      file: NexPassFactory\NexPassFactory.wasm
+      entities:
+        - Edition
+        - Pass
+        - PassTransfer
+      abis:
+        - name: NexPassEdition
+          file: NexPassEdition\NexPassEdition.json
+      eventHandlers:
+        - event: Transfer(indexed address,indexed address,indexed uint256)
+          handler: handleEditionTransfer
+        - event: EditionMinted(indexed address,indexed uint256,uint256,indexed
+            bytes32,uint256,address,uint96)
+          handler: handleEditionMinted
+        - event: EditionConfigured(indexed bytes32,indexed bytes32,uint32)
+          handler: handleEditionConfigured
+        - event: MintControllerSet(indexed address)
+          handler: handleEditionMintControllerSet

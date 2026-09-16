@@ -307,9 +307,9 @@
     "testnetSubgraph": {
       "project": "Default Project",
       "projectId": "project_cmt3es3z03t5101vr8ggx1j7e",
-      "name": "nexmarkets-v1-robinhood-testnet/1.0.2",
+      "name": "nexmarkets-v1-robinhood-testnet/1.0.3",
       "deploymentHash": "QmS7AYuDhFMgWUwngbtDcWvNWbDj56tvLGn2gZ2ZjrUb47",
-      "graphqlEndpoint": "https://api.goldsky.com/api/public/project_cmt3es3z03t5101vr8ggx1j7e/subgraphs/nexmarkets-v1-robinhood-testnet/1.0.2/gn",
+      "graphqlEndpoint": "https://api.goldsky.com/api/public/project_cmt3es3z03t5101vr8ggx1j7e/subgraphs/nexmarkets-v1-robinhood-testnet/1.0.3/gn",
       "startBlock": 120137047,
       "indexedBlock": 105293377,
       "chainHead": 105293377,

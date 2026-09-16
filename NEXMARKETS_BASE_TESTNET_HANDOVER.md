@@ -70,7 +70,7 @@ record.
 Asked as a 4-part question at session start; answers were:
 
 1. **Frontend authority** = `NEXMARKETS_HOMEPAGE_DISCOVER_MARKET_COLLECTIBLE_ROTATION_PASS_TEXT_FIT_UX_FIXED.html`
-   `sha256 7e67e10e8332677668baab0e5653e84c62556d57f816f5b09daa6337adf9858c`
+   `sha256 637b7c606ef710f9966373f36238b779cd746303638d4fd46a7e01c92acd34b7`
    (The file named in the original brief, `NEXMARKETS_HOMEPAGE_HERO_LOAD_OPTIMIZED_FINAL.html`, **does not exist** anywhere in the workspace.)
 2. **Contract fixes** = "Fix, test, and redeploy to Sepolia" — fixes and tests are done; redeploy is blocked, see §6.
 3. **E2E method** = Anvil/forge fork with time-warp (not a 48h public run).

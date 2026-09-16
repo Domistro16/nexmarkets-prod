@@ -52,8 +52,8 @@
     "rewardDistributor": "0x2453c5FCef787D076ff21614E54C50344FD1EB91"
   },
   "subgraph": {
-    "name": "nexmarkets-v1-base-sepolia/1.0.2",
-    "endpoint": "https://api.goldsky.com/api/public/project_cmt3es3z03t5101vr8ggx1j7e/subgraphs/nexmarkets-v1-base-sepolia/1.0.2/gn",
+    "name": "nexmarkets-v1-base-sepolia/1.0.3",
+    "endpoint": "https://api.goldsky.com/api/public/project_cmt3es3z03t5101vr8ggx1j7e/subgraphs/nexmarkets-v1-base-sepolia/1.0.3/gn",
     "startBlock": 46827960,
     "provider": "Goldsky"
   },
@@ -140,8 +140,8 @@
       "protocolAdminSafe": "0xCE54c8453fF48670781a6b908c1A3e9209FC95A0",
       "seaport16": "0x0000000000000068F116a894984e2DB1123eB395",
       "subgraph": {
-        "name": "nexmarkets-v1-robinhood-testnet/1.0.2",
-        "endpoint": "https://api.goldsky.com/api/public/project_cmt3es3z03t5101vr8ggx1j7e/subgraphs/nexmarkets-v1-robinhood-testnet/1.0.2/gn",
+        "name": "nexmarkets-v1-robinhood-testnet/1.0.3",
+        "endpoint": "https://api.goldsky.com/api/public/project_cmt3es3z03t5101vr8ggx1j7e/subgraphs/nexmarkets-v1-robinhood-testnet/1.0.3/gn",
         "startBlock": 120137047,
         "provider": "Goldsky"
       },
@@ -182,8 +182,8 @@
         "rewardDistributor": "0x2453c5FCef787D076ff21614E54C50344FD1EB91"
       },
       "subgraph": {
-        "name": "nexmarkets-v1-base-sepolia/1.0.2",
-        "endpoint": "https://api.goldsky.com/api/public/project_cmt3es3z03t5101vr8ggx1j7e/subgraphs/nexmarkets-v1-base-sepolia/1.0.2/gn",
+        "name": "nexmarkets-v1-base-sepolia/1.0.3",
+        "endpoint": "https://api.goldsky.com/api/public/project_cmt3es3z03t5101vr8ggx1j7e/subgraphs/nexmarkets-v1-base-sepolia/1.0.3/gn",
         "startBlock": 46827960,
         "provider": "Goldsky"
       },

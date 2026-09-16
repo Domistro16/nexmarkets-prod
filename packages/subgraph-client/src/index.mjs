@@ -75,12 +75,12 @@ export class SubgraphClient {
 
   async discover({ first = 100 } = {}) {
     const accessFields = this.protocolVersion >= 2 ? ' allowlistRoot allowlistEndsAt allowlistSupply' : '';
-    const data = await this.query(`query($first:Int!){ editions(first:$first,orderBy:createdBlock,orderDirection:desc){ id address editionId publisher absoluteSupplyCap totalMinted disabled currentTerms { hash pricePerPass previewStartsAt mintStartsAt mintEndsAt${accessFields} } createdBlock createdTimestamp createdTx } }`, { first });
+    const data = await this.query(`query($first:Int!){ editions(first:$first,orderBy:createdBlock,orderDirection:desc){ id address editionId publisher name symbol absoluteSupplyCap totalMinted disabled currentTerms { hash pricePerPass previewStartsAt mintStartsAt mintEndsAt${accessFields} } createdBlock createdTimestamp createdTx } }`, { first });
     return (data.editions ?? []).map((edition) => {
       const address = lower(edition.address);
-      const name = address === this.certificationEditionAddress && this.certificationEditionName
+      const name = edition.name || (address === this.certificationEditionAddress && this.certificationEditionName
         ? this.certificationEditionName
-        : `NexPass Edition ${address?.slice(0, 10) ?? ''}`;
+        : `NexPass Edition ${address?.slice(0, 10) ?? ''}`);
       const currentTerms = normalizeTerms(edition.currentTerms ?? {});
       return {
         slug: address,
@@ -98,7 +98,7 @@ export class SubgraphClient {
 
   async editionByAddress(address) {
     const accessFields = this.protocolVersion >= 2 ? ' allowlistRoot allowlistEndsAt allowlistSupply' : '';
-    const data = await this.query(`query($address:Bytes!,$editionId:ID!){ editions(where:{address:$address}){ id address editionId publisher mintController absoluteSupplyCap artworkCommitment totalMinted disabled currentTerms { id hash version activeSupply pricePerPass previewStartsAt mintStartsAt mintEndsAt${accessFields} primaryRecipient royaltyReceiver royaltyBps advantagesHash referralTermsHash blockNumber timestamp transactionHash } terms(orderBy:version,orderDirection:desc){ id hash version activeSupply pricePerPass previewStartsAt mintStartsAt mintEndsAt${accessFields} primaryRecipient royaltyReceiver royaltyBps advantagesHash referralTermsHash } } advantageDefinitions(where:{edition:$editionId}){ termsHash advantageId kind startsAt endsAt totalUnits definitionHash } }`, { address: lower(address), editionId: lower(address) });
+    const data = await this.query(`query($address:Bytes!,$editionId:ID!){ editions(where:{address:$address}){ id address editionId publisher mintController name symbol absoluteSupplyCap artworkCommitment totalMinted disabled currentTerms { id hash version activeSupply pricePerPass previewStartsAt mintStartsAt mintEndsAt${accessFields} primaryRecipient royaltyReceiver royaltyBps advantagesHash referralTermsHash blockNumber timestamp transactionHash } terms(orderBy:version,orderDirection:desc){ id hash version activeSupply pricePerPass previewStartsAt mintStartsAt mintEndsAt${accessFields} primaryRecipient royaltyReceiver royaltyBps advantagesHash referralTermsHash } } advantageDefinitions(where:{edition:$editionId}){ termsHash advantageId kind startsAt endsAt totalUnits definitionHash } }`, { address: lower(address), editionId: lower(address) });
     const edition = data.editions?.[0];
     if (!edition) return null;
     const normalizedAddress = lower(edition.address);
@@ -121,7 +121,7 @@ export class SubgraphClient {
     return {
       ...edition,
       id: normalizedAddress,
-      name: normalizedAddress === this.certificationEditionAddress && this.certificationEditionName ? this.certificationEditionName : `NexPass Edition ${normalizedAddress.slice(0, 10)}`,
+      name: edition.name || (normalizedAddress === this.certificationEditionAddress && this.certificationEditionName ? this.certificationEditionName : `NexPass Edition ${normalizedAddress.slice(0, 10)}`),
       address: normalizedAddress,
       edition_address: normalizedAddress,
       editionId: lower(edition.editionId),
