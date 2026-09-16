@@ -20,16 +20,17 @@
     "mockUsdgAddress": "0x6A4F8832c23C51ba626Eba9d50c8F862647C1679",
     "protocolAdminSafe": "0xCE54c8453fF48670781a6b908c1A3e9209FC95A0",
     "nexmarketsContracts": {
-      "NexLaunchRegistry": "0xeE3C8F330C0B2738201fDb2F1720D06c0D27620d",
-      "NexMintController": "0x0ea6F883808447f115C7b6C037902361C365555A",
-      "NexPassFactory": "0x957DE0de07D33c9a89c791B876074657a7fFeEb6",
-      "NexAdvantageRegistry": "0x1e265Fee39d75b5211895820926B4ff77B4f1cDd",
-      "NexAdvantageInitializer": "0x4024bB2A5134c2066E2FDE6fC3a1311e2234499A",
-      "NexRoyaltyVault": "0x9D69ab1897aFA9d6ffc97EEa6A936233a999DFa1",
-      "NexListingRegistry": "0xF8fD8D378F6a61Ecb207732F4f1d0c3E4Eb2c75c",
-      "NexMarketsZone": "0xF21dA23d8928b320124fBc17bd678c7C48c55af6",
-      "NexPassAccount": "0x1d687CE71479cFa3e626ed604c48d65fd86D7923",
-      "NexTBAResolver": "0x55b64D8c1f17ba08a39c939D3248E7A2731Fa8b8"
+      "NexLaunchRegistry": "0x7Fd09c85175D67574f5DD6ECA79B8E89Ad95da6a",
+      "NexMintController": "0xd5867FaB655aBb43233ba82B87d3782c2a475FAC",
+      "NexPassFactory": "0x2750473e8D9973f089701C27e2Ad50dfAe05ee71",
+      "NexAdvantageRegistry": "0xC36eDf0e7B7EE5277f4181eFcd77651FB363991f",
+      "NexAdvantageInitializer": "0x62826fa2e6aBe9f7eF462aDB5Bc34A87FbF4D9E8",
+      "NexRoyaltyVault": "0xe7D6F7BfA25A1DBea274b05F91ff56C9485B960D",
+      "NexListingRegistry": "0x509320d4A405f8BB12Ee3C206a41d7FA7679d2bf",
+      "NexMarketsZone": "0x2A5E54b67536164722aEaF529556f798B1cfdD8C",
+      "NexPassAccount": "0x2AE30314Fb3015EFe0C8179e7C3C22411A072e38",
+      "NexTBAResolver": "0xDd132c282a1b506D33A64f94546F4526F3070B0D",
+      "NexRewardDistributor": "0xbCA7C4867B88c3c8D48A7419310bb1AeD98Ca373"
     },
     "deploymentTxHashes": [
       "0x49bdfd485b2509a548412b0f3ce75223dff3ba9ec7cee717adc2712d9661de44",
@@ -52,7 +53,7 @@
       "0x221e86ef68cd82db624f1194d64a60ed11b40a1e7718da7348e07af934d50f4d"
     ],
     "lifecycleStatus": "TESTNET_CERTIFICATION_PASS",
-    "certificationEdition": "0x4171D62F43B4168b07a01C04594455DBc3298437",
+    "certificationEdition": null,
     "termsHash": "0xe357b55e43ce7d7724a3c4fab02814fd0dd590d731247c6e54237f47f2635745",
     "mintStartsAt": "2026-08-21T21:42:30Z",
     "indexingProvider": "GOLDSKY_SUBGRAPH",
@@ -74,23 +75,50 @@
       "secondaryFillTxHash": "0x59e83d2850f0645eda890bb8938bf9ebd4d484221d54141674beab01a6b2ea5f",
       "royaltyAmount": "60000",
       "royaltyReleaseAt": "2026-09-20T22:54:13Z",
-      "transactionLifecycle": ["SUBMITTED", "CONFIRMED", "FINALIZED"],
+      "transactionLifecycle": [
+        "SUBMITTED",
+        "CONFIRMED",
+        "FINALIZED"
+      ],
       "transactionLifecycleIdempotent": true,
       "unexplainedReconciliationDiscrepancies": 0
     },
     "runtimeEvidence": {
       "indexingProvider": "GOLDSKY_SUBGRAPH",
-      "postgres": { "status": "APPLICATION_DATA_PRESERVED_SUBGRAPH_PRIMARY", "migrations": 2, "requiredTables": 34 },
-      "chainWorker": { "status": "PASS_FINALIZED_CERTIFICATION_FILL", "states": ["SUBMITTED", "CONFIRMED", "FINALIZED"], "idempotentReprocess": true },
-      "reconciliation": { "status": "PASS", "checkedCount": 14, "discrepancies": 0 },
+      "postgres": {
+        "status": "APPLICATION_DATA_PRESERVED_SUBGRAPH_PRIMARY",
+        "migrations": 2,
+        "requiredTables": 34
+      },
+      "chainWorker": {
+        "status": "PASS_FINALIZED_CERTIFICATION_FILL",
+        "states": [
+          "SUBMITTED",
+          "CONFIRMED",
+          "FINALIZED"
+        ],
+        "idempotentReprocess": true
+      },
+      "reconciliation": {
+        "status": "PASS",
+        "checkedCount": 14,
+        "discrepancies": 0
+      },
       "legacyTurbo": {
         "status": "LEGACY / DEPRECATED / CLEANED",
-        "tables": ["goldsky_raw_log", "goldsky_chain_watermark", "indexer_event", "indexer_checkpoint", "seaport_fulfillment_projection"],
+        "tables": [
+          "goldsky_raw_log",
+          "goldsky_chain_watermark",
+          "indexer_event",
+          "indexer_checkpoint",
+          "seaport_fulfillment_projection"
+        ],
         "rowsRemaining": 0,
         "applicationSchemaPreserved": true,
         "applicationDataPreserved": true
       }
-    }
+    },
+    "legacyCertificationEdition": "0x4171D62F43B4168b07a01C04594455DBc3298437"
   },
   "mainnet": {
     "network": "robinhood-mainnet",
@@ -111,16 +139,56 @@
     "erc6551Registry": "0x000000006551c19487814612e58FE06813775758",
     "immutableCreate2Factory": "0x0000000000ffe8b47b3e2130213b802212439497",
     "predictedContracts": [
-      { "name": "NexLaunchRegistry", "address": "0xD3eB84F0B832747C257bDA424160b3DA12256719", "codeEmptyAtPreflight": true },
-      { "name": "NexMintController", "address": "0x528fdeE55A903E3297838f3Fb96854b7e9684A13", "codeEmptyAtPreflight": true },
-      { "name": "NexPassFactory", "address": "0x49fa1708e07edbE3b31244c3904C7aBC2e0892f1", "codeEmptyAtPreflight": true },
-      { "name": "NexAdvantageRegistry", "address": "0xd015717C8c5bd24C5Ef73815f6fa5dddebD76F57", "codeEmptyAtPreflight": true },
-      { "name": "NexAdvantageInitializer", "address": "0x6d82Fc757Ad54A3f7Ab071276A7A2F8Bb77Ee22e", "codeEmptyAtPreflight": true },
-      { "name": "NexRoyaltyVault", "address": "0xdFe5327223C865E7107F8D21F73c19da3f1300A4", "codeEmptyAtPreflight": true },
-      { "name": "NexListingRegistry", "address": "0x2962B12B8Ca459C19dBf0DDE7b5D066CA83A026B", "codeEmptyAtPreflight": true },
-      { "name": "NexMarketsZone", "address": "0x477EC9790C6fd6CC06De79fb185b7F0A7dEbe096", "codeEmptyAtPreflight": true },
-      { "name": "NexPassAccount", "address": "0x748203173788e3B55a9B81fb32cBa112d0Ac815e", "codeEmptyAtPreflight": true },
-      { "name": "NexTBAResolver", "address": "0x08d70E44047bE7ED4ce5F0B578dAeD913fCf5fAA", "codeEmptyAtPreflight": true }
+      {
+        "name": "NexLaunchRegistry",
+        "address": "0xD3eB84F0B832747C257bDA424160b3DA12256719",
+        "codeEmptyAtPreflight": true
+      },
+      {
+        "name": "NexMintController",
+        "address": "0x528fdeE55A903E3297838f3Fb96854b7e9684A13",
+        "codeEmptyAtPreflight": true
+      },
+      {
+        "name": "NexPassFactory",
+        "address": "0x49fa1708e07edbE3b31244c3904C7aBC2e0892f1",
+        "codeEmptyAtPreflight": true
+      },
+      {
+        "name": "NexAdvantageRegistry",
+        "address": "0xd015717C8c5bd24C5Ef73815f6fa5dddebD76F57",
+        "codeEmptyAtPreflight": true
+      },
+      {
+        "name": "NexAdvantageInitializer",
+        "address": "0x6d82Fc757Ad54A3f7Ab071276A7A2F8Bb77Ee22e",
+        "codeEmptyAtPreflight": true
+      },
+      {
+        "name": "NexRoyaltyVault",
+        "address": "0xdFe5327223C865E7107F8D21F73c19da3f1300A4",
+        "codeEmptyAtPreflight": true
+      },
+      {
+        "name": "NexListingRegistry",
+        "address": "0x2962B12B8Ca459C19dBf0DDE7b5D066CA83A026B",
+        "codeEmptyAtPreflight": true
+      },
+      {
+        "name": "NexMarketsZone",
+        "address": "0x477EC9790C6fd6CC06De79fb185b7F0A7dEbe096",
+        "codeEmptyAtPreflight": true
+      },
+      {
+        "name": "NexPassAccount",
+        "address": "0x748203173788e3B55a9B81fb32cBa112d0Ac815e",
+        "codeEmptyAtPreflight": true
+      },
+      {
+        "name": "NexTBAResolver",
+        "address": "0x08d70E44047bE7ED4ce5F0B578dAeD913fCf5fAA",
+        "codeEmptyAtPreflight": true
+      }
     ],
     "dryRun": {
       "status": "DRY_RUN_ONLY",
@@ -137,21 +205,73 @@
       "mainnetReproduction": "EXACT_ADDRESS_SET_REPRODUCED"
     },
     "contractHashes": {
-      "NexLaunchRegistry": { "salt": "0x722adaadd314dafe97979af27ec7f09f36766d0823bfd3764d6062f203cab5e2", "initCodeHash": "0x2263882c49822cc5966575da2e877d58124060de13ceed9209d9215f79853b40", "normalizedRuntimeTemplateHash": "0xa19507d40e9d010c674d381630354caaaacc1f9907c540e657080400cd9cb667" },
-      "NexMintController": { "salt": "0x722adaadd314dafe97979af27ec7f09f36766d0885497d7792ac460c4158761b", "initCodeHash": "0x22974ccc16593f30baebb1395a6912118c9a094fe5dceffc4f8abd5c991d87ff", "normalizedRuntimeTemplateHash": "0xeacc4890ec5aaf5a2c3231afdaea0271c24a777ae7485b80e4dfbfa8bd57e0d6" },
-      "NexPassFactory": { "salt": "0x722adaadd314dafe97979af27ec7f09f36766d086350f4e9abfb3434ffc5922b", "initCodeHash": "0xbcd20fd7fdb224e0cbaba94eddb48decbf5c075a850c3d5f3c85e68a584ea9ff", "normalizedRuntimeTemplateHash": "0x9b2d8b600c6db7283643b2b3fc1d8f29fe6eb2e54b74038aff990cb399656366" },
-      "NexAdvantageRegistry": { "salt": "0x722adaadd314dafe97979af27ec7f09f36766d082b3528adbdac23b2662ce628", "initCodeHash": "0x900f99cf2e693e304513cb4da88af3bd48967be835cad06f3e76f1f9560d8ba1", "normalizedRuntimeTemplateHash": "0xbfe5ffe4402cb4934b391559bf873bf041c6accb363e7fe799e228b99d1e1827" },
-      "NexAdvantageInitializer": { "salt": "0x722adaadd314dafe97979af27ec7f09f36766d08095e2f1b4da05b3b85f4911f", "initCodeHash": "0x69bc4a82487dbec3861e408a3da8ee14e7699a0fad38724c23d6000aae69f6fd", "normalizedRuntimeTemplateHash": "0xd6b7b3ebb81cdfedf3f3d4269c9906f0fbdd274d44998a84b37709daf91b15e4" },
-      "NexRoyaltyVault": { "salt": "0x722adaadd314dafe97979af27ec7f09f36766d08af9a006a588d7a1d424712da", "initCodeHash": "0xf08a91c8526088b10f81b4d5b9203127e5cdcc8c5ed011cf648f4e6860c56231", "normalizedRuntimeTemplateHash": "0xfa1021f6994824e090d26a61c50f8edf85ab1df15102251cbe55d9ac34451d2c" },
-      "NexListingRegistry": { "salt": "0x722adaadd314dafe97979af27ec7f09f36766d082f8d9c4fdd8fa8264d23873c", "initCodeHash": "0xcd4898e73d876e0a446b07a0904ad0fa9feb963929c1d9547ad856f68e548113", "normalizedRuntimeTemplateHash": "0x956f9301b534fe3842e6aa3a4a91c030ffa2921a3e1d7e717151445201af8aba" },
-      "NexMarketsZone": { "salt": "0x722adaadd314dafe97979af27ec7f09f36766d0833ebc9f05c960969357892a8", "initCodeHash": "0x51c352454bf1eae6940a0cd936367bc71dc96b8e81af5e2fcdbcdfc06d88fdf8", "normalizedRuntimeTemplateHash": "0x4b4c8c758099370fe0307048c59891d067d9525e3863a6de57a0e4ff7b9c5ea6" },
-      "NexPassAccount": { "salt": "0x722adaadd314dafe97979af27ec7f09f36766d08c6255ba1697c149f31edabd8", "initCodeHash": "0x6c2b92672320f13d489e0ada61a3074f8e151ce08c914d3ac2593b643038c77c", "expectedRuntimeCodeHash": "0xc849f1d83cf1d83f7f1de0a071c117b32e94d59aacf3e8c3599ee7cc69e52963", "normalizedRuntimeTemplateHash": "0xc849f1d83cf1d83f7f1de0a071c117b32e94d59aacf3e8c3599ee7cc69e52963" },
-      "NexTBAResolver": { "salt": "0x722adaadd314dafe97979af27ec7f09f36766d08535e778ec502383cf7bc92a1", "initCodeHash": "0x3cc8a1dd3b34c9eded185393c9600bacc16c2ccbc0bda0cf2aa8b7dbf0b9158d", "normalizedRuntimeTemplateHash": "0x11531698f02c0e67448a825806d5b91d62b7be2851a40755b5dc9f4faced50da" }
+      "NexLaunchRegistry": {
+        "salt": "0x722adaadd314dafe97979af27ec7f09f36766d0823bfd3764d6062f203cab5e2",
+        "initCodeHash": "0x2263882c49822cc5966575da2e877d58124060de13ceed9209d9215f79853b40",
+        "normalizedRuntimeTemplateHash": "0xa19507d40e9d010c674d381630354caaaacc1f9907c540e657080400cd9cb667"
+      },
+      "NexMintController": {
+        "salt": "0x722adaadd314dafe97979af27ec7f09f36766d0885497d7792ac460c4158761b",
+        "initCodeHash": "0x22974ccc16593f30baebb1395a6912118c9a094fe5dceffc4f8abd5c991d87ff",
+        "normalizedRuntimeTemplateHash": "0xeacc4890ec5aaf5a2c3231afdaea0271c24a777ae7485b80e4dfbfa8bd57e0d6"
+      },
+      "NexPassFactory": {
+        "salt": "0x722adaadd314dafe97979af27ec7f09f36766d086350f4e9abfb3434ffc5922b",
+        "initCodeHash": "0xbcd20fd7fdb224e0cbaba94eddb48decbf5c075a850c3d5f3c85e68a584ea9ff",
+        "normalizedRuntimeTemplateHash": "0x9b2d8b600c6db7283643b2b3fc1d8f29fe6eb2e54b74038aff990cb399656366"
+      },
+      "NexAdvantageRegistry": {
+        "salt": "0x722adaadd314dafe97979af27ec7f09f36766d082b3528adbdac23b2662ce628",
+        "initCodeHash": "0x900f99cf2e693e304513cb4da88af3bd48967be835cad06f3e76f1f9560d8ba1",
+        "normalizedRuntimeTemplateHash": "0xbfe5ffe4402cb4934b391559bf873bf041c6accb363e7fe799e228b99d1e1827"
+      },
+      "NexAdvantageInitializer": {
+        "salt": "0x722adaadd314dafe97979af27ec7f09f36766d08095e2f1b4da05b3b85f4911f",
+        "initCodeHash": "0x69bc4a82487dbec3861e408a3da8ee14e7699a0fad38724c23d6000aae69f6fd",
+        "normalizedRuntimeTemplateHash": "0xd6b7b3ebb81cdfedf3f3d4269c9906f0fbdd274d44998a84b37709daf91b15e4"
+      },
+      "NexRoyaltyVault": {
+        "salt": "0x722adaadd314dafe97979af27ec7f09f36766d08af9a006a588d7a1d424712da",
+        "initCodeHash": "0xf08a91c8526088b10f81b4d5b9203127e5cdcc8c5ed011cf648f4e6860c56231",
+        "normalizedRuntimeTemplateHash": "0xfa1021f6994824e090d26a61c50f8edf85ab1df15102251cbe55d9ac34451d2c"
+      },
+      "NexListingRegistry": {
+        "salt": "0x722adaadd314dafe97979af27ec7f09f36766d082f8d9c4fdd8fa8264d23873c",
+        "initCodeHash": "0xcd4898e73d876e0a446b07a0904ad0fa9feb963929c1d9547ad856f68e548113",
+        "normalizedRuntimeTemplateHash": "0x956f9301b534fe3842e6aa3a4a91c030ffa2921a3e1d7e717151445201af8aba"
+      },
+      "NexMarketsZone": {
+        "salt": "0x722adaadd314dafe97979af27ec7f09f36766d0833ebc9f05c960969357892a8",
+        "initCodeHash": "0x51c352454bf1eae6940a0cd936367bc71dc96b8e81af5e2fcdbcdfc06d88fdf8",
+        "normalizedRuntimeTemplateHash": "0x4b4c8c758099370fe0307048c59891d067d9525e3863a6de57a0e4ff7b9c5ea6"
+      },
+      "NexPassAccount": {
+        "salt": "0x722adaadd314dafe97979af27ec7f09f36766d08c6255ba1697c149f31edabd8",
+        "initCodeHash": "0x6c2b92672320f13d489e0ada61a3074f8e151ce08c914d3ac2593b643038c77c",
+        "expectedRuntimeCodeHash": "0xc849f1d83cf1d83f7f1de0a071c117b32e94d59aacf3e8c3599ee7cc69e52963",
+        "normalizedRuntimeTemplateHash": "0xc849f1d83cf1d83f7f1de0a071c117b32e94d59aacf3e8c3599ee7cc69e52963"
+      },
+      "NexTBAResolver": {
+        "salt": "0x722adaadd314dafe97979af27ec7f09f36766d08535e778ec502383cf7bc92a1",
+        "initCodeHash": "0x3cc8a1dd3b34c9eded185393c9600bacc16c2ccbc0bda0cf2aa8b7dbf0b9158d",
+        "normalizedRuntimeTemplateHash": "0x11531698f02c0e67448a825806d5b91d62b7be2851a40755b5dc9f4faced50da"
+      }
     },
     "releaseArtifacts": {
-      "deploymentPlan": { "path": "artifacts/deployment-plan/robinhood-mainnet.json", "sha256": "e77eee28af3b4556b6309574251f2063f5469c45bb8a9d946c94ab2c824c96ff" },
-      "safeDeploymentBundle": { "path": "artifacts/deployment-plan/robinhood-mainnet.deploy.safe.json", "sha256": "55032cb5e1da28cbef359d506e9af505def0ee6170732595b71affb4dd13c740", "transactions": 10 },
-      "safeWiringBundle": { "path": "artifacts/deployment-plan/robinhood-mainnet.wire.safe.json", "sha256": "c851e50f2301f921858da6f1ef8b1c47fc9b921af209149c02eec97ab0e84185", "transactions": 6 }
+      "deploymentPlan": {
+        "path": "artifacts/deployment-plan/robinhood-mainnet.json",
+        "sha256": "e77eee28af3b4556b6309574251f2063f5469c45bb8a9d946c94ab2c824c96ff"
+      },
+      "safeDeploymentBundle": {
+        "path": "artifacts/deployment-plan/robinhood-mainnet.deploy.safe.json",
+        "sha256": "55032cb5e1da28cbef359d506e9af505def0ee6170732595b71affb4dd13c740",
+        "transactions": 10
+      },
+      "safeWiringBundle": {
+        "path": "artifacts/deployment-plan/robinhood-mainnet.wire.safe.json",
+        "sha256": "c851e50f2301f921858da6f1ef8b1c47fc9b921af209149c02eec97ab0e84185",
+        "transactions": 6
+      }
     }
   },
   "primitiveRuntimePreflight": {
@@ -179,15 +299,18 @@
   },
   "goldsky": {
     "provider": "GOLDSKY_SUBGRAPH_PRIMARY",
-    "networks": ["robinhood-mainnet", "robinhood-testnet"],
+    "networks": [
+      "robinhood-mainnet",
+      "robinhood-testnet"
+    ],
     "configValidation": "PASS",
     "testnetSubgraph": {
       "project": "Default Project",
       "projectId": "project_cmt3es3z03t5101vr8ggx1j7e",
-      "name": "nexmarkets-v1-robinhood-testnet/1.0.1",
+      "name": "nexmarkets-v1-robinhood-testnet/1.0.2",
       "deploymentHash": "QmS7AYuDhFMgWUwngbtDcWvNWbDj56tvLGn2gZ2ZjrUb47",
-      "graphqlEndpoint": "https://api.goldsky.com/api/public/project_cmt3es3z03t5101vr8ggx1j7e/subgraphs/nexmarkets-v1-robinhood-testnet/1.0.1/gn",
-      "startBlock": 104607055,
+      "graphqlEndpoint": "https://api.goldsky.com/api/public/project_cmt3es3z03t5101vr8ggx1j7e/subgraphs/nexmarkets-v1-robinhood-testnet/1.0.2/gn",
+      "startBlock": 120137047,
       "indexedBlock": 105293377,
       "chainHead": 105293377,
       "indexingLag": 0,

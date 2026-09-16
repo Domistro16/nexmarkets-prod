@@ -7,12 +7,12 @@ const manifest = parse(readFileSync(new URL('../subgraph/subgraph.yaml', import.
 
 test('Robinhood testnet Subgraph starts at the first NexMarkets deployment block', () => {
   assert.equal(manifest.dataSources[0].network, 'robinhood-testnet');
-  assert.equal(manifest.dataSources[0].source.startBlock, 104607055);
+  assert.equal(manifest.dataSources[0].source.startBlock, 120137101);
   assert.notEqual(manifest.dataSources[0].source.startBlock, 0);
 });
 
 test('Factory is static and Edition indexing is dynamic', () => {
-  assert.equal(manifest.dataSources[0].source.address.toLowerCase(), '0x957de0de07d33c9a89c791b876074657a7ffeeb6');
+  assert.equal(manifest.dataSources[0].source.address.toLowerCase(), '0x2750473e8d9973f089701c27e2ad50dfae05ee71');
   assert.equal(manifest.templates.length, 1);
   assert.equal(manifest.templates[0].name, 'NexPassEdition');
   assert.ok(manifest.dataSources[0].mapping.eventHandlers.some((handler) => handler.handler === 'handleEditionCreated'));

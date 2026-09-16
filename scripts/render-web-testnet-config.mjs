@@ -23,7 +23,7 @@ function requireAddress(value, label) {
 
 if (deployment.network !== 'robinhood-testnet' || deployment.chainId !== 46630) throw new Error('TESTNET_CONFIG_NETWORK_MISMATCH');
 if (testnet?.network !== 'robinhood-testnet' || testnet.chainId !== 46630) throw new Error('TESTNET_CONFIG_RELEASE_MANIFEST_MISMATCH');
-if (!subgraph?.graphqlEndpoint || subgraph.name !== 'nexmarkets-v1-robinhood-testnet/1.0.1') throw new Error('TESTNET_CONFIG_SUBGRAPH_REQUIRED');
+if (!subgraph?.graphqlEndpoint || subgraph.name !== 'nexmarkets-v1-robinhood-testnet/1.0.2') throw new Error('TESTNET_CONFIG_SUBGRAPH_REQUIRED');
 
 const contracts = {
   launchRegistry: requireAddress(deployment.contracts.NexLaunchRegistry.address, 'launchRegistry'),

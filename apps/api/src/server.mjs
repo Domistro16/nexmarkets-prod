@@ -270,14 +270,15 @@ const VERIFIED_TESTNET_POLICIES = Object.freeze({
   'robinhood-testnet': Object.freeze({
     PROTOCOL_ADMIN_SAFE_ADDRESS: '0xCE54c8453fF48670781a6b908c1A3e9209FC95A0',
     SECONDARY_FEE_RECIPIENT: '0xCE54c8453fF48670781a6b908c1A3e9209FC95A0',
-    NEX_ROYALTY_VAULT_ADDRESS: '0x9D69ab1897aFA9d6ffc97EEa6A936233a999DFa1',
-    NEX_MARKETS_ZONE_ADDRESS: '0xF21dA23d8928b320124fBc17bd678c7C48c55af6',
-    NEX_LISTING_REGISTRY_ADDRESS: '0xF8fD8D378F6a61Ecb207732F4f1d0c3E4Eb2c75c',
-    NEX_MINT_CONTROLLER_ADDRESS: '0x0ea6F883808447f115C7b6C037902361C365555A',
-    NEX_PASS_FACTORY_ADDRESS: '0x957DE0de07D33c9a89c791B876074657a7fFeEb6',
-    NEX_LAUNCH_REGISTRY_ADDRESS: '0xeE3C8F330C0B2738201fDb2F1720D06c0D27620d',
-    NEX_ADVANTAGE_REGISTRY_ADDRESS: '0x1e265Fee39d75b5211895820926B4ff77B4f1cDd',
-    NEX_TBA_RESOLVER_ADDRESS: '0x55b64D8c1f17ba08a39c939D3248E7A2731Fa8b8'
+    NEX_ROYALTY_VAULT_ADDRESS: '0xe7D6F7BfA25A1DBea274b05F91ff56C9485B960D',
+    NEX_MARKETS_ZONE_ADDRESS: '0x2A5E54b67536164722aEaF529556f798B1cfdD8C',
+    NEX_LISTING_REGISTRY_ADDRESS: '0x509320d4A405f8BB12Ee3C206a41d7FA7679d2bf',
+    NEX_MINT_CONTROLLER_ADDRESS: '0xd5867FaB655aBb43233ba82B87d3782c2a475FAC',
+    NEX_PASS_FACTORY_ADDRESS: '0x2750473e8D9973f089701C27e2Ad50dfAe05ee71',
+    NEX_LAUNCH_REGISTRY_ADDRESS: '0x7Fd09c85175D67574f5DD6ECA79B8E89Ad95da6a',
+    NEX_ADVANTAGE_REGISTRY_ADDRESS: '0xC36eDf0e7B7EE5277f4181eFcd77651FB363991f',
+    NEX_TBA_RESOLVER_ADDRESS: '0xDd132c282a1b506D33A64f94546F4526F3070B0D',
+    NEX_REWARD_DISTRIBUTOR_ADDRESS: '0xbCA7C4867B88c3c8D48A7419310bb1AeD98Ca373'
   }),
   'base-sepolia': Object.freeze({
     PROTOCOL_ADMIN_SAFE_ADDRESS: '0xE6D0846e6C0b51C61FdDb593A1914b85181E5783',
@@ -321,13 +322,13 @@ function networkPolicyEnv(env, prefix, settlementAddress, seaportAddress, fallba
   return policyEnv;
 }
 
-function networkSubgraph(env, prefix, fallbackEndpoint, fallbackEdition, fallbackName) {
+function networkSubgraph(env, prefix, fallbackEndpoint, fallbackEdition, fallbackName, defaultProtocolVersion = 1) {
   const endpoint = env[`${prefix}_SUBGRAPH_URL`] ?? fallbackEndpoint;
   return new SubgraphClient({
     endpoint,
     certificationEditionAddress: env[`${prefix}_CERTIFICATION_EDITION_ADDRESS`] ?? fallbackEdition,
     certificationEditionName: env[`${prefix}_CERTIFICATION_EDITION_NAME`] ?? fallbackName,
-    protocolVersion: Number(env[`${prefix}_PROTOCOL_VERSION`] ?? 1)
+    protocolVersion: Number(env[`${prefix}_PROTOCOL_VERSION`] ?? defaultProtocolVersion)
   });
 }
 
@@ -353,12 +354,13 @@ export function createNetworkConfigs(env = process.env) {
   const rhTestnetSubgraph = networkSubgraph(
     env,
     'ROBINHOOD_TESTNET',
-    env.NEXMARKETS_SUBGRAPH_URL ?? 'https://api.goldsky.com/api/public/project_cmt3es3z03t5101vr8ggx1j7e/subgraphs/nexmarkets-v1-robinhood-testnet/1.0.1/gn',
-    env.CERTIFICATION_EDITION_ADDRESS ?? '0x4171D62F43B4168b07a01C04594455DBc3298437',
-    env.CERTIFICATION_EDITION_NAME ?? 'NexMarkets V1 Test Certification Edition'
+    env.NEXMARKETS_SUBGRAPH_URL ?? 'https://api.goldsky.com/api/public/project_cmt3es3z03t5101vr8ggx1j7e/subgraphs/nexmarkets-v1-robinhood-testnet/1.0.2/gn',
+    env.CERTIFICATION_EDITION_ADDRESS ?? null,
+    env.CERTIFICATION_EDITION_NAME ?? null,
+    2
   );
   const rhMainnetSubgraph = networkSubgraph(env, 'ROBINHOOD_MAINNET', env.RH_MAINNET_SUBGRAPH_URL, env.RH_MAINNET_CERTIFICATION_EDITION_ADDRESS, env.RH_MAINNET_CERTIFICATION_EDITION_NAME);
-  const baseSepoliaSubgraph = networkSubgraph(env, 'BASE_SEPOLIA', env.BASE_SEPOLIA_SUBGRAPH_URL ?? env.BASE_SEPOLIA_NEXMARKETS_SUBGRAPH_URL ?? 'https://api.goldsky.com/api/public/project_cmt3es3z03t5101vr8ggx1j7e/subgraphs/nexmarkets-v1-base-sepolia/1.0.1/gn', env.BASE_SEPOLIA_CERTIFICATION_EDITION_ADDRESS, env.BASE_SEPOLIA_CERTIFICATION_EDITION_NAME);
+  const baseSepoliaSubgraph = networkSubgraph(env, 'BASE_SEPOLIA', env.BASE_SEPOLIA_SUBGRAPH_URL ?? env.BASE_SEPOLIA_NEXMARKETS_SUBGRAPH_URL ?? 'https://api.goldsky.com/api/public/project_cmt3es3z03t5101vr8ggx1j7e/subgraphs/nexmarkets-v1-base-sepolia/1.0.2/gn', env.BASE_SEPOLIA_CERTIFICATION_EDITION_ADDRESS, env.BASE_SEPOLIA_CERTIFICATION_EDITION_NAME, 2);
   const baseMainnetSubgraph = networkSubgraph(env, 'BASE_MAINNET', env.BASE_MAINNET_SUBGRAPH_URL ?? env.BASE_MAINNET_NEXMARKETS_SUBGRAPH_URL, env.BASE_MAINNET_CERTIFICATION_EDITION_ADDRESS, env.BASE_MAINNET_CERTIFICATION_EDITION_NAME);
   const rhTestnetPolicy = networkPolicyEnv(env, 'ROBINHOOD_TESTNET', env.USDG_ADDRESS ?? '0x6A4F8832c23C51ba626Eba9d50c8F862647C1679', '0x0000000000000068F116a894984e2DB1123eB395', VERIFIED_TESTNET_POLICIES['robinhood-testnet']);
   const baseSepoliaPolicy = networkPolicyEnv(env, 'BASE_SEPOLIA', baseSepoliaUsdc, '0x0000000000000068F116a894984e2DB1123eB395', VERIFIED_TESTNET_POLICIES['base-sepolia']);

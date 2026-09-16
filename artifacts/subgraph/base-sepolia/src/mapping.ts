@@ -61,9 +61,9 @@ import {
   RewardClaim
 } from "../generated/schema";
 
-const CHAIN_ID = BigInt.fromI32(46630);
-const START_BLOCK = BigInt.fromI32(104607055);
-const ADVANTAGE_REGISTRY = Address.fromString("0x1e265Fee39d75b5211895820926B4ff77B4f1cDd");
+const CHAIN_ID = BigInt.fromI32(84532);
+const START_BLOCK = BigInt.fromI32(46827960);
+const ADVANTAGE_REGISTRY = Address.fromString("0x6D4Db1939D322411EdE8970eCB14b729788f75Aa");
 const ERC6551_REGISTRY = Address.fromString("0x000000006551c19487814612e58FE06813775758");
 const SEAPORT = Address.fromString("0x0000000000000068F116a894984e2DB1123eB395");
 const ZERO_ADDRESS = Address.fromString("0x0000000000000000000000000000000000000000");
@@ -84,14 +84,14 @@ function ensureProtocolDeployment(event: ethereum.Event, factory: Address, contr
   if (deployment == null) deployment = new ProtocolDeployment(CHAIN_ID.toString());
   deployment.chainId = CHAIN_ID;
   deployment.factory = factory;
-  deployment.launchRegistry = Address.fromString("0xeE3C8F330C0B2738201fDb2F1720D06c0D27620d");
+  deployment.launchRegistry = Address.fromString("0x83125b7a5e8d4e79134D74f8E8b5052a58E054B5");
   deployment.mintController = controller;
   deployment.advantageRegistry = ADVANTAGE_REGISTRY;
-  deployment.advantageInitializer = Address.fromString("0x4024bB2A5134c2066E2FDE6fC3a1311e2234499A");
-  deployment.royaltyVault = Address.fromString("0x9D69ab1897aFA9d6ffc97EEa6A936233a999DFa1");
-  deployment.listingRegistry = Address.fromString("0xF8fD8D378F6a61Ecb207732F4f1d0c3E4Eb2c75c");
-  deployment.marketsZone = Address.fromString("0xF21dA23d8928b320124fBc17bd678c7C48c55af6");
-  deployment.tbaResolver = Address.fromString("0x55b64D8c1f17ba08a39c939D3248E7A2731Fa8b8");
+  deployment.advantageInitializer = Address.fromString("0x9b2f41F9602E3C1AA41a079893386E65AB130c1C");
+  deployment.royaltyVault = Address.fromString("0xCbf82F765c80446baa753a56C563ED0291374614");
+  deployment.listingRegistry = Address.fromString("0x21C397F20Db8da540d22F798d7EC7f7c16CE9241");
+  deployment.marketsZone = Address.fromString("0x490d55643F2CAf4D5A178FC84cA01792952C8458");
+  deployment.tbaResolver = Address.fromString("0x6B53e133DA10d456296930c041d17606d9283DaF");
   deployment.erc6551Registry = ERC6551_REGISTRY;
   deployment.seaport = SEAPORT;
   deployment.startBlock = START_BLOCK;

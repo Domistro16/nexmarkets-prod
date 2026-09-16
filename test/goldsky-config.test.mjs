@@ -12,7 +12,7 @@ const render = (args = []) => {
 
 test('testnet Goldsky uses NexMarkets fast-scan and live watermark sources', () => {
   const yaml = render();
-  assert.match(yaml, /robinhood_logs_nexmarkets:\s+[\s\S]*?start_at: earliest\s+filter: "block_number >= 104607055"/);
+  assert.match(yaml, /robinhood_logs_nexmarkets:\s+[\s\S]*?start_at: earliest\s+filter: "block_number >= 120137047"/);
   assert.match(yaml, /robinhood_blocks_live:\s+[\s\S]*?start_at: latest/);
   assert.match(yaml, /FROM robinhood_logs_nexmarkets/);
   assert.match(yaml, /FROM robinhood_blocks_live/);

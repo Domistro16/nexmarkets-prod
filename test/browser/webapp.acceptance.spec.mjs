@@ -509,7 +509,7 @@ test('Owned Pass download produces a 2048 by 2048 PNG from the rendered Pass', a
 
 test('live mint flow sends committed Terms and broadcasts the prepared transaction', async ({ page }) => {
   const signer = Wallet.createRandom();
-  const mintTarget = '0x0ea6F883808447f115C7b6C037902361C365555A';
+  const mintTarget = '0xd5867FaB655aBb43233ba82B87d3782c2a475FAC';
   const txHash = `0x${'9'.repeat(64)}`;
   let mintPayload = null;
   let submittedTransaction = null;

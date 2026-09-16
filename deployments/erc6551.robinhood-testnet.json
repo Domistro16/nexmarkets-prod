@@ -15,11 +15,11 @@
     "referenceCommit": "43a84573bb47b0df3ab543a20365f4974f56a809",
     "compiler": "solc-0.8.30",
     "optimizerRuns": 20000,
-    "expectedBuildRuntimeCodeHash": "0xc849f1d83cf1d83f7f1de0a071c117b32e94d59aacf3e8c3599ee7cc69e52963",
-    "deployedAddress": null,
-    "deployedRuntimeCodeHash": null
+    "expectedBuildRuntimeCodeHash": "0xae7f3c8f146e0e41167c4c7ecd37b64bc7dec61005c62fc8d72e023ef405afe2",
+    "deployedAddress": "0x2AE30314Fb3015EFe0C8179e7C3C22411A072e38",
+    "deployedRuntimeCodeHash": "0xae7f3c8f146e0e41167c4c7ecd37b64bc7dec61005c62fc8d72e023ef405afe2"
   },
-  "resolver": { "accountSaltDomain": "NEXMARKETS_PASS_TBA_V1", "deployedAddress": null },
-  "runtimeVerification": "REGISTRY_VERIFIED_ACCOUNT_AND_RESOLVER_NOT_DEPLOYED",
+  "resolver": { "accountSaltDomain": "NEXMARKETS_PASS_TBA_V1", "deployedAddress": "0xDd132c282a1b506D33A64f94546F4526F3070B0D" },
+  "runtimeVerification": "REGISTRY_ACCOUNT_AND_RESOLVER_DEPLOYED_AND_VERIFIED",
   "mainnetDeploymentPerformed": false
 }
