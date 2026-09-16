@@ -96,7 +96,10 @@ function usd(value) {
 }
 function padSerial(value) { return `#${String(Math.max(0, number(value))).padStart(3, '0')}`; }
 function initials(value) { return String(value || 'NP').split(/\s+/).map((part) => part[0]).join('').slice(0, 2).toUpperCase() || 'NP'; }
-function kind(value) { return String(value || '').toUpperCase().replace(/[^A-Z]+/g, '_'); }
+function kind(value) {
+  if (value != null && /^\d+$/.test(String(value))) return ['TIME_BASED', 'QUANTITY_BASED', 'CONNECTED', 'REDEMPTION'][Number(value)] || String(value);
+  return String(value || '').toUpperCase().replace(/[^A-Z]+/g, '_');
+}
 function kindLabel(value) {
   return ({ TIME_BASED: 'TimeBased', QUANTITY_BASED: 'QuantityBased', CONNECTED: 'Connected', REDEMPTION: 'Redemption' })[kind(value)] || 'Advantage';
 }
@@ -111,8 +114,9 @@ function durationLabel(value) {
   if (secondsValue >= 3600) return `${(secondsValue / 3600).toFixed(secondsValue % 3600 ? 1 : 0)} hours`;
   return `${Math.floor(secondsValue / 60)} minutes`;
 }
+const ZERO_HASH = `0x${'00'.repeat(32)}`;
 function advantageText(advantages, fallbackHash) {
-  if (!advantages?.length) return fallbackHash ? `Committed utility · ${short(fallbackHash)}` : 'No committed Advantage';
+  if (!advantages?.length) return fallbackHash && fallbackHash !== ZERO_HASH ? `Committed utility · ${short(fallbackHash)}` : 'No committed Advantage';
   return advantages.map((item) => {
     const k = kind(item.kind);
     const remaining = remainingValue(item);
@@ -355,7 +359,7 @@ function templateLaunchFromProject(project) {
 function projectModel(edition, summary, pass) {
   const indexedTerms = termsOf(edition).current || {};
   const terms = Object.keys(indexedTerms).length ? indexedTerms : (summary || {});
-  const advantages = pass?.advantages || [];
+  const advantages = pass?.advantages?.length ? pass.advantages : (indexedTerms.advantageConfigs || []);
   const compiledLaunch = templateLaunchFromProject(summary) || templateLaunchFromProject(edition);
   const launchProject = compiledLaunch?.project || {};
   const launchEdition = compiledLaunch?.edition || {};
