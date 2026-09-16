@@ -1815,7 +1815,15 @@ async function loadRequestedRouteData(route) {
   const values = results.filter((result) => result.status === 'fulfilled').map((result) => result.value);
   const project = route.kind === 'project' ? values[0] : null;
   const linkedEdition = project?.editions?.[0] || null;
-  const editionRaw = route.kind === 'project' ? linkedEdition : values[0] || null;
+  let editionRaw = route.kind === 'project' ? linkedEdition : values[0] || null;
+  // /v1/projects/<name> returns null for on-chain Editions that have no
+  // Builder project record. Resolve the Edition through the already-indexed
+  // Discover rows so the detail model still reflects committed Terms.
+  if (route.kind === 'project' && !editionRaw) {
+    const known = state.discover?.find((item) => String(item.name || '').toLowerCase() === String(route.project).toLowerCase()) || null;
+    const addr = known?.address || known?.edition_address;
+    if (addr) { try { editionRaw = await read(`/v1/editions/${encodeURIComponent(addr)}`); } catch { editionRaw = null; } }
+  }
   const passRaw = route.kind === 'pass' ? values[1] || null : null;
   state.detailSummary = project || editionRaw || null;
   state.detailEdition = editionRaw ? normalizeEdition(editionRaw, project) : null;
@@ -3839,6 +3847,23 @@ function installHistoryRouting() {
     }
   };
 
+  // Template-side navigation (Discover cards, openProject, openProjectEdition)
+  // calls window.go directly and therefore bypasses presentRoute(). Hydrate the
+  // canonical Edition record for the selected project so the rendered page is
+  // upgraded from the Discover summary once the read model responds.
+  const hydrateSelectedEditionDetail = async () => {
+    const name = selections().project || state.detailProject?.name || '';
+    const project = state.projects?.find((item) => item.name === name) || state.detailProject || null;
+    const selected = selections().edition;
+    const edition = project?.editionAddress || (/^0x[0-9a-f]{40}$/i.test(selected || '') ? selected : '');
+    if (!/^0x[0-9a-f]{40}$/i.test(edition)) return;
+    try {
+      await loadRequestedRouteData({ kind: 'edition', edition });
+      const model = applyRequestedDetailModel('edition');
+      if (model?.project) window.__nmV2SetData?.({ selectedProject: model.project.name, projects: state.projects, projectExperience: state.projectExperience });
+    } catch { /* the template keeps the summary model */ }
+  };
+
   const wrappedGo = function wrappedGo(route) {
     const nextPath = pathForRoute(route);
     if (nextPath) {
@@ -3846,6 +3871,7 @@ function installHistoryRouting() {
       if (current !== nextPath) window.history.pushState({ nexmarketsRoute: route }, '', nextPath);
     }
     const result = originalGo.call(this, route);
+    if (route === 'project' || route === 'collection') void hydrateSelectedEditionDetail();
     if (route === 'dashboard') {
       syncDashboardAccount();
       requestAnimationFrame(syncDashboardAccount);
