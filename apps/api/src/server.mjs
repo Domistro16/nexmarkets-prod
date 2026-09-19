@@ -814,6 +814,22 @@ export function createApiServer({
         const logs = store.listDistributionLogs ? await store.listDistributionLogs(editionAddress, { limit }) : [];
         return json(res, 200, { data: logs, authority: 'DATABASE_RECORD' });
       }
+      if ((req.method === 'POST' || req.method === 'GET') && url.pathname === '/v1/cron/distribution') {
+        const cronSecret = process.env.CRON_SECRET;
+        const auth = req.headers['authorization'] || '';
+        const token = auth.startsWith('Bearer ') ? auth.slice(7).trim() : (url.searchParams.get('key') || '');
+        if (cronSecret && token !== cronSecret) {
+          throw Object.assign(new Error('UNAUTHORIZED_CRON'), { status: 401 });
+        }
+        const { DistributionAgentWorker } = await import('../../../services/worker/src/distribution-agent-worker.mjs');
+        const worker = new DistributionAgentWorker({
+          store,
+          chainId: fallbackChainId,
+          rpcUrl: fallbackChain?.url
+        });
+        const summary = await worker.runOnce();
+        return json(res, 200, { ok: true, summary, timestamp: new Date().toISOString() });
+      }
       if (req.method === 'GET' && url.pathname.startsWith('/v1/editions/')) {
         const address = url.pathname.slice(13);
         const indexed = readModelDisabled ? null : subgraph?.enabled ? await subgraph.editionByAddress(address) : await store.editionByAddress(address);

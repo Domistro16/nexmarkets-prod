@@ -114,3 +114,55 @@ test('API: provisions Dynamic Server Wallet distribution agent and serves status
   assert.equal(updatedLogs.data[0].total_funded, '10000000');
   assert.equal(updatedLogs.data[0].status, 'COMPLETED');
 });
+
+test('API: /v1/cron/distribution triggers worker execution with secret authentication', async (t) => {
+  const store = new MemoryStore();
+  const server = createApiServer({ store, secureCookies: false, logger: { info() {}, error() {} } });
+  server.listen(0, '127.0.0.1');
+  await once(server, 'listening');
+  t.after(() => server.close());
+
+  const base = `http://127.0.0.1:${server.address().port}`;
+  const previousSecret = process.env.CRON_SECRET;
+  process.env.CRON_SECRET = 'test-super-secret-123';
+  t.after(() => {
+    if (previousSecret !== undefined) process.env.CRON_SECRET = previousSecret;
+    else delete process.env.CRON_SECRET;
+  });
+
+  // 1. Unauthorized without token returns 401
+  const unauthRes = await fetch(`${base}/v1/cron/distribution`, { method: 'POST' });
+  assert.equal(unauthRes.status, 401);
+  const unauthBody = await unauthRes.json();
+  assert.equal(unauthBody.error.code, 'UNAUTHORIZED_CRON');
+
+  // 2. Unauthorized with wrong bearer token returns 401
+  const wrongTokenRes = await fetch(`${base}/v1/cron/distribution`, {
+    method: 'POST',
+    headers: { authorization: 'Bearer wrong-secret' }
+  });
+  assert.equal(wrongTokenRes.status, 401);
+
+  // 3. Authorized via Bearer header returns 200 and execution summary
+  const authRes = await fetch(`${base}/v1/cron/distribution`, {
+    method: 'POST',
+    headers: { authorization: 'Bearer test-super-secret-123' }
+  });
+  assert.equal(authRes.status, 200);
+  const authBody = await authRes.json();
+  assert.equal(authBody.ok, true);
+  assert.ok(authBody.summary);
+  assert.equal(typeof authBody.summary.inspected, 'number');
+  assert.equal(typeof authBody.summary.executed, 'number');
+  assert.equal(typeof authBody.summary.failed, 'number');
+
+  // 4. Authorized via query param ?key= also works (for webhook pingers that only support GET)
+  const getRes = await fetch(`${base}/v1/cron/distribution?key=test-super-secret-123`, {
+    method: 'GET'
+  });
+  assert.equal(getRes.status, 200);
+  const getBody = await getRes.json();
+  assert.equal(getBody.ok, true);
+  assert.ok(getBody.summary);
+});
+

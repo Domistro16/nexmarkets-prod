@@ -14376,6 +14376,62 @@ var init_pass_renderer = __esm({
 });
 
 // packages/domain/src/distribution-agent.mjs
+function calculateRewardSplit({ totalAmount, eligibleSupply }) {
+  const total = BigInt(totalAmount ?? 0);
+  const supply = BigInt(eligibleSupply ?? 0);
+  if (supply <= 0n) throw new Error("ELIGIBLE_SUPPLY_REQUIRED");
+  if (total <= 0n) throw new Error("TOTAL_AMOUNT_REQUIRED");
+  const amountPerPass = total / supply;
+  if (amountPerPass <= 0n) {
+    throw new Error("INSUFFICIENT_AMOUNT_PER_PASS");
+  }
+  const fundedAmount = amountPerPass * supply;
+  const dustRemainder = total - fundedAmount;
+  return {
+    amountPerPass,
+    fundedAmount,
+    dustRemainder,
+    eligibleSupply: Number(supply)
+  };
+}
+function chunkTokenIds({ eligibleSupply, chunkSize = 150 }) {
+  const supply = Number(eligibleSupply);
+  if (!Number.isInteger(supply) || supply <= 0) {
+    throw new Error("INVALID_ELIGIBLE_SUPPLY");
+  }
+  const size = Math.max(1, Math.min(Number(chunkSize) || 150, 500));
+  const chunks = [];
+  let current = [];
+  for (let tokenId = 1; tokenId <= supply; tokenId++) {
+    current.push(tokenId);
+    if (current.length === size) {
+      chunks.push(current);
+      current = [];
+    }
+  }
+  if (current.length > 0) {
+    chunks.push(current);
+  }
+  return chunks;
+}
+function calculateBuilderSweep({ totalRoyalty, allocationBps = 3e3 }) {
+  const total = BigInt(totalRoyalty ?? 0);
+  const bps = BigInt(allocationBps);
+  if (bps < 0n || bps > 10000n) {
+    throw new Error("INVALID_ALLOCATION_BPS");
+  }
+  if (total < 0n) {
+    throw new Error("INVALID_TOTAL_ROYALTY");
+  }
+  const rewardPool = total * bps / 10000n;
+  const builderRetained = total - rewardPool;
+  return {
+    totalRoyalty: total,
+    rewardPool,
+    builderRetained,
+    allocationBps: Number(bps)
+  };
+}
 var init_distribution_agent = __esm({
   "packages/domain/src/distribution-agent.mjs"() {
   }
@@ -14451,8 +14507,8 @@ var init_postgres_store = __esm({
       }
       async _getPool() {
         if (!this.pool) {
-          const pg = await getPg();
-          const Pool = pg.Pool ?? pg;
+          const pg2 = await getPg();
+          const Pool = pg2.Pool ?? pg2;
           this.pool = new Pool({ connectionString: this.connectionString, max: 10, application_name: "nexmarkets-api" });
         }
         return this.pool;
@@ -15511,6 +15567,482 @@ var init_postgres_store = __esm({
   }
 });
 
+// packages/chain/src/rpc.mjs
+var JsonRpcClient;
+var init_rpc = __esm({
+  "packages/chain/src/rpc.mjs"() {
+    JsonRpcClient = class {
+      constructor(url, { timeoutMs = 12e3 } = {}) {
+        this.url = url;
+        this.timeoutMs = timeoutMs;
+        this.id = 0;
+      }
+      async call(method, params = []) {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), this.timeoutMs);
+        try {
+          const response = await fetch(this.url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: ++this.id, method, params }), signal: controller.signal });
+          if (!response.ok) throw new Error(`RPC HTTP ${response.status}`);
+          const body = await response.json();
+          if (body.error) throw new Error(`RPC ${method}: ${body.error.message || JSON.stringify(body.error)}`);
+          return body.result;
+        } finally {
+          clearTimeout(timer);
+        }
+      }
+      chainId() {
+        return this.call("eth_chainId").then((x) => Number(BigInt(x)));
+      }
+      getBlockNumber() {
+        return this.call("eth_blockNumber").then((value) => Number(BigInt(value)));
+      }
+      getBlockByNumber(blockNumber) {
+        return this.call("eth_getBlockByNumber", [`0x${BigInt(blockNumber).toString(16)}`, false]);
+      }
+      getTransactionReceipt(txHash) {
+        return this.call("eth_getTransactionReceipt", [txHash]);
+      }
+      getTransactionByHash(txHash) {
+        return this.call("eth_getTransactionByHash", [txHash]);
+      }
+      getCode(address2, block = "latest") {
+        return this.call("eth_getCode", [address2, block]);
+      }
+      getStorageAt(address2, slot, block = "latest") {
+        return this.call("eth_getStorageAt", [address2, slot, block]);
+      }
+      ethCall(to, data, block = "latest", from = null) {
+        const request = { to, data };
+        if (from) request.from = from;
+        return this.call("eth_call", [request, block]);
+      }
+    };
+  }
+});
+
+// packages/chain/src/dynamic-server-wallet.mjs
+var DynamicServerWalletClient;
+var init_dynamic_server_wallet = __esm({
+  "packages/chain/src/dynamic-server-wallet.mjs"() {
+    init_rpc();
+    init_lib2();
+    DynamicServerWalletClient = class {
+      constructor({
+        environmentId = process.env.DYNAMIC_ENVIRONMENT_ID,
+        apiKey = process.env.DYNAMIC_API_KEY,
+        baseUrl = "https://app.dynamicauth.com/api/v0",
+        rpcUrl = process.env.BASE_SEPOLIA_RPC_URL || "https://sepolia.base.org",
+        mockMode = !process.env.DYNAMIC_API_KEY
+      } = {}) {
+        this.environmentId = environmentId;
+        this.apiKey = apiKey;
+        this.baseUrl = baseUrl.replace(/\/$/, "");
+        this.rpcUrl = rpcUrl;
+        this.rpc = new JsonRpcClient(rpcUrl);
+        this.mockMode = Boolean(mockMode);
+        this._mockWallets = /* @__PURE__ */ new Map();
+      }
+      /**
+       * Lazily provisions or retrieves a server wallet scoped to a specific edition agent.
+       */
+      async createOrGetServerWallet({ identifier, chainId = 84532 }) {
+        if (this.mockMode) {
+          if (!this._mockWallets.has(identifier)) {
+            const wallet = Wallet.createRandom();
+            this._mockWallets.set(identifier, {
+              id: `dyn_wal_${wallet.address.slice(2, 10)}`,
+              address: wallet.address.toLowerCase(),
+              privateKey: wallet.privateKey,
+              chainId: Number(chainId)
+            });
+          }
+          const record = this._mockWallets.get(identifier);
+          return {
+            walletId: record.id,
+            address: record.address,
+            chainId: record.chainId
+          };
+        }
+        const url = `${this.baseUrl}/environments/${this.environmentId}/serverWallets`;
+        const response = await fetch(url, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${this.apiKey}`
+          },
+          body: JSON.stringify({
+            chain: "EVM",
+            identifier,
+            metadata: {
+              role: "distribution-agent",
+              platform: "nexmarkets"
+            }
+          })
+        });
+        if (!response.ok) {
+          const errText = await response.text();
+          throw new Error(`Dynamic Server Wallet provisioning failed (${response.status}): ${errText}`);
+        }
+        const data = await response.json();
+        return {
+          walletId: data.id ?? data.walletId,
+          address: getAddress(data.address).toLowerCase(),
+          chainId: Number(chainId)
+        };
+      }
+      /**
+       * Signs and broadcasts a transaction from the server wallet.
+       */
+      async sendTransaction({ walletId, to, data = "0x", value = "0x0", chainId = 84532 }) {
+        if (this.mockMode) {
+          for (const [_, record] of this._mockWallets) {
+            if (record.id === walletId) {
+              const signer = new Wallet(record.privateKey);
+              return {
+                txHash: `0x${Buffer.from(Date.now().toString(16).padStart(64, "a")).toString("hex").slice(0, 64)}`,
+                from: record.address,
+                to: getAddress(to).toLowerCase(),
+                status: "SUBMITTED"
+              };
+            }
+          }
+          return {
+            txHash: `0x${"e".repeat(64)}`,
+            from: "0x" + "1".repeat(40),
+            to: getAddress(to).toLowerCase(),
+            status: "SUBMITTED"
+          };
+        }
+        const url = `${this.baseUrl}/environments/${this.environmentId}/serverWallets/${walletId}/transactions`;
+        const response = await fetch(url, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${this.apiKey}`
+          },
+          body: JSON.stringify({
+            to: getAddress(to),
+            data,
+            value: typeof value === "bigint" ? `0x${value.toString(16)}` : value,
+            chainId: Number(chainId)
+          })
+        });
+        if (!response.ok) {
+          const errText = await response.text();
+          throw new Error(`Dynamic Server Wallet transaction failed (${response.status}): ${errText}`);
+        }
+        const result = await response.json();
+        return {
+          txHash: result.txHash ?? result.hash,
+          from: result.from ? getAddress(result.from).toLowerCase() : null,
+          to: getAddress(to).toLowerCase(),
+          status: "SUBMITTED"
+        };
+      }
+      /**
+       * Checks ETH and ERC-20 token balances for a wallet.
+       */
+      async getBalance({ address: address2, tokenAddress = null }) {
+        const formattedAddress = getAddress(address2);
+        if (!tokenAddress) {
+          const balanceHex = await this.rpc.call("eth_getBalance", [formattedAddress, "latest"]);
+          return {
+            raw: BigInt(balanceHex || "0x0"),
+            formatted: formatEther(BigInt(balanceHex || "0x0")),
+            symbol: "ETH"
+          };
+        }
+        const token = getAddress(tokenAddress);
+        const callData = `0x70a08231${formattedAddress.slice(2).padStart(64, "0")}`;
+        const resultHex = await this.rpc.ethCall(token, callData);
+        const balance = BigInt(resultHex && resultHex !== "0x" ? resultHex : "0x0");
+        return {
+          raw: balance,
+          tokenAddress: token.toLowerCase()
+        };
+      }
+    };
+  }
+});
+
+// services/worker/src/distribution-agent-worker.mjs
+var distribution_agent_worker_exports = {};
+__export(distribution_agent_worker_exports, {
+  DistributionAgentWorker: () => DistributionAgentWorker
+});
+import pg from "pg";
+var ROYALTY_VAULT_ABI, REWARD_DISTRIBUTOR_ABI, ERC20_ABI, royaltyInterface, distributorInterface, erc20Interface, CYCLE_DOMAIN, DistributionAgentWorker;
+var init_distribution_agent_worker = __esm({
+  "services/worker/src/distribution-agent-worker.mjs"() {
+    init_lib2();
+    init_postgres_store();
+    init_dynamic_server_wallet();
+    init_rpc();
+    init_distribution_agent();
+    ROYALTY_VAULT_ABI = [
+      "function withdraw(bytes32 orderHash) external",
+      "function claimInfo(bytes32 orderHash) external view returns (tuple(address edition, uint256 tokenId, address builder, uint256 amount, uint64 releaseAt, bool withdrawn))",
+      "function isWithdrawable(bytes32 orderHash) external view returns (bool)"
+    ];
+    REWARD_DISTRIBUTOR_ABI = [
+      "function fundCycle(bytes32 policyId, address asset, uint256 amountPerPass) external returns (bytes32 cycleId)",
+      "function claimMany(bytes32 cycleId, uint256[] calldata tokenIds) external returns (uint256 total)",
+      "function policyInfo(bytes32 policyId) external view returns (tuple(address edition, uint8 source, uint16 allocationBps, address rewardAsset, bool ongoing, uint64 endsAt, uint8 status, uint64 publishedAt, uint32 cycleCount))"
+    ];
+    ERC20_ABI = [
+      "function approve(address spender, uint256 amount) external returns (bool)",
+      "function transfer(address to, uint256 amount) external returns (bool)",
+      "function balanceOf(address account) external view returns (uint256)"
+    ];
+    royaltyInterface = new Interface(ROYALTY_VAULT_ABI);
+    distributorInterface = new Interface(REWARD_DISTRIBUTOR_ABI);
+    erc20Interface = new Interface(ERC20_ABI);
+    CYCLE_DOMAIN = keccak256(Buffer.from("NEXMARKETS_REWARD_CYCLE_V1", "utf8"));
+    DistributionAgentWorker = class {
+      constructor({
+        pool,
+        connectionString = process.env.DATABASE_URL,
+        store,
+        dynamicClient,
+        rpc,
+        rpcUrl = process.env.BASE_SEPOLIA_RPC_URL || "https://sepolia.base.org",
+        chainId = 84532,
+        royaltyVaultAddress = process.env.BASE_SEPOLIA_NEX_ROYALTY_VAULT_ADDRESS || "0xCbf82F765c80446baa753a56C563ED0291374614",
+        distributorAddress = process.env.BASE_SEPOLIA_NEX_REWARD_DISTRIBUTOR_ADDRESS || "0x2453c5FCef787D076ff21614E54C50344FD1EB91",
+        settlementTokenAddress = process.env.BASE_SEPOLIA_USDC_ADDRESS || "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+        batchChunkSize = 150,
+        logger = console
+      } = {}) {
+        this.pool = pool ?? (store?.pool ?? new pg.Pool({ connectionString, max: 4, application_name: "nexmarkets-distribution-worker" }));
+        this.ownsPool = !pool && !store?.pool;
+        this.store = store ?? new PostgresStore({ pool: this.pool });
+        this.dynamic = dynamicClient ?? new DynamicServerWalletClient({ rpcUrl });
+        this.rpc = rpc ?? new JsonRpcClient(rpcUrl);
+        this.chainId = Number(chainId);
+        this.royaltyVaultAddress = getAddress(royaltyVaultAddress).toLowerCase();
+        this.distributorAddress = getAddress(distributorAddress).toLowerCase();
+        this.settlementTokenAddress = getAddress(settlementTokenAddress).toLowerCase();
+        this.batchChunkSize = Number(batchChunkSize) || 150;
+        this.logger = logger;
+      }
+      async close() {
+        if (this.ownsPool) {
+          await this.pool.end();
+        }
+      }
+      async runOnce(now = /* @__PURE__ */ new Date()) {
+        const dueAgents = await this.store.listDueDistributionAgents(now);
+        let executed = 0;
+        let failed = 0;
+        const results = [];
+        for (const agent of dueAgents) {
+          try {
+            const result = await this.processAgentDistribution(agent, now);
+            if (result.executed) {
+              executed += 1;
+              results.push(result);
+            }
+          } catch (error) {
+            failed += 1;
+            this.logger.error?.({
+              event: "distribution_agent_failed",
+              agentId: agent.id,
+              edition: agent.edition_address,
+              error: error.message
+            });
+            await this.store.recordDistributionLog({
+              agentId: agent.id,
+              cycleId: `failed_${Date.now()}`,
+              assetAddress: this.settlementTokenAddress,
+              eligibleSupply: 1,
+              amountPerPass: 0n,
+              totalFunded: 0n,
+              fundTxHash: "0x0",
+              status: "FAILED",
+              errorMessage: error.message
+            }).catch(() => {
+            });
+          }
+        }
+        return {
+          inspected: dueAgents.length,
+          executed,
+          failed,
+          results
+        };
+      }
+      async processAgentDistribution(agent, now) {
+        if (agent.reward_source === "BUILDER_ROYALTY") {
+          return this._processRoyaltyDistribution(agent, now);
+        }
+        return this._processDirectBalanceDistribution(agent, now);
+      }
+      async _processRoyaltyDistribution(agent, now) {
+        const pool = await this.store._getPool();
+        const claimsQuery = await pool.query(
+          `SELECT rc.* FROM royalty_claim_projection rc
+       JOIN edition e ON e.id = rc.edition_id
+       WHERE e.edition_address = $1 AND rc.release_at <= $2 AND rc.withdrawn = false
+       ORDER BY rc.release_at ASC`,
+          [agent.edition_address.toLowerCase(), now]
+        );
+        const maturedClaims = claimsQuery.rows;
+        if (maturedClaims.length === 0) {
+          return { executed: false, reason: "NO_MATURED_ROYALTIES" };
+        }
+        let totalRoyalty = 0n;
+        for (const claim of maturedClaims) {
+          totalRoyalty += BigInt(claim.amount_usdg);
+        }
+        if (totalRoyalty <= 0n) {
+          return { executed: false, reason: "ZERO_ROYALTY_AMOUNT" };
+        }
+        for (const claim of maturedClaims) {
+          const withdrawCalldata = royaltyInterface.encodeFunctionData("withdraw", [claim.order_hash]);
+          await this.dynamic.sendTransaction({
+            walletId: agent.server_wallet_id,
+            to: this.royaltyVaultAddress,
+            data: withdrawCalldata,
+            chainId: this.chainId
+          });
+        }
+        const sweep = calculateBuilderSweep({
+          totalRoyalty,
+          allocationBps: agent.allocation_bps
+        });
+        let sweepTxHash = null;
+        if (sweep.builderRetained > 0n) {
+          const transferCalldata = erc20Interface.encodeFunctionData("transfer", [
+            agent.builder_address,
+            sweep.builderRetained
+          ]);
+          const sweepTx = await this.dynamic.sendTransaction({
+            walletId: agent.server_wallet_id,
+            to: this.settlementTokenAddress,
+            data: transferCalldata,
+            chainId: this.chainId
+          });
+          sweepTxHash = sweepTx.txHash;
+        }
+        if (sweep.rewardPool <= 0n) {
+          await this.store.updateDistributionAgentSchedule(agent.id, {
+            lastDistributionAt: now,
+            nextDistributionAt: new Date(now.getTime() + agent.cadence_days * 864e5)
+          });
+          return { executed: true, sweepOnly: true, sweptAmount: sweep.builderRetained.toString() };
+        }
+        return this._fundAndClaimCycle({
+          agent,
+          rewardAmount: sweep.rewardPool,
+          now,
+          sweepTxHash
+        });
+      }
+      async _processDirectBalanceDistribution(agent, now) {
+        const balanceInfo = await this.dynamic.getBalance({
+          address: agent.server_wallet_address,
+          tokenAddress: this.settlementTokenAddress
+        });
+        if (balanceInfo.raw <= 0n) {
+          return { executed: false, reason: "NO_BALANCE_AVAILABLE" };
+        }
+        return this._fundAndClaimCycle({
+          agent,
+          rewardAmount: balanceInfo.raw,
+          now,
+          sweepTxHash: null
+        });
+      }
+      async _fundAndClaimCycle({ agent, rewardAmount, now, sweepTxHash }) {
+        const pool = await this.store._getPool();
+        const supplyQuery = await pool.query(
+          `SELECT count(*)::int as minted
+       FROM pass_token_projection pt
+       JOIN edition e ON e.id = pt.edition_id
+       WHERE e.edition_address = $1 AND pt.orphaned_at IS NULL`,
+          [agent.edition_address.toLowerCase()]
+        );
+        const eligibleSupply = supplyQuery.rows[0]?.minted || 1;
+        const split2 = calculateRewardSplit({
+          totalAmount: rewardAmount,
+          eligibleSupply
+        });
+        const approveCalldata = erc20Interface.encodeFunctionData("approve", [
+          this.distributorAddress,
+          split2.fundedAmount
+        ]);
+        await this.dynamic.sendTransaction({
+          walletId: agent.server_wallet_id,
+          to: this.settlementTokenAddress,
+          data: approveCalldata,
+          chainId: this.chainId
+        });
+        const fundCycleCalldata = distributorInterface.encodeFunctionData("fundCycle", [
+          agent.policy_id,
+          this.settlementTokenAddress,
+          split2.amountPerPass
+        ]);
+        const fundTx = await this.dynamic.sendTransaction({
+          walletId: agent.server_wallet_id,
+          to: this.distributorAddress,
+          data: fundCycleCalldata,
+          chainId: this.chainId
+        });
+        const coder3 = AbiCoder.defaultAbiCoder();
+        const cycleId = keccak256(coder3.encode(
+          ["bytes32", "uint256", "bytes32", "uint32"],
+          [CYCLE_DOMAIN, this.chainId, agent.policy_id, 1]
+        ));
+        const chunks = chunkTokenIds({
+          eligibleSupply,
+          chunkSize: this.batchChunkSize
+        });
+        const claimTxHashes = [];
+        for (const chunk of chunks) {
+          const claimManyCalldata = distributorInterface.encodeFunctionData("claimMany", [
+            cycleId,
+            chunk
+          ]);
+          const claimTx = await this.dynamic.sendTransaction({
+            walletId: agent.server_wallet_id,
+            to: this.distributorAddress,
+            data: claimManyCalldata,
+            chainId: this.chainId
+          });
+          claimTxHashes.push(claimTx.txHash);
+        }
+        await this.store.recordDistributionLog({
+          agentId: agent.id,
+          cycleId,
+          assetAddress: this.settlementTokenAddress,
+          eligibleSupply,
+          amountPerPass: split2.amountPerPass,
+          totalFunded: split2.fundedAmount,
+          fundTxHash: fundTx.txHash,
+          claimTxHashes,
+          sweepTxHash,
+          status: "COMPLETED"
+        });
+        await this.store.updateDistributionAgentSchedule(agent.id, {
+          lastDistributionAt: now,
+          nextDistributionAt: new Date(now.getTime() + agent.cadence_days * 864e5)
+        });
+        return {
+          executed: true,
+          agentId: agent.id,
+          cycleId,
+          eligibleSupply,
+          amountPerPass: split2.amountPerPass.toString(),
+          totalFunded: split2.fundedAmount.toString(),
+          fundTxHash: fundTx.txHash,
+          claimCount: claimTxHashes.length,
+          sweepTxHash
+        };
+      }
+    };
+  }
+});
+
 // apps/api/src/memory-store.mjs
 import { createHash as createHash7, randomUUID as randomUUID4 } from "node:crypto";
 function hash3(value) {
@@ -16309,192 +16841,9 @@ var REQUIRED_METRICS = Object.freeze([
 // packages/chain/src/keccak.mjs
 var MASK = (1n << 64n) - 1n;
 
-// packages/chain/src/rpc.mjs
-var JsonRpcClient = class {
-  constructor(url, { timeoutMs = 12e3 } = {}) {
-    this.url = url;
-    this.timeoutMs = timeoutMs;
-    this.id = 0;
-  }
-  async call(method, params = []) {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), this.timeoutMs);
-    try {
-      const response = await fetch(this.url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: ++this.id, method, params }), signal: controller.signal });
-      if (!response.ok) throw new Error(`RPC HTTP ${response.status}`);
-      const body = await response.json();
-      if (body.error) throw new Error(`RPC ${method}: ${body.error.message || JSON.stringify(body.error)}`);
-      return body.result;
-    } finally {
-      clearTimeout(timer);
-    }
-  }
-  chainId() {
-    return this.call("eth_chainId").then((x) => Number(BigInt(x)));
-  }
-  getBlockNumber() {
-    return this.call("eth_blockNumber").then((value) => Number(BigInt(value)));
-  }
-  getBlockByNumber(blockNumber) {
-    return this.call("eth_getBlockByNumber", [`0x${BigInt(blockNumber).toString(16)}`, false]);
-  }
-  getTransactionReceipt(txHash) {
-    return this.call("eth_getTransactionReceipt", [txHash]);
-  }
-  getTransactionByHash(txHash) {
-    return this.call("eth_getTransactionByHash", [txHash]);
-  }
-  getCode(address2, block = "latest") {
-    return this.call("eth_getCode", [address2, block]);
-  }
-  getStorageAt(address2, slot, block = "latest") {
-    return this.call("eth_getStorageAt", [address2, slot, block]);
-  }
-  ethCall(to, data, block = "latest", from = null) {
-    const request = { to, data };
-    if (from) request.from = from;
-    return this.call("eth_call", [request, block]);
-  }
-};
-
-// packages/chain/src/dynamic-server-wallet.mjs
-init_lib2();
-var DynamicServerWalletClient = class {
-  constructor({
-    environmentId = process.env.DYNAMIC_ENVIRONMENT_ID,
-    apiKey = process.env.DYNAMIC_API_KEY,
-    baseUrl = "https://app.dynamicauth.com/api/v0",
-    rpcUrl = process.env.BASE_SEPOLIA_RPC_URL || "https://sepolia.base.org",
-    mockMode = !process.env.DYNAMIC_API_KEY
-  } = {}) {
-    this.environmentId = environmentId;
-    this.apiKey = apiKey;
-    this.baseUrl = baseUrl.replace(/\/$/, "");
-    this.rpcUrl = rpcUrl;
-    this.rpc = new JsonRpcClient(rpcUrl);
-    this.mockMode = Boolean(mockMode);
-    this._mockWallets = /* @__PURE__ */ new Map();
-  }
-  /**
-   * Lazily provisions or retrieves a server wallet scoped to a specific edition agent.
-   */
-  async createOrGetServerWallet({ identifier, chainId = 84532 }) {
-    if (this.mockMode) {
-      if (!this._mockWallets.has(identifier)) {
-        const wallet = Wallet.createRandom();
-        this._mockWallets.set(identifier, {
-          id: `dyn_wal_${wallet.address.slice(2, 10)}`,
-          address: wallet.address.toLowerCase(),
-          privateKey: wallet.privateKey,
-          chainId: Number(chainId)
-        });
-      }
-      const record = this._mockWallets.get(identifier);
-      return {
-        walletId: record.id,
-        address: record.address,
-        chainId: record.chainId
-      };
-    }
-    const url = `${this.baseUrl}/environments/${this.environmentId}/serverWallets`;
-    const response = await fetch(url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${this.apiKey}`
-      },
-      body: JSON.stringify({
-        chain: "EVM",
-        identifier,
-        metadata: {
-          role: "distribution-agent",
-          platform: "nexmarkets"
-        }
-      })
-    });
-    if (!response.ok) {
-      const errText = await response.text();
-      throw new Error(`Dynamic Server Wallet provisioning failed (${response.status}): ${errText}`);
-    }
-    const data = await response.json();
-    return {
-      walletId: data.id ?? data.walletId,
-      address: getAddress(data.address).toLowerCase(),
-      chainId: Number(chainId)
-    };
-  }
-  /**
-   * Signs and broadcasts a transaction from the server wallet.
-   */
-  async sendTransaction({ walletId, to, data = "0x", value = "0x0", chainId = 84532 }) {
-    if (this.mockMode) {
-      for (const [_, record] of this._mockWallets) {
-        if (record.id === walletId) {
-          const signer = new Wallet(record.privateKey);
-          return {
-            txHash: `0x${Buffer.from(Date.now().toString(16).padStart(64, "a")).toString("hex").slice(0, 64)}`,
-            from: record.address,
-            to: getAddress(to).toLowerCase(),
-            status: "SUBMITTED"
-          };
-        }
-      }
-      return {
-        txHash: `0x${"e".repeat(64)}`,
-        from: "0x" + "1".repeat(40),
-        to: getAddress(to).toLowerCase(),
-        status: "SUBMITTED"
-      };
-    }
-    const url = `${this.baseUrl}/environments/${this.environmentId}/serverWallets/${walletId}/transactions`;
-    const response = await fetch(url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${this.apiKey}`
-      },
-      body: JSON.stringify({
-        to: getAddress(to),
-        data,
-        value: typeof value === "bigint" ? `0x${value.toString(16)}` : value,
-        chainId: Number(chainId)
-      })
-    });
-    if (!response.ok) {
-      const errText = await response.text();
-      throw new Error(`Dynamic Server Wallet transaction failed (${response.status}): ${errText}`);
-    }
-    const result = await response.json();
-    return {
-      txHash: result.txHash ?? result.hash,
-      from: result.from ? getAddress(result.from).toLowerCase() : null,
-      to: getAddress(to).toLowerCase(),
-      status: "SUBMITTED"
-    };
-  }
-  /**
-   * Checks ETH and ERC-20 token balances for a wallet.
-   */
-  async getBalance({ address: address2, tokenAddress = null }) {
-    const formattedAddress = getAddress(address2);
-    if (!tokenAddress) {
-      const balanceHex = await this.rpc.call("eth_getBalance", [formattedAddress, "latest"]);
-      return {
-        raw: BigInt(balanceHex || "0x0"),
-        formatted: formatEther(BigInt(balanceHex || "0x0")),
-        symbol: "ETH"
-      };
-    }
-    const token = getAddress(tokenAddress);
-    const callData = `0x70a08231${formattedAddress.slice(2).padStart(64, "0")}`;
-    const resultHex = await this.rpc.ethCall(token, callData);
-    const balance = BigInt(resultHex && resultHex !== "0x" ? resultHex : "0x0");
-    return {
-      raw: balance,
-      tokenAddress: token.toLowerCase()
-    };
-  }
-};
+// packages/chain/src/index.mjs
+init_rpc();
+init_dynamic_server_wallet();
 
 // packages/subgraph-client/src/index.mjs
 var DEFAULT_TIMEOUT_MS = 1e4;
@@ -17766,6 +18115,22 @@ function createApiServer({
         const limit = Math.min(Number(url.searchParams.get("limit") || 50), 100);
         const logs = store.listDistributionLogs ? await store.listDistributionLogs(editionAddress, { limit }) : [];
         return json(res, 200, { data: logs, authority: "DATABASE_RECORD" });
+      }
+      if ((req.method === "POST" || req.method === "GET") && url.pathname === "/v1/cron/distribution") {
+        const cronSecret = process.env.CRON_SECRET;
+        const auth = req.headers["authorization"] || "";
+        const token2 = auth.startsWith("Bearer ") ? auth.slice(7).trim() : url.searchParams.get("key") || "";
+        if (cronSecret && token2 !== cronSecret) {
+          throw Object.assign(new Error("UNAUTHORIZED_CRON"), { status: 401 });
+        }
+        const { DistributionAgentWorker: DistributionAgentWorker2 } = await Promise.resolve().then(() => (init_distribution_agent_worker(), distribution_agent_worker_exports));
+        const worker = new DistributionAgentWorker2({
+          store,
+          chainId: fallbackChainId,
+          rpcUrl: fallbackChain?.url
+        });
+        const summary = await worker.runOnce();
+        return json(res, 200, { ok: true, summary, timestamp: (/* @__PURE__ */ new Date()).toISOString() });
       }
       if (req.method === "GET" && url.pathname.startsWith("/v1/editions/")) {
         const address2 = url.pathname.slice(13);
