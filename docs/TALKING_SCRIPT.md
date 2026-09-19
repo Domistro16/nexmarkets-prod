@@ -93,10 +93,27 @@
 > 4. It approves the reward pool in USDC and funds the reward cycle in `NexRewardDistributor`.  
 > 5. And finally, using Dynamic’s Server Wallet, it batch-claims and deposits payouts directly into all holders' ERC-6551 Pass Vaults."
 
-**[ACTION: Click into the running workflow job and expand the "Run Distribution Worker Tick" log. Show the successful `{ inspected: 1, executed: ..., failed: 0 }` output.]**
+**[ACTION: Click into the completed workflow job and expand the "Run Distribution Worker Tick" log.]**  
+**[SCREEN: The log will show: `{ inspected: 0, executed: 0, failed: 0, results: [] }` and a green checkmark.]**
 
 > **SAY:**  
-> "And there it is: completed in under 45 seconds on an isolated runner with zero gas custody risk and 100% onchain transparency."
+> "Notice the output here: `{ inspected: 0, executed: 0, failed: 0 }` completed with a green checkmark in under 45 seconds.  
+> 
+> This demonstrates intelligent gas management on Base: because secondary royalties are protected by a 30-day escrow that hasn't matured yet, the worker verifies database and chain state, confirms no claims are due right now, and exits cleanly with zero errors—preventing any wasted gas on unnecessary transactions.  
+> 
+> Now, to show you what an active 30-day payout looks like when royalties mature, let's look at our automated end-to-end worker test."
+
+**[ACTION: Switch to Terminal 2 and run:]**
+```bash
+node --test test/distribution-worker.test.mjs
+```
+**[SCREEN: Terminal displays: `✔ DistributionAgentWorker: processes matured royalty distributions end-to-end`.]**
+
+> **SAY:**  
+> "Here in our integration test, an active 10 USDC royalty escrow matures. Watch what the worker does:  
+> 1. It withdraws the matured escrow from `NexRoyaltyVault`.  
+> 2. It sweeps 7 USDC—the builder's 70% share—straight to their wallet.  
+> 3. And it batch-deposits the remaining 3 USDC evenly across 50 Pass Vaults without losing a single wei of dust."
 
 ---
 
