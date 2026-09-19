@@ -7,7 +7,7 @@ import { issueSession, issueWalletChallenge, assertChallengeUsable, assertSessio
 import { buildAllowlist, buildNexMarketsOrder, buildProtocolCalldata, buildSeaportFulfillment, inspectImageBytes, MEDIA_POLICY, seaportOrderHash, seaportTypedData, transitionTransaction, validateAndNormalizeProjectPayload, validateProjectedNexMarketsOrder, verifySeaportOrderSignature } from '@nexmarkets/domain';
 import { PostgresStore } from '@nexmarkets/data';
 import { MetricsRegistry } from '@nexmarkets/observability';
-import { JsonRpcClient } from '@nexmarkets/chain';
+import { JsonRpcClient, DynamicServerWalletClient } from '@nexmarkets/chain';
 import { SubgraphClient } from '@nexmarkets/subgraph-client';
 import { networkByKey, productionReadinessFromEnv } from '@nexmarkets/config';
 import { createObjectStorageFromEnv } from './object-storage.mjs';
@@ -800,6 +800,20 @@ export function createApiServer({
         }
         return json(res, 200, { data: payload, authority: subgraph?.enabled ? 'GOLDSKY_SUBGRAPH_READ_MODEL' : 'REWARD_INDEX_UNAVAILABLE' });
       }
+      const editionDistAgent = url.pathname.match(/^\/v1\/editions\/(0x[a-fA-F0-9]{40})\/distribution-agent$/);
+      if (req.method === 'GET' && editionDistAgent) {
+        const editionAddress = editionDistAgent[1].toLowerCase();
+        const agent = store.getDistributionAgentByEdition ? await store.getDistributionAgentByEdition(editionAddress) : null;
+        if (!agent) return json(res, 404, { error: { code: 'DISTRIBUTION_AGENT_NOT_FOUND', requestId } });
+        return json(res, 200, { data: agent, authority: 'DATABASE_RECORD' });
+      }
+      const editionDistLogs = url.pathname.match(/^\/v1\/editions\/(0x[a-fA-F0-9]{40})\/distribution-logs$/);
+      if (req.method === 'GET' && editionDistLogs) {
+        const editionAddress = editionDistLogs[1].toLowerCase();
+        const limit = Math.min(Number(url.searchParams.get('limit') || 50), 100);
+        const logs = store.listDistributionLogs ? await store.listDistributionLogs(editionAddress, { limit }) : [];
+        return json(res, 200, { data: logs, authority: 'DATABASE_RECORD' });
+      }
       if (req.method === 'GET' && url.pathname.startsWith('/v1/editions/')) {
         const address = url.pathname.slice(13);
         const indexed = readModelDisabled ? null : subgraph?.enabled ? await subgraph.editionByAddress(address) : await store.editionByAddress(address);
@@ -952,6 +966,37 @@ export function createApiServer({
         const profile = await store.upsertBuilderProfile(session.accountId, { ...input, links }, { builderId: input.builderId ?? input.builder_id ?? url.searchParams.get('builderId') });
         await store.recordAudit?.({ accountId: session.accountId, walletAddress: session.walletAddress, action: 'BUILDER_PROFILE_UPDATED', objectType: 'BUILDER_PROFILE', objectId: profile.id, requestId, correlationId });
         return json(res, 200, { data: profile });
+      }
+      if (req.method === 'POST' && url.pathname === '/v1/distribution-agents/provision') {
+        const input = await readBody(req);
+        if (!isAddress(input.editionAddress ?? '')) throw Object.assign(new Error('INVALID_EDITION_ADDRESS'), { status: 400 });
+        if (!input.policyId) throw Object.assign(new Error('POLICY_ID_REQUIRED'), { status: 400 });
+
+        const dynamicClient = new DynamicServerWalletClient({ rpcUrl: fallbackChain?.url });
+        const serverWallet = await dynamicClient.createOrGetServerWallet({
+          identifier: `agent:${input.editionAddress.toLowerCase()}:${input.policyId}`,
+          chainId: fallbackChainId
+        });
+
+        const agent = await store.saveDistributionAgent({
+          editionAddress: input.editionAddress,
+          builderAddress: session.walletAddress,
+          policyId: input.policyId,
+          serverWalletId: serverWallet.walletId,
+          serverWalletAddress: serverWallet.address,
+          rewardSource: input.rewardSource || 'BUILDER_ROYALTY',
+          allocationBps: Number(input.allocationBps) || 3000,
+          cadenceDays: Number(input.cadenceDays) || 30
+        });
+
+        return json(res, 201, {
+          data: agent,
+          serverWallet: {
+            address: serverWallet.address,
+            role: 'distribution-agent'
+          },
+          message: 'Dynamic server wallet provisioned successfully for autonomous distribution agent'
+        });
       }
       if (req.method === 'POST' && url.pathname === '/v1/builder/editions/link') {
         const input = await readBody(req);

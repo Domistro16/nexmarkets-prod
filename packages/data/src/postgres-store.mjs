@@ -981,4 +981,86 @@ export class PostgresStore {
     );
     return rows;
   }
+
+  async saveDistributionAgent({
+    id = `agt_${randomUUID().replace(/-/g, '').slice(0, 16)}`,
+    editionAddress,
+    builderAddress,
+    policyId,
+    serverWalletId,
+    serverWalletAddress,
+    rewardSource = 'BUILDER_ROYALTY',
+    allocationBps = 3000,
+    cadenceDays = 30,
+    nextDistributionAt = new Date(Date.now() + cadenceDays * 24 * 60 * 60 * 1000)
+  }) {
+    const { rows } = await (await this._getPool()).query(
+      `INSERT INTO distribution_agent(id, edition_address, builder_address, policy_id, server_wallet_id, server_wallet_address, reward_source, allocation_bps, cadence_days, next_distribution_at)
+       VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+       ON CONFLICT (edition_address, policy_id) DO UPDATE
+       SET server_wallet_id=$5, server_wallet_address=$6, reward_source=$7, allocation_bps=$8, cadence_days=$9, next_distribution_at=$10, updated_at=now()
+       RETURNING *`,
+      [id, editionAddress.toLowerCase(), builderAddress.toLowerCase(), policyId, serverWalletId, serverWalletAddress.toLowerCase(), rewardSource, allocationBps, cadenceDays, nextDistributionAt]
+    );
+    return rows[0];
+  }
+
+  async getDistributionAgentByEdition(editionAddress) {
+    const { rows } = await (await this._getPool()).query(
+      `SELECT * FROM distribution_agent WHERE edition_address=$1 AND status='ACTIVE' ORDER BY created_at DESC LIMIT 1`,
+      [editionAddress.toLowerCase()]
+    );
+    return rows[0] ?? null;
+  }
+
+  async listDueDistributionAgents(now = new Date()) {
+    const { rows } = await (await this._getPool()).query(
+      `SELECT * FROM distribution_agent WHERE status='ACTIVE' AND next_distribution_at <= $1 ORDER BY next_distribution_at ASC`,
+      [now]
+    );
+    return rows;
+  }
+
+  async updateDistributionAgentSchedule(id, { lastDistributionAt = new Date(), nextDistributionAt }) {
+    const { rows } = await (await this._getPool()).query(
+      `UPDATE distribution_agent SET last_distribution_at=$2, next_distribution_at=$3, updated_at=now() WHERE id=$1 RETURNING *`,
+      [id, lastDistributionAt, nextDistributionAt]
+    );
+    return rows[0] ?? null;
+  }
+
+  async recordDistributionLog({
+    id = `dlog_${randomUUID().replace(/-/g, '').slice(0, 16)}`,
+    agentId,
+    cycleId,
+    assetAddress,
+    eligibleSupply,
+    amountPerPass,
+    totalFunded,
+    fundTxHash,
+    claimTxHashes = [],
+    sweepTxHash = null,
+    status = 'COMPLETED',
+    errorMessage = null
+  }) {
+    const { rows } = await (await this._getPool()).query(
+      `INSERT INTO distribution_agent_log(id, agent_id, cycle_id, asset_address, eligible_supply, amount_per_pass, total_funded, fund_tx_hash, claim_tx_hashes, sweep_tx_hash, status, error_message)
+       VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+       RETURNING *`,
+      [id, agentId, cycleId, assetAddress.toLowerCase(), eligibleSupply, amountPerPass.toString(), totalFunded.toString(), fundTxHash, claimTxHashes, sweepTxHash, status, errorMessage]
+    );
+    return rows[0];
+  }
+
+  async listDistributionLogs(editionAddress, { limit = 50 } = {}) {
+    const { rows } = await (await this._getPool()).query(
+      `SELECT l.*, a.edition_address, a.server_wallet_address, a.policy_id
+       FROM distribution_agent_log l
+       JOIN distribution_agent a ON a.id=l.agent_id
+       WHERE a.edition_address=$1
+       ORDER BY l.created_at DESC LIMIT $2`,
+      [editionAddress.toLowerCase(), limit]
+    );
+    return rows;
+  }
 }

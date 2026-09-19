@@ -11,3 +11,4 @@ export * from './pass-design.mjs';
 export * from './primary-accounting.mjs';
 export * from './allowlist.mjs';
 export * from './pass-renderer.mjs';
+export * from './distribution-agent.mjs';

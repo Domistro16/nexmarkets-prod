@@ -1,0 +1,36 @@
+name: NexMarkets Distribution Worker
+
+on:
+  schedule:
+    # Runs every hour
+    - cron: '0 * * * *'
+  workflow_dispatch:
+    # Allows 1-click manual trigger from GitHub Actions tab
+
+jobs:
+  run-worker:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run Distribution Worker Tick
+        run: npm --prefix services/worker run distribution:once
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DYNAMIC_ENVIRONMENT_ID: ${{ secrets.DYNAMIC_ENVIRONMENT_ID }}
+          DYNAMIC_API_KEY: ${{ secrets.DYNAMIC_API_KEY }}
+          BASE_SEPOLIA_RPC_URL: ${{ secrets.BASE_SEPOLIA_RPC_URL || 'https://sepolia.base.org' }}
+          BASE_SEPOLIA_NEX_REWARD_DISTRIBUTOR_ADDRESS: ${{ secrets.BASE_SEPOLIA_NEX_REWARD_DISTRIBUTOR_ADDRESS || '0x2453c5FCef787D076ff21614E54C50344FD1EB91' }}
+          BASE_SEPOLIA_NEX_ROYALTY_VAULT_ADDRESS: ${{ secrets.BASE_SEPOLIA_NEX_ROYALTY_VAULT_ADDRESS || '0xCbf82F765c80446baa753a56C563ED0291374614' }}
+          BASE_SEPOLIA_USDC_ADDRESS: ${{ secrets.BASE_SEPOLIA_USDC_ADDRESS || '0x036CbD53842c5426634e7929541eC2318f3dCF7e' }}
+          BASE_CHAIN_ID: 84532

@@ -957,12 +957,17 @@ function socialEntryForBuilder(builderId) {
 function installSocialRuntime() {
   window.__nmBuilderProjectsForKey = managedBuilderProjectViews;
   window.__nmBuilderStatsForKey = managedBuilderStats;
+  window.nmExplorerAddressUrl = (value) => {
+    const base = String(state.config?.explorer || '').replace(/\/$/, '');
+    return base && /^0x[0-9a-fA-F]{40}$/.test(value || '') && !/^0x0{40}$/i.test(value) ? `${base}/address/${value}` : '';
+  };
   window.nmEliteBuilderProfileForKey = (key) => {
     const profile = builderProfileForKey(key);
-    if (!profile) return { key, displayName: key || 'Builder', handle: '', tagline: '', about: '', website: '', x: '', avatar: '' };
+    if (!profile) return { key, claimed: false, displayName: key || 'Builder', handle: '', tagline: '', about: '', website: '', x: '', avatar: '' };
     const links = profile.links && typeof profile.links === 'object' ? profile.links : {};
     return {
       key,
+      claimed: true,
       displayName: profile.display_name || profile.displayName || key || 'Builder',
       handle: links.handle || profile.handle || '',
       tagline: links.positioning || profile.positioning || '',
@@ -1703,7 +1708,10 @@ function patchNetworkCopy() {
 }
 function patchBuilderLinks() {
   const project = state.detailProject; const experience = project && state.projectExperience?.[project.name];
-  const key = experience?.builderId || experience?.builderHandle || experience?.builder;
+  // Only route to the in-app Builder profile when the publisher actually
+  // claimed one. An unclaimed on-chain publisher address is chain data — its
+  // authority is the network explorer, not a synthesized profile page.
+  const key = experience?.builderProfile ? (experience.builderId || experience.builderHandle || experience.builder) : null;
   if (!key) return;
   document.querySelectorAll('.nm-final-builder-line,.nm-market-project-builder,.nm-collection-project-builder').forEach((row) => {
     if (row.querySelector('[data-nm-builder-route]')) return;
@@ -2926,6 +2934,39 @@ function explorerTransactionUrl(txHash) {
   if (!txHash || !state.config?.explorer) return '';
   return `${String(state.config.explorer).replace(/\/$/, '')}/tx/${txHash}`;
 }
+window.nmExplorerAddressUrl = (value) => {
+  const base = String(state.config?.explorer || '').replace(/\/$/, '');
+  const v = String(value || '');
+  return base && /^0x[0-9a-fA-F]{40}$/.test(v) && !/^0x0{40}$/i.test(v) ? `${base}/address/${v}` : '';
+};
+window.nmDistributionAgent = {
+  async fetchAgent(editionAddress) {
+    if (!editionAddress) return null;
+    const res = await fetch(`/v1/editions/${String(editionAddress).toLowerCase()}/distribution-agent`);
+    if (!res.ok) return null;
+    const body = await res.json();
+    return body.data ?? null;
+  },
+  async fetchLogs(editionAddress, limit = 50) {
+    if (!editionAddress) return [];
+    const res = await fetch(`/v1/editions/${String(editionAddress).toLowerCase()}/distribution-logs?limit=${limit}`);
+    if (!res.ok) return [];
+    const body = await res.json();
+    return body.data ?? [];
+  },
+  async provisionAgent({ editionAddress, policyId, rewardSource = 'BUILDER_ROYALTY', allocationBps = 3000, cadenceDays = 30 }) {
+    const res = await fetch('/v1/distribution-agents/provision', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ editionAddress, policyId, rewardSource, allocationBps, cadenceDays })
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error?.code || `PROVISION_FAILED_${res.status}`);
+    }
+    return res.json();
+  }
+};
 function actionSuccess(surface, label, result) {
   const txHash = result?.txHash || '';
   const link = explorerTransactionUrl(txHash);

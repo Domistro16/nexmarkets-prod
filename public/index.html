@@ -5849,7 +5849,7 @@ function nmBuilderSlug(v){return String(v||'').toLowerCase().replace(/[^a-z0-9]+
 function nmBuilderOf(p){
   const x=px(p),seedName=String(x.builder||p?.name||'').trim(),key=nmBuilderSlug(seedName)||nmBuilderSlug(p?.name);
   let prof=null;try{prof=window.nmEliteBuilderProfileForKey?.(key)||null}catch(e){}
-  return {key,name:String(prof?.displayName||seedName||p?.name||'Builder').trim(),handle:String(prof?.handle||x.builderHandle||'').trim()};
+  return {key,name:String(prof?.displayName||seedName||p?.name||'Builder').trim(),handle:String(prof?.handle||x.builderHandle||'').trim(),wallet:String(x.builderId||'').trim(),claimed:Boolean(prof?.claimed)};
 }
 function nmBuilderByKey(key){return projects.map(p=>({p,b:nmBuilderOf(p)})).find(x=>x.b.key===String(key||'').toLowerCase())||null}
 function nmBuilderProjects(key){return projects.filter(p=>nmBuilderOf(p).key===String(key||'').toLowerCase())}
@@ -5857,12 +5857,13 @@ function nmHoldsBuilder(key){
   try{return ownedPasses.some(op=>{const p=projectByName(op.name);return p&&nmBuilderOf(p).key===String(key).toLowerCase()})}catch(e){return false}
 }
 function nmBuilderWallet(key){
-  let h=5381;for(let i=0;i<String(key).length;i++){h=(h*33)^String(key).charCodeAt(i)}
-  const hex=(Math.abs(h)>>>0).toString(16).toUpperCase().padStart(8,'0');
-  return `0x${hex.slice(0,3)}…${hex.slice(-4)}`;
+  const w=String(nmBuilderByKey(key)?.b?.wallet||'').trim();
+  if(/^0x[0-9a-fA-F]{40}$/.test(w)&&!/^0x0{40}$/i.test(w))return `${w.slice(0,6)}…${w.slice(-4)}`;
+  return 'On-chain publisher';
 }
 function nmBuilderJoined(key){
-  const hit=nmBuilderByKey(key);if(!hit)return 'Early builder';
+  const hit=nmBuilderByKey(key);if(!hit)return '';
+  if(!hit.b.claimed)return 'On-chain publisher';
   const started=px(hit.p).previewStarted;
   if(!started)return 'Early builder';
   try{return 'Joined '+new Date(started).toLocaleDateString('en-GB',{month:'long',year:'numeric'})}catch(e){return 'Early builder'}
@@ -13747,21 +13748,21 @@ window.nmRenderBuilderPage=function(){
         <p class="nm-bp-tagline">${escf(p.desc)}</p>
       </div>
     </div>
-    <div class="nm-bp-headside">${nmFollowButtonHTML(b.key)}<small style="font-size:7.5px;color:#6f776e">Updates and answers land in your feed</small></div>
+    <div class="nm-bp-headside">${b.claimed?nmFollowButtonHTML(b.key)+'<small style="font-size:7.5px;color:#6f776e">Updates and answers land in your feed</small>':'<span class="nm-bp-chip">On-chain publisher · no Builder profile</span>'}</div>
   </header>
   <div class="nm-bp-links">${links||'<span class="nm-bp-nolinks">The builder has not added links yet.</span>'}</div>
   <div class="nm-bp-grid">
     <div>
       <section class="nm-bp-section"><h2>About</h2><p class="nm-bp-about">${escf(x.about||p.desc)}</p></section>
       <section class="nm-bp-section"><h2>Updates</h2><p class="nm-bp-note">Posted by the builder whenever there is something worth saying. Followers and holders see each post in their feeds.</p>
-        <div class="nm-bp-compose"><textarea id="nmBpUpdateText" rows="3" maxlength="600" placeholder="What should followers and holders know?"></textarea><div class="nm-bp-compose-foot"><small>Posts go out the moment you publish.</small><button class="btn small primary" onclick="nmSubmitBuilderUpdate('${escf(b.key)}')">Post update</button></div></div>
+        ${b.claimed?`<div class="nm-bp-compose"><textarea id="nmBpUpdateText" rows="3" maxlength="600" placeholder="What should followers and holders know?"></textarea><div class="nm-bp-compose-foot"><small>Posts go out the moment you publish.</small><button class="btn small primary" onclick="nmSubmitBuilderUpdate('${escf(b.key)}')">Post update</button></div></div>`:''}
         <div>${nmBpUpdateRows(b)}</div>
       </section>
     </div>
     <div>
       <section class="nm-bp-section"><h2>Editions</h2><p class="nm-bp-note">Every Pass this builder has issued, with serial progress and floor.</p>${nmBpEditionRows(b)}</section>
       <section class="nm-bp-section"><h2>Holder questions</h2><p class="nm-bp-note">Ask anything about the product, the Advantage or the terms. Questions are public; the builder answers here.</p>
-        <div class="nm-social-compose"><input id="nmBpQuestionText" type="text" maxlength="400" placeholder="${holds?'Ask as a Pass holder…':'Ask the builder a question…'}"><button class="btn small primary" onclick="nmSubmitBpQuestion('${escf(b.key)}')">Send</button></div>
+        ${b.claimed?`<div class="nm-social-compose"><input id="nmBpQuestionText" type="text" maxlength="400" placeholder="${holds?'Ask as a Pass holder…':'Ask the builder a question…'}"><button class="btn small primary" onclick="nmSubmitBpQuestion('${escf(b.key)}')">Send</button></div>`:''}
         <div>${nmBpQuestionRows(b)}</div>
       </section>
       <section class="nm-bp-section"><h2>Activity</h2><p class="nm-bp-note">Edition milestones and Market movement for this builder.</p>${nmBpActivityRows(b)}</section>
@@ -13792,22 +13793,27 @@ function nmDecorateProjectPage(){
   const p=projectByName(selectedProject);if(!p)return;
   const b=nmBuilderOf(p);
   const actions=page.querySelector('.nm-p7-actions');
-  if(actions&&!actions.querySelector('.nm-follow-btn'))actions.insertAdjacentHTML('beforeend',nmFollowButtonHTML(b.key));
-  /* The hero already says who built it, make that line the way in. */
+  if(b.claimed&&actions&&!actions.querySelector('.nm-follow-btn'))actions.insertAdjacentHTML('beforeend',nmFollowButtonHTML(b.key));
+  /* The hero already says who built it, make that line the way in. A claimed
+     Builder opens their profile; an unclaimed publisher address is chain data
+     and belongs on the network explorer, not a synthesized profile. */
   const byline=page.querySelector('.nm-p7-builder');
   if(byline&&!byline.dataset.nmBuilderBound){
     byline.dataset.nmBuilderBound='1';
     byline.classList.add('nm-p7-builder-link');
     byline.setAttribute('role','link');
     byline.setAttribute('tabindex','0');
-    byline.setAttribute('title','Open '+b.name+'’s builder profile');
-    byline.onclick=()=>openBuilder(b.key);
-    byline.onkeydown=e=>{if(e.key==='Enter')openBuilder(b.key)};
+    byline.setAttribute('title',b.claimed?'Open '+b.name+'’s builder profile':'View the publisher address on the explorer');
+    const openByline=()=>{if(b.claimed){openBuilder(b.key);return}const url=window.nmExplorerAddressUrl?.(b.wallet);if(url)window.open(url,'_blank','noopener');else showToast('On-chain publisher · no Builder profile yet')};
+    byline.onclick=openByline;
+    byline.onkeydown=e=>{if(e.key==='Enter')openByline()};
   }
-  if(!page.querySelector('.nm-social-updates')){
+  if(!page.querySelector('.nm-social-updates')&&!page.querySelector('.nm-social-holders')){
     const sections=[...page.querySelectorAll(':scope > section.nm-p7-section')];
     const faq=sections.find(s=>s.querySelector('.nm-p7-faq'));
-    const html=nmProjectUpdatesSectionHTML(p)+nmProjectQaSectionHTML(p)+nmProjectHoldersSectionHTML(p);
+    /* Updates and Q&A need a Builder account that can post and answer; holders
+       are real chain state and always render. */
+    const html=(b.claimed?nmProjectUpdatesSectionHTML(p)+nmProjectQaSectionHTML(p):'')+nmProjectHoldersSectionHTML(p);
     if(faq)faq.insertAdjacentHTML('beforebegin',html);
     else page.insertAdjacentHTML('beforeend',html);
   }

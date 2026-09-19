@@ -11,6 +11,7 @@ export class MemoryStore {
     this.builders = new Map(); this.builderMemberships = []; this.builderProfiles = new Map();
     this.primarySales = new Map();
     this.builderFollows = []; this.projectWatchlist = []; this.builderMilestones = []; this.builderQuestions = [];
+    this.distributionAgents = new Map(); this.distributionLogs = [];
   }
   async ready() { return true; }
   async indexerHealth() { return { latest_block_number: 1, latest_event_block_number: 1, landed_block_number: 1, finalized_block_number: 1, finalized_watermark_block_number: 1 }; }
@@ -542,6 +543,92 @@ export class MemoryStore {
         projectSlug: project?.slug ?? null
       };
     }));
+  }
+
+  async saveDistributionAgent(input) {
+    const key = `${input.editionAddress.toLowerCase()}:${input.policyId}`;
+    const agent = {
+      id: input.id ?? `agt_${randomUUID().replace(/-/g, '').slice(0, 16)}`,
+      edition_address: input.editionAddress.toLowerCase(),
+      builder_address: input.builderAddress.toLowerCase(),
+      policy_id: input.policyId,
+      server_wallet_id: input.serverWalletId,
+      server_wallet_address: input.serverWalletAddress.toLowerCase(),
+      reward_source: input.rewardSource ?? 'BUILDER_ROYALTY',
+      allocation_bps: Number(input.allocationBps ?? 3000),
+      cadence_days: Number(input.cadenceDays ?? 30),
+      next_distribution_at: input.nextDistributionAt ?? new Date(Date.now() + (input.cadenceDays ?? 30) * 86400000),
+      status: 'ACTIVE',
+      created_at: new Date()
+    };
+    this.distributionAgents.set(key, agent);
+    return structuredClone(agent);
+  }
+
+  async getDistributionAgentByEdition(editionAddress) {
+    const target = editionAddress.toLowerCase();
+    for (const agent of this.distributionAgents.values()) {
+      if (agent.edition_address === target && agent.status === 'ACTIVE') {
+        return structuredClone(agent);
+      }
+    }
+    return null;
+  }
+
+  async listDueDistributionAgents(now = new Date()) {
+    const nowTime = new Date(now).getTime();
+    const results = [];
+    for (const agent of this.distributionAgents.values()) {
+      if (agent.status === 'ACTIVE' && new Date(agent.next_distribution_at).getTime() <= nowTime) {
+        results.push(structuredClone(agent));
+      }
+    }
+    return results;
+  }
+
+  async updateDistributionAgentSchedule(id, { lastDistributionAt = new Date(), nextDistributionAt }) {
+    for (const agent of this.distributionAgents.values()) {
+      if (agent.id === id) {
+        agent.last_distribution_at = lastDistributionAt;
+        agent.next_distribution_at = nextDistributionAt;
+        return structuredClone(agent);
+      }
+    }
+    return null;
+  }
+
+  async recordDistributionLog(input) {
+    const log = {
+      id: input.id ?? `dlog_${randomUUID().replace(/-/g, '').slice(0, 16)}`,
+      agent_id: input.agentId,
+      cycle_id: input.cycleId,
+      asset_address: input.assetAddress.toLowerCase(),
+      eligible_supply: input.eligibleSupply,
+      amount_per_pass: input.amountPerPass.toString(),
+      total_funded: input.totalFunded.toString(),
+      fund_tx_hash: input.fundTxHash,
+      claim_tx_hashes: input.claimTxHashes ?? [],
+      sweep_tx_hash: input.sweepTxHash ?? null,
+      status: input.status ?? 'COMPLETED',
+      error_message: input.errorMessage ?? null,
+      created_at: new Date()
+    };
+    this.distributionLogs.unshift(log);
+    return structuredClone(log);
+  }
+
+  async listDistributionLogs(editionAddress, { limit = 50 } = {}) {
+    const target = editionAddress.toLowerCase();
+    const matchingAgentIds = new Set(
+      [...this.distributionAgents.values()]
+        .filter((a) => a.edition_address === target)
+        .map((a) => a.id)
+    );
+    return structuredClone(
+      this.distributionLogs
+        .filter((l) => matchingAgentIds.has(l.agent_id))
+        .slice(0, limit)
+    );
   }
 }
 
