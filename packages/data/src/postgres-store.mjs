@@ -1021,6 +1021,29 @@ export class PostgresStore {
     return rows;
   }
 
+  async listActiveDistributionAgents() {
+    const { rows } = await (await this._getPool()).query(
+      `SELECT * FROM distribution_agent WHERE status='ACTIVE' ORDER BY next_distribution_at ASC`
+    );
+    return rows;
+  }
+
+  async fastForwardDistributionAgent(id = null, nextDistributionAt = new Date()) {
+    const pool = await this._getPool();
+    if (id) {
+      const { rows } = await pool.query(
+        `UPDATE distribution_agent SET next_distribution_at=$2, updated_at=now() WHERE id=$1 RETURNING *`,
+        [id, nextDistributionAt]
+      );
+      return rows[0] ?? null;
+    }
+    const { rows } = await pool.query(
+      `UPDATE distribution_agent SET next_distribution_at=$1, updated_at=now() WHERE status='ACTIVE' RETURNING *`,
+      [nextDistributionAt]
+    );
+    return rows;
+  }
+
   async updateDistributionAgentSchedule(id, { lastDistributionAt = new Date(), nextDistributionAt }) {
     const { rows } = await (await this._getPool()).query(
       `UPDATE distribution_agent SET last_distribution_at=$2, next_distribution_at=$3, updated_at=now() WHERE id=$1 RETURNING *`,

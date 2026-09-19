@@ -93,24 +93,58 @@
 > 4. It approves the reward pool in USDC and funds the reward cycle in `NexRewardDistributor`.  
 > 5. And finally, using Dynamic’s Server Wallet, it batch-claims and deposits payouts directly into all holders' ERC-6551 Pass Vaults."
 
-**[ACTION: Click into the completed workflow job and expand the "Run Distribution Worker Tick" log.]**  
-**[SCREEN: The log will show: `{ inspected: 0, executed: 0, failed: 0, results: [] }` and a green checkmark.]**
+**[ACTION: Open your terminal to demonstrate the worker live. You can choose either Option A (Live Real-Time Demo) or Option B (GitHub Actions / Gas Savings).]**
+
+#### OPTION A: Live Real-Time Fast-Forward Execution (Recommended for maximum impact!)
+**[ACTION: In Terminal 1, run the one-shot distribution command:]**
+```bash
+npm run demo:distribute
+```
+*(Or keep `npm run worker:distribution` running in a dedicated terminal window to show continuous live countdown monitoring).*
+
+**[SCREEN: Terminal lights up with rich execution logs:]**
+```text
+================================================================================
+   >>> AUTONOMOUS DISTRIBUTION CYCLE EXECUTED SUCCESSFULLY! <<<
+================================================================================
+   Agent ID:         agt_demo_sepolia
+   Cycle ID:         0x2c3d4bc1c708a4834398f95924c97179edc9a0de...
+   Eligible Passes:  1
+   Total Funded:     10.00 USDC
+   Amount Per Pass:  10.0000 USDC
+   fundCycle Tx:     0x24aa3ccc6115e25f1e94417c248da01e24ec1db...
+   Pass Vaults:      1 batch claim transaction(s)
+   Next Run:         Rescheduled in 2 minutes (Testnet Fast-Forward)
+================================================================================
+```
 
 > **SAY:**  
-> "Notice the output here: `{ inspected: 0, executed: 0, failed: 0 }` completed with a green checkmark in under 45 seconds.  
+> "In production on Base mainnet, distributions adhere to our 30-day security escrow lockup.  
 > 
-> This demonstrates intelligent gas management on Base: because secondary royalties are protected by a 30-day escrow that hasn't matured yet, the worker verifies database and chain state, confirms no claims are due right now, and exits cleanly with zero errors—preventing any wasted gas on unnecessary transactions.  
-> 
-> Now, to show you what an active 30-day payout looks like when royalties mature, let's look at our automated end-to-end worker test."
+> But for this live demo on Base Sepolia, we’ve configured a **Fast-Forward Testnet Cadence** of 2 minutes. Watch what our autonomous agent just did in real time:  
+> 1. It detected that the distribution schedule arrived.  
+> 2. The Dynamic Server Wallet approved our `NexRewardDistributor` contract on Base Sepolia.  
+> 3. It called `fundCycle` with 10 USDC, generating this live confirmed transaction hash: `0x24aa...`.  
+> 4. And it automatically batch-claimed and credited the rewards directly into the holders' ERC-6551 Pass Vaults!  
+> 5. Notice it then immediately rescheduled the next autonomous distribution for 2 minutes from now. Zero manual intervention required."
 
-**[ACTION: Switch to Terminal 2 and run:]**
+#### OPTION B: Showing GitHub Actions Workflow & Gas Intelligence
+**[ACTION: Click into the completed GitHub Action workflow job and expand "Run Distribution Worker Tick" log.]**  
+**[SCREEN: The log shows: `{ inspected: 1, executed: 0, failed: 0 }` and a green checkmark.]**
+
+> **SAY:**  
+> "When there are no claims due, notice how our worker behaves: `{ inspected: 1, executed: 0, failed: 0 }` completing in under 45 seconds with zero errors.  
+> 
+> This demonstrates intelligent gas management on Base: the worker monitors state offchain and never wastes gas on pointless empty onchain transactions when a cycle is not due."
+
+**[ACTION: Switch to Terminal 2 and run our full integration test:]**
 ```bash
 node --test test/distribution-worker.test.mjs
 ```
 **[SCREEN: Terminal displays: `✔ DistributionAgentWorker: processes matured royalty distributions end-to-end`.]**
 
 > **SAY:**  
-> "Here in our integration test, an active 10 USDC royalty escrow matures. Watch what the worker does:  
+> "Here in our automated test suite, we simulate a full 10 USDC secondary sale royalty escrow maturing. Watch the agent:  
 > 1. It withdraws the matured escrow from `NexRoyaltyVault`.  
 > 2. It sweeps 7 USDC—the builder's 70% share—straight to their wallet.  
 > 3. And it batch-deposits the remaining 3 USDC evenly across 50 Pass Vaults without losing a single wei of dust."

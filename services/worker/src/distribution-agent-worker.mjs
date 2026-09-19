@@ -53,6 +53,7 @@ export class DistributionAgentWorker {
     distributorAddress = process.env.BASE_SEPOLIA_NEX_REWARD_DISTRIBUTOR_ADDRESS || '0x2453c5FCef787D076ff21614E54C50344FD1EB91',
     settlementTokenAddress = process.env.BASE_SEPOLIA_USDC_ADDRESS || '0x036CbD53842c5426634e7929541eC2318f3dCF7e',
     batchChunkSize = 150,
+    demoCadenceMinutes = process.env.DEMO_CADENCE_MINUTES ? Number(process.env.DEMO_CADENCE_MINUTES) : null,
     logger = console
   } = {}) {
     this.pool = pool ?? (store?.pool ?? new pg.Pool({ connectionString, max: 4, application_name: 'nexmarkets-distribution-worker' }));
@@ -65,7 +66,16 @@ export class DistributionAgentWorker {
     this.distributorAddress = getAddress(distributorAddress).toLowerCase();
     this.settlementTokenAddress = getAddress(settlementTokenAddress).toLowerCase();
     this.batchChunkSize = Number(batchChunkSize) || 150;
+    this.demoCadenceMinutes = demoCadenceMinutes;
     this.logger = logger;
+  }
+
+  _calculateNextDistributionTime(agent, now) {
+    const demoMins = Number(process.env.DEMO_CADENCE_MINUTES || this.demoCadenceMinutes || 0);
+    if (demoMins > 0) {
+      return new Date(now.getTime() + demoMins * 60 * 1000);
+    }
+    return new Date(now.getTime() + agent.cadence_days * 86400000);
   }
 
   async close() {
@@ -86,6 +96,8 @@ export class DistributionAgentWorker {
         if (result.executed) {
           executed += 1;
           results.push(result);
+        } else {
+          results.push({ agentId: agent.id, executed: false, reason: result.reason });
         }
       } catch (error) {
         failed += 1;
@@ -186,7 +198,7 @@ export class DistributionAgentWorker {
     if (sweep.rewardPool <= 0n) {
       await this.store.updateDistributionAgentSchedule(agent.id, {
         lastDistributionAt: now,
-        nextDistributionAt: new Date(now.getTime() + agent.cadence_days * 86400000)
+        nextDistributionAt: this._calculateNextDistributionTime(agent, now)
       });
       return { executed: true, sweepOnly: true, sweptAmount: sweep.builderRetained.toString() };
     }
@@ -306,7 +318,7 @@ export class DistributionAgentWorker {
 
     await this.store.updateDistributionAgentSchedule(agent.id, {
       lastDistributionAt: now,
-      nextDistributionAt: new Date(now.getTime() + agent.cadence_days * 86400000)
+      nextDistributionAt: this._calculateNextDistributionTime(agent, now)
     });
 
     return {

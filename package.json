@@ -71,7 +71,10 @@
     "verify:primitives:testnet": "node scripts/verify-primitives.mjs --network robinhood-testnet",
     "verify:primitives:mainnet:strict": "node scripts/verify-primitives.mjs --network robinhood-mainnet --strict",
     "phase01:check": "node scripts/phase01-check.mjs",
-    "preflight:seaport": "node scripts/preflight-canonical-seaport.mjs robinhood-mainnet"
+    "preflight:seaport": "node scripts/preflight-canonical-seaport.mjs robinhood-mainnet",
+    "worker:distribution": "node services/worker/src/run-distribution-worker.mjs",
+    "demo:fast-forward": "node scripts/demo-fast-forward-agent.mjs",
+    "demo:distribute": "node scripts/demo-fast-forward-agent.mjs --run"
   },
   "dependencies": {
     "esbuild": "0.25.0",

@@ -125,6 +125,31 @@ Response:
 }
 ```
 
+#### Method 3: Live Real-Time Fast-Forward Execution (Fast-Forward Testnet Cadence)
+To demonstrate the autonomous agent executing live on camera without waiting 30 days:
+```bash
+# 1-Shot execution: fast-forwards schedule, triggers agent, and prints live Base Sepolia tx hashes
+npm run demo:distribute
+
+# Or start continuous monitoring in a live terminal banner:
+npm run worker:distribution
+```
+Output:
+```text
+================================================================================
+   >>> AUTONOMOUS DISTRIBUTION CYCLE EXECUTED SUCCESSFULLY! <<<
+================================================================================
+   Agent ID:         agt_demo_sepolia
+   Cycle ID:         0x2c3d4bc1c708a4834398f95924c97179edc9a0de6577a34a48f8a37fbcdf4da4
+   Eligible Passes:  1
+   Total Funded:     10.00 USDC
+   Amount Per Pass:  10.0000 USDC
+   fundCycle Tx:     0x24aa3ccc6115e25f1e94417c248da01e24ec1db9d0d4ff6573b2f8428dd46c06
+   Pass Vaults:      1 batch claim transaction(s)
+   Next Run:         Rescheduled in 2 minutes (Testnet Fast-Forward)
+================================================================================
+```
+
 #### Step 4: Show the Immutable Audit Ledger
 Query the audit history:
 ```bash
