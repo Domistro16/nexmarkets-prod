@@ -29,6 +29,7 @@
     "test:browser": "playwright test --config=test/playwright.config.mjs",
     "db:migrate": "node --env-file=.env infra/schema/migrate.mjs",
     "verify:database:migration": "node scripts/verify-database-migration.mjs",
+    "verify:contracts:base-sepolia": "node scripts/verify-contracts-base-sepolia.mjs",
     "verify:payment-token": "node scripts/verify-payment-token-config.mjs",
     "verify:testnet": "node scripts/verify-testnet-certification.mjs",
     "verify:security": "node scripts/audit-security-negative.mjs",
