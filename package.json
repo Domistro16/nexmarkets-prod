@@ -27,7 +27,7 @@
     "web:config:testnet": "node scripts/render-web-config.mjs",
     "web:serve:testnet": "node --env-file=.env scripts/serve-web-testnet.mjs",
     "test:browser": "playwright test --config=test/playwright.config.mjs",
-    "db:migrate": "node infra/schema/migrate.mjs",
+    "db:migrate": "node --env-file=.env infra/schema/migrate.mjs",
     "verify:database:migration": "node scripts/verify-database-migration.mjs",
     "verify:payment-token": "node scripts/verify-payment-token-config.mjs",
     "verify:testnet": "node scripts/verify-testnet-certification.mjs",

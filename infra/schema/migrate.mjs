@@ -2,9 +2,19 @@ import { createHash } from 'node:crypto';
 import { readdir, readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
+import { existsSync } from 'node:fs';
 import pg from 'pg';
 
 const schemaDir = path.dirname(fileURLToPath(import.meta.url));
+
+if (!process.env.DIRECT_URL && !process.env.DATABASE_URL) {
+  const envPath = path.resolve(schemaDir, '../../.env');
+  if (existsSync(envPath)) {
+    try {
+      process.loadEnvFile(envPath);
+    } catch {}
+  }
+}
 
 export async function applyMigrations({ connectionString = process.env.DIRECT_URL || process.env.DATABASE_URL, pool, upTo = null } = {}) {
   if (!pool && !connectionString) throw new Error('DIRECT_URL or DATABASE_URL is required');
