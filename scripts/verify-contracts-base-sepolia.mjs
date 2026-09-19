@@ -9,6 +9,26 @@ const contractsDir = join(root, 'packages', 'contracts');
 const planPath = join(root, 'artifacts', 'deployment-plan', 'base-sepolia.json');
 const manifestPath = join(root, 'deployments', 'base-sepolia.v1-deployment.json');
 
+// Auto-load .env so developers don't have to manually pass environment variables
+function loadEnv(filePath = join(root, '.env')) {
+  if (!existsSync(filePath)) return;
+  if (typeof process.loadEnvFile === 'function') {
+    try { process.loadEnvFile(filePath); } catch {}
+  }
+  try {
+    const raw = readFileSync(filePath, 'utf8');
+    for (const line of raw.split(/\r?\n/)) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith('#') || !trimmed.includes('=')) continue;
+      const idx = trimmed.indexOf('=');
+      const key = trimmed.slice(0, idx).trim();
+      const val = trimmed.slice(idx + 1).trim().replace(/^["']|["']$/g, '');
+      if (process.env[key] === undefined) process.env[key] = val;
+    }
+  } catch {}
+}
+loadEnv();
+
 function findForge() {
   const candidates = [
     'forge',
