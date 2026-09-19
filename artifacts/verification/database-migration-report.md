@@ -61,5 +61,5 @@
 ## Applied target migration registry
 
 - Result: PASS
-- Applied migrations: 9
-- Versions: 0001_phase0_authority.sql, 0002_nexmarkets_v1.sql, 0003_social_and_builder_profiles.sql, 0004_multi_network_chain_ids.sql, 0005_permissionless_editions.sql, 0006_builder_questions.sql, 0007_media_upload_verification.sql, 0008_builder_identities_and_primary_accounting.sql, 0009_multi_builder_secondary_relationships.sql
+- Applied migrations: 10
+- Versions: 0001_phase0_authority.sql, 0002_nexmarkets_v1.sql, 0003_social_and_builder_profiles.sql, 0004_multi_network_chain_ids.sql, 0005_permissionless_editions.sql, 0006_builder_questions.sql, 0007_media_upload_verification.sql, 0008_builder_identities_and_primary_accounting.sql, 0009_multi_builder_secondary_relationships.sql, 0010_distribution_agents.sql
