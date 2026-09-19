@@ -16,7 +16,7 @@ if (!['base-sepolia', 'robinhood-testnet'].includes(selectedNetwork)) throw new 
 const deployment = JSON.parse(await readFile(resolve(root, `deployments/${selectedNetwork}.v1-deployment.json`), 'utf8'));
 const release = JSON.parse(await readFile(resolve(root, 'deployments/MAINNET_RELEASE_CANDIDATE.json'), 'utf8'));
 const isBase = selectedNetwork === 'base-sepolia';
-const subgraphEndpoint = process.env.NEXMARKETS_SUBGRAPH_URL || deployment.subgraph?.endpoint || (isBase ? 'https://api.goldsky.com/api/public/project_cmt3es3z03t5101vr8ggx1j7e/subgraphs/nexmarkets-v1-base-sepolia/1.0.1/gn' : release.goldsky?.testnetSubgraph?.graphqlEndpoint);
+const subgraphEndpoint = process.env.BASE_SEPOLIA_NEXMARKETS_SUBGRAPH_URL || process.env.BASE_SEPOLIA_SUBGRAPH_URL || process.env.NEXMARKETS_SUBGRAPH_URL || deployment.subgraph?.endpoint || (isBase ? 'https://api.goldsky.com/api/public/project_cmt3es3z03t5101vr8ggx1j7e/subgraphs/nexmarkets-v1-base-sepolia/1.0.3/gn' : release.goldsky?.testnetSubgraph?.graphqlEndpoint);
 if (!subgraphEndpoint) throw new Error('TESTNET_SUBGRAPH_ENDPOINT_REQUIRED');
 const contracts = deployment.contracts;
 const enableRealStorage = process.env.NEXMARKETS_ENABLE_REAL_STORAGE === 'true';
@@ -93,7 +93,7 @@ const server = http.createServer((req, res) => {
   return serveStatic(req, res).catch(() => res.writeHead(500).end());
 });
 server.listen(webPort, '127.0.0.1', () => {
-  console.log(JSON.stringify({ event: 'web_started', url: `http://localhost:${webPort}`, apiPort, network: selectedNetwork, chainId: isBase ? 84532 : 46630, subgraph: deployment.subgraph?.name || (isBase ? 'nexmarkets-v1-base-sepolia/1.0.1' : release.goldsky.testnetSubgraph.name) }));
+  console.log(JSON.stringify({ event: 'web_started', url: `http://localhost:${webPort}`, apiPort, network: selectedNetwork, chainId: isBase ? 84532 : 46630, subgraph: deployment.subgraph?.name || (isBase ? 'nexmarkets-v1-base-sepolia/1.0.3' : release.goldsky.testnetSubgraph.name) }));
 });
 
 let shuttingDown = false;

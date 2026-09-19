@@ -76,7 +76,7 @@ if (deployment?.network === 'robinhood-testnet') {
 const baseManifest = await readJson('deployments/base-sepolia.bootstrap.json');
 const baseDeployment = await readJson('deployments/base-sepolia.v1-deployment.json');
 const baseContracts = contractsFromDeployment(baseDeployment);
-if (!baseDeployment?.subgraph?.endpoint || baseDeployment.subgraph.name !== 'nexmarkets-v1-base-sepolia/1.0.1') throw new Error('BASE_SEPOLIA_SUBGRAPH_REQUIRED');
+if (!baseDeployment?.subgraph?.endpoint || !/^nexmarkets-v1-base-sepolia\/1\.0\.[1-9]/.test(baseDeployment.subgraph.name)) throw new Error('BASE_SEPOLIA_SUBGRAPH_REQUIRED');
 const base = {
   protocolVersion: Number(baseDeployment?.protocolVersion ?? 1),
   network: 'base-sepolia',

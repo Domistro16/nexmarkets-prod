@@ -188,7 +188,7 @@ export class PostgresStore {
 
   async discover() {
     const { rows } = await (await this._getPool()).query(
-      `SELECT p.slug,p.builder_account_id,p.content,p.status,p.published_at,COALESCE(p.name,e.edition_id_hash) AS name,COALESCE(p.summary,'Permissionless on-chain Edition') AS summary,e.edition_address,e.absolute_supply_cap,t.price_usdg,t.mint_starts_at,t.mint_ends_at
+      `SELECT p.slug,p.builder_account_id,p.content,p.status,p.published_at,COALESCE(p.name,e.edition_id_hash) AS name,COALESCE(p.summary,'Permissionless on-chain Edition') AS summary,e.edition_address,e.absolute_supply_cap,t.terms_hash AS active_terms_hash,t.price_usdg,t.mint_starts_at,t.mint_ends_at
        FROM edition e LEFT JOIN project p ON e.project_id=p.id
        LEFT JOIN LATERAL (SELECT * FROM terms_version tv WHERE tv.edition_id=e.id AND tv.orphaned_at IS NULL ORDER BY version DESC LIMIT 1) t ON true
        WHERE (p.status='PUBLISHED' OR p.id IS NULL) AND e.orphaned_at IS NULL AND e.disabled IS NOT TRUE ORDER BY p.published_at DESC NULLS LAST,e.created_at DESC LIMIT 100`

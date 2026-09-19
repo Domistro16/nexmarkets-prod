@@ -190,8 +190,8 @@
   "mainnetCustomDeploymentPerformed": false,
   "recordedAt": "2026-09-14T22:21:29.056Z",
   "subgraph": {
-    "name": "nexmarkets-v1-base-sepolia/1.0.1",
-    "endpoint": "https://api.goldsky.com/api/public/project_cmt3es3z03t5101vr8ggx1j7e/subgraphs/nexmarkets-v1-base-sepolia/1.0.1/gn",
+    "name": "nexmarkets-v1-base-sepolia/1.0.3",
+    "endpoint": "https://api.goldsky.com/api/public/project_cmt3es3z03t5101vr8ggx1j7e/subgraphs/nexmarkets-v1-base-sepolia/1.0.3/gn",
     "startBlock": 46827960,
     "provider": "Goldsky"
   },
