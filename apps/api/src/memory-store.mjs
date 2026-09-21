@@ -289,14 +289,14 @@ export class MemoryStore {
     const existing = this.builderProfiles.get(builder.id) ?? (builderId ? null : this.builderProfiles.get(accountId));
     const profile = {
       id: existing?.id ?? `bprf_${randomUUID()}`,
-      account_id: accountId,
+      account_id: builder.owner_account_id,
       builder_id: builder.id,
       display_name: data.displayName ?? existing?.display_name ?? '',
       bio: data.bio ?? existing?.bio ?? '',
       about: data.about ?? existing?.about ?? '',
-      avatar_url: data.avatarUrl ?? existing?.avatar_url ?? '',
+      avatar_url: data.avatarUrl ?? data.avatar_url ?? existing?.avatar_url ?? '',
       category: data.category ?? existing?.category ?? '',
-      links: data.links ?? existing?.links ?? {},
+      links: { ...(existing?.links ?? {}), ...(data.links ?? {}) },
       featured: existing?.featured ?? false,
       created_at: existing?.created_at ?? new Date().toISOString(),
       updated_at: new Date().toISOString()

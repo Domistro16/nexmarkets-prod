@@ -729,18 +729,17 @@ export class PostgresStore {
     const id = `bprf_${randomUUID()}`;
     const { rows } = await (await this._getPool()).query(
       `INSERT INTO builder_profile(id,builder_id,account_id,display_name,bio,about,avatar_url,category,links)
-       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb)
+       VALUES($1,$2,$3,COALESCE($4,''),COALESCE($5,''),COALESCE($6,''),COALESCE($7,''),COALESCE($8,''),$9::jsonb)
        ON CONFLICT (builder_id) DO UPDATE SET
          display_name=COALESCE(NULLIF($4,''),builder_profile.display_name),
-         bio=COALESCE(NULLIF($5,''),builder_profile.bio),
-         about=COALESCE(NULLIF($6,''),builder_profile.about),
-         avatar_url=COALESCE(NULLIF($7,''),builder_profile.avatar_url),
-         category=COALESCE(NULLIF($8,''),builder_profile.category),
-         links=CASE WHEN $9::jsonb='{}'::jsonb THEN builder_profile.links ELSE $9::jsonb END,
-         account_id=EXCLUDED.account_id,
+         bio=COALESCE($5,builder_profile.bio),
+         about=COALESCE($6,builder_profile.about),
+         avatar_url=COALESCE($7,builder_profile.avatar_url),
+         category=COALESCE($8,builder_profile.category),
+         links=builder_profile.links || $9::jsonb,
          updated_at=now()
        RETURNING *`,
-      [id, builder.id, accountId, data.displayName ?? '', data.bio ?? '', data.about ?? '', data.avatarUrl ?? '', data.category ?? '', JSON.stringify(data.links ?? {})]
+      [id, builder.id, builder.owner_account_id, data.displayName ?? null, data.bio ?? null, data.about ?? null, data.avatarUrl ?? data.avatar_url ?? null, data.category ?? null, JSON.stringify(data.links ?? {})]
     );
     return rows[0];
   }

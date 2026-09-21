@@ -41,6 +41,7 @@ const state = {
   managedBuilders: [],
   selectedBuilderId: sessionStorage.getItem('nexmarkets_selected_builder') || null,
   builderDashboard: { projects: [], editions: [], royalties: [], referrals: [] },
+  builderDataError: null,
   pendingMint: null,
   pendingBuy: null,
   pendingListing: null,
@@ -1081,8 +1082,9 @@ function installSocialRuntime() {
     };
     try {
       await requireSession();
-      const builderId = builderIdForKey(key);
-      if (!builderId) throw new Error('BUILDER_NOT_FOUND');
+      const managed = managedBuilderForKey(key);
+      if (!managed) throw new Error('BUILDER_NOT_AUTHORIZED');
+      const builderId = managed.id || managed.builder_id;
       const profile = await read('/v1/builder/profile', {
         method: 'PUT',
         headers: { 'content-type': 'application/json', 'x-csrf-token': state.csrfToken || sessionStorage.getItem('nex_csrf') || '' },
@@ -1091,7 +1093,6 @@ function installSocialRuntime() {
       const accountId = profile.account_id || profile.accountId || state.wallet;
       const canonicalBuilderId = lower(profile.builder_id || profile.builderId || builderId);
       [accountId, profile.id, canonicalBuilderId].filter(Boolean).forEach((keyValue) => state.builderProfiles.set(lower(keyValue), { ...profile, builder_id: canonicalBuilderId }));
-      const managed = state.managedBuilders.find((row) => lower(row.id || row.builder_id) === canonicalBuilderId);
       if (managed) managed.profile = { ...profile, builder_id: canonicalBuilderId };
       state.builderSocial.set(canonicalBuilderId, { ...(state.builderSocial.get(canonicalBuilderId) || {}), profile });
       showToast('Builder profile updated'); window.nmSocialRefresh?.(); window.renderDashboard?.(); return profile;
@@ -1115,6 +1116,11 @@ function installSocialRuntime() {
   window.nmEliteSetDashboardBuilder = async (key) => {
     try { await requireSession(); await selectBuilder(key); window.renderDashboard?.(); return true; }
     catch (error) { showRuntimeBanner(error.message, true); return false; }
+  };
+  const renderEarnings = window.dashboardEarnings;
+  window.dashboardEarnings = function () {
+    if (state.builderDataError) return `<div class="dash-panel on" id="dash-earnings"><div class="dash-empty">Earnings could not be loaded. Please refresh to try again.</div></div>`;
+    return renderEarnings();
   };
 
   // The authority HTML predates the live API and treats these callbacks as
@@ -1930,17 +1936,24 @@ async function loadBuilderProfiles({ authenticatedOverride = state.authenticated
   }));
 }
 async function loadAuthenticatedData(authenticatedOverride = state.authenticated) {
+  state.builderDataError = null;
   if (!authenticatedOverride) {
     state.managedBuilders = [];
     state.selectedBuilderId = null;
+    window.nmEliteDashboardBuilderKey = null;
     window.__nmManagedBuilderKeys = [];
     state.builderDashboard = { projects: [], editions: [], royalties: [], referrals: [] };
     return { owned: [], advantages: [], builder: state.builderDashboard };
   }
   const buildersResult = await Promise.allSettled([read('/v1/me/builders')]);
+  if (buildersResult[0].status === 'rejected') {
+    state.builderDataError = buildersResult[0].reason;
+    throw buildersResult[0].reason;
+  }
   state.managedBuilders = buildersResult[0].status === 'fulfilled' && Array.isArray(buildersResult[0].value) ? buildersResult[0].value : [];
   const selected = state.managedBuilders.find((row) => lower(row.id || row.builder_id) === lower(state.selectedBuilderId));
-  state.selectedBuilderId = selected?.id || state.managedBuilders[0]?.id || null;
+  state.selectedBuilderId = selected?.id || selected?.builder_id || state.managedBuilders[0]?.id || state.managedBuilders[0]?.builder_id || null;
+  window.nmEliteDashboardBuilderKey = lower(state.selectedBuilderId);
   if (state.selectedBuilderId) sessionStorage.setItem('nexmarkets_selected_builder', state.selectedBuilderId);
   else sessionStorage.removeItem('nexmarkets_selected_builder');
   window.__nmManagedBuilderKeys = state.managedBuilders.map((row) => lower(row.id || row.builder_id)).filter(Boolean);
@@ -1952,6 +1965,10 @@ async function loadAuthenticatedData(authenticatedOverride = state.authenticated
   });
   const dashboardPath = state.selectedBuilderId ? `/v1/builder/dashboard?builderId=${encodeURIComponent(state.selectedBuilderId)}` : '/v1/builder/dashboard';
   const results = await Promise.allSettled([read('/v1/me/passes'), read('/v1/me/advantages'), read(dashboardPath)]);
+  if (results[2].status === 'rejected') {
+    state.builderDataError = results[2].reason;
+    showRuntimeBanner('Builder dashboard data could not be loaded. Please refresh to try again.', true);
+  }
   state.builderDashboard = results[2].status === 'fulfilled'
     ? (results[2].value || { projects: [], editions: [], royalties: [], referrals: [] })
     : { projects: [], editions: [], royalties: [], referrals: [] };
@@ -1994,7 +2011,7 @@ function buildDashboardData(accountData, owned) {
   const builder = accountData.builder || { projects: [], editions: [], royalties: [], referrals: [] };
   const projects = Array.isArray(builder.projects) ? builder.projects : [];
   const editions = Array.isArray(builder.editions) ? builder.editions : [];
-  const primarySales = Array.isArray(builder.primarySales) ? builder.primarySales : [];
+  const primarySales = (Array.isArray(builder.primarySales) ? builder.primarySales : []).filter((sale) => String(sale.status ?? 'CONFIRMED').toUpperCase() === 'CONFIRMED');
   const proceedsForEdition = (rawEdition) => {
     const editionId = String(rawEdition?.id ?? rawEdition?.edition_id ?? '');
     const editionAddress = lower(rawEdition?.edition_address ?? rawEdition?.editionAddress ?? rawEdition?.address);
@@ -2129,12 +2146,16 @@ function buildDashboardData(accountData, owned) {
       when
     };
   });
-  let royaltyAvailable = 0; let royaltyLocked = 0;
+  let royaltyAvailable = 0n; let royaltyLocked = 0n; let royaltyWithdrawn = 0n; let nextRelease = null;
   claims.forEach((claim) => {
-    const amount = usd(claim.amount_usdg ?? claim.amountUsdg ?? claim.amount ?? 0);
+    const amount = BigInt(claim.amount_usdg ?? claim.amountUsdg ?? claim.amount ?? 0);
     const release = seconds(claim.release_at ?? claim.releaseAt);
-    if (!claim.withdrawn && (release == null || release <= Math.floor(Date.now() / 1000))) royaltyAvailable += amount;
-    else if (!claim.withdrawn) royaltyLocked += amount;
+    if (claim.withdrawn) royaltyWithdrawn += amount;
+    else if (release != null && release <= Math.floor(Date.now() / 1000)) royaltyAvailable += amount;
+    else {
+      royaltyLocked += amount;
+      if (release != null) nextRelease = nextRelease == null ? release : Math.min(nextRelease, release);
+    }
   });
   return {
     passMeta,
@@ -2143,9 +2164,11 @@ function buildDashboardData(accountData, owned) {
     launches,
     earnings: {
       primaryProceeds: usd(builder.earnings?.builderProceedsUsdg ?? builder.earnings?.builder_proceeds_usdg ?? builder.primaryProceedsUsdg ?? 0),
-      royaltyAvailable,
-      royaltyLocked,
-      royaltyUnlock: royaltyLocked ? 'when the claim releases' : 'No claims',
+      royaltyAvailable: usd(royaltyAvailable),
+      royaltyLocked: usd(royaltyLocked),
+      royaltyWithdrawn: usd(royaltyWithdrawn),
+      royaltyEarned: usd(royaltyAvailable + royaltyLocked + royaltyWithdrawn),
+      royaltyUnlock: nextRelease == null ? (royaltyLocked ? 'release time pending' : 'No claims') : durationLabel(nextRelease - Math.floor(Date.now() / 1000)),
       referralTracked: usd(builder.earnings?.referralObligationUsdg ?? builder.earnings?.referral_obligation_usdg ?? (builder.referrals || []).reduce((total, row) => (BigInt(total) + BigInt(row.amount_usdg ?? row.amountUsdg ?? row.amount ?? 0)).toString(), '0'))
     },
     royaltyClaims: claims,
@@ -3413,7 +3436,7 @@ async function liveOwnedUse(key) {
 async function liveDashWithdrawRoyalty() {
   try {
     const claims = state.templateData?.dashboardState?.royaltyClaims || [];
-    const claim = claims.find((item) => !item.withdrawn && (seconds(item.release_at ?? item.releaseAt) == null || seconds(item.release_at ?? item.releaseAt) <= Math.floor(Date.now() / 1000)));
+    const claim = claims.find((item) => !item.withdrawn && seconds(item.release_at ?? item.releaseAt) != null && seconds(item.release_at ?? item.releaseAt) <= Math.floor(Date.now() / 1000));
     const orderHash = claim?.order_hash || claim?.orderHash;
     if (!orderHash) throw new Error('ROYALTY_CLAIM_NOT_FOUND');
     window.openDashModal?.(`Withdraw ${formatUnits(claim.amount_usdg ?? claim.amountUsdg ?? claim.amount ?? 0)} ${activeSettlementSymbol()}`, '<p class="dash-modal-copy">Your wallet will sign a withdrawal for this released Royalty Vault claim.</p>', 'Withdraw', () => { actionState('dashboard', 'Preparing withdrawal', 'The API is checking the claim release and builder ownership.'); requireSession().then(() => mutation('/v1/royalties/withdraw', { orderHash })).then((response) => submitPrepared(response, { label: 'Royalty withdrawal' })).then((result) => actionSuccess('dashboard', 'Royalty withdrawal', result)).catch((error) => actionError('dashboard', error)); });

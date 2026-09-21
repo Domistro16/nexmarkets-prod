@@ -52,6 +52,14 @@ test('one user can control isolated Builder identities and server-side authoriza
   assert.equal((await update(builderA.id, 'Builder A Updated')).status, 200);
   assert.equal((await update(builderB.id, 'Builder B Updated')).status, 200);
 
+  const editProfile = (body) => fetch(`${base}/v1/builder/profile`, { method: 'PUT', headers: headers(owner), body: JSON.stringify({ builderId: builderB.id, ...body }) });
+  assert.equal((await editProfile({ about: 'Biography', avatarUrl: 'https://example.com/avatar.png', links: { website: 'https://example.com', handle: '@builder' } })).status, 200);
+  const cleared = await (await editProfile({ about: '', avatarUrl: '', handle: '' })).json();
+  assert.equal(cleared.data.about, '');
+  assert.equal(cleared.data.avatar_url, '');
+  assert.equal(cleared.data.links.handle, '');
+  assert.equal(cleared.data.links.website, 'https://example.com');
+
   const managed = await (await fetch(`${base}/v1/me/builders`, { headers: { cookie: owner.cookie, origin: 'https://nexmarkets.fun' } })).json();
   assert.deepEqual(managed.data.map((row) => row.id), [builderA.id, builderB.id]);
 

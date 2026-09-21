@@ -2,6 +2,7 @@ import { cp, mkdir, readFile, writeFile, rm, readdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { PRODUCT_AUTHORITY } from '../packages/config/src/networks.mjs';
+import { liveAuthority } from './lib/live-authority.mjs';
 
 const root = new URL('../', import.meta.url);
 const rootPath = fileURLToPath(root);
@@ -17,7 +18,7 @@ const authoritySource = new URL(`./${PRODUCT_AUTHORITY.file}`, root);
 const authorityBodyClose = '</body>';
 const authorityHtmlSource = await readFile(authoritySource, 'utf8');
 const fixtureMode = process.env.NEXMARKETS_FIXTURE_MODE === 'true';
-const authorityWithMode = authorityHtmlSource.replace(
+const authorityWithMode = liveAuthority(authorityHtmlSource).replace(
   /(<body\b[^>]*>)/i,
   `$1<script id="nm-fixture-mode">globalThis.__NEXMARKETS_FIXTURE_MODE__=${fixtureMode ? 'true' : 'false'};</script>`
 );

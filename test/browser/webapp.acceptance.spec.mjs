@@ -141,6 +141,88 @@ function valueAtPath(value, path) {
   return path.split('.').reduce((current, key) => current?.[key], value);
 }
 
+async function installBuilderDashboardApi(page) {
+  await installFixtureApi(page);
+  await page.addInitScript(({ owner }) => {
+    sessionStorage.setItem('nex_csrf', 'browser-csrf');
+    window.ethereum = { request: async ({ method }) => {
+      if (method === 'eth_requestAccounts' || method === 'eth_accounts') return [owner];
+      if (method === 'eth_chainId') return '0x14a34';
+      if (method === 'personal_sign') return '0x1234';
+      return null;
+    } };
+  }, { owner: OWNER });
+  const builders = ['a', 'b'].map((suffix) => ({
+    id: `bld_${suffix}`, owner_account_id: 'acc_browser_01', role: 'OWNER',
+    profile: { id: `bprf_${suffix}`, builder_id: `bld_${suffix}`, account_id: 'acc_browser_01', display_name: `Builder ${suffix.toUpperCase()}`, about: 'Original biography', links: {} }
+  }));
+  const saved = [];
+  const control = { failDashboard: false, builders, saved };
+  await page.route('**/v1/me/session', (route) => route.fulfill({ json: { authenticated: true, accountId: 'acc_browser_01', wallet: OWNER, chainId: 84532, csrfToken: 'browser-csrf' } }));
+  await page.route('**/v1/me/builders', (route) => route.fulfill({ json: { data: builders } }));
+  await page.route('**/v1/builder/dashboard*', (route) => {
+    if (control.failDashboard) return route.fulfill({ status: 503, json: { error: 'DATABASE_UNAVAILABLE' } });
+    const builder = builders.find((row) => row.id === new URL(route.request().url()).searchParams.get('builderId'));
+    if (!builder) return route.fulfill({ status: 403, json: { error: 'BUILDER_NOT_AUTHORIZED' } });
+    const now = Date.now();
+    return route.fulfill({ json: { data: { builder, projects: [], editions: [], primarySales: [], referrals: [], earnings: { builderProceedsUsdg: builder.id === 'bld_b' ? '95000000' : '19000000' }, royalties: [
+      { order_hash: 'released', amount_usdg: '1500000', release_at: new Date(now - 10000).toISOString(), withdrawn: false },
+      { order_hash: 'locked', amount_usdg: 2500000, release_at: new Date(now + 86400000).toISOString(), withdrawn: false },
+      { order_hash: 'withdrawn', amount_usdg: '3000000', release_at: new Date(now - 10000).toISOString(), withdrawn: true }
+    ] } } });
+  });
+  await page.route('**/v1/builder/profile', async (route) => {
+    const body = route.request().postDataJSON();
+    const builder = builders.find((row) => row.id === body.builderId);
+    if (!builder) return route.fulfill({ status: 403, json: { error: 'BUILDER_NOT_AUTHORIZED' } });
+    saved.push(body);
+    builder.profile = { ...builder.profile, display_name: body.displayName, about: body.about, avatar_url: body.avatarUrl, links: { handle: body.handle, positioning: body.positioning, website: body.website, x: body.x } };
+    return route.fulfill({ json: { data: builder.profile } });
+  });
+  return control;
+}
+
+test('builder profile saves and earnings follow the same identity through switching and reload', async ({ page }) => {
+  const { saved, builders } = await installBuilderDashboardApi(page);
+  await page.addInitScript(() => { sessionStorage.setItem('nexmarkets_selected_builder', 'bld_b'); });
+  await goto(page, '/dashboard/builder');
+  await expect(page.locator('#ebdName')).toHaveValue('Builder B');
+  await page.locator('#ebdName').fill('Renamed Builder');
+  await page.locator('#ebdAbout').fill('');
+  await page.evaluate(() => window.renderDashboard());
+  await expect(page.locator('#ebdName')).toHaveValue('Renamed Builder');
+  await page.getByRole('button', { name: 'Save public profile', exact: true }).click();
+  await expect.poll(() => saved.length).toBe(1);
+  expect(saved[0]).toMatchObject({ builderId: 'bld_b', displayName: 'Renamed Builder', about: '' });
+  expect(builders[0].profile.display_name).toBe('Builder A');
+  await page.locator('[data-dash="earnings"]').click();
+  await expect(page.locator('#dash-earnings .p10-money-primary')).toContainText('$95');
+  await expect(page.locator('#dash-earnings .p10-money-split > div').first()).toContainText('$7');
+  expect(await page.evaluate(() => window.nexmarketsV2.state.templateData.dashboardState.earnings)).toMatchObject({ primaryProceeds: 95, royaltyAvailable: 1.5, royaltyLocked: 2.5, royaltyWithdrawn: 3, royaltyEarned: 7 });
+  await page.locator('[data-dash="builder"]').click();
+  await page.locator('.ebd-identities').getByRole('button', { name: 'Builder A', exact: true }).click();
+  await expect(page.locator('#ebdName')).toHaveValue('Builder A');
+  await page.locator('[data-dash="earnings"]').click();
+  await expect(page.locator('#dash-earnings .p10-money-primary')).toContainText('$19');
+  await page.locator('[data-dash="builder"]').click();
+  await page.locator('.ebd-identities').getByRole('button', { name: 'Renamed Builder', exact: true }).click();
+  await expect(page.locator('#ebdName')).toHaveValue('Renamed Builder');
+  await page.reload({ waitUntil: 'commit' });
+  await expect(page.locator('#ebdName')).toHaveValue('Renamed Builder');
+  await expect(page.locator('#ebdAbout')).toHaveValue('');
+});
+
+test('earnings shows a load failure instead of a zero balance', async ({ page }) => {
+  const control = await installBuilderDashboardApi(page);
+  control.failDashboard = true;
+  await goto(page, '/dashboard/earnings');
+  await expect(page.locator('#dash-earnings')).toContainText('Earnings could not be loaded');
+  await expect(page.locator('#dash-earnings')).not.toContainText('$0');
+  control.failDashboard = false;
+  await page.evaluate(() => window.nexmarketsV2.refresh());
+  await expect(page.locator('#dash-earnings .p10-money-primary')).toContainText('$19');
+});
+
 async function assertNoMutationRequests(page, action) {
   const mutations = [];
   const listener = (request) => { if (request.method() !== 'GET' && request.url().includes('/v1/')) mutations.push(`${request.method()} ${request.url()}`); };
