@@ -4,32 +4,32 @@ pragma solidity ^0.8.24;
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 
-interface INexPassEditionLaunchView {
+interface IOFLDPassEditionLaunchView {
     function owner() external view returns (address);
     function editionId() external view returns (bytes32);
     function absoluteSupplyCap() external view returns (uint32);
     function totalMinted() external view returns (uint256);
 }
 
-interface INexPassFactoryWiring {
+interface IOFLDPassFactoryWiring {
     function launchRegistry() external view returns (address);
     function mintController() external view returns (address);
     function protocolAdmin() external view returns (address);
 }
 
-interface INexMintControllerWiring {
+interface IOFLDMintControllerWiring {
     function launchRegistry() external view returns (address);
     function owner() external view returns (address);
 }
 
-/// @title NexLaunchRegistry
-/// @notice Canonical versioned Terms and Preview authority for NexPass Editions.
+/// @title OFLDLaunchRegistry
+/// @notice Canonical versioned Terms and Preview authority for OFLDPass Editions.
 /// @dev Every material launch change gets a new hash and a fresh Preview window.
 ///      The Registry never mints and never moves USDG.
-contract NexLaunchRegistry is Ownable, Pausable {
+contract OFLDLaunchRegistry is Ownable, Pausable {
     uint96 public constant MAX_ROYALTY_BPS = 500;
     uint64 public constant MIN_PREVIEW_DURATION = 1 days;
-    bytes32 public constant TERMS_DOMAIN = keccak256("NEXMARKETS_LAUNCH_TERMS_V1");
+    bytes32 public constant TERMS_DOMAIN = keccak256("OUTERFIELD_LAUNCH_TERMS_V1");
 
     struct Terms {
         uint256 activeSupply;
@@ -149,7 +149,7 @@ contract NexLaunchRegistry is Ownable, Pausable {
         EditionRecord storage record = _editions[edition];
         if (record.registered) revert EditionAlreadyRegistered();
 
-        INexPassEditionLaunchView deployedEdition = INexPassEditionLaunchView(edition);
+        IOFLDPassEditionLaunchView deployedEdition = IOFLDPassEditionLaunchView(edition);
         bytes32 editionId = deployedEdition.editionId();
         uint32 absoluteSupplyCap = deployedEdition.absoluteSupplyCap();
         if (editionId == bytes32(0) || absoluteSupplyCap == 0 || deployedEdition.owner() != publisher) {
@@ -264,7 +264,7 @@ contract NexLaunchRegistry is Ownable, Pausable {
         if (terms.activeSupply == 0 || block.timestamp < terms.mintStartsAt || block.timestamp >= terms.mintEndsAt) {
             return false;
         }
-        return INexPassEditionLaunchView(edition).totalMinted() < terms.activeSupply;
+        return IOFLDPassEditionLaunchView(edition).totalMinted() < terms.activeSupply;
     }
 
     /// @notice Whether a whitelisted payer may mint during the private phase.
@@ -312,7 +312,7 @@ contract NexLaunchRegistry is Ownable, Pausable {
                     || terms.allowlistSupply > terms.activeSupply || terms.walletAllowance > terms.activeSupply
             ) revert InvalidAllowlistPhase();
         }
-        if (terms.activeSupply < INexPassEditionLaunchView(edition).totalMinted()) {
+        if (terms.activeSupply < IOFLDPassEditionLaunchView(edition).totalMinted()) {
             revert ActiveSupplyBelowMinted();
         }
     }
@@ -323,38 +323,38 @@ contract NexLaunchRegistry is Ownable, Pausable {
         if (!record.registered || record.disabled || record.activeTermsVersionHash != termsVersionHash) return false;
         Terms storage terms = _termsByHash[edition][termsVersionHash];
         return terms.activeSupply != 0 && block.timestamp >= terms.mintStartsAt && block.timestamp < terms.mintEndsAt
-            && INexPassEditionLaunchView(edition).totalMinted() < terms.activeSupply;
+            && IOFLDPassEditionLaunchView(edition).totalMinted() < terms.activeSupply;
     }
 
     function _validateFactoryWiring(address factory_) internal view {
         address controller;
 
-        try INexPassFactoryWiring(factory_).launchRegistry() returns (address registry_) {
+        try IOFLDPassFactoryWiring(factory_).launchRegistry() returns (address registry_) {
             if (registry_ != address(this)) revert FactoryWiringMismatch();
         } catch {
             revert FactoryWiringMismatch();
         }
 
-        try INexPassFactoryWiring(factory_).protocolAdmin() returns (address protocolAdmin_) {
+        try IOFLDPassFactoryWiring(factory_).protocolAdmin() returns (address protocolAdmin_) {
             if (protocolAdmin_ != owner()) revert FactoryWiringMismatch();
         } catch {
             revert FactoryWiringMismatch();
         }
 
-        try INexPassFactoryWiring(factory_).mintController() returns (address controller_) {
+        try IOFLDPassFactoryWiring(factory_).mintController() returns (address controller_) {
             controller = controller_;
         } catch {
             revert FactoryWiringMismatch();
         }
         if (controller == address(0) || controller.code.length == 0) revert FactoryWiringMismatch();
 
-        try INexMintControllerWiring(controller).launchRegistry() returns (address registry_) {
+        try IOFLDMintControllerWiring(controller).launchRegistry() returns (address registry_) {
             if (registry_ != address(this)) revert FactoryWiringMismatch();
         } catch {
             revert FactoryWiringMismatch();
         }
 
-        try INexMintControllerWiring(controller).owner() returns (address controllerOwner_) {
+        try IOFLDMintControllerWiring(controller).owner() returns (address controllerOwner_) {
             if (controllerOwner_ != owner()) revert FactoryWiringMismatch();
         } catch {
             revert FactoryWiringMismatch();

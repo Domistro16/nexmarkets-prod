@@ -2,11 +2,11 @@
 pragma solidity ^0.8.24;
 
 import {Test} from "forge-std/Test.sol";
-import {NexPassEdition} from "../src/NexPassEdition.sol";
+import {OFLDPassEdition} from "../src/OFLDPassEdition.sol";
 
 contract MintControllerMock {
     function mintEdition(
-        NexPassEdition edition,
+        OFLDPassEdition edition,
         address to,
         uint256 quantity,
         bytes32 termsVersionHash,
@@ -24,7 +24,7 @@ contract RevertingReceiver {
     }
 }
 
-contract NexPassEditionTest is Test {
+contract OFLDPassEditionTest is Test {
     event EditionMinted(
         address indexed to,
         uint256 indexed firstTokenId,
@@ -35,7 +35,7 @@ contract NexPassEditionTest is Test {
         uint96 royaltyBps
     );
 
-    NexPassEdition internal edition;
+    OFLDPassEdition internal edition;
     MintControllerMock internal controller;
 
     address internal constant OWNER = address(0xA11CE);
@@ -43,31 +43,31 @@ contract NexPassEditionTest is Test {
     address internal constant BOB = address(0xB0B1);
     address internal constant ROYALTY_RECEIVER_V1 = address(0xCAFE);
     address internal constant ROYALTY_RECEIVER_V2 = address(0xD00D);
-    bytes32 internal constant EDITION_ID = keccak256("nexstudio:founding:01");
-    bytes32 internal constant ARTWORK_COMMITMENT = keccak256("nexstudio:founding:artwork");
-    bytes32 internal constant TERMS_V1 = keccak256("nexstudio:founding:terms:v1");
-    bytes32 internal constant TERMS_V2 = keccak256("nexstudio:founding:terms:v2");
+    bytes32 internal constant EDITION_ID = keccak256("ofldstudio:founding:01");
+    bytes32 internal constant ARTWORK_COMMITMENT = keccak256("ofldstudio:founding:artwork");
+    bytes32 internal constant TERMS_V1 = keccak256("ofldstudio:founding:terms:v1");
+    bytes32 internal constant TERMS_V2 = keccak256("ofldstudio:founding:terms:v2");
     uint32 internal constant ABSOLUTE_SUPPLY_CAP = 5;
     uint256 internal constant TERMS_V1_SUPPLY = 3;
     uint256 internal constant TERMS_V2_SUPPLY = 5;
 
     function setUp() public {
         controller = new MintControllerMock();
-        edition = new NexPassEdition(_config(ABSOLUTE_SUPPLY_CAP));
+        edition = new OFLDPassEdition(_config(ABSOLUTE_SUPPLY_CAP));
 
         vm.prank(OWNER);
         edition.setMintController(address(controller));
     }
 
-    function _config(uint32 absoluteSupplyCap) internal pure returns (NexPassEdition.EditionConfig memory) {
-        return NexPassEdition.EditionConfig({
-            name: "NexStudio Founding Pass",
-            symbol: "NEXPASS",
+    function _config(uint32 absoluteSupplyCap) internal pure returns (OFLDPassEdition.EditionConfig memory) {
+        return OFLDPassEdition.EditionConfig({
+            name: "OFLDStudio Founding Pass",
+            symbol: "OFLDPASS",
             initialOwner: OWNER,
             editionId: EDITION_ID,
             absoluteSupplyCap: absoluteSupplyCap,
             artworkCommitment: ARTWORK_COMMITMENT,
-            baseTokenURI: "ipfs://nexstudio-metadata/"
+            baseTokenURI: "ipfs://ofldstudio-metadata/"
         });
     }
 
@@ -76,7 +76,7 @@ contract NexPassEditionTest is Test {
         assertEq(edition.editionId(), EDITION_ID);
         assertEq(edition.artworkCommitment(), ARTWORK_COMMITMENT);
         assertEq(edition.absoluteSupplyCap(), ABSOLUTE_SUPPLY_CAP);
-        assertEq(edition.baseTokenURI(), "ipfs://nexstudio-metadata/");
+        assertEq(edition.baseTokenURI(), "ipfs://ofldstudio-metadata/");
         assertEq(edition.mintController(), address(controller));
 
         (address receiver, uint256 amount) = edition.royaltyInfo(1, 1 ether);
@@ -101,30 +101,30 @@ contract NexPassEditionTest is Test {
         (address receiver, uint256 amount) = edition.royaltyInfo(1, 1 ether);
         assertEq(receiver, ROYALTY_RECEIVER_V1);
         assertEq(amount, 0.05 ether);
-        assertEq(edition.tokenURI(1), "ipfs://nexstudio-metadata/1");
+        assertEq(edition.tokenURI(1), "ipfs://ofldstudio-metadata/1");
         assertTrue(edition.isMintOpen(TERMS_V1_SUPPLY));
     }
 
     function testMintRejectsMissingTermsVersion() public {
-        vm.expectRevert(NexPassEdition.TermsVersionRequired.selector);
+        vm.expectRevert(OFLDPassEdition.TermsVersionRequired.selector);
         controller.mintEdition(edition, ALICE, 1, bytes32(0), TERMS_V1_SUPPLY, ROYALTY_RECEIVER_V1, 500);
     }
 
     function testOnlyControllerCanMint() public {
-        vm.expectRevert(NexPassEdition.NotMintController.selector);
+        vm.expectRevert(OFLDPassEdition.NotMintController.selector);
         edition.mint(ALICE, 1, TERMS_V1, TERMS_V1_SUPPLY, ROYALTY_RECEIVER_V1, 500);
     }
 
     function testControllerMustBeContractAndCannotBeReset() public {
-        NexPassEdition unconfigured = new NexPassEdition(_config(ABSOLUTE_SUPPLY_CAP));
+        OFLDPassEdition unconfigured = new OFLDPassEdition(_config(ABSOLUTE_SUPPLY_CAP));
         assertFalse(unconfigured.isMintOpen(TERMS_V1_SUPPLY));
 
         vm.prank(OWNER);
-        vm.expectRevert(NexPassEdition.MintControllerRequired.selector);
+        vm.expectRevert(OFLDPassEdition.MintControllerRequired.selector);
         unconfigured.setMintController(address(0));
 
         vm.prank(OWNER);
-        vm.expectRevert(NexPassEdition.MintControllerMustBeContract.selector);
+        vm.expectRevert(OFLDPassEdition.MintControllerMustBeContract.selector);
         unconfigured.setMintController(address(0x1234));
 
         vm.prank(OWNER);
@@ -133,7 +133,7 @@ contract NexPassEditionTest is Test {
 
         MintControllerMock replacement = new MintControllerMock();
         vm.prank(OWNER);
-        vm.expectRevert(NexPassEdition.MintControllerAlreadySet.selector);
+        vm.expectRevert(OFLDPassEdition.MintControllerAlreadySet.selector);
         unconfigured.setMintController(address(replacement));
     }
 
@@ -143,15 +143,15 @@ contract NexPassEditionTest is Test {
         assertEq(edition.remainingAbsoluteSupply(), 0);
         assertFalse(edition.isMintOpen(TERMS_V2_SUPPLY));
 
-        vm.expectRevert(NexPassEdition.SoldOut.selector);
+        vm.expectRevert(OFLDPassEdition.SoldOut.selector);
         controller.mintEdition(edition, ALICE, 1, TERMS_V2, TERMS_V2_SUPPLY, ROYALTY_RECEIVER_V2, 300);
     }
 
     function testZeroQuantityAndZeroAddressPaths() public {
-        vm.expectRevert(NexPassEdition.ZeroQuantity.selector);
+        vm.expectRevert(OFLDPassEdition.ZeroQuantity.selector);
         controller.mintEdition(edition, ALICE, 0, TERMS_V1, TERMS_V1_SUPPLY, ROYALTY_RECEIVER_V1, 500);
 
-        vm.expectRevert(NexPassEdition.AddressRequired.selector);
+        vm.expectRevert(OFLDPassEdition.AddressRequired.selector);
         controller.mintEdition(edition, address(0), 1, TERMS_V1, TERMS_V1_SUPPLY, ROYALTY_RECEIVER_V1, 500);
     }
 
@@ -182,10 +182,10 @@ contract NexPassEditionTest is Test {
     }
 
     function testRoyaltyBounds() public {
-        vm.expectRevert(NexPassEdition.InvalidRoyalty.selector);
+        vm.expectRevert(OFLDPassEdition.InvalidRoyalty.selector);
         controller.mintEdition(edition, ALICE, 1, TERMS_V1, TERMS_V1_SUPPLY, ROYALTY_RECEIVER_V1, 501);
 
-        vm.expectRevert(NexPassEdition.RoyaltyReceiverRequired.selector);
+        vm.expectRevert(OFLDPassEdition.RoyaltyReceiverRequired.selector);
         controller.mintEdition(edition, ALICE, 1, TERMS_V1, TERMS_V1_SUPPLY, address(0), 0);
     }
 
@@ -224,7 +224,7 @@ contract NexPassEditionTest is Test {
     }
 
     function testActiveTermsSupplyCannotExceedAbsoluteCap() public {
-        vm.expectRevert(NexPassEdition.InvalidTermsSupply.selector);
+        vm.expectRevert(OFLDPassEdition.InvalidTermsSupply.selector);
         controller.mintEdition(edition, ALICE, 1, TERMS_V2, ABSOLUTE_SUPPLY_CAP + 1, ROYALTY_RECEIVER_V2, 300);
 
         assertFalse(edition.isMintOpen(ABSOLUTE_SUPPLY_CAP + 1));
@@ -233,7 +233,7 @@ contract NexPassEditionTest is Test {
     function testActiveTermsSupplyIsEnforcedAcrossVersions() public {
         controller.mintEdition(edition, ALICE, 2, TERMS_V1, TERMS_V1_SUPPLY, ROYALTY_RECEIVER_V1, 500);
 
-        vm.expectRevert(NexPassEdition.TermsSupplyExceeded.selector);
+        vm.expectRevert(OFLDPassEdition.TermsSupplyExceeded.selector);
         controller.mintEdition(edition, ALICE, 2, TERMS_V1, TERMS_V1_SUPPLY, ROYALTY_RECEIVER_V1, 500);
     }
 }

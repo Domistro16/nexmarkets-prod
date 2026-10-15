@@ -4,11 +4,11 @@ pragma solidity ^0.8.24;
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {Test} from "forge-std/Test.sol";
 
-import {NexLaunchRegistry} from "../src/NexLaunchRegistry.sol";
-import {NexAdvantageRegistry} from "../src/NexAdvantageRegistry.sol";
-import {NexMintController} from "../src/NexMintController.sol";
-import {NexPassEdition} from "../src/NexPassEdition.sol";
-import {NexPassFactory} from "../src/NexPassFactory.sol";
+import {OFLDLaunchRegistry} from "../src/OFLDLaunchRegistry.sol";
+import {OFLDAdvantageRegistry} from "../src/OFLDAdvantageRegistry.sol";
+import {OFLDMintController} from "../src/OFLDMintController.sol";
+import {OFLDPassEdition} from "../src/OFLDPassEdition.sol";
+import {OFLDPassFactory} from "../src/OFLDPassFactory.sol";
 
 contract MockUSDG is ERC20 {
     constructor() ERC20("Global Dollar", "USDG") {}
@@ -43,12 +43,12 @@ contract MiswiredFactory {
 }
 
 contract CallbackTermsPublisherReceiver {
-    NexLaunchRegistry public immutable registry;
+    OFLDLaunchRegistry public immutable registry;
     address public immutable edition;
     uint256 public immutable replacementSupply;
     bool private _published;
 
-    constructor(NexLaunchRegistry registry_, address edition_, uint256 replacementSupply_) {
+    constructor(OFLDLaunchRegistry registry_, address edition_, uint256 replacementSupply_) {
         registry = registry_;
         edition = edition_;
         replacementSupply = replacementSupply_;
@@ -60,7 +60,7 @@ contract CallbackTermsPublisherReceiver {
             uint64 previewStartsAt = uint64(block.timestamp);
             registry.publishTerms(
                 edition,
-                NexLaunchRegistry.Terms({
+                OFLDLaunchRegistry.Terms({
                     activeSupply: replacementSupply,
                     pricePerPass: 1_000_000,
                     previewStartsAt: previewStartsAt,
@@ -84,36 +84,36 @@ contract CallbackTermsPublisherReceiver {
 
 contract PrimaryLaunchTrioTest is Test {
     MockUSDG internal usdg;
-    NexLaunchRegistry internal registry;
-    NexMintController internal controller;
-    NexPassFactory internal factory;
-    NexPassEdition internal edition;
+    OFLDLaunchRegistry internal registry;
+    OFLDMintController internal controller;
+    OFLDPassFactory internal factory;
+    OFLDPassEdition internal edition;
 
     address internal constant PUBLISHER = address(0xBEEF);
     address internal constant BUILDER = address(0xCAFE);
     address internal constant FEE_RECIPIENT = address(0xFEE);
     address internal constant ALICE = address(0xA11CE);
     address internal constant BOB = address(0xB0B);
-    bytes32 internal constant EDITION_ID = keccak256("nexstudio:primary:01");
-    bytes32 internal constant ARTWORK_COMMITMENT = keccak256("nexstudio:primary:artwork");
-    bytes32 internal constant SALT = keccak256("nexstudio:primary:salt");
+    bytes32 internal constant EDITION_ID = keccak256("ofldstudio:primary:01");
+    bytes32 internal constant ARTWORK_COMMITMENT = keccak256("ofldstudio:primary:artwork");
+    bytes32 internal constant SALT = keccak256("ofldstudio:primary:salt");
     bytes32 internal constant REFERRALS_V1 = keccak256("referrals:v1");
     uint32 internal constant ABSOLUTE_CAP = 5;
     uint256 internal constant PRICE = 1_000_000;
 
     function setUp() public {
         usdg = new MockUSDG();
-        registry = new NexLaunchRegistry(address(this), address(usdg));
-        controller = new NexMintController(address(this), registry, usdg, FEE_RECIPIENT);
-        factory = new NexPassFactory(address(this), address(this), registry, controller);
+        registry = new OFLDLaunchRegistry(address(this), address(usdg));
+        controller = new OFLDMintController(address(this), registry, usdg, FEE_RECIPIENT);
+        factory = new OFLDPassFactory(address(this), address(this), registry, controller);
         registry.setFactory(address(factory));
 
-        NexPassEdition.EditionConfig memory config = _config();
+        OFLDPassEdition.EditionConfig memory config = _config();
         address predicted = factory.predictEditionAddress(config, SALT);
         vm.prank(PUBLISHER);
         address deployed = factory.createEdition(config, SALT);
         assertEq(deployed, predicted);
-        edition = NexPassEdition(deployed);
+        edition = OFLDPassEdition(deployed);
         assertEq(edition.owner(), PUBLISHER);
         assertEq(edition.mintController(), address(controller));
         assertEq(edition.editionId(), EDITION_ID);
@@ -127,24 +127,24 @@ contract PrimaryLaunchTrioTest is Test {
         usdg.approve(address(controller), type(uint256).max);
     }
 
-    function _config() internal view returns (NexPassEdition.EditionConfig memory) {
-        return NexPassEdition.EditionConfig({
-            name: "NexStudio Founding Pass",
-            symbol: "NEXPASS",
+    function _config() internal view returns (OFLDPassEdition.EditionConfig memory) {
+        return OFLDPassEdition.EditionConfig({
+            name: "OFLDStudio Founding Pass",
+            symbol: "OFLDPASS",
             initialOwner: PUBLISHER,
             editionId: EDITION_ID,
             absoluteSupplyCap: ABSOLUTE_CAP,
             artworkCommitment: ARTWORK_COMMITMENT,
-            baseTokenURI: "ipfs://nexstudio/"
+            baseTokenURI: "ipfs://ofldstudio/"
         });
     }
 
     function _terms(uint256 supply, uint64 previewStartsAt, uint64 mintStartsAt)
         internal
         pure
-        returns (NexLaunchRegistry.Terms memory)
+        returns (OFLDLaunchRegistry.Terms memory)
     {
-        return NexLaunchRegistry.Terms({
+        return OFLDLaunchRegistry.Terms({
             activeSupply: supply,
             pricePerPass: PRICE,
             previewStartsAt: previewStartsAt,
@@ -165,13 +165,13 @@ contract PrimaryLaunchTrioTest is Test {
     function _publish(uint256 supply) internal returns (bytes32 hash, uint64 mintStartsAt) {
         uint64 previewStartsAt = uint64(block.timestamp);
         mintStartsAt = previewStartsAt + 1 days;
-        NexLaunchRegistry.Terms memory terms = _terms(supply, previewStartsAt, mintStartsAt);
+        OFLDLaunchRegistry.Terms memory terms = _terms(supply, previewStartsAt, mintStartsAt);
         vm.prank(PUBLISHER);
         hash = registry.publishTerms(address(edition), terms);
     }
 
     function testFactoryWiresEditionAndRegistry() public view {
-        NexLaunchRegistry.EditionRecord memory record = registry.editionInfo(address(edition));
+        OFLDLaunchRegistry.EditionRecord memory record = registry.editionInfo(address(edition));
         assertEq(record.editionId, EDITION_ID);
         assertEq(record.absoluteSupplyCap, ABSOLUTE_CAP);
         assertEq(record.publisher, PUBLISHER);
@@ -185,38 +185,38 @@ contract PrimaryLaunchTrioTest is Test {
 
     function testAnyCreatorCanCreateAndOwnAnEdition() public {
         address creator = address(0xC0FFEE);
-        NexPassEdition.EditionConfig memory config = _config();
+        OFLDPassEdition.EditionConfig memory config = _config();
         config.initialOwner = creator;
         config.editionId = keccak256("permissionless:edition");
 
         vm.prank(creator);
-        NexPassEdition created = NexPassEdition(factory.createEdition(config, keccak256("permissionless:salt")));
+        OFLDPassEdition created = OFLDPassEdition(factory.createEdition(config, keccak256("permissionless:salt")));
 
         assertEq(created.owner(), creator);
         assertEq(registry.editionInfo(address(created)).publisher, creator);
     }
 
     function testProtocolAdminCannotPublishCreatorTerms() public {
-        NexLaunchRegistry.Terms memory terms = _terms(3, uint64(block.timestamp), uint64(block.timestamp + 1 days));
-        vm.expectRevert(NexLaunchRegistry.NotEditionPublisher.selector);
+        OFLDLaunchRegistry.Terms memory terms = _terms(3, uint64(block.timestamp), uint64(block.timestamp + 1 days));
+        vm.expectRevert(OFLDLaunchRegistry.NotEditionPublisher.selector);
         registry.publishTerms(address(edition), terms);
     }
 
     function testCreatorIdentityCannotBeSpoofed() public {
-        NexPassEdition.EditionConfig memory config = _config();
+        OFLDPassEdition.EditionConfig memory config = _config();
         config.editionId = keccak256("spoofed:edition");
         vm.prank(ALICE);
-        vm.expectRevert(NexPassFactory.EditionOwnerMismatch.selector);
+        vm.expectRevert(OFLDPassFactory.EditionOwnerMismatch.selector);
         factory.createEdition(config, keccak256("spoofed:salt"));
     }
 
     function testFactoryBindingRejectsMiswiredContractBeforeConsumption() public {
-        NexLaunchRegistry freshRegistry = new NexLaunchRegistry(address(this), address(usdg));
-        NexMintController freshController = new NexMintController(address(this), freshRegistry, usdg, FEE_RECIPIENT);
-        NexPassFactory freshFactory = new NexPassFactory(address(this), address(this), freshRegistry, freshController);
+        OFLDLaunchRegistry freshRegistry = new OFLDLaunchRegistry(address(this), address(usdg));
+        OFLDMintController freshController = new OFLDMintController(address(this), freshRegistry, usdg, FEE_RECIPIENT);
+        OFLDPassFactory freshFactory = new OFLDPassFactory(address(this), address(this), freshRegistry, freshController);
         MiswiredFactory wrongFactory = new MiswiredFactory();
 
-        vm.expectRevert(NexLaunchRegistry.FactoryWiringMismatch.selector);
+        vm.expectRevert(OFLDLaunchRegistry.FactoryWiringMismatch.selector);
         freshRegistry.setFactory(address(wrongFactory));
         assertEq(freshRegistry.factory(), address(0));
 
@@ -230,7 +230,7 @@ contract PrimaryLaunchTrioTest is Test {
 
     function testTermsPublishCreatesVersionAndPreviewWindow() public {
         (bytes32 hash, uint64 mintStartsAt) = _publish(3);
-        (bytes32 activeHash, NexLaunchRegistry.Terms memory terms) = registry.activeTerms(address(edition));
+        (bytes32 activeHash, OFLDLaunchRegistry.Terms memory terms) = registry.activeTerms(address(edition));
 
         assertEq(activeHash, hash);
         assertEq(terms.activeSupply, 3);
@@ -247,14 +247,14 @@ contract PrimaryLaunchTrioTest is Test {
         (bytes32 termsHash, uint64 mintStartsAt) = _publish(3);
         vm.warp(mintStartsAt);
 
-        NexMintController.MintRequest memory request = NexMintController.MintRequest({
+        OFLDMintController.MintRequest memory request = OFLDMintController.MintRequest({
             edition: address(edition),
             termsVersionHash: termsHash,
             recipient: ALICE,
             quantity: 2,
             intentId: keccak256("alice:intent:1"),
             referralHint: BOB,
-            advantageConfigs: new NexAdvantageRegistry.AdvantageConfig[](0)
+            advantageConfigs: new OFLDAdvantageRegistry.AdvantageConfig[](0)
         });
 
         uint256 builderBefore = usdg.balanceOf(BUILDER);
@@ -272,7 +272,7 @@ contract PrimaryLaunchTrioTest is Test {
         assertTrue(controller.isIntentConsumed(ALICE, request.intentId));
 
         vm.prank(ALICE);
-        vm.expectRevert(NexMintController.IntentAlreadyConsumed.selector);
+        vm.expectRevert(OFLDMintController.IntentAlreadyConsumed.selector);
         controller.mint(request);
 
         request.intentId = keccak256("bob:intent:1");
@@ -286,14 +286,14 @@ contract PrimaryLaunchTrioTest is Test {
         (bytes32 v1, uint64 mintStartsAt) = _publish(3);
         vm.warp(mintStartsAt);
 
-        NexMintController.MintRequest memory first = NexMintController.MintRequest({
+        OFLDMintController.MintRequest memory first = OFLDMintController.MintRequest({
             edition: address(edition),
             termsVersionHash: v1,
             recipient: ALICE,
             quantity: 1,
             intentId: keccak256("revision:first"),
             referralHint: address(0),
-            advantageConfigs: new NexAdvantageRegistry.AdvantageConfig[](0)
+            advantageConfigs: new OFLDAdvantageRegistry.AdvantageConfig[](0)
         });
         vm.prank(ALICE);
         controller.mint(first);
@@ -301,7 +301,7 @@ contract PrimaryLaunchTrioTest is Test {
         vm.warp(block.timestamp + 1);
         uint64 nextPreview = uint64(block.timestamp);
         uint64 nextMint = nextPreview + 1 days;
-        NexLaunchRegistry.Terms memory v2Terms = _terms(5, nextPreview, nextMint);
+        OFLDLaunchRegistry.Terms memory v2Terms = _terms(5, nextPreview, nextMint);
         v2Terms.pricePerPass = 2 * PRICE;
         v2Terms.royaltyBps = 300;
         vm.prank(PUBLISHER);
@@ -312,7 +312,7 @@ contract PrimaryLaunchTrioTest is Test {
 
         first.intentId = keccak256("revision:old");
         vm.prank(ALICE);
-        vm.expectRevert(NexMintController.MintClosed.selector);
+        vm.expectRevert(OFLDMintController.MintClosed.selector);
         controller.mint(first);
 
         vm.warp(nextMint);
@@ -329,7 +329,7 @@ contract PrimaryLaunchTrioTest is Test {
     function testAllowlistPhasePrecedesPublicMintAndHonorsOptionalPhaseSupply() public {
         uint64 previewStartsAt = uint64(block.timestamp);
         uint64 mintStartsAt = previewStartsAt + 1 days;
-        NexLaunchRegistry.Terms memory terms = _terms(5, previewStartsAt, mintStartsAt);
+        OFLDLaunchRegistry.Terms memory terms = _terms(5, previewStartsAt, mintStartsAt);
         terms.allowlistRoot = controller.allowlistLeaf(address(edition), ALICE, 2);
         terms.allowlistEndsAt = mintStartsAt + 1 days;
         terms.allowlistSupply = 2;
@@ -337,14 +337,14 @@ contract PrimaryLaunchTrioTest is Test {
         vm.prank(PUBLISHER);
         bytes32 termsHash = registry.publishTerms(address(edition), terms);
 
-        NexMintController.MintRequest memory request = NexMintController.MintRequest({
+        OFLDMintController.MintRequest memory request = OFLDMintController.MintRequest({
             edition: address(edition),
             termsVersionHash: termsHash,
             recipient: ALICE,
             quantity: 2,
             intentId: keccak256("allowlist:alice"),
             referralHint: address(0),
-            advantageConfigs: new NexAdvantageRegistry.AdvantageConfig[](0)
+            advantageConfigs: new OFLDAdvantageRegistry.AdvantageConfig[](0)
         });
         bytes32[] memory proof = new bytes32[](0);
 
@@ -352,11 +352,11 @@ contract PrimaryLaunchTrioTest is Test {
         assertTrue(registry.isAllowlistMintOpen(address(edition), termsHash));
         assertFalse(registry.isPublicMintOpen(address(edition), termsHash));
         vm.prank(ALICE);
-        vm.expectRevert(NexMintController.MintClosed.selector);
+        vm.expectRevert(OFLDMintController.MintClosed.selector);
         controller.mint(request);
 
         vm.prank(BOB);
-        vm.expectRevert(NexMintController.NotAllowlisted.selector);
+        vm.expectRevert(OFLDMintController.NotAllowlisted.selector);
         controller.mintAllowlisted(request, 2, proof);
 
         vm.prank(ALICE);
@@ -367,7 +367,7 @@ contract PrimaryLaunchTrioTest is Test {
         request.quantity = 1;
         request.intentId = keccak256("allowlist:cap");
         vm.prank(ALICE);
-        vm.expectRevert(NexMintController.AllowlistSupplyExceeded.selector);
+        vm.expectRevert(OFLDMintController.AllowlistSupplyExceeded.selector);
         controller.mintAllowlisted(request, 2, proof);
 
         vm.warp(terms.allowlistEndsAt);
@@ -383,7 +383,7 @@ contract PrimaryLaunchTrioTest is Test {
     function testZeroAllowlistSupplyLeavesPrivatePhaseOpenToOverallSupply() public {
         uint64 previewStartsAt = uint64(block.timestamp);
         uint64 mintStartsAt = previewStartsAt + 1 days;
-        NexLaunchRegistry.Terms memory terms = _terms(5, previewStartsAt, mintStartsAt);
+        OFLDLaunchRegistry.Terms memory terms = _terms(5, previewStartsAt, mintStartsAt);
         terms.allowlistRoot = controller.allowlistLeaf(address(edition), ALICE, 5);
         terms.allowlistEndsAt = mintStartsAt + 1 days;
         terms.allowlistSupply = 0;
@@ -391,14 +391,14 @@ contract PrimaryLaunchTrioTest is Test {
         vm.prank(PUBLISHER);
         bytes32 termsHash = registry.publishTerms(address(edition), terms);
 
-        NexMintController.MintRequest memory request = NexMintController.MintRequest({
+        OFLDMintController.MintRequest memory request = OFLDMintController.MintRequest({
             edition: address(edition),
             termsVersionHash: termsHash,
             recipient: ALICE,
             quantity: 5,
             intentId: keccak256("allowlist:uncapped"),
             referralHint: address(0),
-            advantageConfigs: new NexAdvantageRegistry.AdvantageConfig[](0)
+            advantageConfigs: new OFLDAdvantageRegistry.AdvantageConfig[](0)
         });
         vm.warp(mintStartsAt);
         vm.prank(ALICE);
@@ -410,14 +410,14 @@ contract PrimaryLaunchTrioTest is Test {
         (bytes32 termsHash, uint64 mintStartsAt) = _publish(3);
         vm.warp(mintStartsAt);
         RevertingMintReceiver receiver = new RevertingMintReceiver();
-        NexMintController.MintRequest memory request = NexMintController.MintRequest({
+        OFLDMintController.MintRequest memory request = OFLDMintController.MintRequest({
             edition: address(edition),
             termsVersionHash: termsHash,
             recipient: address(receiver),
             quantity: 1,
             intentId: keccak256("receiver:revert"),
             referralHint: address(0),
-            advantageConfigs: new NexAdvantageRegistry.AdvantageConfig[](0)
+            advantageConfigs: new OFLDAdvantageRegistry.AdvantageConfig[](0)
         });
 
         uint256 aliceBefore = usdg.balanceOf(ALICE);
@@ -431,20 +431,20 @@ contract PrimaryLaunchTrioTest is Test {
 
     function testTermsValidationRejectsUnsafeLaunches() public {
         uint64 start = uint64(block.timestamp);
-        NexLaunchRegistry.Terms memory invalid = _terms(ABSOLUTE_CAP + 1, start, start + 1 days);
+        OFLDLaunchRegistry.Terms memory invalid = _terms(ABSOLUTE_CAP + 1, start, start + 1 days);
         vm.prank(PUBLISHER);
-        vm.expectRevert(NexLaunchRegistry.InvalidSupply.selector);
+        vm.expectRevert(OFLDLaunchRegistry.InvalidSupply.selector);
         registry.publishTerms(address(edition), invalid);
 
         invalid = _terms(ABSOLUTE_CAP, start, start + 1 days - 1);
         vm.prank(PUBLISHER);
-        vm.expectRevert(NexLaunchRegistry.InvalidPreviewWindow.selector);
+        vm.expectRevert(OFLDLaunchRegistry.InvalidPreviewWindow.selector);
         registry.publishTerms(address(edition), invalid);
 
         invalid = _terms(ABSOLUTE_CAP, start, start + 1 days);
         invalid.royaltyBps = 501;
         vm.prank(PUBLISHER);
-        vm.expectRevert(NexLaunchRegistry.InvalidRoyalty.selector);
+        vm.expectRevert(OFLDLaunchRegistry.InvalidRoyalty.selector);
         registry.publishTerms(address(edition), invalid);
     }
 
@@ -457,14 +457,14 @@ contract PrimaryLaunchTrioTest is Test {
 
         vm.warp(mintStartsAt);
         controller.pause();
-        NexMintController.MintRequest memory request = NexMintController.MintRequest({
+        OFLDMintController.MintRequest memory request = OFLDMintController.MintRequest({
             edition: address(edition),
             termsVersionHash: termsHash,
             recipient: ALICE,
             quantity: 1,
             intentId: keccak256("paused"),
             referralHint: address(0),
-            advantageConfigs: new NexAdvantageRegistry.AdvantageConfig[](0)
+            advantageConfigs: new OFLDAdvantageRegistry.AdvantageConfig[](0)
         });
         vm.prank(ALICE);
         vm.expectRevert();

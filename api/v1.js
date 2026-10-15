@@ -16807,7 +16807,7 @@ function issueWalletChallenge({ accountId, address: address2, origin, chainId = 
     `${url.host} wants you to sign in with your Ethereum account:`,
     getAddress(address2),
     "",
-    "Sign in to NexMarkets. This request does not submit a transaction.",
+    "Sign in to Outerfield. This request does not submit a transaction.",
     "",
     `URI: ${url.origin}`,
     "Version: 1",
@@ -17185,7 +17185,7 @@ function normalizeRewardPolicy(policy) {
 // packages/config/src/networks.mjs
 var PRODUCT_AUTHORITY = Object.freeze({
   file: "NEXMARKETS_HOMEPAGE_DISCOVER_MARKET_COLLECTIBLE_ROTATION_PASS_TEXT_FIT_UX_FIXED.html",
-  sha256: "637b7c606ef710f9966373f36238b779cd746303638d4fd46a7e01c92acd34b7"
+  sha256: "31bd71fa5b340739536544d3645c670b4f9f8939c49f0c75db912f081a8a276b"
 });
 var PRIMITIVES = Object.freeze({
   seaport16: "0x0000000000000068F116a894984e2DB1123eB395",

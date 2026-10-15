@@ -383,7 +383,7 @@ function projectModel(edition, summary, pass) {
     evidenceUrl: launchProject.evidence?.url || '',
     evidenceType: launchProject.evidence?.type || 'Onchain record',
     about: launchProject.about || `A permanent NexPass Edition on ${activeNetworkName()}. Ownership, serials and versioned Terms are read from the certified deployment. Edition ${short(edition?.address)} is indexed by Goldsky.`,
-    edition: launchEdition.name || 'NEXMARKETS EDITION',
+    edition: launchEdition.name || 'OUTERFIELD EDITION',
     royalty: launchEdition.royalty != null ? `${number(launchEdition.royalty)}%` : `${number(terms.royaltyBps ?? terms.royalty_bps) / 100}%`,
     termsVersion: compiledLaunch?.preview?.termsVersion || (terms.version == null ? 'Published Terms' : `v${terms.version}`),
     previewStarted: iso(compiledLaunch?.preview?.startsAt || terms.previewStartsAt || terms.preview_starts_at || summary?.preview_starts_at),
@@ -631,7 +631,7 @@ function installCreateDraftAutosave() {
       return null;
     }
     if (status) {
-      status.textContent = 'Saving to NexMarkets…';
+      status.textContent = 'Saving to Outerfield…';
       status.classList.add('saving');
       status.classList.remove('error');
     }
@@ -1439,7 +1439,7 @@ function chooseAuthMethod() {
     overlay.id = 'nm-auth-choice';
     overlay.setAttribute('role', 'dialog');
     overlay.setAttribute('aria-modal', 'true');
-    overlay.innerHTML = `<div data-auth-choice-panel style="width:min(420px,calc(100vw - 32px));padding:24px;border:1px solid rgba(255,255,255,.12);border-radius:18px;background:#151916;box-shadow:0 24px 80px rgba(0,0,0,.58);color:#f1f3ee;font:14px/1.45 system-ui,sans-serif"><div style="font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:#aeb9aa">NexMarkets access</div><h2 style="margin:8px 0 6px;font:600 24px/1.1 Georgia,serif">Choose how to continue</h2><p style="margin:0 0 18px;color:#aeb9aa">Use an external wallet or sign in with a social account.</p><div style="display:grid;gap:10px"><button type="button" data-auth-choice="wallet" style="padding:12px 14px;border:1px solid rgba(255,255,255,.16);border-radius:10px;background:#f2efe6;color:#151713;font-weight:650;cursor:pointer">Connect external wallet</button><button type="button" data-auth-choice="cdp" style="padding:12px 14px;border:1px solid rgba(255,176,0,.48);border-radius:10px;background:#ffb000;color:#151713;font-weight:650;cursor:pointer">Sign in with Google, Apple or X</button><button type="button" data-auth-choice="cancel" style="padding:10px 14px;border:0;background:transparent;color:#aeb9aa;cursor:pointer">Cancel</button></div></div>`;
+    overlay.innerHTML = `<div data-auth-choice-panel style="width:min(420px,calc(100vw - 32px));padding:24px;border:1px solid rgba(255,255,255,.12);border-radius:18px;background:#151916;box-shadow:0 24px 80px rgba(0,0,0,.58);color:#f1f3ee;font:14px/1.45 system-ui,sans-serif"><div style="font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:#aeb9aa">Outerfield access</div><h2 style="margin:8px 0 6px;font:600 24px/1.1 Georgia,serif">Choose how to continue</h2><p style="margin:0 0 18px;color:#aeb9aa">Use an external wallet or sign in with a social account.</p><div style="display:grid;gap:10px"><button type="button" data-auth-choice="wallet" style="padding:12px 14px;border:1px solid rgba(255,255,255,.16);border-radius:10px;background:#f2efe6;color:#151713;font-weight:650;cursor:pointer">Connect external wallet</button><button type="button" data-auth-choice="cdp" style="padding:12px 14px;border:1px solid rgba(255,176,0,.48);border-radius:10px;background:#ffb000;color:#151713;font-weight:650;cursor:pointer">Sign in with Google, Apple or X</button><button type="button" data-auth-choice="cancel" style="padding:10px 14px;border:0;background:transparent;color:#aeb9aa;cursor:pointer">Cancel</button></div></div>`;
     overlay.style.cssText = 'position:fixed;inset:0;z-index:10000;display:grid;place-items:center;padding:16px;background:rgba(4,6,5,.72);backdrop-filter:blur(8px)';
     document.body.appendChild(overlay);
     const finish = (choice) => { cleanup(); overlay.remove(); resolve(choice); };
@@ -1503,7 +1503,7 @@ function openNetworkSelector() {
     const badgeText = isActive ? (state.wallet ? 'Connected' : 'Active') : '';
     return `<button type="button" class="nm-network-option-item ${isActive ? 'active' : ''}" data-network="${escapeHtml(key)}" onclick="window.__nmSelectNetwork('${escapeHtml(key)}')"><div class="nm-network-option-info"><span class="nm-network-switcher-mark" data-family="${escapeHtml(family)}" aria-hidden="true"></span><div><span class="nm-network-option-name">${escapeHtml(label)}</span><span class="nm-network-option-meta">Chain ID ${escapeHtml(String(chainId))}${isTestnet ? ' · Testnet' : ''}</span></div></div>${isActive ? `<span class="nm-network-option-badge">${escapeHtml(badgeText)}</span>` : '<span class="nm-network-option-arrow" aria-hidden="true">→</span>'}</button>`;
   }).join('');
-  modal.innerHTML = `<div class="dash-modal nm-network-modal"><button class="dash-modal-x" type="button" aria-label="Close" onclick="closeNetworkModal()" style="cursor:pointer">×</button><div class="nm-network-modal-head"><span class="nm-network-modal-kicker">NETWORK</span><h3 id="nmNetworkModalTitle">Select Network</h3><p class="dash-modal-copy">Choose the network to view, mint, or trade Editions on NexMarkets.</p></div><div class="nm-network-options-list">${optionsHtml}</div></div>`;
+  modal.innerHTML = `<div class="dash-modal nm-network-modal"><button class="dash-modal-x" type="button" aria-label="Close" onclick="closeNetworkModal()" style="cursor:pointer">×</button><div class="nm-network-modal-head"><span class="nm-network-modal-kicker">NETWORK</span><h3 id="nmNetworkModalTitle">Select Network</h3><p class="dash-modal-copy">Choose the network to view, mint, or trade Editions on Outerfield.</p></div><div class="nm-network-options-list">${optionsHtml}</div></div>`;
   modal.classList.add('open');
 }
 function ensureNetworkSelectors() {
@@ -1804,7 +1804,7 @@ function goView(route) {
   if (detailRoute && !project) {
     setTimeout(() => {
       const mount = document.getElementById('projectPageMount');
-      if (mount) mount.innerHTML = '<div class="dash-empty"><b>This NexMarkets record is unavailable.</b><p>The requested Edition, Pass, or launch was not found in the live read model.</p></div>';
+      if (mount) mount.innerHTML = '<div class="dash-empty"><b>This Outerfield record is unavailable.</b><p>The requested Edition, Pass, or launch was not found in the live read model.</p></div>';
     }, 0);
   }
   setTimeout(() => setAccountLabel(state.wallet ? short(state.wallet) : 'Connect wallet'), 35);
@@ -2238,7 +2238,7 @@ async function hydrate({ authenticatedOverride = null } = {}) {
     state.lastDraftId = null;
     publishTemplateData({ projects: [], projectExperience: {}, collections: [], listings: [], ownedPasses: [], dashboardState: emptyDashboard([]), createData: neutralCreateData() });
     setAccountLabel(state.wallet ? short(state.wallet) : 'Connect wallet');
-    showRuntimeBanner(`Live NexMarkets data is unavailable: ${error.message}`, true);
+    showRuntimeBanner(`Live Outerfield data is unavailable: ${error.message}`, true);
   }
   try {
     document.documentElement.classList.remove('nm-v2-loading'); document.documentElement.classList.add('nm-v2-ready');
@@ -2570,7 +2570,7 @@ function nmMetadataBaseUri(editionId) {
 
 function buildCreateEditionInput(compiled, projectId) {
   const edition = compiled.edition || {};
-  const rawName = String(edition.name || compiled.project?.name || 'NexMarkets Edition').trim();
+  const rawName = String(edition.name || compiled.project?.name || 'Outerfield Edition').trim();
   const symbol = (String(edition.series || rawName).replace(/[^a-z0-9]/gi, '').toUpperCase().slice(0, 12) || 'NEX');
   const art = compiled.design?.artEdition?.[0] || compiled.design?.artEditionView || {};
   const hash = String(art.sha256 || '').trim();
@@ -2642,7 +2642,7 @@ async function submitCreatePass() {
     }
 
     if (mount) {
-      mount.innerHTML = `<div class="project-action-state"><div class="market-tx-spinner"></div><h3>Creating Pass</h3><p>Saving your published Pass to NexMarkets.</p></div>`;
+      mount.innerHTML = `<div class="project-action-state"><div class="market-tx-spinner"></div><h3>Creating Pass</h3><p>Saving your published Pass to Outerfield.</p></div>`;
     }
 
     // Keep the Product private while the wallet completes the on-chain half
@@ -2781,7 +2781,7 @@ async function submitCreateDraft() {
       if (mount) mount.innerHTML = `<div class="project-action-state"><div class="market-tx-spinner"></div><h3>Connecting wallet</h3><p>Connecting your Builder wallet on ${escapeHtml(activeNetworkName())}.</p></div>`;
       await authenticate({ throwOnError: true });
     }
-    if (mount) mount.innerHTML = `<div class="project-action-state"><div class="market-tx-spinner"></div><h3>Saving draft</h3><p>Saving this Create workflow to your NexMarkets workspace.</p></div>`;
+    if (mount) mount.innerHTML = `<div class="project-action-state"><div class="market-tx-spinner"></div><h3>Saving draft</h3><p>Saving this Create workflow to your Outerfield workspace.</p></div>`;
     const project = await read('/v1/builder/projects', {
       method: 'POST',
       headers: {
@@ -4080,7 +4080,7 @@ function exposeRuntime() {
     await hydrate();
   };
 
-  window.nexmarketsV2 = {
+  window.outerfieldV2 = window.nexmarketsV2 = {
     state,
     refresh: hydrate,
     connect: authenticate,

@@ -8,11 +8,11 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {MerkleProof} from "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 
-import {NexLaunchRegistry} from "./NexLaunchRegistry.sol";
-import {NexPassEdition} from "./NexPassEdition.sol";
-import {NexAdvantageRegistry} from "./NexAdvantageRegistry.sol";
+import {OFLDLaunchRegistry} from "./OFLDLaunchRegistry.sol";
+import {OFLDPassEdition} from "./OFLDPassEdition.sol";
+import {OFLDAdvantageRegistry} from "./OFLDAdvantageRegistry.sol";
 
-interface INexAdvantageMintInitializer {
+interface IOFLDAdvantageMintInitializer {
     function advantageRegistry() external view returns (address);
     function launchRegistry() external view returns (address);
     function mintController() external view returns (address);
@@ -23,21 +23,21 @@ interface INexAdvantageMintInitializer {
         uint256 firstTokenId,
         uint256 quantity,
         bytes32 termsVersionHash,
-        NexAdvantageRegistry.AdvantageConfig[] calldata configs
+        OFLDAdvantageRegistry.AdvantageConfig[] calldata configs
     ) external;
 }
 
-/// @title NexMintController
+/// @title OFLDMintController
 /// @notice Validates active launch Terms, settles exact USDG, and mints serials.
 /// @dev The controller is deliberately non-upgradeable. A payer-scoped intent
 ///      key makes wallet retries idempotent without allowing one payer to grief another.
-contract NexMintController is Ownable, Pausable, ReentrancyGuard {
+contract OFLDMintController is Ownable, Pausable, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
     uint16 public constant BPS_DENOMINATOR = 10_000;
     uint16 public constant PROTOCOL_FEE_BPS = 500;
 
-    NexLaunchRegistry public immutable launchRegistry;
+    OFLDLaunchRegistry public immutable launchRegistry;
     IERC20 public immutable usdg;
     address public immutable protocolFeeRecipient;
     address public advantageInitializer;
@@ -57,7 +57,7 @@ contract NexMintController is Ownable, Pausable, ReentrancyGuard {
         address referralHint;
         /// @notice Exact Advantage definitions committed by the active Terms.
         ///         Must be empty when the Terms have no Advantages.
-        NexAdvantageRegistry.AdvantageConfig[] advantageConfigs;
+        OFLDAdvantageRegistry.AdvantageConfig[] advantageConfigs;
     }
 
     error AddressRequired();
@@ -94,7 +94,7 @@ contract NexMintController is Ownable, Pausable, ReentrancyGuard {
     );
     event AdvantageInitializerSet(address indexed advantageInitializer);
 
-    constructor(address initialOwner, NexLaunchRegistry launchRegistry_, IERC20 usdg_, address protocolFeeRecipient_)
+    constructor(address initialOwner, OFLDLaunchRegistry launchRegistry_, IERC20 usdg_, address protocolFeeRecipient_)
         Ownable(initialOwner)
     {
         if (
@@ -118,22 +118,22 @@ contract NexMintController is Ownable, Pausable, ReentrancyGuard {
         if (advantageInitializer != address(0)) revert AdvantageInitializerAlreadySet();
         if (advantageInitializer_ == address(0) || advantageInitializer_.code.length == 0) revert AddressRequired();
 
-        try INexAdvantageMintInitializer(advantageInitializer_).launchRegistry() returns (address registry_) {
+        try IOFLDAdvantageMintInitializer(advantageInitializer_).launchRegistry() returns (address registry_) {
             if (registry_ != address(launchRegistry)) revert AdvantageInitializerWiringMismatch();
         } catch {
             revert AdvantageInitializerWiringMismatch();
         }
-        try INexAdvantageMintInitializer(advantageInitializer_).mintController() returns (address controller_) {
+        try IOFLDAdvantageMintInitializer(advantageInitializer_).mintController() returns (address controller_) {
             if (controller_ != address(this)) revert AdvantageInitializerWiringMismatch();
         } catch {
             revert AdvantageInitializerWiringMismatch();
         }
-        try INexAdvantageMintInitializer(advantageInitializer_).owner() returns (address initializerOwner) {
+        try IOFLDAdvantageMintInitializer(advantageInitializer_).owner() returns (address initializerOwner) {
             if (initializerOwner != owner()) revert AdvantageInitializerWiringMismatch();
         } catch {
             revert AdvantageInitializerWiringMismatch();
         }
-        try INexAdvantageMintInitializer(advantageInitializer_).advantageRegistry() returns (address registry_) {
+        try IOFLDAdvantageMintInitializer(advantageInitializer_).advantageRegistry() returns (address registry_) {
             if (registry_ == address(0) || registry_.code.length == 0) revert AdvantageInitializerWiringMismatch();
         } catch {
             revert AdvantageInitializerWiringMismatch();
@@ -162,7 +162,7 @@ contract NexMintController is Ownable, Pausable, ReentrancyGuard {
             revert MintClosed();
         }
         if (allowance == 0) revert WalletAllowanceRequired();
-        (, NexLaunchRegistry.Terms memory terms) = launchRegistry.activeTerms(request.edition);
+        (, OFLDLaunchRegistry.Terms memory terms) = launchRegistry.activeTerms(request.edition);
         bytes32 leaf = allowlistLeaf(request.edition, msg.sender, allowance);
         if (!MerkleProof.verifyCalldata(proof, terms.allowlistRoot, leaf)) revert NotAllowlisted();
 
@@ -196,7 +196,7 @@ contract NexMintController is Ownable, Pausable, ReentrancyGuard {
         view
         returns (uint256)
     {
-        (, NexLaunchRegistry.Terms memory terms) = launchRegistry.activeTerms(edition);
+        (, OFLDLaunchRegistry.Terms memory terms) = launchRegistry.activeTerms(edition);
         uint256 cap = allowance;
         if (terms.walletAllowance != 0 && terms.walletAllowance < cap) cap = terms.walletAllowance;
         uint256 minted = allowlistWalletMinted[edition][termsVersionHash][account];
@@ -211,10 +211,10 @@ contract NexMintController is Ownable, Pausable, ReentrancyGuard {
         if (_consumedIntent[msg.sender][request.intentId]) revert IntentAlreadyConsumed();
         if (!launchRegistry.isMintOpen(request.edition, request.termsVersionHash)) revert MintClosed();
 
-        (bytes32 activeTermsHash, NexLaunchRegistry.Terms memory terms) = launchRegistry.activeTerms(request.edition);
+        (bytes32 activeTermsHash, OFLDLaunchRegistry.Terms memory terms) = launchRegistry.activeTerms(request.edition);
         if (activeTermsHash != request.termsVersionHash) revert TermsNotActive();
-        if (NexPassEdition(request.edition).mintController() != address(this)) revert InvalidEditionController();
-        if (request.quantity > terms.activeSupply - NexPassEdition(request.edition).totalMinted()) revert MintClosed();
+        if (OFLDPassEdition(request.edition).mintController() != address(this)) revert InvalidEditionController();
+        if (request.quantity > terms.activeSupply - OFLDPassEdition(request.edition).totalMinted()) revert MintClosed();
 
         uint256 totalPaid = terms.pricePerPass * request.quantity;
         uint256 protocolFee = (totalPaid * PROTOCOL_FEE_BPS) / BPS_DENOMINATOR;
@@ -223,7 +223,7 @@ contract NexMintController is Ownable, Pausable, ReentrancyGuard {
 
         if (protocolFee != 0) usdg.safeTransferFrom(msg.sender, protocolFeeRecipient, protocolFee);
         usdg.safeTransferFrom(msg.sender, terms.primaryRecipient, primaryAmount);
-        firstTokenId = NexPassEdition(request.edition)
+        firstTokenId = OFLDPassEdition(request.edition)
             .mint(
                 request.recipient,
                 request.quantity,
@@ -236,7 +236,7 @@ contract NexMintController is Ownable, Pausable, ReentrancyGuard {
             if (request.advantageConfigs.length != 0) revert UnexpectedAdvantages();
         } else {
             if (advantageInitializer == address(0)) revert AdvantageInitializerRequired();
-            INexAdvantageMintInitializer(advantageInitializer)
+            IOFLDAdvantageMintInitializer(advantageInitializer)
                 .initializeMint(
                     request.edition, firstTokenId, request.quantity, request.termsVersionHash, request.advantageConfigs
                 );

@@ -6,18 +6,18 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
-interface INexRoyaltyListingWiring {
+interface IOFLDRoyaltyListingWiring {
     function owner() external view returns (address);
     function royaltyVault() external view returns (address);
 }
 
-/// @title NexRoyaltyVault
+/// @title OFLDRoyaltyVault
 /// @notice Holds each secondary Builder Royalty for exactly 30 days.
-/// @dev USDG reaches this vault through Seaport before NexMarketsZone invokes
+/// @dev USDG reaches this vault through Seaport before OuterfieldZone invokes
 ///      its post-transfer validation. The permanently bound ListingRegistry
 ///      then records the exact order-backed claim. If recording fails, the
 ///      containing Seaport fulfillment reverts atomically.
-contract NexRoyaltyVault is Ownable, ReentrancyGuard {
+contract OFLDRoyaltyVault is Ownable, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
     uint64 public constant HOLD_PERIOD = 30 days;
@@ -77,12 +77,12 @@ contract NexRoyaltyVault is Ownable, ReentrancyGuard {
         if (listingRegistry != address(0)) revert ListingRegistryAlreadySet();
         if (listingRegistry_ == address(0) || listingRegistry_.code.length == 0) revert AddressRequired();
 
-        try INexRoyaltyListingWiring(listingRegistry_).owner() returns (address registryOwner) {
+        try IOFLDRoyaltyListingWiring(listingRegistry_).owner() returns (address registryOwner) {
             if (registryOwner != owner()) revert ListingRegistryWiringMismatch();
         } catch {
             revert ListingRegistryWiringMismatch();
         }
-        try INexRoyaltyListingWiring(listingRegistry_).royaltyVault() returns (address vault_) {
+        try IOFLDRoyaltyListingWiring(listingRegistry_).royaltyVault() returns (address vault_) {
             if (vault_ != address(this)) revert ListingRegistryWiringMismatch();
         } catch {
             revert ListingRegistryWiringMismatch();

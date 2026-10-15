@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 /// @dev Seaport's item type values. These values are part of Seaport's
-///      canonical ABI and are intentionally kept local so NexMarkets does not
+///      canonical ABI and are intentionally kept local so Outerfield does not
 ///      fork or deploy Seaport source code.
 enum SeaportItemType {
     NATIVE,
@@ -47,7 +47,7 @@ struct SeaportSchema {
     bytes metadata;
 }
 
-interface INexSeaportZone {
+interface IOuterfieldSeaportZone {
     function authorizeOrder(SeaportZoneParameters calldata zoneParameters)
         external
         returns (bytes4 authorizedOrderMagicValue);

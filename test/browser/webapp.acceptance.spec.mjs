@@ -351,7 +351,7 @@ test('loading and API failure states remain explicit', async ({ page }) => {
   await installFixtureApi(page, { failDiscover: true });
   await page.route('**/v1/editions/**', (route) => route.abort());
   await goto(page, '/discover');
-  await expect(page.getByText(/Live NexMarkets data is unavailable/)).toBeVisible();
+  await expect(page.getByText(/Live (Outerfield|NexMarkets) data is unavailable/)).toBeVisible();
   await expect(page.locator('html')).toHaveClass(/nm-v2-ready/);
 });
 

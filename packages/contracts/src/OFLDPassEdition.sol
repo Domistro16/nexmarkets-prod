@@ -8,13 +8,13 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol
 import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 
-/// @title NexPassEdition
-/// @notice Permanent collection identity and serial ownership for one NexMarkets Pass edition.
+/// @title OFLDPassEdition
+/// @notice Permanent collection identity and serial ownership for one Outerfield Pass edition.
 /// @dev Terms, Preview state, payment collection, mint intent, Advantages,
 ///      listings, and royalty settlement belong to the separately gated
-///      NexMarkets registries and controllers. The mint controller supplies the
+///      Outerfield registries and controllers. The mint controller supplies the
 ///      approved Terms version for every mint.
-contract NexPassEdition is ERC721, ERC2981, Ownable, Pausable, ReentrancyGuard {
+contract OFLDPassEdition is ERC721, ERC2981, Ownable, Pausable, ReentrancyGuard {
     using Strings for uint256;
 
     uint96 public constant MAX_ROYALTY_BPS = 500;
@@ -102,7 +102,7 @@ contract NexPassEdition is ERC721, ERC2981, Ownable, Pausable, ReentrancyGuard {
     }
 
     /// @notice Mint the next serials from a controller-validated Terms snapshot.
-    /// @param termsVersionHash The active, approved Terms version in NexLaunchRegistry.
+    /// @param termsVersionHash The active, approved Terms version in OFLDLaunchRegistry.
     /// @param termsSupply The currently advertised supply for this Terms version.
     /// @param royaltyReceiver Builder Royalty recipient from this Terms version.
     /// @param royaltyBps Builder Royalty rate from this Terms version, capped at 5%.
@@ -176,7 +176,7 @@ contract NexPassEdition is ERC721, ERC2981, Ownable, Pausable, ReentrancyGuard {
     }
 
     /// @notice Whether the edition is available for the supplied active Terms version.
-    /// @dev NexLaunchRegistry owns Preview/time windows; NexMintController must
+    /// @dev OFLDLaunchRegistry owns Preview/time windows; OFLDMintController must
     ///      validate the supplied Terms snapshot before calling mint.
     function isMintOpen(uint256 termsSupply) external view returns (bool) {
         return !paused() && mintController != address(0) && termsSupply > _totalMinted

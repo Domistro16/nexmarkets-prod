@@ -6,7 +6,7 @@ import {IERC6551Registry} from "./IERC6551.sol";
 /// @notice Canonical ERC-6551 registry source pinned from
 ///         erc6551/reference commit 43a84573bb47b0df3ab543a20365f4974f56a809.
 /// @dev Included for deterministic tests and bytecode verification. Production
-///      configuration points at the canonical singleton; NexMarkets does not
+///      configuration points at the canonical singleton; Outerfield does not
 ///      deploy a competing registry.
 contract ERC6551Registry is IERC6551Registry {
     function createAccount(

@@ -6,17 +6,17 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import {Test} from "forge-std/Test.sol";
 
-import {NexAdvantageRegistry} from "../src/NexAdvantageRegistry.sol";
-import {NexAdvantageInitializer} from "../src/NexAdvantageInitializer.sol";
-import {NexLaunchRegistry} from "../src/NexLaunchRegistry.sol";
-import {INexAdvantageListingController, NexListingRegistry} from "../src/NexListingRegistry.sol";
-import {NexMarketsZone} from "../src/NexMarketsZone.sol";
-import {NexMintController} from "../src/NexMintController.sol";
-import {NexPassEdition} from "../src/NexPassEdition.sol";
-import {NexPassFactory} from "../src/NexPassFactory.sol";
-import {NexRoyaltyVault} from "../src/NexRoyaltyVault.sol";
+import {OFLDAdvantageRegistry} from "../src/OFLDAdvantageRegistry.sol";
+import {OFLDAdvantageInitializer} from "../src/OFLDAdvantageInitializer.sol";
+import {OFLDLaunchRegistry} from "../src/OFLDLaunchRegistry.sol";
+import {IOFLDAdvantageListingController, OFLDListingRegistry} from "../src/OFLDListingRegistry.sol";
+import {OuterfieldZone} from "../src/OuterfieldZone.sol";
+import {OFLDMintController} from "../src/OFLDMintController.sol";
+import {OFLDPassEdition} from "../src/OFLDPassEdition.sol";
+import {OFLDPassFactory} from "../src/OFLDPassFactory.sol";
+import {OFLDRoyaltyVault} from "../src/OFLDRoyaltyVault.sol";
 import {
-    INexSeaportZone,
+    IOuterfieldSeaportZone,
     SeaportItemType,
     SeaportReceivedItem,
     SeaportSchema,
@@ -34,7 +34,7 @@ contract ListingMockUSDG is ERC20 {
 
 contract ListingSeaportMock {
     function fulfill(
-        NexMarketsZone zone,
+        OuterfieldZone zone,
         SeaportZoneParameters calldata parameters,
         address buyer,
         bool omitRoyaltyTransfer
@@ -65,18 +65,18 @@ contract MiswiredListingZone {
     }
 }
 
-contract NexListingRegistryTest is Test {
+contract OFLDListingRegistryTest is Test {
     ListingMockUSDG internal usdg;
     ListingSeaportMock internal seaport;
-    NexLaunchRegistry internal launchRegistry;
-    NexMintController internal mintController;
-    NexPassFactory internal factory;
-    NexPassEdition internal edition;
-    NexAdvantageRegistry internal advantageRegistry;
-    NexRoyaltyVault internal royaltyVault;
-    NexListingRegistry internal listingRegistry;
-    NexMarketsZone internal zone;
-    NexAdvantageInitializer internal initializer;
+    OFLDLaunchRegistry internal launchRegistry;
+    OFLDMintController internal mintController;
+    OFLDPassFactory internal factory;
+    OFLDPassEdition internal edition;
+    OFLDAdvantageRegistry internal advantageRegistry;
+    OFLDRoyaltyVault internal royaltyVault;
+    OFLDListingRegistry internal listingRegistry;
+    OuterfieldZone internal zone;
+    OFLDAdvantageInitializer internal initializer;
 
     address internal constant OWNER = address(0xA11CE);
     address internal constant PUBLISHER = address(0xBEEF);
@@ -85,11 +85,11 @@ contract NexListingRegistryTest is Test {
     address internal constant SECONDARY_FEE_RECIPIENT = address(0x5EC);
     address internal constant ALICE = address(0xA1);
     address internal constant BOB = address(0xB2);
-    bytes32 internal constant EDITION_ID = keccak256("nexlisting:edition");
-    bytes32 internal constant ARTWORK_COMMITMENT = keccak256("nexlisting:artwork");
-    bytes32 internal constant SALT = keccak256("nexlisting:salt");
-    bytes32 internal constant REFERRALS_HASH = keccak256("nexlisting:referrals:v1");
-    bytes32 internal constant ADVANTAGE_ID = keccak256("nexlisting:redemption");
+    bytes32 internal constant EDITION_ID = keccak256("ofldlisting:edition");
+    bytes32 internal constant ARTWORK_COMMITMENT = keccak256("ofldlisting:artwork");
+    bytes32 internal constant SALT = keccak256("ofldlisting:salt");
+    bytes32 internal constant REFERRALS_HASH = keccak256("ofldlisting:referrals:v1");
+    bytes32 internal constant ADVANTAGE_ID = keccak256("ofldlisting:redemption");
     uint256 internal constant PRICE = 1_000_000;
 
     bytes32 internal advantagesHash;
@@ -103,27 +103,27 @@ contract NexListingRegistryTest is Test {
     function setUp() public {
         usdg = new ListingMockUSDG();
         seaport = new ListingSeaportMock();
-        launchRegistry = new NexLaunchRegistry(OWNER, address(usdg));
-        mintController = new NexMintController(OWNER, launchRegistry, usdg, FEE_RECIPIENT);
-        factory = new NexPassFactory(OWNER, OWNER, launchRegistry, mintController);
+        launchRegistry = new OFLDLaunchRegistry(OWNER, address(usdg));
+        mintController = new OFLDMintController(OWNER, launchRegistry, usdg, FEE_RECIPIENT);
+        factory = new OFLDPassFactory(OWNER, OWNER, launchRegistry, mintController);
 
         vm.prank(OWNER);
         launchRegistry.setFactory(address(factory));
 
-        NexPassEdition.EditionConfig memory editionConfig = NexPassEdition.EditionConfig({
-            name: "NexListing Pass",
-            symbol: "NEXLIST",
+        OFLDPassEdition.EditionConfig memory editionConfig = OFLDPassEdition.EditionConfig({
+            name: "OFLDListing Pass",
+            symbol: "OFLDLIST",
             initialOwner: PUBLISHER,
             editionId: EDITION_ID,
             absoluteSupplyCap: 5,
             artworkCommitment: ARTWORK_COMMITMENT,
-            baseTokenURI: "ipfs://nexlisting/"
+            baseTokenURI: "ipfs://ofldlisting/"
         });
         vm.prank(PUBLISHER);
-        edition = NexPassEdition(factory.createEdition(editionConfig, SALT));
+        edition = OFLDPassEdition(factory.createEdition(editionConfig, SALT));
 
-        advantageRegistry = new NexAdvantageRegistry(OWNER, launchRegistry);
-        initializer = new NexAdvantageInitializer(OWNER, launchRegistry, advantageRegistry, address(mintController));
+        advantageRegistry = new OFLDAdvantageRegistry(OWNER, launchRegistry);
+        initializer = new OFLDAdvantageInitializer(OWNER, launchRegistry, advantageRegistry, address(mintController));
         vm.prank(OWNER);
         advantageRegistry.setInitializer(address(initializer));
         vm.prank(OWNER);
@@ -133,10 +133,10 @@ contract NexListingRegistryTest is Test {
         uint64 mintStartsAt = previewStartsAt + 1 days;
         advantageStartsAt = mintStartsAt;
         advantageEndsAt = mintStartsAt + 30 days;
-        NexAdvantageRegistry.AdvantageConfig[] memory configs = _advantageConfigs();
-        advantagesHash = keccak256(abi.encode(keccak256("NEXMARKETS_ADVANTAGES_V1"), configs));
+        OFLDAdvantageRegistry.AdvantageConfig[] memory configs = _advantageConfigs();
+        advantagesHash = keccak256(abi.encode(keccak256("OUTERFIELD_ADVANTAGES_V1"), configs));
 
-        NexLaunchRegistry.Terms memory terms = NexLaunchRegistry.Terms({
+        OFLDLaunchRegistry.Terms memory terms = OFLDLaunchRegistry.Terms({
             activeSupply: 3,
             pricePerPass: PRICE,
             previewStartsAt: previewStartsAt,
@@ -159,12 +159,12 @@ contract NexListingRegistryTest is Test {
         usdg.mint(ALICE, 10 * PRICE);
         vm.prank(ALICE);
         usdg.approve(address(mintController), type(uint256).max);
-        NexMintController.MintRequest memory request = NexMintController.MintRequest({
+        OFLDMintController.MintRequest memory request = OFLDMintController.MintRequest({
             edition: address(edition),
             termsVersionHash: termsHash,
             recipient: ALICE,
             quantity: 2,
-            intentId: keccak256("nexlisting:mint"),
+            intentId: keccak256("ofldlisting:mint"),
             referralHint: address(0),
             advantageConfigs: configs
         });
@@ -182,7 +182,7 @@ contract NexListingRegistryTest is Test {
         vm.prank(PUBLISHER);
         zeroRoyaltyTermsHash = launchRegistry.publishTerms(address(edition), terms);
         vm.warp(zeroRoyaltyMintStart);
-        _mintOne(zeroRoyaltyTermsHash, keccak256("nexlisting:mint:zero-royalty"));
+        _mintOne(zeroRoyaltyTermsHash, keccak256("ofldlisting:mint:zero-royalty"));
 
         vm.warp(block.timestamp + 1);
         uint64 sellerRoyaltyPreview = uint64(block.timestamp);
@@ -196,18 +196,18 @@ contract NexListingRegistryTest is Test {
         vm.prank(PUBLISHER);
         sellerRoyaltyTermsHash = launchRegistry.publishTerms(address(edition), terms);
         vm.warp(sellerRoyaltyMintStart);
-        _mintOne(sellerRoyaltyTermsHash, keccak256("nexlisting:mint:seller-royalty"));
+        _mintOne(sellerRoyaltyTermsHash, keccak256("ofldlisting:mint:seller-royalty"));
 
-        royaltyVault = new NexRoyaltyVault(OWNER, usdg);
-        listingRegistry = new NexListingRegistry(
+        royaltyVault = new OFLDRoyaltyVault(OWNER, usdg);
+        listingRegistry = new OFLDListingRegistry(
             OWNER,
             launchRegistry,
-            INexAdvantageListingController(address(advantageRegistry)),
+            IOFLDAdvantageListingController(address(advantageRegistry)),
             royaltyVault,
             SECONDARY_FEE_RECIPIENT,
             address(seaport)
         );
-        zone = new NexMarketsZone(OWNER, listingRegistry, address(seaport));
+        zone = new OuterfieldZone(OWNER, listingRegistry, address(seaport));
         vm.prank(OWNER);
         royaltyVault.setListingRegistry(address(listingRegistry));
         vm.prank(OWNER);
@@ -224,8 +224,8 @@ contract NexListingRegistryTest is Test {
     }
 
     function _mintOne(bytes32 mintTermsHash, bytes32 intentId) internal {
-        NexAdvantageRegistry.AdvantageConfig[] memory configs = _advantageConfigs();
-        NexMintController.MintRequest memory request = NexMintController.MintRequest({
+        OFLDAdvantageRegistry.AdvantageConfig[] memory configs = _advantageConfigs();
+        OFLDMintController.MintRequest memory request = OFLDMintController.MintRequest({
             edition: address(edition),
             termsVersionHash: mintTermsHash,
             recipient: ALICE,
@@ -238,28 +238,28 @@ contract NexListingRegistryTest is Test {
         mintController.mint(request);
     }
 
-    function _advantageConfigs() internal view returns (NexAdvantageRegistry.AdvantageConfig[] memory configs) {
-        configs = new NexAdvantageRegistry.AdvantageConfig[](1);
-        configs[0] = NexAdvantageRegistry.AdvantageConfig({
+    function _advantageConfigs() internal view returns (OFLDAdvantageRegistry.AdvantageConfig[] memory configs) {
+        configs = new OFLDAdvantageRegistry.AdvantageConfig[](1);
+        configs[0] = OFLDAdvantageRegistry.AdvantageConfig({
             advantageId: ADVANTAGE_ID,
-            kind: NexAdvantageRegistry.AdvantageKind.Redemption,
+            kind: OFLDAdvantageRegistry.AdvantageKind.Redemption,
             startsAt: advantageStartsAt,
             endsAt: advantageEndsAt,
             totalUnits: 1,
-            definitionHash: keccak256("nexlisting:redemption:definition")
+            definitionHash: keccak256("ofldlisting:redemption:definition")
         });
     }
 
-    function _request(bytes32 orderHash) internal view returns (NexListingRegistry.ListingRequest memory request) {
+    function _request(bytes32 orderHash) internal view returns (OFLDListingRegistry.ListingRequest memory request) {
         return _requestFor(orderHash, 1, termsHash);
     }
 
     function _requestFor(bytes32 orderHash, uint256 tokenId, bytes32 tokenTermsHash)
         internal
         view
-        returns (NexListingRegistry.ListingRequest memory request)
+        returns (OFLDListingRegistry.ListingRequest memory request)
     {
-        request = NexListingRegistry.ListingRequest({
+        request = OFLDListingRegistry.ListingRequest({
             orderHash: orderHash,
             edition: address(edition),
             tokenId: tokenId,
@@ -271,7 +271,7 @@ contract NexListingRegistryTest is Test {
     }
 
     function _zoneParameters(bytes32 orderHash) internal view returns (SeaportZoneParameters memory parameters) {
-        NexListingRegistry.Listing memory listing = listingRegistry.listingInfo(orderHash);
+        OFLDListingRegistry.Listing memory listing = listingRegistry.listingInfo(orderHash);
         uint256 protocolFee = listing.usdGPrice / 100;
         uint256 royaltyAmount = listing.usdGPrice * listing.royaltyBps / 10_000;
         uint256 sellerAmount = listing.usdGPrice - protocolFee - royaltyAmount;
@@ -326,7 +326,7 @@ contract NexListingRegistryTest is Test {
     }
 
     function _createFor(uint256 tokenId, bytes32 tokenTermsHash) internal returns (bytes32 orderHash) {
-        orderHash = keccak256(abi.encode("nexlisting:order", tokenId, ++listingNonce));
+        orderHash = keccak256(abi.encode("ofldlisting:order", tokenId, ++listingNonce));
         vm.prank(ALICE);
         listingRegistry.createListing(_requestFor(orderHash, tokenId, tokenTermsHash));
     }
@@ -337,7 +337,7 @@ contract NexListingRegistryTest is Test {
 
     function testCreateBindsExactPassTermsPriceRoyaltyAndZoneHash() public {
         bytes32 orderHash = _create();
-        NexListingRegistry.Listing memory listing = listingRegistry.listingInfo(orderHash);
+        OFLDListingRegistry.Listing memory listing = listingRegistry.listingInfo(orderHash);
 
         assertEq(listing.edition, address(edition));
         assertEq(listing.tokenId, 1);
@@ -362,11 +362,11 @@ contract NexListingRegistryTest is Test {
     }
 
     function testSecondaryFeeCannotRoundToZero() public {
-        bytes32 orderHash = keccak256("nexlisting:tiny-price");
-        NexListingRegistry.ListingRequest memory request = _request(orderHash);
+        bytes32 orderHash = keccak256("ofldlisting:tiny-price");
+        OFLDListingRegistry.ListingRequest memory request = _request(orderHash);
         request.usdGPrice = 99;
         vm.prank(ALICE);
-        vm.expectRevert(NexListingRegistry.InvalidSecondaryFee.selector);
+        vm.expectRevert(OFLDListingRegistry.InvalidSecondaryFee.selector);
         listingRegistry.createListing(request);
     }
 
@@ -379,8 +379,8 @@ contract NexListingRegistryTest is Test {
 
         _fulfill(orderHash, false);
 
-        NexListingRegistry.Listing memory listing = listingRegistry.listingInfo(orderHash);
-        assertEq(uint256(listing.status), uint256(NexListingRegistry.ListingStatus.Filled));
+        OFLDListingRegistry.Listing memory listing = listingRegistry.listingInfo(orderHash);
+        assertEq(uint256(listing.status), uint256(OFLDListingRegistry.ListingStatus.Filled));
         assertEq(listingRegistry.activeListingFor(address(edition), 1), bytes32(0));
         assertFalse(listingRegistry.isListingActive(orderHash));
         assertFalse(advantageRegistry.isListed(address(edition), 1));
@@ -405,7 +405,7 @@ contract NexListingRegistryTest is Test {
         assertEq(usdg.balanceOf(ALICE) - sellerBefore, salePrice - protocolFee - royaltyAmount);
         assertEq(edition.ownerOf(1), BOB);
 
-        NexRoyaltyVault.RoyaltyClaim memory claim = royaltyVault.claimInfo(orderHash);
+        OFLDRoyaltyVault.RoyaltyClaim memory claim = royaltyVault.claimInfo(orderHash);
         assertEq(claim.edition, address(edition));
         assertEq(claim.tokenId, 1);
         assertEq(claim.builder, BUILDER);
@@ -444,7 +444,7 @@ contract NexListingRegistryTest is Test {
         uint256 royaltyAmount = salePrice * 5 / 100;
         assertEq(usdg.balanceOf(ALICE) - sellerBefore, salePrice - protocolFee - royaltyAmount);
         assertEq(usdg.balanceOf(address(royaltyVault)) - vaultBefore, royaltyAmount);
-        NexRoyaltyVault.RoyaltyClaim memory claim = royaltyVault.claimInfo(orderHash);
+        OFLDRoyaltyVault.RoyaltyClaim memory claim = royaltyVault.claimInfo(orderHash);
         assertEq(claim.builder, ALICE);
         assertEq(claim.amount, royaltyAmount);
         assertFalse(claim.withdrawn);
@@ -457,7 +457,7 @@ contract NexListingRegistryTest is Test {
         uint256 protocolBefore = usdg.balanceOf(SECONDARY_FEE_RECIPIENT);
         SeaportZoneParameters memory parameters = _zoneParameters(orderHash);
 
-        vm.expectRevert(NexRoyaltyVault.InsufficientBacking.selector);
+        vm.expectRevert(OFLDRoyaltyVault.InsufficientBacking.selector);
         seaport.fulfill(zone, parameters, BOB, true);
 
         assertEq(edition.ownerOf(1), ALICE);
@@ -475,22 +475,22 @@ contract NexListingRegistryTest is Test {
         SeaportZoneParameters memory parameters = _zoneParameters(orderHash);
         parameters.zoneHash = keccak256("wrong-zone-hash");
         vm.prank(address(seaport));
-        vm.expectRevert(NexListingRegistry.OfferMismatch.selector);
+        vm.expectRevert(OFLDListingRegistry.OfferMismatch.selector);
         zone.authorizeOrder(parameters);
 
         parameters = _zoneParameters(orderHash);
         parameters.consideration[0].amount += 1;
         vm.prank(address(seaport));
-        vm.expectRevert(NexListingRegistry.ConsiderationMismatch.selector);
+        vm.expectRevert(OFLDListingRegistry.ConsiderationMismatch.selector);
         zone.authorizeOrder(parameters);
     }
 
     function testZoneExposesCanonicalSeaportInterface() public view {
-        assertTrue(zone.supportsInterface(type(INexSeaportZone).interfaceId));
+        assertTrue(zone.supportsInterface(type(IOuterfieldSeaportZone).interfaceId));
         assertTrue(zone.supportsInterface(0x01ffc9a7));
         assertFalse(zone.supportsInterface(0xffffffff));
         (string memory name, SeaportSchema[] memory schemas) = zone.getSeaportMetadata();
-        assertEq(name, "NexMarketsZone");
+        assertEq(name, "OuterfieldZone");
         assertEq(schemas.length, 0);
     }
 
@@ -499,8 +499,8 @@ contract NexListingRegistryTest is Test {
         vm.prank(ALICE);
         listingRegistry.cancelListing(orderHash);
 
-        NexListingRegistry.Listing memory listing = listingRegistry.listingInfo(orderHash);
-        assertEq(uint256(listing.status), uint256(NexListingRegistry.ListingStatus.Cancelled));
+        OFLDListingRegistry.Listing memory listing = listingRegistry.listingInfo(orderHash);
+        assertEq(uint256(listing.status), uint256(OFLDListingRegistry.ListingStatus.Cancelled));
         assertFalse(advantageRegistry.isListed(address(edition), 1));
         assertEq(royaltyVault.claimInfo(orderHash).amount, 0);
     }
@@ -512,21 +512,21 @@ contract NexListingRegistryTest is Test {
 
         assertFalse(listingRegistry.isListingActive(orderHash));
         listingRegistry.syncListing(orderHash);
-        NexListingRegistry.Listing memory listing = listingRegistry.listingInfo(orderHash);
-        assertEq(uint256(listing.status), uint256(NexListingRegistry.ListingStatus.Stale));
+        OFLDListingRegistry.Listing memory listing = listingRegistry.listingInfo(orderHash);
+        assertEq(uint256(listing.status), uint256(OFLDListingRegistry.ListingStatus.Stale));
         assertFalse(advantageRegistry.isListed(address(edition), 1));
         assertEq(royaltyVault.claimInfo(orderHash).amount, 0);
     }
 
     function testExpiryBecomesInactiveAndSyncReleasesLock() public {
         bytes32 orderHash = _create();
-        NexListingRegistry.Listing memory created = listingRegistry.listingInfo(orderHash);
+        OFLDListingRegistry.Listing memory created = listingRegistry.listingInfo(orderHash);
         vm.warp(created.expiry);
         assertFalse(listingRegistry.isListingActive(orderHash));
 
         listingRegistry.syncListing(orderHash);
-        NexListingRegistry.Listing memory listing = listingRegistry.listingInfo(orderHash);
-        assertEq(uint256(listing.status), uint256(NexListingRegistry.ListingStatus.Expired));
+        OFLDListingRegistry.Listing memory listing = listingRegistry.listingInfo(orderHash);
+        assertEq(uint256(listing.status), uint256(OFLDListingRegistry.ListingStatus.Expired));
         assertFalse(advantageRegistry.isListed(address(edition), 1));
         assertEq(royaltyVault.claimInfo(orderHash).amount, 0);
     }
@@ -534,14 +534,14 @@ contract NexListingRegistryTest is Test {
     function testZoneRejectsExpiredOrTransferredOrderBeforeSync() public {
         bytes32 expiryOrder = _create();
         SeaportZoneParameters memory expiryParameters = _zoneParameters(expiryOrder);
-        NexListingRegistry.Listing memory expiryListing = listingRegistry.listingInfo(expiryOrder);
+        OFLDListingRegistry.Listing memory expiryListing = listingRegistry.listingInfo(expiryOrder);
         vm.warp(expiryListing.expiry);
 
         vm.prank(address(seaport));
-        vm.expectRevert(NexListingRegistry.ListingNotActive.selector);
+        vm.expectRevert(OFLDListingRegistry.ListingNotActive.selector);
         zone.authorizeOrder(expiryParameters);
         assertEq(
-            uint256(listingRegistry.listingInfo(expiryOrder).status), uint256(NexListingRegistry.ListingStatus.Active)
+            uint256(listingRegistry.listingInfo(expiryOrder).status), uint256(OFLDListingRegistry.ListingStatus.Active)
         );
         assertTrue(advantageRegistry.isListed(address(edition), 1));
         listingRegistry.syncListing(expiryOrder);
@@ -553,10 +553,10 @@ contract NexListingRegistryTest is Test {
         vm.prank(ALICE);
         edition.transferFrom(ALICE, BOB, 1);
         vm.prank(address(seaport));
-        vm.expectRevert(NexListingRegistry.ListingNotActive.selector);
+        vm.expectRevert(OFLDListingRegistry.ListingNotActive.selector);
         zone.authorizeOrder(transferParameters);
         assertEq(
-            uint256(listingRegistry.listingInfo(transferOrder).status), uint256(NexListingRegistry.ListingStatus.Active)
+            uint256(listingRegistry.listingInfo(transferOrder).status), uint256(OFLDListingRegistry.ListingStatus.Active)
         );
         listingRegistry.syncListing(transferOrder);
         assertFalse(advantageRegistry.isListed(address(edition), 1));
@@ -565,21 +565,21 @@ contract NexListingRegistryTest is Test {
     function testZoneCallerAndOneTimeWiringAreFailClosed() public {
         bytes32 orderHash = _create();
         SeaportZoneParameters memory parameters = _zoneParameters(orderHash);
-        vm.expectRevert(NexMarketsZone.NotSeaport.selector);
+        vm.expectRevert(OuterfieldZone.NotSeaport.selector);
         zone.authorizeOrder(parameters);
 
-        NexRoyaltyVault freshVault = new NexRoyaltyVault(OWNER, usdg);
-        NexListingRegistry fresh = new NexListingRegistry(
+        OFLDRoyaltyVault freshVault = new OFLDRoyaltyVault(OWNER, usdg);
+        OFLDListingRegistry fresh = new OFLDListingRegistry(
             OWNER,
             launchRegistry,
-            INexAdvantageListingController(address(advantageRegistry)),
+            IOFLDAdvantageListingController(address(advantageRegistry)),
             freshVault,
             SECONDARY_FEE_RECIPIENT,
             address(seaport)
         );
         MiswiredListingZone wrongZone = new MiswiredListingZone();
         vm.prank(OWNER);
-        vm.expectRevert(NexListingRegistry.ZoneWiringMismatch.selector);
+        vm.expectRevert(OFLDListingRegistry.ZoneWiringMismatch.selector);
         fresh.setZone(address(wrongZone));
         assertEq(fresh.zone(), address(0));
     }

@@ -3,22 +3,22 @@ pragma solidity ^0.8.24;
 
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
-import {NexAdvantageRegistry} from "./NexAdvantageRegistry.sol";
-import {NexLaunchRegistry} from "./NexLaunchRegistry.sol";
+import {OFLDAdvantageRegistry} from "./OFLDAdvantageRegistry.sol";
+import {OFLDLaunchRegistry} from "./OFLDLaunchRegistry.sol";
 
-interface INexMintControllerInitializerView {
+interface IOFLDMintControllerInitializerView {
     function owner() external view returns (address);
     function launchRegistry() external view returns (address);
 }
 
-/// @title NexAdvantageInitializer
+/// @title OFLDAdvantageInitializer
 /// @notice Atomic bridge between a successful primary mint and exact-Pass utility state.
 /// @dev Only the permanently wired MintController may invoke initialization.
 ///      The AdvantageRegistry independently verifies every token's historical
 ///      Terms hash and canonical ADVANTAGES_DOMAIN commitment.
-contract NexAdvantageInitializer is Ownable {
-    NexAdvantageRegistry public immutable advantageRegistry;
-    NexLaunchRegistry public immutable launchRegistry;
+contract OFLDAdvantageInitializer is Ownable {
+    OFLDAdvantageRegistry public immutable advantageRegistry;
+    OFLDLaunchRegistry public immutable launchRegistry;
     address public immutable mintController;
 
     error AddressRequired();
@@ -36,8 +36,8 @@ contract NexAdvantageInitializer is Ownable {
 
     constructor(
         address initialOwner,
-        NexLaunchRegistry launchRegistry_,
-        NexAdvantageRegistry advantageRegistry_,
+        OFLDLaunchRegistry launchRegistry_,
+        OFLDAdvantageRegistry advantageRegistry_,
         address mintController_
     ) Ownable(initialOwner) {
         if (
@@ -52,12 +52,12 @@ contract NexAdvantageInitializer is Ownable {
             launchRegistry_.owner() != initialOwner || advantageRegistry_.owner() != initialOwner
                 || address(advantageRegistry_.launchRegistry()) != address(launchRegistry_)
         ) revert InvalidWiring();
-        try INexMintControllerInitializerView(mintController_).owner() returns (address controllerOwner) {
+        try IOFLDMintControllerInitializerView(mintController_).owner() returns (address controllerOwner) {
             if (controllerOwner != initialOwner) revert InvalidWiring();
         } catch {
             revert InvalidWiring();
         }
-        try INexMintControllerInitializerView(mintController_).launchRegistry() returns (address registry_) {
+        try IOFLDMintControllerInitializerView(mintController_).launchRegistry() returns (address registry_) {
             if (registry_ != address(launchRegistry_)) revert InvalidWiring();
         } catch {
             revert InvalidWiring();
@@ -72,12 +72,12 @@ contract NexAdvantageInitializer is Ownable {
         uint256 firstTokenId,
         uint256 quantity,
         bytes32 termsVersionHash,
-        NexAdvantageRegistry.AdvantageConfig[] calldata configs
+        OFLDAdvantageRegistry.AdvantageConfig[] calldata configs
     ) external {
         if (msg.sender != mintController) revert NotMintController();
         if (edition == address(0) || firstTokenId == 0 || quantity == 0) revert AddressRequired();
 
-        NexLaunchRegistry.Terms memory terms = launchRegistry.termsOf(edition, termsVersionHash);
+        OFLDLaunchRegistry.Terms memory terms = launchRegistry.termsOf(edition, termsVersionHash);
         if (
             terms.advantagesHash == bytes32(0) || configs.length == 0
                 || advantageRegistry.hashAdvantages(configs) != terms.advantagesHash

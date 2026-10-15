@@ -5,7 +5,7 @@ import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
 /// @title MockUSDG
-/// @notice Testnet-only USDG-shaped settlement token for NexMarkets certification.
+/// @notice Testnet-only USDG-shaped settlement token for Outerfield certification.
 /// @dev This contract is intentionally not referenced by the Robinhood mainnet
 ///      deployment planner. It has no proxy or upgrade path and cannot be used
 ///      as a substitute for canonical production USDG.

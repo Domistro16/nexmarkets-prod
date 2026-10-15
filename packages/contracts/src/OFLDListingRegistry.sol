@@ -5,16 +5,16 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 
-import {NexLaunchRegistry} from "./NexLaunchRegistry.sol";
-import {NexRoyaltyVault} from "./NexRoyaltyVault.sol";
+import {OFLDLaunchRegistry} from "./OFLDLaunchRegistry.sol";
+import {OFLDRoyaltyVault} from "./OFLDRoyaltyVault.sol";
 import {SeaportItemType, SeaportReceivedItem, SeaportSpentItem, SeaportZoneParameters} from "./SeaportTypes.sol";
 
-interface INexAdvantageListingController {
+interface IOFLDAdvantageListingController {
     function owner() external view returns (address);
     function setListed(address edition, uint256 tokenId, bool listed) external;
 }
 
-interface INexPassEditionListingView {
+interface IOFLDPassEditionListingView {
     function ownerOf(uint256 tokenId) external view returns (address);
     function termsVersionHashOf(uint256 tokenId) external view returns (bytes32);
     function royaltyInfo(uint256 tokenId, uint256 salePrice)
@@ -23,22 +23,22 @@ interface INexPassEditionListingView {
         returns (address receiver, uint256 royaltyAmount);
 }
 
-interface INexMarketsZoneWiring {
+interface IOuterfieldZoneWiring {
     function listingRegistry() external view returns (address);
     function seaport() external view returns (address);
     function owner() external view returns (address);
 }
 
-/// @title NexListingRegistry
+/// @title OFLDListingRegistry
 /// @notice Canonical listing state for an exact Edition/token ID.
 /// @dev Seaport remains the settlement and ownership-transfer authority. This
 ///      registry binds the signed order's zoneHash to the Pass, seller, USDG
 ///      price, historical Terms version, ERC-2981 royalty, and expiry. The
-///      registry is also the one-time listing authority of NexAdvantageRegistry.
-contract NexListingRegistry is Ownable, ReentrancyGuard {
+///      registry is also the one-time listing authority of OFLDAdvantageRegistry.
+contract OFLDListingRegistry is Ownable, ReentrancyGuard {
     uint16 public constant BPS_DENOMINATOR = 10_000;
     uint16 public constant SECONDARY_PROTOCOL_FEE_BPS = 100;
-    bytes32 public constant LISTING_ZONE_DOMAIN = keccak256("NEXMARKETS_LISTING_ZONE_V1");
+    bytes32 public constant LISTING_ZONE_DOMAIN = keccak256("OUTERFIELD_LISTING_ZONE_V1");
 
     enum ListingStatus {
         None,
@@ -73,9 +73,9 @@ contract NexListingRegistry is Ownable, ReentrancyGuard {
         ListingStatus status;
     }
 
-    NexLaunchRegistry public immutable launchRegistry;
-    INexAdvantageListingController public immutable advantageRegistry;
-    NexRoyaltyVault public immutable royaltyVault;
+    OFLDLaunchRegistry public immutable launchRegistry;
+    IOFLDAdvantageListingController public immutable advantageRegistry;
+    OFLDRoyaltyVault public immutable royaltyVault;
     address public immutable protocolFeeRecipient;
     address public immutable seaport;
     address public zone;
@@ -140,9 +140,9 @@ contract NexListingRegistry is Ownable, ReentrancyGuard {
 
     constructor(
         address initialOwner,
-        NexLaunchRegistry launchRegistry_,
-        INexAdvantageListingController advantageRegistry_,
-        NexRoyaltyVault royaltyVault_,
+        OFLDLaunchRegistry launchRegistry_,
+        IOFLDAdvantageListingController advantageRegistry_,
+        OFLDRoyaltyVault royaltyVault_,
         address protocolFeeRecipient_,
         address seaport_
     ) Ownable(initialOwner) {
@@ -177,17 +177,17 @@ contract NexListingRegistry is Ownable, ReentrancyGuard {
         if (zone_ == address(0)) revert ZoneRequired();
         if (zone_.code.length == 0) revert ZoneRequired();
 
-        try INexMarketsZoneWiring(zone_).listingRegistry() returns (address registry_) {
+        try IOuterfieldZoneWiring(zone_).listingRegistry() returns (address registry_) {
             if (registry_ != address(this)) revert ZoneWiringMismatch();
         } catch {
             revert ZoneWiringMismatch();
         }
-        try INexMarketsZoneWiring(zone_).seaport() returns (address seaport_) {
+        try IOuterfieldZoneWiring(zone_).seaport() returns (address seaport_) {
             if (seaport_ != seaport) revert ZoneWiringMismatch();
         } catch {
             revert ZoneWiringMismatch();
         }
-        try INexMarketsZoneWiring(zone_).owner() returns (address zoneOwner) {
+        try IOuterfieldZoneWiring(zone_).owner() returns (address zoneOwner) {
             if (zoneOwner != owner()) revert ZoneWiringMismatch();
         } catch {
             revert ZoneWiringMismatch();
@@ -272,7 +272,7 @@ contract NexListingRegistry is Ownable, ReentrancyGuard {
         listing.status = ListingStatus.Active;
         _activeListing[request.edition][request.tokenId] = request.orderHash;
 
-        // NexAdvantageRegistry has already fail-closed this registry as its
+        // OFLDAdvantageRegistry has already fail-closed this registry as its
         // one-time listing authority; this call locks utility before signing.
         advantageRegistry.setListed(request.edition, request.tokenId, true);
 
@@ -284,16 +284,16 @@ contract NexListingRegistry is Ownable, ReentrancyGuard {
         view
         returns (address royaltyReceiver, uint96 royaltyBps)
     {
-        NexLaunchRegistry.Terms memory terms;
+        OFLDLaunchRegistry.Terms memory terms;
         try launchRegistry.termsOf(request.edition, request.termsVersionHash) returns (
-            NexLaunchRegistry.Terms memory terms_
+            OFLDLaunchRegistry.Terms memory terms_
         ) {
             terms = terms_;
         } catch {
             revert TermsVersionNotFound();
         }
 
-        try INexPassEditionListingView(request.edition).termsVersionHashOf(request.tokenId) returns (
+        try IOFLDPassEditionListingView(request.edition).termsVersionHashOf(request.tokenId) returns (
             bytes32 termsHash_
         ) {
             if (termsHash_ != request.termsVersionHash) revert EditionTermsMismatch();
@@ -302,7 +302,7 @@ contract NexListingRegistry is Ownable, ReentrancyGuard {
         }
 
         (address editionRoyaltyReceiver, uint256 editionRoyaltyAmount) =
-            INexPassEditionListingView(request.edition).royaltyInfo(request.tokenId, BPS_DENOMINATOR);
+            IOFLDPassEditionListingView(request.edition).royaltyInfo(request.tokenId, BPS_DENOMINATOR);
         if (editionRoyaltyReceiver != terms.royaltyReceiver || editionRoyaltyAmount != terms.royaltyBps) {
             revert RoyaltyMismatch();
         }
@@ -360,7 +360,7 @@ contract NexListingRegistry is Ownable, ReentrancyGuard {
         revert ListingNotStale();
     }
 
-    /// @dev Called by NexMarketsZone before Seaport transfers the Pass.
+    /// @dev Called by OuterfieldZone before Seaport transfers the Pass.
     function authorizeOrder(SeaportZoneParameters calldata zoneParameters) external view onlyZone {
         Listing storage listing = _active(zoneParameters.orderHash);
         _requireWindowOpen(listing);
@@ -373,7 +373,7 @@ contract NexListingRegistry is Ownable, ReentrancyGuard {
         _validateOrderShape(listing, zoneParameters);
     }
 
-    /// @dev Called by NexMarketsZone after Seaport transfers the Pass.
+    /// @dev Called by OuterfieldZone after Seaport transfers the Pass.
     function validateOrder(SeaportZoneParameters calldata zoneParameters) external onlyZone {
         Listing storage listing = _active(zoneParameters.orderHash);
         _requireWindowOpen(listing);
@@ -506,7 +506,7 @@ contract NexListingRegistry is Ownable, ReentrancyGuard {
     }
 
     function _ownerOfOrZero(address edition, uint256 tokenId) internal view returns (address currentOwner) {
-        try INexPassEditionListingView(edition).ownerOf(tokenId) returns (address owner_) {
+        try IOFLDPassEditionListingView(edition).ownerOf(tokenId) returns (address owner_) {
             currentOwner = owner_;
         } catch {
             currentOwner = address(0);

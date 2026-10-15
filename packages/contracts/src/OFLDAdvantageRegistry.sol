@@ -5,31 +5,31 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
-import {NexLaunchRegistry} from "./NexLaunchRegistry.sol";
+import {OFLDLaunchRegistry} from "./OFLDLaunchRegistry.sol";
 
-interface INexPassEditionAdvantageView is IERC721 {
+interface IOFLDPassEditionAdvantageView is IERC721 {
     function termsVersionHashOf(uint256 tokenId) external view returns (bytes32);
 }
 
-interface INexAdvantageInitializerWiring {
+interface IOFLDAdvantageInitializerWiring {
     function advantageRegistry() external view returns (address);
     function launchRegistry() external view returns (address);
     function owner() external view returns (address);
 }
 
-interface INexAdvantageListingWiring {
+interface IOFLDAdvantageListingWiring {
     function advantageRegistry() external view returns (address);
     function owner() external view returns (address);
 }
 
-/// @title NexAdvantageRegistry
+/// @title OFLDAdvantageRegistry
 /// @notice Canonical remaining utility state for each exact Edition/token ID.
 /// @dev Ownership remains authoritative in the Edition ERC-721. This registry
 ///      stores only the utility attached to that exact serial: transfer never
 ///      rewrites it, and a listing authority can conservatively lock usage.
-contract NexAdvantageRegistry is Ownable, ReentrancyGuard {
+contract OFLDAdvantageRegistry is Ownable, ReentrancyGuard {
     uint8 public constant MAX_ADVANTAGES_PER_PASS = 8;
-    bytes32 public constant ADVANTAGES_DOMAIN = keccak256("NEXMARKETS_ADVANTAGES_V1");
+    bytes32 public constant ADVANTAGES_DOMAIN = keccak256("OUTERFIELD_ADVANTAGES_V1");
 
     enum AdvantageKind {
         TimeBased,
@@ -68,7 +68,7 @@ contract NexAdvantageRegistry is Ownable, ReentrancyGuard {
         uint64 frozenSeconds;
     }
 
-    NexLaunchRegistry public immutable launchRegistry;
+    OFLDLaunchRegistry public immutable launchRegistry;
     address public initializer;
     address public listingAuthority;
 
@@ -132,7 +132,7 @@ contract NexAdvantageRegistry is Ownable, ReentrancyGuard {
         _;
     }
 
-    constructor(address initialOwner, NexLaunchRegistry launchRegistry_) Ownable(initialOwner) {
+    constructor(address initialOwner, OFLDLaunchRegistry launchRegistry_) Ownable(initialOwner) {
         if (initialOwner == address(0) || address(launchRegistry_) == address(0)) revert AddressRequired();
         if (address(launchRegistry_).code.length == 0 || launchRegistry_.owner() != initialOwner) {
             revert AddressRequired();
@@ -191,20 +191,20 @@ contract NexAdvantageRegistry is Ownable, ReentrancyGuard {
 
         address passOwner;
         bytes32 editionTermsHash;
-        try INexPassEditionAdvantageView(edition).ownerOf(tokenId) returns (address owner_) {
+        try IOFLDPassEditionAdvantageView(edition).ownerOf(tokenId) returns (address owner_) {
             passOwner = owner_;
         } catch {
             revert InvalidPass();
         }
-        try INexPassEditionAdvantageView(edition).termsVersionHashOf(tokenId) returns (bytes32 termsHash_) {
+        try IOFLDPassEditionAdvantageView(edition).termsVersionHashOf(tokenId) returns (bytes32 termsHash_) {
             editionTermsHash = termsHash_;
         } catch {
             revert InvalidPass();
         }
         if (passOwner == address(0) || editionTermsHash != termsVersionHash) revert TermsVersionMismatch();
 
-        NexLaunchRegistry.Terms memory terms;
-        try launchRegistry.termsOf(edition, termsVersionHash) returns (NexLaunchRegistry.Terms memory terms_) {
+        OFLDLaunchRegistry.Terms memory terms;
+        try launchRegistry.termsOf(edition, termsVersionHash) returns (OFLDLaunchRegistry.Terms memory terms_) {
             terms = terms_;
         } catch {
             revert TermsVersionMismatch();
@@ -426,7 +426,7 @@ contract NexAdvantageRegistry is Ownable, ReentrancyGuard {
 
     function _requirePassOwner(address edition, uint256 tokenId) internal view {
         address currentOwner;
-        try INexPassEditionAdvantageView(edition).ownerOf(tokenId) returns (address owner_) {
+        try IOFLDPassEditionAdvantageView(edition).ownerOf(tokenId) returns (address owner_) {
             currentOwner = owner_;
         } catch {
             revert InvalidPass();
@@ -464,19 +464,19 @@ contract NexAdvantageRegistry is Ownable, ReentrancyGuard {
     }
 
     function _validateInitializerWiring(address initializer_) internal view {
-        try INexAdvantageInitializerWiring(initializer_).advantageRegistry() returns (address registry_) {
+        try IOFLDAdvantageInitializerWiring(initializer_).advantageRegistry() returns (address registry_) {
             if (registry_ != address(this)) revert InitializerWiringMismatch();
         } catch {
             revert InitializerWiringMismatch();
         }
 
-        try INexAdvantageInitializerWiring(initializer_).launchRegistry() returns (address registry_) {
+        try IOFLDAdvantageInitializerWiring(initializer_).launchRegistry() returns (address registry_) {
             if (registry_ != address(launchRegistry)) revert InitializerWiringMismatch();
         } catch {
             revert InitializerWiringMismatch();
         }
 
-        try INexAdvantageInitializerWiring(initializer_).owner() returns (address initializerOwner) {
+        try IOFLDAdvantageInitializerWiring(initializer_).owner() returns (address initializerOwner) {
             if (initializerOwner != owner()) revert InitializerWiringMismatch();
         } catch {
             revert InitializerWiringMismatch();
@@ -484,13 +484,13 @@ contract NexAdvantageRegistry is Ownable, ReentrancyGuard {
     }
 
     function _validateListingAuthorityWiring(address listingAuthority_) internal view {
-        try INexAdvantageListingWiring(listingAuthority_).advantageRegistry() returns (address registry_) {
+        try IOFLDAdvantageListingWiring(listingAuthority_).advantageRegistry() returns (address registry_) {
             if (registry_ != address(this)) revert ListingAuthorityWiringMismatch();
         } catch {
             revert ListingAuthorityWiringMismatch();
         }
 
-        try INexAdvantageListingWiring(listingAuthority_).owner() returns (address authorityOwner) {
+        try IOFLDAdvantageListingWiring(listingAuthority_).owner() returns (address authorityOwner) {
             if (authorityOwner != owner()) revert ListingAuthorityWiringMismatch();
         } catch {
             revert ListingAuthorityWiringMismatch();

@@ -5,21 +5,21 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {Test} from "forge-std/Test.sol";
 import {console2} from "forge-std/console2.sol";
 
-import {NexAdvantageInitializer} from "../src/NexAdvantageInitializer.sol";
-import {NexAdvantageRegistry} from "../src/NexAdvantageRegistry.sol";
-import {NexLaunchRegistry} from "../src/NexLaunchRegistry.sol";
-import {INexAdvantageListingController, NexListingRegistry} from "../src/NexListingRegistry.sol";
-import {NexMarketsZone} from "../src/NexMarketsZone.sol";
-import {NexMintController} from "../src/NexMintController.sol";
-import {NexPassEdition} from "../src/NexPassEdition.sol";
-import {NexPassFactory} from "../src/NexPassFactory.sol";
-import {NexRoyaltyVault} from "../src/NexRoyaltyVault.sol";
-import {NexTBAResolver} from "../src/NexTBAResolver.sol";
+import {OFLDAdvantageInitializer} from "../src/OFLDAdvantageInitializer.sol";
+import {OFLDAdvantageRegistry} from "../src/OFLDAdvantageRegistry.sol";
+import {OFLDLaunchRegistry} from "../src/OFLDLaunchRegistry.sol";
+import {IOFLDAdvantageListingController, OFLDListingRegistry} from "../src/OFLDListingRegistry.sol";
+import {OuterfieldZone} from "../src/OuterfieldZone.sol";
+import {OFLDMintController} from "../src/OFLDMintController.sol";
+import {OFLDPassEdition} from "../src/OFLDPassEdition.sol";
+import {OFLDPassFactory} from "../src/OFLDPassFactory.sol";
+import {OFLDRoyaltyVault} from "../src/OFLDRoyaltyVault.sol";
+import {OFLDTBAResolver} from "../src/OFLDTBAResolver.sol";
 import {IERC6551Registry} from "../src/erc6551/IERC6551.sol";
-import {NexPassAccount} from "../src/erc6551/NexPassAccount.sol";
+import {OFLDPassAccount} from "../src/erc6551/OFLDPassAccount.sol";
 import {SeaportItemType} from "../src/SeaportTypes.sol";
 
-/// @dev Exact Seaport 1.6 order ABI. Declared locally so NexMarkets neither
+/// @dev Exact Seaport 1.6 order ABI. Declared locally so Outerfield neither
 ///      forks nor deploys Seaport source, matching SeaportTypes.sol.
 enum SeaportOrderType {
     FULL_OPEN,
@@ -94,8 +94,8 @@ interface ISeaport {
 ///         transferFrom, so no Seaport order was ever signed or fulfilled and
 ///         the entire secondary money path stayed unproven. This exercises it
 ///         for real: a signed restricted order, fulfilled by canonical Seaport
-///         1.6, paying canonical Base Sepolia USDC, driving NexMarketsZone's
-///         authorizeOrder and validateOrder callbacks and NexRoyaltyVault
+///         1.6, paying canonical Base Sepolia USDC, driving OuterfieldZone's
+///         authorizeOrder and validateOrder callbacks and OFLDRoyaltyVault
 ///         accrual as a single atomic settlement.
 contract SeaportFulfillmentForkTest is Test {
     address internal constant USDC = 0x036CbD53842c5426634e7929541eC2318f3dCF7e;
@@ -108,7 +108,7 @@ contract SeaportFulfillmentForkTest is Test {
     uint256 internal constant SALE_PRICE = 250 * USDC_ONE;
     uint96 internal constant ROYALTY_BPS = 500;
 
-    // NexListingRegistry.SECONDARY_PROTOCOL_FEE_BPS is 100 (1%).
+    // OFLDListingRegistry.SECONDARY_PROTOCOL_FEE_BPS is 100 (1%).
     uint256 internal constant EXPECTED_PROTOCOL_FEE = (SALE_PRICE * 100) / 10_000;
     uint256 internal constant EXPECTED_ROYALTY = (SALE_PRICE * ROYALTY_BPS) / 10_000;
     uint256 internal constant EXPECTED_SELLER = SALE_PRICE - EXPECTED_PROTOCOL_FEE - EXPECTED_ROYALTY;
@@ -122,17 +122,17 @@ contract SeaportFulfillmentForkTest is Test {
 
     IERC20 internal usdc;
     ISeaport internal seaport;
-    NexLaunchRegistry internal launchRegistry;
-    NexMintController internal mintController;
-    NexPassFactory internal passFactory;
-    NexAdvantageRegistry internal advantageRegistry;
-    NexAdvantageInitializer internal advantageInitializer;
-    NexRoyaltyVault internal royaltyVault;
-    NexListingRegistry internal listingRegistry;
-    NexMarketsZone internal zone;
-    NexPassAccount internal passAccountImpl;
-    NexTBAResolver internal tbaResolver;
-    NexPassEdition internal baldies;
+    OFLDLaunchRegistry internal launchRegistry;
+    OFLDMintController internal mintController;
+    OFLDPassFactory internal passFactory;
+    OFLDAdvantageRegistry internal advantageRegistry;
+    OFLDAdvantageInitializer internal advantageInitializer;
+    OFLDRoyaltyVault internal royaltyVault;
+    OFLDListingRegistry internal listingRegistry;
+    OuterfieldZone internal zone;
+    OFLDPassAccount internal passAccountImpl;
+    OFLDTBAResolver internal tbaResolver;
+    OFLDPassEdition internal baldies;
 
     bytes32 internal termsHash;
     // Fixed once so the Advantage commitment hash is stable across warps.
@@ -171,24 +171,24 @@ contract SeaportFulfillmentForkTest is Test {
 
     function _deployStack() internal {
         vm.startPrank(protocolAdmin);
-        launchRegistry = new NexLaunchRegistry(protocolAdmin, USDC);
-        mintController = new NexMintController(protocolAdmin, launchRegistry, IERC20(USDC), feeRecipient);
-        passFactory = new NexPassFactory(protocolAdmin, protocolAdmin, launchRegistry, mintController);
-        advantageRegistry = new NexAdvantageRegistry(protocolAdmin, launchRegistry);
+        launchRegistry = new OFLDLaunchRegistry(protocolAdmin, USDC);
+        mintController = new OFLDMintController(protocolAdmin, launchRegistry, IERC20(USDC), feeRecipient);
+        passFactory = new OFLDPassFactory(protocolAdmin, protocolAdmin, launchRegistry, mintController);
+        advantageRegistry = new OFLDAdvantageRegistry(protocolAdmin, launchRegistry);
         advantageInitializer =
-            new NexAdvantageInitializer(protocolAdmin, launchRegistry, advantageRegistry, address(mintController));
-        royaltyVault = new NexRoyaltyVault(protocolAdmin, IERC20(USDC));
-        listingRegistry = new NexListingRegistry(
+            new OFLDAdvantageInitializer(protocolAdmin, launchRegistry, advantageRegistry, address(mintController));
+        royaltyVault = new OFLDRoyaltyVault(protocolAdmin, IERC20(USDC));
+        listingRegistry = new OFLDListingRegistry(
             protocolAdmin,
             launchRegistry,
-            INexAdvantageListingController(address(advantageRegistry)),
+            IOFLDAdvantageListingController(address(advantageRegistry)),
             royaltyVault,
             feeRecipient,
             SEAPORT_16
         );
-        zone = new NexMarketsZone(protocolAdmin, listingRegistry, SEAPORT_16);
-        passAccountImpl = new NexPassAccount(address(listingRegistry));
-        tbaResolver = new NexTBAResolver(
+        zone = new OuterfieldZone(protocolAdmin, listingRegistry, SEAPORT_16);
+        passAccountImpl = new OFLDPassAccount(address(listingRegistry));
+        tbaResolver = new OFLDTBAResolver(
             passFactory,
             IERC6551Registry(ERC6551_REGISTRY),
             address(passAccountImpl),
@@ -209,9 +209,9 @@ contract SeaportFulfillmentForkTest is Test {
         advStartsAt = uint64(block.timestamp);
         advEndsAt = uint64(block.timestamp + 365 days);
         vm.prank(alice);
-        baldies = NexPassEdition(
+        baldies = OFLDPassEdition(
             passFactory.createEdition(
-                NexPassEdition.EditionConfig({
+                OFLDPassEdition.EditionConfig({
                     name: "Baldies",
                     symbol: "BALDIES",
                     initialOwner: alice,
@@ -232,7 +232,7 @@ contract SeaportFulfillmentForkTest is Test {
         vm.prank(alice);
         termsHash = launchRegistry.publishTerms(
             address(baldies),
-            NexLaunchRegistry.Terms({
+            OFLDLaunchRegistry.Terms({
                 activeSupply: SUPPLY,
                 pricePerPass: PRICE,
                 previewStartsAt: previewStartsAt,
@@ -259,7 +259,7 @@ contract SeaportFulfillmentForkTest is Test {
         vm.warp(allowlistEndsAt);
         vm.prank(bob);
         uint256 serial = mintController.mint(
-            NexMintController.MintRequest({
+            OFLDMintController.MintRequest({
                 edition: address(baldies),
                 termsVersionHash: termsHash,
                 recipient: bob,
@@ -273,11 +273,11 @@ contract SeaportFulfillmentForkTest is Test {
         assertEq(baldies.ownerOf(1), bob);
     }
 
-    function _advantageConfigs() internal view returns (NexAdvantageRegistry.AdvantageConfig[] memory configs) {
-        configs = new NexAdvantageRegistry.AdvantageConfig[](1);
-        configs[0] = NexAdvantageRegistry.AdvantageConfig({
+    function _advantageConfigs() internal view returns (OFLDAdvantageRegistry.AdvantageConfig[] memory configs) {
+        configs = new OFLDAdvantageRegistry.AdvantageConfig[](1);
+        configs[0] = OFLDAdvantageRegistry.AdvantageConfig({
             advantageId: keccak256("baldies:credits"),
-            kind: NexAdvantageRegistry.AdvantageKind.QuantityBased,
+            kind: OFLDAdvantageRegistry.AdvantageKind.QuantityBased,
             startsAt: advStartsAt,
             endsAt: advEndsAt,
             totalUnits: 10,
@@ -305,7 +305,7 @@ contract SeaportFulfillmentForkTest is Test {
         view
         returns (ConsiderationItem[] memory consideration)
     {
-        // Canonical order required by NexListingRegistry._validateOrderShape:
+        // Canonical order required by OFLDListingRegistry._validateOrderShape:
         // protocol fee, then royalty vault, then seller.
         consideration = new ConsiderationItem[](3);
         consideration[0] = _usdcTo(feeRecipient, protocolFee);
@@ -367,7 +367,7 @@ contract SeaportFulfillmentForkTest is Test {
         return abi.encodePacked(r, s, v);
     }
 
-    /// @dev Builds the signed order and registers the matching NexMarkets listing.
+    /// @dev Builds the signed order and registers the matching Outerfield listing.
     function _listAndSign(uint256 protocolFee, uint256 royalty, uint256 sellerProceeds)
         internal
         returns (Order memory order, bytes32 orderHash)
@@ -387,7 +387,7 @@ contract SeaportFulfillmentForkTest is Test {
         bytes32 passTermsHash = baldies.termsVersionHashOf(1);
         vm.prank(bob);
         bytes32 registeredZoneHash = listingRegistry.createListing(
-            NexListingRegistry.ListingRequest({
+            OFLDListingRegistry.ListingRequest({
                 orderHash: orderHash,
                 edition: address(baldies),
                 tokenId: 1,
@@ -416,7 +416,7 @@ contract SeaportFulfillmentForkTest is Test {
             _listAndSign(EXPECTED_PROTOCOL_FEE, EXPECTED_ROYALTY, EXPECTED_SELLER);
 
         address passVault = tbaResolver.createAccount(address(baldies), 1);
-        assertTrue(NexPassAccount(payable(passVault)).isVaultLocked(), "Vault locks while listed");
+        assertTrue(OFLDPassAccount(payable(passVault)).isVaultLocked(), "Vault locks while listed");
 
         uint256 feeBefore = usdc.balanceOf(feeRecipient);
         uint256 vaultBefore = usdc.balanceOf(address(royaltyVault));
@@ -440,13 +440,13 @@ contract SeaportFulfillmentForkTest is Test {
         );
 
         // validateOrder ran and closed the listing.
-        NexListingRegistry.Listing memory listing = listingRegistry.listingInfo(orderHash);
-        assertEq(uint8(listing.status), uint8(NexListingRegistry.ListingStatus.Filled), "listing must be Filled");
+        OFLDListingRegistry.Listing memory listing = listingRegistry.listingInfo(orderHash);
+        assertEq(uint8(listing.status), uint8(OFLDListingRegistry.ListingStatus.Filled), "listing must be Filled");
         assertFalse(listingRegistry.isListingActive(orderHash), "filled listing is not active");
         assertEq(listingRegistry.activeListingFor(address(baldies), 1), bytes32(0), "active pointer cleared");
 
         // Royalty accrual recorded against the order, held for 30 days.
-        NexRoyaltyVault.RoyaltyClaim memory claim = royaltyVault.claimInfo(orderHash);
+        OFLDRoyaltyVault.RoyaltyClaim memory claim = royaltyVault.claimInfo(orderHash);
         assertEq(claim.amount, EXPECTED_ROYALTY, "royalty claim amount");
         assertEq(claim.builder, alice, "royalty accrues to the Builder");
         assertEq(claim.edition, address(baldies));
@@ -456,7 +456,7 @@ contract SeaportFulfillmentForkTest is Test {
         assertFalse(royaltyVault.isWithdrawable(orderHash), "royalty is locked for the hold period");
 
         // The sale itself released the Vault lock, with no extra transaction.
-        assertFalse(NexPassAccount(payable(passVault)).isVaultLocked(), "sale releases the Vault lock");
+        assertFalse(OFLDPassAccount(payable(passVault)).isVaultLocked(), "sale releases the Vault lock");
         assertFalse(advantageRegistry.isListed(address(baldies), 1), "Advantage lock released on settlement");
 
         console2.log("Seaport 1.6 fulfilment settled. protocolFee/royalty/seller (USDC base units):");
@@ -470,7 +470,7 @@ contract SeaportFulfillmentForkTest is Test {
         seaport.fulfillOrder(order, bytes32(0));
 
         vm.prank(alice);
-        vm.expectRevert(NexRoyaltyVault.RoyaltyStillLocked.selector);
+        vm.expectRevert(OFLDRoyaltyVault.RoyaltyStillLocked.selector);
         royaltyVault.withdraw(orderHash);
 
         vm.warp(block.timestamp + royaltyVault.HOLD_PERIOD());
@@ -478,7 +478,7 @@ contract SeaportFulfillmentForkTest is Test {
 
         // Only the bound Builder may withdraw.
         vm.prank(charlie);
-        vm.expectRevert(NexRoyaltyVault.NotBuilder.selector);
+        vm.expectRevert(OFLDRoyaltyVault.NotBuilder.selector);
         royaltyVault.withdraw(orderHash);
 
         uint256 aliceBefore = usdc.balanceOf(alice);
@@ -526,7 +526,7 @@ contract SeaportFulfillmentForkTest is Test {
         bytes32 passTermsHash = baldies.termsVersionHashOf(1);
         vm.prank(bob);
         listingRegistry.createListing(
-            NexListingRegistry.ListingRequest({
+            OFLDListingRegistry.ListingRequest({
                 orderHash: orderHash,
                 edition: address(baldies),
                 tokenId: 1,
@@ -544,7 +544,7 @@ contract SeaportFulfillmentForkTest is Test {
         Order memory order = Order({parameters: _parameters(underpaid), signature: _sign(orderHash)});
 
         vm.prank(charlie);
-        vm.expectRevert(NexListingRegistry.ConsiderationMismatch.selector);
+        vm.expectRevert(OFLDListingRegistry.ConsiderationMismatch.selector);
         seaport.fulfillOrder(order, bytes32(0));
 
         assertEq(baldies.ownerOf(1), bob, "underpaid order must not settle");
@@ -567,7 +567,7 @@ contract SeaportFulfillmentForkTest is Test {
         Order memory skimmedOrder = Order({parameters: _parameters(skimmed), signature: _sign(skimmedHash)});
 
         vm.prank(charlie);
-        vm.expectRevert(NexListingRegistry.ListingNotActive.selector);
+        vm.expectRevert(OFLDListingRegistry.ListingNotActive.selector);
         seaport.fulfillOrder(skimmedOrder, bytes32(0));
 
         assertEq(baldies.ownerOf(1), bob, "royalty-skimming order must not settle");

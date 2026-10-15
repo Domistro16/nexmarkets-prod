@@ -3,21 +3,21 @@ pragma solidity ^0.8.24;
 
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
-import {NexListingRegistry} from "./NexListingRegistry.sol";
-import {INexSeaportZone, SeaportSchema, SeaportZoneParameters} from "./SeaportTypes.sol";
+import {OFLDListingRegistry} from "./OFLDListingRegistry.sol";
+import {IOuterfieldSeaportZone, SeaportSchema, SeaportZoneParameters} from "./SeaportTypes.sol";
 
-/// @title NexMarketsZone
-/// @notice Thin Seaport 1.6 adapter for NexListingRegistry.
-/// @dev All NexMarkets listing policy remains in NexListingRegistry. This
+/// @title OuterfieldZone
+/// @notice Thin Seaport 1.6 adapter for OFLDListingRegistry.
+/// @dev All Outerfield listing policy remains in OFLDListingRegistry. This
 ///      contract only authenticates Seaport as caller and returns Seaport's
 ///      required zone magic values.
-contract NexMarketsZone is Ownable, INexSeaportZone {
-    NexListingRegistry public immutable listingRegistry;
+contract OuterfieldZone is Ownable, IOuterfieldSeaportZone {
+    OFLDListingRegistry public immutable listingRegistry;
     address public immutable seaport;
 
     error NotSeaport();
 
-    constructor(address initialOwner, NexListingRegistry listingRegistry_, address seaport_) Ownable(initialOwner) {
+    constructor(address initialOwner, OFLDListingRegistry listingRegistry_, address seaport_) Ownable(initialOwner) {
         if (initialOwner == address(0) || address(listingRegistry_) == address(0) || seaport_ == address(0)) {
             revert NotSeaport();
         }
@@ -52,10 +52,10 @@ contract NexMarketsZone is Ownable, INexSeaportZone {
 
     function getSeaportMetadata() external pure override returns (string memory name, SeaportSchema[] memory schemas) {
         schemas = new SeaportSchema[](0);
-        return ("NexMarketsZone", schemas);
+        return ("OuterfieldZone", schemas);
     }
 
     function supportsInterface(bytes4 interfaceId) external pure override returns (bool) {
-        return interfaceId == type(INexSeaportZone).interfaceId || interfaceId == 0x01ffc9a7;
+        return interfaceId == type(IOuterfieldSeaportZone).interfaceId || interfaceId == 0x01ffc9a7;
     }
 }

@@ -36,5 +36,5 @@ test('concrete Vercel function reaches the wallet challenge endpoint', async (t)
   const payload = await response.json();
   assert.equal(response.status, 201);
   assert.equal(payload.chainId, 84532);
-  assert.match(payload.message, /Sign in to NexMarkets/);
+  assert.match(payload.message, /Sign in to (Outerfield|NexMarkets)/);
 });

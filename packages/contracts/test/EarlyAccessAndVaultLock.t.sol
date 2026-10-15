@@ -4,15 +4,15 @@ pragma solidity ^0.8.24;
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {Test} from "forge-std/Test.sol";
 
-import {NexAdvantageRegistry} from "../src/NexAdvantageRegistry.sol";
-import {NexLaunchRegistry} from "../src/NexLaunchRegistry.sol";
-import {NexMintController} from "../src/NexMintController.sol";
-import {NexPassEdition} from "../src/NexPassEdition.sol";
-import {NexPassFactory} from "../src/NexPassFactory.sol";
-import {NexTBAResolver} from "../src/NexTBAResolver.sol";
+import {OFLDAdvantageRegistry} from "../src/OFLDAdvantageRegistry.sol";
+import {OFLDLaunchRegistry} from "../src/OFLDLaunchRegistry.sol";
+import {OFLDMintController} from "../src/OFLDMintController.sol";
+import {OFLDPassEdition} from "../src/OFLDPassEdition.sol";
+import {OFLDPassFactory} from "../src/OFLDPassFactory.sol";
+import {OFLDTBAResolver} from "../src/OFLDTBAResolver.sol";
 import {ERC6551Registry} from "../src/erc6551/ERC6551Registry.sol";
 import {IERC6551Executable} from "../src/erc6551/IERC6551.sol";
-import {NexPassAccount} from "../src/erc6551/NexPassAccount.sol";
+import {OFLDPassAccount} from "../src/erc6551/OFLDPassAccount.sol";
 
 contract EAUSDG is ERC20 {
     constructor() ERC20("Global Dollar", "USDG") {}
@@ -22,7 +22,7 @@ contract EAUSDG is ERC20 {
     }
 }
 
-/// @dev Mirrors NexListingRegistry's lock surface so listing state can be driven
+/// @dev Mirrors OFLDListingRegistry's lock surface so listing state can be driven
 ///      directly without standing up Seaport in a unit test.
 contract ListingLockStub {
     mapping(address => mapping(uint256 => bytes32)) internal _active;
@@ -63,20 +63,20 @@ contract ListingLockStub {
 }
 
 /// @title Early Access allowance, allowlist binding and Pass Vault listing lock
-/// @notice Covers the NexMarkets certification cases that the pre-fix protocol
+/// @notice Covers the Outerfield certification cases that the pre-fix protocol
 ///         could not enforce: a per-wallet Early Access cap, an allowlist proof
 ///         that cannot be replayed onto another Edition, and a Pass Vault that
 ///         cannot be drained while the Pass has an executable listing.
 contract EarlyAccessAndVaultLockTest is Test {
     EAUSDG internal usdg;
-    NexLaunchRegistry internal registry;
-    NexMintController internal controller;
-    NexPassFactory internal factory;
-    NexPassEdition internal edition;
-    NexPassEdition internal otherEdition;
+    OFLDLaunchRegistry internal registry;
+    OFLDMintController internal controller;
+    OFLDPassFactory internal factory;
+    OFLDPassEdition internal edition;
+    OFLDPassEdition internal otherEdition;
     ERC6551Registry internal erc6551;
-    NexPassAccount internal implementation;
-    NexTBAResolver internal resolver;
+    OFLDPassAccount internal implementation;
+    OFLDTBAResolver internal resolver;
     ListingLockStub internal listingLock;
 
     address internal constant ALICE = address(0xA11CE); // Builder
@@ -95,21 +95,21 @@ contract EarlyAccessAndVaultLockTest is Test {
 
     function setUp() public {
         usdg = new EAUSDG();
-        registry = new NexLaunchRegistry(address(this), address(usdg));
-        controller = new NexMintController(address(this), registry, usdg, FEE_RECIPIENT);
-        factory = new NexPassFactory(address(this), address(this), registry, controller);
+        registry = new OFLDLaunchRegistry(address(this), address(usdg));
+        controller = new OFLDMintController(address(this), registry, usdg, FEE_RECIPIENT);
+        factory = new OFLDPassFactory(address(this), address(this), registry, controller);
         registry.setFactory(address(factory));
 
         vm.prank(ALICE);
-        edition = NexPassEdition(factory.createEdition(_config("Baldies", keccak256("baldies")), keccak256("s1")));
+        edition = OFLDPassEdition(factory.createEdition(_config("Baldies", keccak256("baldies")), keccak256("s1")));
         vm.prank(ALICE);
         otherEdition =
-            NexPassEdition(factory.createEdition(_config("Other", keccak256("other")), keccak256("s2")));
+            OFLDPassEdition(factory.createEdition(_config("Other", keccak256("other")), keccak256("s2")));
 
         listingLock = new ListingLockStub();
         erc6551 = new ERC6551Registry();
-        implementation = new NexPassAccount(address(listingLock));
-        resolver = new NexTBAResolver(
+        implementation = new OFLDPassAccount(address(listingLock));
+        resolver = new OFLDTBAResolver(
             factory, erc6551, address(implementation), address(erc6551).codehash, address(implementation).codehash
         );
 
@@ -146,7 +146,7 @@ contract EarlyAccessAndVaultLockTest is Test {
 
         // Mint #3 must revert. This is the case the pre-fix protocol allowed.
         vm.prank(BOB);
-        vm.expectRevert(NexMintController.WalletAllowanceExceeded.selector);
+        vm.expectRevert(OFLDMintController.WalletAllowanceExceeded.selector);
         controller.mintAllowlisted(_request(termsHash, BOB, 1, "bob:3"), PER_WALLET, proof);
 
         assertEq(edition.totalMinted(), 2);
@@ -158,7 +158,7 @@ contract EarlyAccessAndVaultLockTest is Test {
 
         // A single oversized batch must not bypass the per-wallet cap either.
         vm.prank(BOB);
-        vm.expectRevert(NexMintController.WalletAllowanceExceeded.selector);
+        vm.expectRevert(OFLDMintController.WalletAllowanceExceeded.selector);
         controller.mintAllowlisted(_request(termsHash, BOB, 3, "bob:batch"), PER_WALLET, _proof(otherLeaf));
         assertEq(edition.totalMinted(), 0);
     }
@@ -169,17 +169,17 @@ contract EarlyAccessAndVaultLockTest is Test {
 
         // Charlie is not in the tree. No proof he can construct verifies.
         vm.prank(CHARLIE);
-        vm.expectRevert(NexMintController.NotAllowlisted.selector);
+        vm.expectRevert(OFLDMintController.NotAllowlisted.selector);
         controller.mintAllowlisted(_request(termsHash, CHARLIE, 1, "charlie:1"), PER_WALLET, _proof(otherLeaf));
 
         // Reusing Bob's proof does not help: the leaf binds msg.sender.
         vm.prank(CHARLIE);
-        vm.expectRevert(NexMintController.NotAllowlisted.selector);
+        vm.expectRevert(OFLDMintController.NotAllowlisted.selector);
         controller.mintAllowlisted(_request(termsHash, CHARLIE, 1, "charlie:2"), PER_WALLET, _proof(bobLeaf));
 
         // Public mint is not open yet, so the public entrypoint is closed too.
         vm.prank(CHARLIE);
-        vm.expectRevert(NexMintController.MintClosed.selector);
+        vm.expectRevert(OFLDMintController.MintClosed.selector);
         controller.mint(_request(termsHash, CHARLIE, 1, "charlie:3"));
     }
 
@@ -189,7 +189,7 @@ contract EarlyAccessAndVaultLockTest is Test {
 
         // Bob claims a larger allowance than his leaf commits. The proof fails.
         vm.prank(BOB);
-        vm.expectRevert(NexMintController.NotAllowlisted.selector);
+        vm.expectRevert(OFLDMintController.NotAllowlisted.selector);
         controller.mintAllowlisted(_request(termsHash, BOB, 1, "bob:inflate"), 500, _proof(otherLeaf));
     }
 
@@ -227,7 +227,7 @@ contract EarlyAccessAndVaultLockTest is Test {
         vm.warp(mintStartsAt);
 
         vm.prank(BOB);
-        vm.expectRevert(NexMintController.AllowlistSupplyExceeded.selector);
+        vm.expectRevert(OFLDMintController.AllowlistSupplyExceeded.selector);
         controller.mintAllowlisted(_request(termsHash, BOB, 3, "bob:overalloc"), 5, _proof(otherLeaf));
 
         // Exactly the allocation is fine.
@@ -251,17 +251,17 @@ contract EarlyAccessAndVaultLockTest is Test {
         vm.warp(mintStartsAt);
 
         // Bob's proof is valid against the root but bound to the first Edition.
-        NexMintController.MintRequest memory request = NexMintController.MintRequest({
+        OFLDMintController.MintRequest memory request = OFLDMintController.MintRequest({
             edition: address(otherEdition),
             termsVersionHash: otherTermsHash,
             recipient: BOB,
             quantity: 1,
             intentId: keccak256("bob:replay"),
             referralHint: address(0),
-            advantageConfigs: new NexAdvantageRegistry.AdvantageConfig[](0)
+            advantageConfigs: new OFLDAdvantageRegistry.AdvantageConfig[](0)
         });
         vm.prank(BOB);
-        vm.expectRevert(NexMintController.NotAllowlisted.selector);
+        vm.expectRevert(OFLDMintController.NotAllowlisted.selector);
         controller.mintAllowlisted(request, PER_WALLET, _proof(otherLeaf));
 
         // The proof still works on the Edition it was issued for.
@@ -274,7 +274,7 @@ contract EarlyAccessAndVaultLockTest is Test {
         (bytes32 termsHash, uint64 mintStartsAt,) = _publishEarlyAccess();
         vm.warp(mintStartsAt);
         vm.prank(BOB);
-        vm.expectRevert(NexMintController.WalletAllowanceRequired.selector);
+        vm.expectRevert(OFLDMintController.WalletAllowanceRequired.selector);
         controller.mintAllowlisted(_request(termsHash, BOB, 1, "bob:zero"), 0, _proof(otherLeaf));
     }
 
@@ -294,9 +294,9 @@ contract EarlyAccessAndVaultLockTest is Test {
 
         // Listed: the Vault is value-locked.
         listingLock.setListed(address(edition), tokenId, true);
-        assertTrue(NexPassAccount(payable(tba)).isVaultLocked());
+        assertTrue(OFLDPassAccount(payable(tba)).isVaultLocked());
         vm.prank(BOB);
-        vm.expectRevert(NexPassAccount.PassVaultLockedWhileListed.selector);
+        vm.expectRevert(OFLDPassAccount.PassVaultLockedWhileListed.selector);
         IERC6551Executable(payable(tba)).execute(
             address(usdg), 0, abi.encodeCall(ERC20.transfer, (BOB, 300 * PRICE)), 0
         );
@@ -308,7 +308,7 @@ contract EarlyAccessAndVaultLockTest is Test {
 
         // Delisting restores control.
         listingLock.setListed(address(edition), tokenId, false);
-        assertFalse(NexPassAccount(payable(tba)).isVaultLocked());
+        assertFalse(OFLDPassAccount(payable(tba)).isVaultLocked());
         vm.prank(BOB);
         IERC6551Executable(payable(tba)).execute(
             address(usdg), 0, abi.encodeCall(ERC20.transfer, (BOB, 350 * PRICE)), 0
@@ -320,10 +320,10 @@ contract EarlyAccessAndVaultLockTest is Test {
         (address tba, uint256 tokenId) = _mintPassWithVault(10 * PRICE);
         bytes32 digest = keccak256("order");
 
-        assertEq(NexPassAccount(payable(tba)).isValidSigner(BOB, ""), bytes4(0x523e3260));
+        assertEq(OFLDPassAccount(payable(tba)).isValidSigner(BOB, ""), bytes4(0x523e3260));
         listingLock.setListed(address(edition), tokenId, true);
-        assertEq(NexPassAccount(payable(tba)).isValidSigner(BOB, ""), bytes4(0));
-        assertEq(NexPassAccount(payable(tba)).isValidSignature(digest, ""), bytes4(0));
+        assertEq(OFLDPassAccount(payable(tba)).isValidSigner(BOB, ""), bytes4(0));
+        assertEq(OFLDPassAccount(payable(tba)).isValidSignature(digest, ""), bytes4(0));
     }
 
     function testExpiredListingDoesNotPermanentlyLockTheVault() public {
@@ -331,7 +331,7 @@ contract EarlyAccessAndVaultLockTest is Test {
 
         // An order remains recorded but is no longer executable.
         listingLock.setExpired(address(edition), tokenId);
-        assertFalse(NexPassAccount(payable(tba)).isVaultLocked());
+        assertFalse(OFLDPassAccount(payable(tba)).isVaultLocked());
         vm.prank(BOB);
         IERC6551Executable(payable(tba)).execute(
             address(usdg), 0, abi.encodeCall(ERC20.transfer, (BOB, 10 * PRICE)), 0
@@ -346,7 +346,7 @@ contract EarlyAccessAndVaultLockTest is Test {
 
         // activeListingFor itself reverts, so the account cannot prove a listing
         // exists and must not brick a Pass that may never have been listed.
-        assertFalse(NexPassAccount(payable(tba)).isVaultLocked());
+        assertFalse(OFLDPassAccount(payable(tba)).isVaultLocked());
     }
 
     function testVaultFollowsThePassOnTransfer() public {
@@ -358,11 +358,11 @@ contract EarlyAccessAndVaultLockTest is Test {
         // Same Vault address, same contents, new controller.
         assertEq(resolver.account(address(edition), tokenId), tba);
         assertEq(usdg.balanceOf(tba), 400 * PRICE);
-        assertEq(NexPassAccount(payable(tba)).owner(), CHARLIE);
+        assertEq(OFLDPassAccount(payable(tba)).owner(), CHARLIE);
 
         // The old owner has no authority over the Vault.
         vm.prank(BOB);
-        vm.expectRevert(NexPassAccount.InvalidSigner.selector);
+        vm.expectRevert(OFLDPassAccount.InvalidSigner.selector);
         IERC6551Executable(payable(tba)).execute(
             address(usdg), 0, abi.encodeCall(ERC20.transfer, (BOB, 400 * PRICE)), 0
         );
@@ -438,27 +438,27 @@ contract EarlyAccessAndVaultLockTest is Test {
     function _config(string memory name, bytes32 editionId)
         internal
         pure
-        returns (NexPassEdition.EditionConfig memory)
+        returns (OFLDPassEdition.EditionConfig memory)
     {
-        return NexPassEdition.EditionConfig({
+        return OFLDPassEdition.EditionConfig({
             name: name,
-            symbol: "NEXPASS",
+            symbol: "OFLDPASS",
             initialOwner: ALICE,
             editionId: editionId,
             absoluteSupplyCap: SUPPLY,
             artworkCommitment: keccak256(abi.encode(editionId, "artwork")),
-            baseTokenURI: "ipfs://nexmarkets/"
+            baseTokenURI: "ipfs://outerfield/"
         });
     }
 
     function _earlyAccessTerms(bytes32 root, uint256 allocation, uint256 perWallet, uint64 previewStartsAt)
         internal
         pure
-        returns (NexLaunchRegistry.Terms memory)
+        returns (OFLDLaunchRegistry.Terms memory)
     {
         uint64 mintStartsAt = previewStartsAt + 1 days;
         bool hasAllowlist = root != bytes32(0);
-        return NexLaunchRegistry.Terms({
+        return OFLDLaunchRegistry.Terms({
             activeSupply: SUPPLY,
             pricePerPass: PRICE,
             previewStartsAt: previewStartsAt,
@@ -502,16 +502,16 @@ contract EarlyAccessAndVaultLockTest is Test {
     function _request(bytes32 termsHash, address recipient, uint256 quantity, bytes32 intentId)
         internal
         view
-        returns (NexMintController.MintRequest memory)
+        returns (OFLDMintController.MintRequest memory)
     {
-        return NexMintController.MintRequest({
+        return OFLDMintController.MintRequest({
             edition: address(edition),
             termsVersionHash: termsHash,
             recipient: recipient,
             quantity: quantity,
             intentId: intentId,
             referralHint: address(0),
-            advantageConfigs: new NexAdvantageRegistry.AdvantageConfig[](0)
+            advantageConfigs: new OFLDAdvantageRegistry.AdvantageConfig[](0)
         });
     }
 

@@ -13,7 +13,7 @@ export function issueWalletChallenge({ accountId, address, origin, chainId = 466
     `${url.host} wants you to sign in with your Ethereum account:`,
     getAddress(address),
     '',
-    'Sign in to NexMarkets. This request does not submit a transaction.',
+    'Sign in to Outerfield. This request does not submit a transaction.',
     '',
     `URI: ${url.origin}`,
     'Version: 1',

@@ -7,14 +7,14 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 
-import {NexLaunchRegistry} from "./NexLaunchRegistry.sol";
-import {NexTBAResolver} from "./NexTBAResolver.sol";
+import {OFLDLaunchRegistry} from "./OFLDLaunchRegistry.sol";
+import {OFLDTBAResolver} from "./OFLDTBAResolver.sol";
 
-interface INexPassEditionRewardView {
+interface IOFLDPassEditionRewardView {
     function totalMinted() external view returns (uint256);
 }
 
-/// @title NexRewardDistributor
+/// @title OFLDRewardDistributor
 /// @notice Published reward rules per Edition, and funded reward drops that
 ///         settle into the exact numbered Pass Vault.
 /// @dev Separates the two things the product must never conflate: a Policy is a
@@ -36,22 +36,22 @@ interface INexPassEditionRewardView {
 ///         permissionless. Value can only ever land in the Vault of the Pass
 ///         that earned it, so allowing anyone to push a claim is safe and lets a
 ///         Builder settle on behalf of holders. Crediting a *listed* Pass is
-///         also safe: NexPassAccount gates outbound movement only, so a deposit
+///         also safe: OFLDPassAccount gates outbound movement only, so a deposit
 ///         raises what the buyer receives while the existing lock still stops
 ///         the seller from draining it.
 ///
 ///      3. **A Policy's allocation percentage is a published commitment, not an
 ///         enforced mechanism.** `allocationBps` records that a Builder said
 ///         "30% of Builder royalty". Nothing here compels them to fund it:
-///         royalties settle into NexRoyaltyVault and are withdrawn manually, and
+///         royalties settle into OFLDRoyaltyVault and are withdrawn manually, and
 ///         intercepting that flow would mean redeploying the royalty and listing
 ///         authorities. Treat this field as an indexable promise. Do not render
 ///         it as though the protocol guarantees it.
-contract NexRewardDistributor is Ownable, Pausable, ReentrancyGuard {
+contract OFLDRewardDistributor is Ownable, Pausable, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
-    bytes32 public constant POLICY_DOMAIN = keccak256("NEXMARKETS_REWARD_POLICY_V1");
-    bytes32 public constant CYCLE_DOMAIN = keccak256("NEXMARKETS_REWARD_CYCLE_V1");
+    bytes32 public constant POLICY_DOMAIN = keccak256("OUTERFIELD_REWARD_POLICY_V1");
+    bytes32 public constant CYCLE_DOMAIN = keccak256("OUTERFIELD_REWARD_CYCLE_V1");
     uint16 public constant MAX_ALLOCATION_BPS = 10_000;
 
     /// @notice Where a Builder says the funding comes from. Declared, not enforced.
@@ -108,8 +108,8 @@ contract NexRewardDistributor is Ownable, Pausable, ReentrancyGuard {
         uint256 claimedCount;
     }
 
-    NexLaunchRegistry public immutable launchRegistry;
-    NexTBAResolver public immutable tbaResolver;
+    OFLDLaunchRegistry public immutable launchRegistry;
+    OFLDTBAResolver public immutable tbaResolver;
 
     /// @notice Total owed to unclaimed entitlements, per asset. Never withdrawable.
     mapping(address => uint256) public escrowedByAsset;
@@ -173,14 +173,14 @@ contract NexRewardDistributor is Ownable, Pausable, ReentrancyGuard {
     ///      keeping a second copy, so a disabled Edition loses reward authority
     ///      at the same instant it loses every other kind.
     modifier onlyEditionPublisher(address edition) {
-        NexLaunchRegistry.EditionRecord memory record = launchRegistry.editionInfo(edition);
+        OFLDLaunchRegistry.EditionRecord memory record = launchRegistry.editionInfo(edition);
         if (!record.registered) revert EditionNotRegistered();
         if (record.disabled) revert EditionDisabled();
         if (msg.sender != record.publisher) revert NotEditionPublisher();
         _;
     }
 
-    constructor(address initialOwner, NexLaunchRegistry launchRegistry_, NexTBAResolver tbaResolver_)
+    constructor(address initialOwner, OFLDLaunchRegistry launchRegistry_, OFLDTBAResolver tbaResolver_)
         Ownable(initialOwner)
     {
         if (initialOwner == address(0) || address(launchRegistry_) == address(0) || address(tbaResolver_) == address(0))
@@ -235,7 +235,7 @@ contract NexRewardDistributor is Ownable, Pausable, ReentrancyGuard {
     }
 
     /// @dev Kept in its own frame so the non-viaIR production compiler does not
-    ///      run out of stack slots, matching NexLaunchRegistry.
+    ///      run out of stack slots, matching OFLDLaunchRegistry.
     function _emitPolicyPublished(bytes32 policyId, address edition, PolicyInput calldata input) private {
         emit RewardPolicyPublished(
             policyId,
@@ -283,7 +283,7 @@ contract NexRewardDistributor is Ownable, Pausable, ReentrancyGuard {
         if (address(asset) == address(0) || address(asset).code.length == 0) revert AssetMustBeContract();
         if (policy.rewardAsset != address(0) && policy.rewardAsset != address(asset)) revert AssetMismatch();
 
-        uint256 eligibleSupply = INexPassEditionRewardView(edition).totalMinted();
+        uint256 eligibleSupply = IOFLDPassEditionRewardView(edition).totalMinted();
         if (eligibleSupply == 0) revert NoEligiblePasses();
 
         uint256 fundedAmount = amountPerPass * eligibleSupply;
@@ -389,7 +389,7 @@ contract NexRewardDistributor is Ownable, Pausable, ReentrancyGuard {
     }
 
     function _requirePublisher(address edition) private view {
-        NexLaunchRegistry.EditionRecord memory record = launchRegistry.editionInfo(edition);
+        OFLDLaunchRegistry.EditionRecord memory record = launchRegistry.editionInfo(edition);
         if (!record.registered) revert EditionNotRegistered();
         if (record.disabled) revert EditionDisabled();
         if (msg.sender != record.publisher) revert NotEditionPublisher();

@@ -6,16 +6,16 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 import {Test} from "forge-std/Test.sol";
 
-import {NexAdvantageRegistry} from "../src/NexAdvantageRegistry.sol";
-import {NexLaunchRegistry} from "../src/NexLaunchRegistry.sol";
-import {NexMintController} from "../src/NexMintController.sol";
-import {NexPassEdition} from "../src/NexPassEdition.sol";
-import {NexPassFactory} from "../src/NexPassFactory.sol";
-import {NexRewardDistributor} from "../src/NexRewardDistributor.sol";
-import {NexTBAResolver} from "../src/NexTBAResolver.sol";
+import {OFLDAdvantageRegistry} from "../src/OFLDAdvantageRegistry.sol";
+import {OFLDLaunchRegistry} from "../src/OFLDLaunchRegistry.sol";
+import {OFLDMintController} from "../src/OFLDMintController.sol";
+import {OFLDPassEdition} from "../src/OFLDPassEdition.sol";
+import {OFLDPassFactory} from "../src/OFLDPassFactory.sol";
+import {OFLDRewardDistributor} from "../src/OFLDRewardDistributor.sol";
+import {OFLDTBAResolver} from "../src/OFLDTBAResolver.sol";
 import {ERC6551Registry} from "../src/erc6551/ERC6551Registry.sol";
 import {IERC6551Executable} from "../src/erc6551/IERC6551.sol";
-import {NexPassAccount} from "../src/erc6551/NexPassAccount.sol";
+import {OFLDPassAccount} from "../src/erc6551/OFLDPassAccount.sol";
 
 contract RewardUSDC is ERC20 {
     constructor() ERC20("USD Coin", "USDC") {}
@@ -78,17 +78,17 @@ contract RewardListingLockStub {
 ///         rule with no money, a Cycle is a funded amount that settles into the
 ///         exact numbered Pass, follows the Pass on sale, and can be credited
 ///         even while the Vault is listing-locked.
-contract NexRewardDistributorTest is Test {
+contract OFLDRewardDistributorTest is Test {
     RewardUSDC internal usdc;
-    NexLaunchRegistry internal launchRegistry;
-    NexMintController internal mintController;
-    NexPassFactory internal factory;
-    NexPassEdition internal edition;
+    OFLDLaunchRegistry internal launchRegistry;
+    OFLDMintController internal mintController;
+    OFLDPassFactory internal factory;
+    OFLDPassEdition internal edition;
     ERC6551Registry internal erc6551;
-    NexPassAccount internal implementation;
-    NexTBAResolver internal resolver;
+    OFLDPassAccount internal implementation;
+    OFLDTBAResolver internal resolver;
     RewardListingLockStub internal listingLock;
-    NexRewardDistributor internal rewards;
+    OFLDRewardDistributor internal rewards;
 
     address internal constant PUBLISHER = address(0xBEEF);
     address internal constant BUILDER = address(0xCAFE);
@@ -105,15 +105,15 @@ contract NexRewardDistributorTest is Test {
 
     function setUp() public {
         usdc = new RewardUSDC();
-        launchRegistry = new NexLaunchRegistry(address(this), address(usdc));
-        mintController = new NexMintController(address(this), launchRegistry, usdc, address(0xFEE));
-        factory = new NexPassFactory(address(this), address(this), launchRegistry, mintController);
+        launchRegistry = new OFLDLaunchRegistry(address(this), address(usdc));
+        mintController = new OFLDMintController(address(this), launchRegistry, usdc, address(0xFEE));
+        factory = new OFLDPassFactory(address(this), address(this), launchRegistry, mintController);
         launchRegistry.setFactory(address(factory));
 
         vm.prank(PUBLISHER);
-        edition = NexPassEdition(
+        edition = OFLDPassEdition(
             factory.createEdition(
-                NexPassEdition.EditionConfig({
+                OFLDPassEdition.EditionConfig({
                     name: "Pulse",
                     symbol: "PULSE",
                     initialOwner: PUBLISHER,
@@ -128,15 +128,15 @@ contract NexRewardDistributorTest is Test {
 
         listingLock = new RewardListingLockStub();
         erc6551 = new ERC6551Registry();
-        implementation = new NexPassAccount(address(listingLock));
-        resolver = new NexTBAResolver(
+        implementation = new OFLDPassAccount(address(listingLock));
+        resolver = new OFLDTBAResolver(
             factory, erc6551, address(implementation), address(erc6551).codehash, address(implementation).codehash
         );
-        rewards = new NexRewardDistributor(address(this), launchRegistry, resolver);
+        rewards = new OFLDRewardDistributor(address(this), launchRegistry, resolver);
 
         uint64 preview = uint64(block.timestamp);
         mintStartsAt = preview + 1 days;
-        NexLaunchRegistry.Terms memory terms = NexLaunchRegistry.Terms({
+        OFLDLaunchRegistry.Terms memory terms = OFLDLaunchRegistry.Terms({
             activeSupply: SUPPLY,
             pricePerPass: PRICE,
             previewStartsAt: preview,
@@ -174,9 +174,9 @@ contract NexRewardDistributorTest is Test {
 
     function testPublishPolicyCommitsNoFunds() public {
         bytes32 policyId = _publishFlexibleOngoing();
-        NexRewardDistributor.Policy memory policy = rewards.policyInfo(policyId);
+        OFLDRewardDistributor.Policy memory policy = rewards.policyInfo(policyId);
         assertEq(policy.edition, address(edition));
-        assertEq(uint8(policy.status), uint8(NexRewardDistributor.PolicyStatus.ACTIVE));
+        assertEq(uint8(policy.status), uint8(OFLDRewardDistributor.PolicyStatus.ACTIVE));
         assertEq(policy.cycleCount, 0);
         assertEq(usdc.balanceOf(address(rewards)), 0);
         assertEq(rewards.escrowedByAsset(address(usdc)), 0);
@@ -190,7 +190,7 @@ contract NexRewardDistributorTest is Test {
         vm.prank(PUBLISHER);
         bytes32 cycleId = rewards.fundCycle(policyId, usdc, PER_PASS);
 
-        NexRewardDistributor.Cycle memory cycle = rewards.cycleInfo(cycleId);
+        OFLDRewardDistributor.Cycle memory cycle = rewards.cycleInfo(cycleId);
         assertEq(cycle.eligibleSupply, 3);
         assertEq(cycle.amountPerPass, PER_PASS);
         assertEq(cycle.fundedAmount, 3 * PER_PASS);
@@ -253,10 +253,10 @@ contract NexRewardDistributorTest is Test {
         rewards.claim(cycleId, 1);
         address vault = resolver.createAccount(address(edition), 1);
         assertEq(usdc.balanceOf(vault), PER_PASS);
-        assertEq(NexPassAccount(payable(vault)).owner(), BOB);
+        assertEq(OFLDPassAccount(payable(vault)).owner(), BOB);
 
         vm.prank(ALICE);
-        vm.expectRevert(NexPassAccount.InvalidSigner.selector);
+        vm.expectRevert(OFLDPassAccount.InvalidSigner.selector);
         IERC6551Executable(vault).execute(
             address(usdc), 0, abi.encodeCall(IERC20.transfer, (ALICE, PER_PASS)), 0
         );
@@ -289,7 +289,7 @@ contract NexRewardDistributorTest is Test {
         assertEq(rewards.cycleInfo(cycleId).eligibleSupply, 2);
         assertEq(rewards.claimableAmount(cycleId, 3), 0);
 
-        vm.expectRevert(NexRewardDistributor.SerialNotEligible.selector);
+        vm.expectRevert(OFLDRewardDistributor.SerialNotEligible.selector);
         rewards.claim(cycleId, 3);
     }
 
@@ -301,14 +301,14 @@ contract NexRewardDistributorTest is Test {
         _mint(ALICE, 1, "alice:listed");
         address vault = resolver.createAccount(address(edition), 1);
         listingLock.setListed(address(edition), 1, true);
-        assertTrue(NexPassAccount(payable(vault)).isVaultLocked());
+        assertTrue(OFLDPassAccount(payable(vault)).isVaultLocked());
 
         bytes32 cycleId = _fund(PER_PASS);
         rewards.claim(cycleId, 1);
         assertEq(usdc.balanceOf(vault), PER_PASS);
 
         vm.prank(ALICE);
-        vm.expectRevert(NexPassAccount.PassVaultLockedWhileListed.selector);
+        vm.expectRevert(OFLDPassAccount.PassVaultLockedWhileListed.selector);
         IERC6551Executable(vault).execute(
             address(usdc), 0, abi.encodeCall(IERC20.transfer, (ALICE, PER_PASS)), 0
         );
@@ -324,22 +324,22 @@ contract NexRewardDistributorTest is Test {
     // --------------------------------------------------------------------
 
     function testNonPublisherCannotPublishOrFund() public {
-        NexRewardDistributor.PolicyInput memory input = _flexibleOngoing();
+        OFLDRewardDistributor.PolicyInput memory input = _flexibleOngoing();
         vm.prank(STRANGER);
-        vm.expectRevert(NexRewardDistributor.NotEditionPublisher.selector);
+        vm.expectRevert(OFLDRewardDistributor.NotEditionPublisher.selector);
         rewards.publishPolicy(address(edition), input);
 
         _mint(ALICE, 1, "alice:auth");
         bytes32 policyId = _publishFlexibleOngoing();
         vm.prank(STRANGER);
-        vm.expectRevert(NexRewardDistributor.NotEditionPublisher.selector);
+        vm.expectRevert(OFLDRewardDistributor.NotEditionPublisher.selector);
         rewards.fundCycle(policyId, usdc, PER_PASS);
     }
 
     function testCannotFundBeforeAnyMint() public {
         bytes32 policyId = _publishFlexibleOngoing();
         vm.prank(PUBLISHER);
-        vm.expectRevert(NexRewardDistributor.NoEligiblePasses.selector);
+        vm.expectRevert(OFLDRewardDistributor.NoEligiblePasses.selector);
         rewards.fundCycle(policyId, usdc, PER_PASS);
     }
 
@@ -347,16 +347,16 @@ contract NexRewardDistributorTest is Test {
         _mint(ALICE, 1, "alice:once");
         bytes32 cycleId = _fund(PER_PASS);
         rewards.claim(cycleId, 1);
-        vm.expectRevert(NexRewardDistributor.AlreadyClaimed.selector);
+        vm.expectRevert(OFLDRewardDistributor.AlreadyClaimed.selector);
         rewards.claim(cycleId, 1);
     }
 
     function testClaimRejectsTokenIdZeroAndOutOfRange() public {
         _mint(ALICE, 1, "alice:range");
         bytes32 cycleId = _fund(PER_PASS);
-        vm.expectRevert(NexRewardDistributor.SerialNotEligible.selector);
+        vm.expectRevert(OFLDRewardDistributor.SerialNotEligible.selector);
         rewards.claim(cycleId, 0);
-        vm.expectRevert(NexRewardDistributor.SerialNotEligible.selector);
+        vm.expectRevert(OFLDRewardDistributor.SerialNotEligible.selector);
         rewards.claim(cycleId, 2);
     }
 
@@ -368,10 +368,10 @@ contract NexRewardDistributorTest is Test {
 
         vm.prank(PUBLISHER);
         rewards.retirePolicy(policyId);
-        assertEq(uint8(rewards.policyInfo(policyId).status), uint8(NexRewardDistributor.PolicyStatus.RETIRED));
+        assertEq(uint8(rewards.policyInfo(policyId).status), uint8(OFLDRewardDistributor.PolicyStatus.RETIRED));
 
         vm.prank(PUBLISHER);
-        vm.expectRevert(NexRewardDistributor.PolicyNotActive.selector);
+        vm.expectRevert(OFLDRewardDistributor.PolicyNotActive.selector);
         rewards.fundCycle(policyId, usdc, PER_PASS);
 
         rewards.claim(cycleId, 1);
@@ -380,8 +380,8 @@ contract NexRewardDistributorTest is Test {
 
     function testExpiredPolicyCannotFund() public {
         _mint(ALICE, 1, "alice:exp");
-        NexRewardDistributor.PolicyInput memory input = NexRewardDistributor.PolicyInput({
-            source: NexRewardDistributor.RewardSource.BUILDER_FUNDED,
+        OFLDRewardDistributor.PolicyInput memory input = OFLDRewardDistributor.PolicyInput({
+            source: OFLDRewardDistributor.RewardSource.BUILDER_FUNDED,
             allocationBps: 0,
             rewardAsset: address(0),
             ongoing: false,
@@ -392,7 +392,7 @@ contract NexRewardDistributorTest is Test {
 
         vm.warp(block.timestamp + 1 hours + 1);
         vm.prank(PUBLISHER);
-        vm.expectRevert(NexRewardDistributor.PolicyExpired.selector);
+        vm.expectRevert(OFLDRewardDistributor.PolicyExpired.selector);
         rewards.fundCycle(policyId, usdc, PER_PASS);
     }
 
@@ -415,8 +415,8 @@ contract NexRewardDistributorTest is Test {
 
     function testPinnedAssetRejectsADifferentToken() public {
         _mint(ALICE, 1, "alice:pin");
-        NexRewardDistributor.PolicyInput memory input = NexRewardDistributor.PolicyInput({
-            source: NexRewardDistributor.RewardSource.BUILDER_ROYALTY,
+        OFLDRewardDistributor.PolicyInput memory input = OFLDRewardDistributor.PolicyInput({
+            source: OFLDRewardDistributor.RewardSource.BUILDER_ROYALTY,
             allocationBps: 3_000,
             rewardAsset: address(usdc),
             ongoing: true,
@@ -430,7 +430,7 @@ contract NexRewardDistributorTest is Test {
         vm.prank(PUBLISHER);
         other.approve(address(rewards), type(uint256).max);
         vm.prank(PUBLISHER);
-        vm.expectRevert(NexRewardDistributor.AssetMismatch.selector);
+        vm.expectRevert(OFLDRewardDistributor.AssetMismatch.selector);
         rewards.fundCycle(policyId, other, PER_PASS);
     }
 
@@ -442,36 +442,36 @@ contract NexRewardDistributorTest is Test {
         vm.prank(PUBLISHER);
         feeToken.approve(address(rewards), type(uint256).max);
         vm.prank(PUBLISHER);
-        vm.expectRevert(NexRewardDistributor.UnsupportedTokenBehaviour.selector);
+        vm.expectRevert(OFLDRewardDistributor.UnsupportedTokenBehaviour.selector);
         rewards.fundCycle(policyId, feeToken, PER_PASS);
     }
 
     function testBuilderFundedPolicyRejectsAnAllocationBps() public {
-        NexRewardDistributor.PolicyInput memory input = _flexibleOngoing();
+        OFLDRewardDistributor.PolicyInput memory input = _flexibleOngoing();
         input.allocationBps = 1_000;
         vm.prank(PUBLISHER);
-        vm.expectRevert(NexRewardDistributor.UnexpectedAllocation.selector);
+        vm.expectRevert(OFLDRewardDistributor.UnexpectedAllocation.selector);
         rewards.publishPolicy(address(edition), input);
     }
 
     function testRoyaltyPolicyRequiresAnAllocationBps() public {
-        NexRewardDistributor.PolicyInput memory input = NexRewardDistributor.PolicyInput({
-            source: NexRewardDistributor.RewardSource.BUILDER_ROYALTY,
+        OFLDRewardDistributor.PolicyInput memory input = OFLDRewardDistributor.PolicyInput({
+            source: OFLDRewardDistributor.RewardSource.BUILDER_ROYALTY,
             allocationBps: 0,
             rewardAsset: address(0),
             ongoing: true,
             endsAt: 0
         });
         vm.prank(PUBLISHER);
-        vm.expectRevert(NexRewardDistributor.AllocationRequired.selector);
+        vm.expectRevert(OFLDRewardDistributor.AllocationRequired.selector);
         rewards.publishPolicy(address(edition), input);
     }
 
     function testOngoingPolicyCannotCarryAnEndTime() public {
-        NexRewardDistributor.PolicyInput memory input = _flexibleOngoing();
+        OFLDRewardDistributor.PolicyInput memory input = _flexibleOngoing();
         input.endsAt = uint64(block.timestamp + 30 days);
         vm.prank(PUBLISHER);
-        vm.expectRevert(NexRewardDistributor.WindowInvalid.selector);
+        vm.expectRevert(OFLDRewardDistributor.WindowInvalid.selector);
         rewards.publishPolicy(address(edition), input);
     }
 
@@ -479,14 +479,14 @@ contract NexRewardDistributorTest is Test {
         _mint(ALICE, 1, "alice:zero");
         bytes32 policyId = _publishFlexibleOngoing();
         vm.prank(PUBLISHER);
-        vm.expectRevert(NexRewardDistributor.AmountRequired.selector);
+        vm.expectRevert(OFLDRewardDistributor.AmountRequired.selector);
         rewards.fundCycle(policyId, usdc, 0);
     }
 
     function testAllocationBpsIsStoredNotEnforced() public {
         _mint(ALICE, 1, "alice:promise");
-        NexRewardDistributor.PolicyInput memory input = NexRewardDistributor.PolicyInput({
-            source: NexRewardDistributor.RewardSource.BUILDER_ROYALTY,
+        OFLDRewardDistributor.PolicyInput memory input = OFLDRewardDistributor.PolicyInput({
+            source: OFLDRewardDistributor.RewardSource.BUILDER_ROYALTY,
             allocationBps: 3_000,
             rewardAsset: address(0),
             ongoing: true,
@@ -509,7 +509,7 @@ contract NexRewardDistributorTest is Test {
         _mint(ALICE, minted, "alice:fuzz");
         bytes32 cycleId = _fund(amountPerPass);
 
-        NexRewardDistributor.Cycle memory cycle = rewards.cycleInfo(cycleId);
+        OFLDRewardDistributor.Cycle memory cycle = rewards.cycleInfo(cycleId);
         assertEq(cycle.fundedAmount, amountPerPass * minted);
         assertEq(cycle.fundedAmount, usdc.balanceOf(address(rewards)));
 
@@ -528,9 +528,9 @@ contract NexRewardDistributorTest is Test {
     // Helpers
     // --------------------------------------------------------------------
 
-    function _flexibleOngoing() internal pure returns (NexRewardDistributor.PolicyInput memory) {
-        return NexRewardDistributor.PolicyInput({
-            source: NexRewardDistributor.RewardSource.BUILDER_FUNDED,
+    function _flexibleOngoing() internal pure returns (OFLDRewardDistributor.PolicyInput memory) {
+        return OFLDRewardDistributor.PolicyInput({
+            source: OFLDRewardDistributor.RewardSource.BUILDER_FUNDED,
             allocationBps: 0,
             rewardAsset: address(0),
             ongoing: true,
@@ -550,14 +550,14 @@ contract NexRewardDistributorTest is Test {
     }
 
     function _mint(address to, uint256 quantity, string memory intent) internal {
-        NexMintController.MintRequest memory request = NexMintController.MintRequest({
+        OFLDMintController.MintRequest memory request = OFLDMintController.MintRequest({
             edition: address(edition),
             termsVersionHash: termsHash,
             recipient: to,
             quantity: quantity,
             intentId: keccak256(bytes(intent)),
             referralHint: address(0),
-            advantageConfigs: new NexAdvantageRegistry.AdvantageConfig[](0)
+            advantageConfigs: new OFLDAdvantageRegistry.AdvantageConfig[](0)
         });
         vm.prank(to);
         mintController.mint(request);

@@ -3,17 +3,17 @@ pragma solidity ^0.8.24;
 
 import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 
-import {NexPassFactory} from "./NexPassFactory.sol";
+import {OFLDPassFactory} from "./OFLDPassFactory.sol";
 import {IERC6551Registry} from "./erc6551/IERC6551.sol";
 
-/// @title NexTBAResolver
+/// @title OFLDTBAResolver
 /// @notice Immutable adapter from an exact factory Pass to its ERC-6551 account.
-/// @dev This is an attachment resolver only. All NexMarkets canonical state
+/// @dev This is an attachment resolver only. All Outerfield canonical state
 ///      remains in the contracts named by the authority map.
-contract NexTBAResolver {
-    bytes32 public constant ACCOUNT_SALT = keccak256("NEXMARKETS_PASS_TBA_V1");
+contract OFLDTBAResolver {
+    bytes32 public constant ACCOUNT_SALT = keccak256("OUTERFIELD_PASS_TBA_V1");
 
-    NexPassFactory public immutable passFactory;
+    OFLDPassFactory public immutable passFactory;
     IERC6551Registry public immutable registry;
     address public immutable accountImplementation;
     bytes32 public immutable registryRuntimeCodeHash;
@@ -26,7 +26,7 @@ contract NexTBAResolver {
     event PassAccountCreated(address indexed edition, uint256 indexed tokenId, address indexed account);
 
     constructor(
-        NexPassFactory passFactory_,
+        OFLDPassFactory passFactory_,
         IERC6551Registry registry_,
         address accountImplementation_,
         bytes32 expectedRegistryRuntimeCodeHash,

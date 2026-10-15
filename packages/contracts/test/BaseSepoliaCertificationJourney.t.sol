@@ -8,18 +8,18 @@ import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import {Test} from "forge-std/Test.sol";
 import {console2} from "forge-std/console2.sol";
 
-import {NexAdvantageInitializer} from "../src/NexAdvantageInitializer.sol";
-import {NexAdvantageRegistry} from "../src/NexAdvantageRegistry.sol";
-import {NexLaunchRegistry} from "../src/NexLaunchRegistry.sol";
-import {INexAdvantageListingController, NexListingRegistry} from "../src/NexListingRegistry.sol";
-import {NexMarketsZone} from "../src/NexMarketsZone.sol";
-import {NexMintController} from "../src/NexMintController.sol";
-import {NexPassEdition} from "../src/NexPassEdition.sol";
-import {NexPassFactory} from "../src/NexPassFactory.sol";
-import {NexRoyaltyVault} from "../src/NexRoyaltyVault.sol";
-import {NexTBAResolver} from "../src/NexTBAResolver.sol";
+import {OFLDAdvantageInitializer} from "../src/OFLDAdvantageInitializer.sol";
+import {OFLDAdvantageRegistry} from "../src/OFLDAdvantageRegistry.sol";
+import {OFLDLaunchRegistry} from "../src/OFLDLaunchRegistry.sol";
+import {IOFLDAdvantageListingController, OFLDListingRegistry} from "../src/OFLDListingRegistry.sol";
+import {OuterfieldZone} from "../src/OuterfieldZone.sol";
+import {OFLDMintController} from "../src/OFLDMintController.sol";
+import {OFLDPassEdition} from "../src/OFLDPassEdition.sol";
+import {OFLDPassFactory} from "../src/OFLDPassFactory.sol";
+import {OFLDRoyaltyVault} from "../src/OFLDRoyaltyVault.sol";
+import {OFLDTBAResolver} from "../src/OFLDTBAResolver.sol";
 import {IERC6551Executable, IERC6551Registry} from "../src/erc6551/IERC6551.sol";
-import {NexPassAccount} from "../src/erc6551/NexPassAccount.sol";
+import {OFLDPassAccount} from "../src/erc6551/OFLDPassAccount.sol";
 
 contract RewardToken is ERC20 {
     uint8 private immutable _decimals;
@@ -38,7 +38,7 @@ contract RewardToken is ERC20 {
 }
 
 contract Collectible is ERC721 {
-    constructor() ERC721("NexMarkets Collectible", "NEXC") {}
+    constructor() ERC721("Outerfield Collectible", "OFLDC") {}
 
     function mint(address to, uint256 tokenId) external {
         _mint(to, tokenId);
@@ -46,7 +46,7 @@ contract Collectible is ERC721 {
 }
 
 /// @title Base Sepolia certification journey
-/// @notice Runs the NexMarkets Alice/Bob/Charlie certification scenario against
+/// @notice Runs the Outerfield Alice/Bob/Charlie certification scenario against
 ///         real forked Base Sepolia state: the canonical ERC-6551 Registry, the
 ///         canonical Seaport 1.6 deployment and canonical Base Sepolia USDC.
 ///         Time-dependent phases are advanced with vm.warp because the protocol
@@ -72,17 +72,17 @@ contract BaseSepoliaCertificationJourneyTest is Test {
     address internal feeRecipient;
 
     IERC20 internal usdc;
-    NexLaunchRegistry internal launchRegistry;
-    NexMintController internal mintController;
-    NexPassFactory internal passFactory;
-    NexAdvantageRegistry internal advantageRegistry;
-    NexAdvantageInitializer internal advantageInitializer;
-    NexRoyaltyVault internal royaltyVault;
-    NexListingRegistry internal listingRegistry;
-    NexMarketsZone internal zone;
-    NexPassAccount internal passAccountImpl;
-    NexTBAResolver internal tbaResolver;
-    NexPassEdition internal baldies;
+    OFLDLaunchRegistry internal launchRegistry;
+    OFLDMintController internal mintController;
+    OFLDPassFactory internal passFactory;
+    OFLDAdvantageRegistry internal advantageRegistry;
+    OFLDAdvantageInitializer internal advantageInitializer;
+    OFLDRoyaltyVault internal royaltyVault;
+    OFLDListingRegistry internal listingRegistry;
+    OuterfieldZone internal zone;
+    OFLDPassAccount internal passAccountImpl;
+    OFLDTBAResolver internal tbaResolver;
+    OFLDPassEdition internal baldies;
 
     RewardToken internal nvdac;
     RewardToken internal nex;
@@ -132,26 +132,26 @@ contract BaseSepoliaCertificationJourneyTest is Test {
 
     function _deployStack() internal {
         vm.startPrank(protocolAdmin);
-        launchRegistry = new NexLaunchRegistry(protocolAdmin, USDC);
-        mintController = new NexMintController(protocolAdmin, launchRegistry, IERC20(USDC), feeRecipient);
-        passFactory = new NexPassFactory(protocolAdmin, protocolAdmin, launchRegistry, mintController);
-        advantageRegistry = new NexAdvantageRegistry(protocolAdmin, launchRegistry);
+        launchRegistry = new OFLDLaunchRegistry(protocolAdmin, USDC);
+        mintController = new OFLDMintController(protocolAdmin, launchRegistry, IERC20(USDC), feeRecipient);
+        passFactory = new OFLDPassFactory(protocolAdmin, protocolAdmin, launchRegistry, mintController);
+        advantageRegistry = new OFLDAdvantageRegistry(protocolAdmin, launchRegistry);
         advantageInitializer =
-            new NexAdvantageInitializer(protocolAdmin, launchRegistry, advantageRegistry, address(mintController));
-        royaltyVault = new NexRoyaltyVault(protocolAdmin, IERC20(USDC));
-        listingRegistry = new NexListingRegistry(
+            new OFLDAdvantageInitializer(protocolAdmin, launchRegistry, advantageRegistry, address(mintController));
+        royaltyVault = new OFLDRoyaltyVault(protocolAdmin, IERC20(USDC));
+        listingRegistry = new OFLDListingRegistry(
             protocolAdmin,
             launchRegistry,
-            INexAdvantageListingController(address(advantageRegistry)),
+            IOFLDAdvantageListingController(address(advantageRegistry)),
             royaltyVault,
             feeRecipient,
             SEAPORT_16
         );
-        zone = new NexMarketsZone(protocolAdmin, listingRegistry, SEAPORT_16);
+        zone = new OuterfieldZone(protocolAdmin, listingRegistry, SEAPORT_16);
 
         // The Pass Vault is bound to the canonical listing authority at deploy time.
-        passAccountImpl = new NexPassAccount(address(listingRegistry));
-        tbaResolver = new NexTBAResolver(
+        passAccountImpl = new OFLDPassAccount(address(listingRegistry));
+        tbaResolver = new OFLDTBAResolver(
             passFactory,
             IERC6551Registry(ERC6551_REGISTRY),
             address(passAccountImpl),
@@ -168,7 +168,7 @@ contract BaseSepoliaCertificationJourneyTest is Test {
         vm.stopPrank();
 
         nvdac = new RewardToken("Tokenized NVIDIA", "NVDAc", 18);
-        nex = new RewardToken("NexMarkets Token", "NEX", 18);
+        nex = new RewardToken("Outerfield Token", "NEX", 18);
         op = new RewardToken("Optimism", "OP", 18);
         collectible = new Collectible();
     }
@@ -193,9 +193,9 @@ contract BaseSepoliaCertificationJourneyTest is Test {
         advStartsAt = uint64(block.timestamp);
         advEndsAt = uint64(block.timestamp + 365 days);
         vm.prank(alice);
-        baldies = NexPassEdition(
+        baldies = OFLDPassEdition(
             passFactory.createEdition(
-                NexPassEdition.EditionConfig({
+                OFLDPassEdition.EditionConfig({
                     name: "Baldies",
                     symbol: "BALDIES",
                     initialOwner: alice,
@@ -215,11 +215,11 @@ contract BaseSepoliaCertificationJourneyTest is Test {
             : keccak256(abi.encode(siblingLeaf, bobLeaf));
     }
 
-    function _advantageConfigs() internal view returns (NexAdvantageRegistry.AdvantageConfig[] memory configs) {
-        configs = new NexAdvantageRegistry.AdvantageConfig[](1);
-        configs[0] = NexAdvantageRegistry.AdvantageConfig({
+    function _advantageConfigs() internal view returns (OFLDAdvantageRegistry.AdvantageConfig[] memory configs) {
+        configs = new OFLDAdvantageRegistry.AdvantageConfig[](1);
+        configs[0] = OFLDAdvantageRegistry.AdvantageConfig({
             advantageId: ADVANTAGE_ID,
-            kind: NexAdvantageRegistry.AdvantageKind.QuantityBased,
+            kind: OFLDAdvantageRegistry.AdvantageKind.QuantityBased,
             startsAt: advStartsAt,
             endsAt: advEndsAt,
             totalUnits: CREDITS,
@@ -228,7 +228,7 @@ contract BaseSepoliaCertificationJourneyTest is Test {
     }
 
     function _publish() internal {
-        NexAdvantageRegistry.AdvantageConfig[] memory configs = _advantageConfigs();
+        OFLDAdvantageRegistry.AdvantageConfig[] memory configs = _advantageConfigs();
         uint64 previewStartsAt = uint64(block.timestamp);
         mintStartsAt = previewStartsAt + 1 days;
         allowlistEndsAt = mintStartsAt + 1 days;
@@ -238,7 +238,7 @@ contract BaseSepoliaCertificationJourneyTest is Test {
         vm.prank(alice);
         termsHash = launchRegistry.publishTerms(
             address(baldies),
-            NexLaunchRegistry.Terms({
+            OFLDLaunchRegistry.Terms({
                 activeSupply: SUPPLY,
                 pricePerPass: PRICE,
                 previewStartsAt: previewStartsAt,
@@ -265,9 +265,9 @@ contract BaseSepoliaCertificationJourneyTest is Test {
     function _request(address recipient, uint256 quantity, bytes32 intentId)
         internal
         view
-        returns (NexMintController.MintRequest memory)
+        returns (OFLDMintController.MintRequest memory)
     {
-        return NexMintController.MintRequest({
+        return OFLDMintController.MintRequest({
             edition: address(baldies),
             termsVersionHash: termsHash,
             recipient: recipient,
@@ -301,7 +301,7 @@ contract BaseSepoliaCertificationJourneyTest is Test {
         assertFalse(launchRegistry.isAllowlistMintOpen(address(baldies), termsHash));
         assertFalse(launchRegistry.isPublicMintOpen(address(baldies), termsHash));
 
-        (bytes32 activeHash, NexLaunchRegistry.Terms memory terms) = launchRegistry.activeTerms(address(baldies));
+        (bytes32 activeHash, OFLDLaunchRegistry.Terms memory terms) = launchRegistry.activeTerms(address(baldies));
         assertEq(activeHash, termsHash);
         assertEq(terms.activeSupply, SUPPLY);
         assertEq(terms.pricePerPass, PRICE);
@@ -316,7 +316,7 @@ contract BaseSepoliaCertificationJourneyTest is Test {
         // Mint has not opened, so nobody can mint yet.
         vm.warp(mintStartsAt - 1);
         vm.prank(bob);
-        vm.expectRevert(NexMintController.MintClosed.selector);
+        vm.expectRevert(OFLDMintController.MintClosed.selector);
         mintController.mintAllowlisted(_request(bob, 1, "early:too-soon"), PER_WALLET, _proof());
         console2.log("[2] Pre-mint window correctly closed to everyone.");
     }
@@ -328,12 +328,12 @@ contract BaseSepoliaCertificationJourneyTest is Test {
 
         // Charlie is not on the allowlist. The contract is the final authority.
         vm.prank(charlie);
-        vm.expectRevert(NexMintController.NotAllowlisted.selector);
+        vm.expectRevert(OFLDMintController.NotAllowlisted.selector);
         mintController.mintAllowlisted(_request(charlie, 1, "charlie:ea"), PER_WALLET, _proof());
 
         // Charlie cannot route around it through the public entrypoint either.
         vm.prank(charlie);
-        vm.expectRevert(NexMintController.MintClosed.selector);
+        vm.expectRevert(OFLDMintController.MintClosed.selector);
         mintController.mint(_request(charlie, 1, "charlie:ea-public"));
 
         uint256 aliceBefore = usdc.balanceOf(alice);
@@ -350,7 +350,7 @@ contract BaseSepoliaCertificationJourneyTest is Test {
 
         // Third mint must be rejected by the per-wallet allowance.
         vm.prank(bob);
-        vm.expectRevert(NexMintController.WalletAllowanceExceeded.selector);
+        vm.expectRevert(OFLDMintController.WalletAllowanceExceeded.selector);
         mintController.mintAllowlisted(_request(bob, 1, "bob:ea-3"), PER_WALLET, _proof());
 
         assertEq(controllerWalletMinted(bob), 2);
@@ -399,7 +399,7 @@ contract BaseSepoliaCertificationJourneyTest is Test {
     function _stepVaultDeposit() internal {
         passVault = tbaResolver.createAccount(address(baldies), 1);
         assertEq(tbaResolver.account(address(baldies), 1), passVault, "TBA must be deterministic");
-        assertEq(NexPassAccount(payable(passVault)).owner(), bob, "Pass owner controls the Vault");
+        assertEq(OFLDPassAccount(payable(passVault)).owner(), bob, "Pass owner controls the Vault");
 
         deal(USDC, passVault, 400 * USDC_ONE, true);
         nvdac.mint(passVault, 20 ether);
@@ -452,7 +452,7 @@ contract BaseSepoliaCertificationJourneyTest is Test {
         bytes32 passTermsHash = baldies.termsVersionHashOf(1);
         vm.prank(bob);
         listingRegistry.createListing(
-            NexListingRegistry.ListingRequest({
+            OFLDListingRegistry.ListingRequest({
                 orderHash: orderHash,
                 edition: address(baldies),
                 tokenId: 1,
@@ -466,16 +466,16 @@ contract BaseSepoliaCertificationJourneyTest is Test {
         assertEq(listingRegistry.activeListingFor(address(baldies), 1), orderHash);
 
         // The Vault is now value-locked against the seller.
-        assertTrue(NexPassAccount(payable(passVault)).isVaultLocked(), "Vault must lock while listed");
+        assertTrue(OFLDPassAccount(payable(passVault)).isVaultLocked(), "Vault must lock while listed");
         vm.prank(bob);
-        vm.expectRevert(NexPassAccount.PassVaultLockedWhileListed.selector);
+        vm.expectRevert(OFLDPassAccount.PassVaultLockedWhileListed.selector);
         IERC6551Executable(payable(passVault)).execute(
             address(nex), 0, abi.encodeCall(IERC20.transfer, (bob, 800 ether)), 0
         );
 
         // The collectible cannot be walked out either.
         vm.prank(bob);
-        vm.expectRevert(NexPassAccount.PassVaultLockedWhileListed.selector);
+        vm.expectRevert(OFLDPassAccount.PassVaultLockedWhileListed.selector);
         IERC6551Executable(payable(passVault)).execute(
             address(collectible), 0, abi.encodeCall(IERC721.transferFrom, (passVault, bob, 7)), 0
         );
@@ -495,7 +495,7 @@ contract BaseSepoliaCertificationJourneyTest is Test {
         // Cancel to release the lock, then settle the transfer of ownership.
         vm.prank(bob);
         listingRegistry.cancelListing(orderHash);
-        assertFalse(NexPassAccount(payable(passVault)).isVaultLocked(), "cancel must release the lock");
+        assertFalse(OFLDPassAccount(payable(passVault)).isVaultLocked(), "cancel must release the lock");
 
         vm.prank(bob);
         baldies.transferFrom(bob, charlie, 1);
@@ -507,14 +507,14 @@ contract BaseSepoliaCertificationJourneyTest is Test {
         assertEq(nex.balanceOf(passVault), 800 ether, "800 NEX transferred with the Pass");
         assertEq(op.balanceOf(passVault), 50 ether);
         assertEq(collectible.ownerOf(7), passVault, "collectible stays in the Vault");
-        assertEq(NexPassAccount(payable(passVault)).owner(), charlie, "new owner controls the Vault");
+        assertEq(OFLDPassAccount(payable(passVault)).owner(), charlie, "new owner controls the Vault");
 
         // Remaining Advantage follows the Pass: still 7, not 10 and not 0.
         assertEq(remainingCredits(1), CREDITS - 3, "7 credits transferred with the Pass");
 
         // The seller has lost all authority over the Vault.
         vm.prank(bob);
-        vm.expectRevert(NexPassAccount.InvalidSigner.selector);
+        vm.expectRevert(OFLDPassAccount.InvalidSigner.selector);
         IERC6551Executable(payable(passVault)).execute(
             address(nex), 0, abi.encodeCall(IERC20.transfer, (bob, 800 ether)), 0
         );

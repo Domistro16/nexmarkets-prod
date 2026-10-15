@@ -4,15 +4,15 @@ pragma solidity ^0.8.24;
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {Test} from "forge-std/Test.sol";
 
-import {NexAdvantageRegistry} from "../src/NexAdvantageRegistry.sol";
-import {NexLaunchRegistry} from "../src/NexLaunchRegistry.sol";
-import {NexMintController} from "../src/NexMintController.sol";
-import {NexPassEdition} from "../src/NexPassEdition.sol";
-import {NexPassFactory} from "../src/NexPassFactory.sol";
-import {NexTBAResolver} from "../src/NexTBAResolver.sol";
+import {OFLDAdvantageRegistry} from "../src/OFLDAdvantageRegistry.sol";
+import {OFLDLaunchRegistry} from "../src/OFLDLaunchRegistry.sol";
+import {OFLDMintController} from "../src/OFLDMintController.sol";
+import {OFLDPassEdition} from "../src/OFLDPassEdition.sol";
+import {OFLDPassFactory} from "../src/OFLDPassFactory.sol";
+import {OFLDTBAResolver} from "../src/OFLDTBAResolver.sol";
 import {ERC6551Registry} from "../src/erc6551/ERC6551Registry.sol";
 import {IERC6551Account, IERC6551Executable, IERC6551Registry} from "../src/erc6551/IERC6551.sol";
-import {NexPassAccount} from "../src/erc6551/NexPassAccount.sol";
+import {OFLDPassAccount} from "../src/erc6551/OFLDPassAccount.sol";
 
 contract TBAUSDG is ERC20 {
     constructor() ERC20("Global Dollar", "USDG") {}
@@ -32,7 +32,7 @@ contract TBATarget {
     }
 }
 
-/// @dev Stands in for NexListingRegistry's lock surface so the Vault value lock
+/// @dev Stands in for OFLDListingRegistry's lock surface so the Vault value lock
 ///      can be driven directly in tests.
 contract TBAListingLockMock {
     mapping(address => mapping(uint256 => bytes32)) internal _active;
@@ -66,15 +66,15 @@ contract TBAListingLockMock {
     }
 }
 
-contract NexTBAResolverTest is Test {
+contract OFLDTBAResolverTest is Test {
     TBAUSDG internal usdg;
-    NexLaunchRegistry internal launchRegistry;
-    NexMintController internal mintController;
-    NexPassFactory internal factory;
-    NexPassEdition internal edition;
+    OFLDLaunchRegistry internal launchRegistry;
+    OFLDMintController internal mintController;
+    OFLDPassFactory internal factory;
+    OFLDPassEdition internal edition;
     ERC6551Registry internal canonicalRegistry;
-    NexPassAccount internal implementation;
-    NexTBAResolver internal resolver;
+    OFLDPassAccount internal implementation;
+    OFLDTBAResolver internal resolver;
     TBAListingLockMock internal listingLock;
 
     address internal constant PUBLISHER = address(0xBEEF);
@@ -85,13 +85,13 @@ contract NexTBAResolverTest is Test {
 
     function setUp() public {
         usdg = new TBAUSDG();
-        launchRegistry = new NexLaunchRegistry(address(this), address(usdg));
-        mintController = new NexMintController(address(this), launchRegistry, usdg, address(0xFEE));
-        factory = new NexPassFactory(address(this), address(this), launchRegistry, mintController);
+        launchRegistry = new OFLDLaunchRegistry(address(this), address(usdg));
+        mintController = new OFLDMintController(address(this), launchRegistry, usdg, address(0xFEE));
+        factory = new OFLDPassFactory(address(this), address(this), launchRegistry, mintController);
         launchRegistry.setFactory(address(factory));
-        NexPassEdition.EditionConfig memory config = NexPassEdition.EditionConfig({
+        OFLDPassEdition.EditionConfig memory config = OFLDPassEdition.EditionConfig({
             name: "TBA Pass",
-            symbol: "NEXTBA",
+            symbol: "OFLDTBA",
             initialOwner: PUBLISHER,
             editionId: keccak256("tba:edition"),
             absoluteSupplyCap: 2,
@@ -99,10 +99,10 @@ contract NexTBAResolverTest is Test {
             baseTokenURI: "ipfs://tba/"
         });
         vm.prank(PUBLISHER);
-        edition = NexPassEdition(factory.createEdition(config, keccak256("tba:salt")));
+        edition = OFLDPassEdition(factory.createEdition(config, keccak256("tba:salt")));
         uint64 preview = uint64(block.timestamp);
         uint64 mintStart = preview + 1 days;
-        NexLaunchRegistry.Terms memory terms = NexLaunchRegistry.Terms({
+        OFLDLaunchRegistry.Terms memory terms = OFLDLaunchRegistry.Terms({
             activeSupply: 2,
             pricePerPass: PRICE,
             previewStartsAt: preview,
@@ -124,22 +124,22 @@ contract NexTBAResolverTest is Test {
         vm.prank(ALICE);
         usdg.approve(address(mintController), type(uint256).max);
         vm.warp(mintStart);
-        NexMintController.MintRequest memory request = NexMintController.MintRequest({
+        OFLDMintController.MintRequest memory request = OFLDMintController.MintRequest({
             edition: address(edition),
             termsVersionHash: termsHash,
             recipient: ALICE,
             quantity: 1,
             intentId: keccak256("tba:mint"),
             referralHint: address(0),
-            advantageConfigs: new NexAdvantageRegistry.AdvantageConfig[](0)
+            advantageConfigs: new OFLDAdvantageRegistry.AdvantageConfig[](0)
         });
         vm.prank(ALICE);
         mintController.mint(request);
 
         canonicalRegistry = new ERC6551Registry();
         listingLock = new TBAListingLockMock();
-        implementation = new NexPassAccount(address(listingLock));
-        resolver = new NexTBAResolver(
+        implementation = new OFLDPassAccount(address(listingLock));
+        resolver = new OFLDTBAResolver(
             factory,
             canonicalRegistry,
             address(implementation),
@@ -164,12 +164,12 @@ contract NexTBAResolverTest is Test {
 
     function testTBAControlFollowsERC721OwnerAfterTransfer() public {
         address account = resolver.createAccount(address(edition), 1);
-        assertEq(NexPassAccount(payable(account)).owner(), ALICE);
+        assertEq(OFLDPassAccount(payable(account)).owner(), ALICE);
         assertEq(IERC6551Account(payable(account)).isValidSigner(ALICE, ""), IERC6551Account.isValidSigner.selector);
 
         vm.prank(ALICE);
         edition.transferFrom(ALICE, BOB, 1);
-        assertEq(NexPassAccount(payable(account)).owner(), BOB);
+        assertEq(OFLDPassAccount(payable(account)).owner(), BOB);
         assertEq(IERC6551Account(payable(account)).isValidSigner(ALICE, ""), bytes4(0));
         assertEq(IERC6551Account(payable(account)).isValidSigner(BOB, ""), IERC6551Account.isValidSigner.selector);
     }
@@ -187,19 +187,19 @@ contract NexTBAResolverTest is Test {
         vm.prank(ALICE);
         edition.transferFrom(ALICE, BOB, 1);
         vm.prank(ALICE);
-        vm.expectRevert(NexPassAccount.InvalidSigner.selector);
+        vm.expectRevert(OFLDPassAccount.InvalidSigner.selector);
         IERC6551Executable(account).execute(address(target), 0, callData, 0);
         vm.prank(BOB);
         IERC6551Executable(account).execute(address(target), 0, abi.encodeCall(TBATarget.setValue, (8)), 0);
         assertEq(target.value(), 8);
     }
 
-    function testTBAHasNoCanonicalNexMarketsAuthority() public {
+    function testTBAHasNoCanonicalOuterfieldAuthority() public {
         address account = resolver.createAccount(address(edition), 1);
-        NexLaunchRegistry.Terms memory terms;
-        bytes memory callData = abi.encodeCall(NexLaunchRegistry.publishTerms, (address(edition), terms));
+        OFLDLaunchRegistry.Terms memory terms;
+        bytes memory callData = abi.encodeCall(OFLDLaunchRegistry.publishTerms, (address(edition), terms));
         vm.prank(ALICE);
-        vm.expectRevert(NexLaunchRegistry.NotEditionPublisher.selector);
+        vm.expectRevert(OFLDLaunchRegistry.NotEditionPublisher.selector);
         IERC6551Executable(account).execute(address(launchRegistry), 0, callData, 0);
         assertEq(edition.ownerOf(1), ALICE);
         assertEq(edition.totalMinted(), 1);
@@ -207,8 +207,8 @@ contract NexTBAResolverTest is Test {
 
     function testWrongRegistryOrImplementationHashIsRejected() public {
         TBATarget wrongRegistry = new TBATarget();
-        vm.expectRevert(NexTBAResolver.InvalidCodeHash.selector);
-        new NexTBAResolver(
+        vm.expectRevert(OFLDTBAResolver.InvalidCodeHash.selector);
+        new OFLDTBAResolver(
             factory,
             IERC6551Registry(address(wrongRegistry)),
             address(implementation),
@@ -216,9 +216,9 @@ contract NexTBAResolverTest is Test {
             address(implementation).codehash
         );
 
-        NexPassAccount wrongImplementation = new NexPassAccount(address(listingLock));
-        vm.expectRevert(NexTBAResolver.InvalidCodeHash.selector);
-        new NexTBAResolver(
+        OFLDPassAccount wrongImplementation = new OFLDPassAccount(address(listingLock));
+        vm.expectRevert(OFLDTBAResolver.InvalidCodeHash.selector);
+        new OFLDTBAResolver(
             factory,
             canonicalRegistry,
             address(wrongImplementation),
@@ -228,9 +228,9 @@ contract NexTBAResolverTest is Test {
     }
 
     function testUnknownEditionAndUnmintedTokenFailClosed() public {
-        vm.expectRevert(NexTBAResolver.InvalidEdition.selector);
+        vm.expectRevert(OFLDTBAResolver.InvalidEdition.selector);
         resolver.account(address(0x1234), 1);
-        vm.expectRevert(NexTBAResolver.InvalidPass.selector);
+        vm.expectRevert(OFLDTBAResolver.InvalidPass.selector);
         resolver.createAccount(address(edition), 2);
     }
 }

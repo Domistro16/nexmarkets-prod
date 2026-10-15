@@ -9,22 +9,22 @@ import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import {IERC6551Account, IERC6551Executable} from "./IERC6551.sol";
 
 /// @notice Minimal read surface of the canonical listing authority.
-interface INexPassVaultListingLock {
+interface IOFLDPassVaultListingLock {
     function activeListingFor(address edition, uint256 tokenId) external view returns (bytes32);
     function isListingActive(bytes32 orderHash) external view returns (bool);
 }
 
-/// @title NexPassAccount
-/// @notice Source-pinned ERC-6551 account capability for a NexPass.
+/// @title OFLDPassAccount
+/// @notice Source-pinned ERC-6551 account capability for a OFLDPass.
 /// @dev Behavior follows the official v0.3.1 simple reference account pinned at
 ///      erc6551/reference commit 43a84573bb47b0df3ab543a20365f4974f56a809, with
-///      one NexMarkets invariant added: while the exact Pass has an executable
+///      one Outerfield invariant added: while the exact Pass has an executable
 ///      listing, the Pass Vault is value-locked so a seller cannot remove value
 ///      out from under a buyer mid-sale. Deposits are never blocked; only
 ///      owner-authorized outbound authority is.
 ///      Control always resolves from ERC-721 ownerOf; this account stores no
-///      NexMarkets Terms, serial, Advantage, or royalty authority.
-contract NexPassAccount is IERC165, IERC1271, IERC6551Account, IERC6551Executable {
+///      Outerfield Terms, serial, Advantage, or royalty authority.
+contract OFLDPassAccount is IERC165, IERC1271, IERC6551Account, IERC6551Executable {
     uint256 public state;
 
     /// @notice Canonical listing authority consulted for the Vault value lock.
@@ -49,12 +49,12 @@ contract NexPassAccount is IERC165, IERC1271, IERC6551Account, IERC6551Executabl
     function isVaultLocked() public view returns (bool) {
         (uint256 chainId, address tokenContract, uint256 tokenId) = token();
         if (chainId != block.chainid || tokenContract == address(0)) return false;
-        try INexPassVaultListingLock(listingRegistry).activeListingFor(tokenContract, tokenId) returns (
+        try IOFLDPassVaultListingLock(listingRegistry).activeListingFor(tokenContract, tokenId) returns (
             bytes32 orderHash
         ) {
             if (orderHash == bytes32(0)) return false;
             // A listing is known to exist. Fail closed if liveness cannot be read.
-            try INexPassVaultListingLock(listingRegistry).isListingActive(orderHash) returns (bool active) {
+            try IOFLDPassVaultListingLock(listingRegistry).isListingActive(orderHash) returns (bool active) {
                 return active;
             } catch {
                 return true;

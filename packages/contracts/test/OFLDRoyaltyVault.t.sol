@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {Test} from "forge-std/Test.sol";
 
-import {NexRoyaltyVault} from "../src/NexRoyaltyVault.sol";
+import {OFLDRoyaltyVault} from "../src/OFLDRoyaltyVault.sol";
 
 contract VaultMockUSDG is ERC20 {
     constructor() ERC20("Global Dollar", "USDG") {}
@@ -15,10 +15,10 @@ contract VaultMockUSDG is ERC20 {
 }
 
 contract RoyaltyListingRegistryMock {
-    NexRoyaltyVault public immutable royaltyVault;
+    OFLDRoyaltyVault public immutable royaltyVault;
     address public immutable owner;
 
-    constructor(NexRoyaltyVault royaltyVault_, address owner_) {
+    constructor(OFLDRoyaltyVault royaltyVault_, address owner_) {
         royaltyVault = royaltyVault_;
         owner = owner_;
     }
@@ -40,9 +40,9 @@ contract MiswiredRoyaltyListingRegistry {
 
 contract RoyaltyEditionMock {}
 
-contract NexRoyaltyVaultTest is Test {
+contract OFLDRoyaltyVaultTest is Test {
     VaultMockUSDG internal usdg;
-    NexRoyaltyVault internal vault;
+    OFLDRoyaltyVault internal vault;
     RoyaltyListingRegistryMock internal listingRegistry;
     RoyaltyEditionMock internal edition;
 
@@ -52,7 +52,7 @@ contract NexRoyaltyVaultTest is Test {
 
     function setUp() public {
         usdg = new VaultMockUSDG();
-        vault = new NexRoyaltyVault(OWNER, usdg);
+        vault = new OFLDRoyaltyVault(OWNER, usdg);
         listingRegistry = new RoyaltyListingRegistryMock(vault, OWNER);
         edition = new RoyaltyEditionMock();
 
@@ -65,7 +65,7 @@ contract NexRoyaltyVaultTest is Test {
         usdg.mint(address(vault), ROYALTY);
         listingRegistry.record(orderHash, address(edition), 7, BUILDER, ROYALTY);
 
-        NexRoyaltyVault.RoyaltyClaim memory claim = vault.claimInfo(orderHash);
+        OFLDRoyaltyVault.RoyaltyClaim memory claim = vault.claimInfo(orderHash);
         assertEq(claim.edition, address(edition));
         assertEq(claim.tokenId, 7);
         assertEq(claim.builder, BUILDER);
@@ -76,12 +76,12 @@ contract NexRoyaltyVaultTest is Test {
 
         vm.warp(claim.releaseAt - 1);
         vm.prank(BUILDER);
-        vm.expectRevert(NexRoyaltyVault.RoyaltyStillLocked.selector);
+        vm.expectRevert(OFLDRoyaltyVault.RoyaltyStillLocked.selector);
         vault.withdraw(orderHash);
 
         vm.warp(claim.releaseAt);
         vm.prank(address(0xBAD));
-        vm.expectRevert(NexRoyaltyVault.NotBuilder.selector);
+        vm.expectRevert(OFLDRoyaltyVault.NotBuilder.selector);
         vault.withdraw(orderHash);
 
         vm.prank(BUILDER);
@@ -91,7 +91,7 @@ contract NexRoyaltyVaultTest is Test {
         assertTrue(vault.claimInfo(orderHash).withdrawn);
 
         vm.prank(BUILDER);
-        vm.expectRevert(NexRoyaltyVault.RoyaltyAlreadyWithdrawn.selector);
+        vm.expectRevert(OFLDRoyaltyVault.RoyaltyAlreadyWithdrawn.selector);
         vault.withdraw(orderHash);
     }
 
@@ -100,22 +100,22 @@ contract NexRoyaltyVaultTest is Test {
         usdg.mint(address(vault), 2 * ROYALTY);
         listingRegistry.record(orderHash, address(edition), 1, BUILDER, ROYALTY);
 
-        vm.expectRevert(NexRoyaltyVault.RoyaltyAlreadyRecorded.selector);
+        vm.expectRevert(OFLDRoyaltyVault.RoyaltyAlreadyRecorded.selector);
         listingRegistry.record(orderHash, address(edition), 1, BUILDER, ROYALTY);
     }
 
     function testRecordingRequiresPermanentlyBoundRegistryAndBacking() public {
         bytes32 orderHash = keccak256("vault:backing");
-        vm.expectRevert(NexRoyaltyVault.NotListingRegistry.selector);
+        vm.expectRevert(OFLDRoyaltyVault.NotListingRegistry.selector);
         vault.recordRoyalty(orderHash, address(edition), 1, BUILDER, ROYALTY);
 
-        vm.expectRevert(NexRoyaltyVault.InsufficientBacking.selector);
+        vm.expectRevert(OFLDRoyaltyVault.InsufficientBacking.selector);
         listingRegistry.record(orderHash, address(edition), 1, BUILDER, ROYALTY);
 
-        NexRoyaltyVault fresh = new NexRoyaltyVault(OWNER, usdg);
+        OFLDRoyaltyVault fresh = new OFLDRoyaltyVault(OWNER, usdg);
         MiswiredRoyaltyListingRegistry wrong = new MiswiredRoyaltyListingRegistry();
         vm.prank(OWNER);
-        vm.expectRevert(NexRoyaltyVault.ListingRegistryWiringMismatch.selector);
+        vm.expectRevert(OFLDRoyaltyVault.ListingRegistryWiringMismatch.selector);
         fresh.setListingRegistry(address(wrong));
         assertEq(fresh.listingRegistry(), address(0));
     }
