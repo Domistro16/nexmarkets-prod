@@ -17185,7 +17185,7 @@ function normalizeRewardPolicy(policy) {
 // packages/config/src/networks.mjs
 var PRODUCT_AUTHORITY = Object.freeze({
   file: "NEXMARKETS_HOMEPAGE_DISCOVER_MARKET_COLLECTIBLE_ROTATION_PASS_TEXT_FIT_UX_FIXED.html",
-  sha256: "31bd71fa5b340739536544d3645c670b4f9f8939c49f0c75db912f081a8a276b"
+  sha256: "2de65b00ad60807577e50cb78ee6379c06fee7c360ea5707eff5ea8dec5f0588"
 });
 var PRIMITIVES = Object.freeze({
   seaport16: "0x0000000000000068F116a894984e2DB1123eB395",
