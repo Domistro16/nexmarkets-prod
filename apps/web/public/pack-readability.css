@@ -1,4 +1,36 @@
 /* Pack typography uses the shared 500px canvas, then scales with the object. */
+.nm-pass .pass-brand-copy b { font-size: 12px !important; line-height: 1.15; }
+.nm-pass .pass-brand-copy span,
+.nm-pass .pass-type { font-size: 9px !important; line-height: 1.2; letter-spacing: .06em; }
+.nm-pass .pass-cat { font-size: 9px !important; line-height: 1.2; letter-spacing: .08em; }
+.nm-pass .pass-serial { font-size: 9px !important; line-height: 1.2; }
+.nm-pass .pass-desc { font-size: 9px !important; line-height: 1.3; }
+.nm-pass .pass-meta-block label { font-size: 8px !important; line-height: 1.2; letter-spacing: .07em; }
+.nm-pass .pass-meta-block strong { font-size: 9px !important; line-height: 1.2; letter-spacing: .01em; }
+.nm-pass .pass-prov { font-size: 7.5px !important; line-height: 1.2; letter-spacing: .06em; }
+.nm-pass .back-top { font-size: 8px !important; line-height: 1.2; letter-spacing: .07em; }
+.nm-pass .back-status b { font-size: 11px !important; line-height: 1.2; }
+.nm-pass .back-status span { font-size: 8.5px !important; line-height: 1.3; }
+.nm-pass .back-covered { font-size: 8px !important; line-height: 1.2; letter-spacing: .07em; }
+.nm-pass .back-benefit label { font-size: 7.5px !important; line-height: 1.2; letter-spacing: .06em; }
+.nm-pass .back-benefit strong { font-size: 14px !important; line-height: 1.1; }
+.nm-pass .back-benefit span { font-size: 8px !important; line-height: 1.2; }
+.nm-pass .back-support { font-size: 8px !important; line-height: 1.2; }
+.nm-pass .back-note { font-size: 7.5px !important; line-height: 1.25; }
+.nm-pass .pass-brand-copy span,
+.nm-pass .pass-type,
+.nm-pass .pass-cat,
+.nm-pass .pass-serial,
+.nm-pass .pass-meta-block label,
+.nm-pass .pass-meta-block strong,
+.nm-pass .pass-prov,
+.nm-pass .back-top,
+.nm-pass .back-covered,
+.nm-pass .back-benefit label,
+.nm-pass .back-benefit span,
+.nm-pass .back-support,
+.nm-pass .back-note { overflow-wrap: anywhere; }
+
 .object .pack-front .v13-code,
 .object .pack-front .v13-eyebrow,
 .object .pack-front .v13-brand > span,
@@ -17,11 +49,34 @@
 .object .pack-front .v27-resin-inlay small,
 .object .pack-front .v27-resin-etch > span,
 .object .pack-front .v27-resin-id span {
-  font-size: 12.5px !important;
-  line-height: 1.3 !important;
-  letter-spacing: .035em !important;
-  font-weight: 600 !important;
+  font-size: 16px !important;
+  line-height: 1.2 !important;
+  letter-spacing: .025em !important;
+  font-weight: 650 !important;
   opacity: 1;
+}
+.object .pack-front .v13-code { font-size: 15px !important; letter-spacing: .01em !important; }
+.object .pack-front .v13-eyebrow,
+.object .pack-front .v13-tab,
+.object .pack-front .v27-head-brand,
+.object .pack-front .v27-head-sub,
+.object .pack-front .v27-deed-title > span,
+.object .pack-front .v27-deed-title small { font-size: 14px !important; }
+.object .pack-front .v13-copy,
+.object .pack-front .v27-deed-copy p,
+.object .pack-front .v27-resin-etch p {
+  line-height: 1.2 !important;
+  letter-spacing: 0 !important;
+  font-weight: 500 !important;
+}
+.object .pack-front .v13-code,
+.object .pack-front .v13-eyebrow,
+.object .pack-front .v27-head-brand,
+.object .pack-front .v27-head-sub,
+.object .pack-front .v27-foot-id span,
+.object .pack-front .v27-foot-reg span {
+  white-space: normal !important;
+  overflow-wrap: anywhere;
 }
 .object .pack-front .v13-brandmark { min-width: 20px; min-height: 20px; }
 .object .pack-front .v13-eyebrow,
@@ -42,40 +97,42 @@
 .object .pack-slab .v13-title { letter-spacing: 0 !important; }
 .object .pack-slab .v13-slab-grade .v13-code { white-space: normal !important; overflow-wrap: anywhere; }
 .object .pack-slab .v13-slab-grade .v13-code,
-.object .pack-slab .v13-slab-footer .v13-code,
-.object .pack-slab .v13-slab-footer .badge { font-size: 12.5px !important; }
+.object .pack-slab .v13-slab-footer .v13-code { font-size: 15px !important; }
+.object .pack-slab .v13-slab-footer .badge { font-size: 14px !important; line-height: 1.15; letter-spacing: .01em; white-space: nowrap; }
+.object .pack-slab .v13-slab-footer { grid-template-columns: minmax(0,1fr) minmax(0,1.2fr) minmax(0,1fr); gap: 6px; }
 .object .pack-glass .v13-accession { top: 8.5%; height: 6.2%; }
 .object .pack-glass .v13-accession .v13-tab { white-space: normal !important; }
 .object .pack-glass .v13-curator { height: 19.2%; }
-.object .pack-glass .v13-curator-main { height: calc(100% - 36px); }
-.object .pack-glass .v13-curator-foot { height: 36px; grid-template-columns: minmax(0, .7fr) minmax(0, 1.6fr) minmax(0, 1fr); }
+.object .pack-glass .v13-curator-main { height: calc(100% - 48px); }
+.object .pack-glass .v13-curator-foot { height: 48px; grid-template-columns: minmax(0, .7fr) minmax(0, 1.6fr) minmax(0, 1fr); }
 .object .pack-glass .v13-curator-foot span { white-space: normal !important; text-align: center; }
 .object .pack-metal .v13-metal-head { grid-template-columns: minmax(0, 1fr) 112px; }
 .object .pack-metal .v13-metal-foot { height: 19% !important; bottom: 6.5% !important; }
 .object .pack-metal .v13-metal-id { padding: 8px; gap: 2px; }
 .object .pack-metal .v13-metal-head .v13-code,
-.object .pack-metal .v13-metal-id .v13-code { font-size: 12.5px !important; }
-.object .pack-metal .v13-metal-id strong { font-size: 14px !important; line-height: 1.3; white-space: normal; overflow-wrap: anywhere; }
+.object .pack-metal .v13-metal-id .v13-code { font-size: 16px !important; }
+.object .pack-metal .v13-metal-id strong { font-size: 16px !important; line-height: 1.2; white-space: normal; overflow-wrap: anywhere; }
 .object .pack-carbon .v13-carbon-head .v13-code,
-.object .pack-carbon .v13-carbon-foot .v13-code { font-size: 12.5px !important; }
+.object .pack-carbon .v13-carbon-foot .v13-code { font-size: 14px !important; }
 .object .pack-carbon .v13-carbon-foot { right: 38% !important; height: 15.5% !important; }
 .object .pack-carbon .v15-carbon-chip { width: 26%; height: 15%; right: 9%; }
 .object .pack-carbon .v15-carbon-chip strong { font-size: 16px !important; line-height: 1.3; }
 .object .pack-carbon .v15-carbon-chip > div { width: 100%; min-width: 0; }
 .object .pack-carbon .v15-carbon-chip .v13-code { letter-spacing: 0 !important; white-space: normal !important; overflow-wrap: anywhere; }
 .object .pack-ceramic .v13-kiln,
-.object .pack-ceramic .v13-kiln span:nth-child(2) { font-size: 12.5px !important; }
-.object .pack-ceramic .v13-kiln { left: 13%; right: 13%; grid-template-columns: max-content max-content minmax(0, 1fr); gap: 8px; }
+.object .pack-ceramic .v13-kiln span:nth-child(2) { font-size: 14px !important; }
+.object .pack-ceramic .v13-kiln { left: 11%; right: 11%; grid-template-columns: max-content max-content minmax(0, 1fr); gap: 8px; }
+.object .pack-ceramic .v13-kiln span { white-space: normal !important; overflow-wrap: anywhere; }
 .object .pack-blister .v27-blister-head { padding-right: 92px !important; }
 .object .pack-blister .v27-seal { width: 70px !important; height: 70px !important; }
 .object .pack-blister .v27-seal strong,
-.object .pack-blister .v27-seal span { font-size: 11px !important; line-height: 1.2; letter-spacing: .02em; }
-.object .pack-blister .v27-foot-kicker { font-size: 11.5px !important; line-height: 1.25; letter-spacing: .025em; }
+.object .pack-blister .v27-seal span { font-size: 14px !important; line-height: 1.15; letter-spacing: .01em; }
+.object .pack-blister .v27-foot-kicker { font-size: 15px !important; line-height: 1.2; letter-spacing: .015em; }
 .object .pack-blister .v27-blister-foot { height: 14.5%; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); }
-.object .pack-blister .v27-foot-id strong { font-size: 14px !important; line-height: 1.3; }
+.object .pack-blister .v27-foot-id strong { font-size: 16px !important; line-height: 1.2; }
 .object .pack-blister .v27-foot-id span { white-space: normal !important; overflow-wrap: anywhere; }
 .object .pack-paper .v27-deed-head { height: 18%; grid-template-columns: 36px minmax(0, 1fr) 74px !important; }
-.object .pack-paper .v27-reg-stamp { font-size: 10.5px !important; line-height: 1.3; letter-spacing: .02em; }
+.object .pack-paper .v27-reg-stamp { font-size: 14px !important; line-height: 1.2; letter-spacing: .01em; }
 .object .pack-resin .v27-resin-inlay {
   left: 15.5%; right: 15.5%;
   height: 13%;
@@ -84,19 +141,20 @@
 }
 .object .pack-resin .v27-resin-inlay > strong {
   writing-mode: horizontal-tb !important;
-  font-size: 12px !important;
-  line-height: 1.3;
-  letter-spacing: .035em;
+  font-size: 16px !important;
+  line-height: 1.2;
+  letter-spacing: .015em;
   white-space: normal !important;
   text-align: right;
 }
 .object .pack-resin .v27-resin-etch { height: 11%; }
 .object .pack-resin .v27-resin-id {
-  left: 20% !important; right: 20% !important;
+  left: 15% !important; right: 15% !important;
   grid-template-columns: 8px minmax(44px, .65fr) minmax(0, 1.5fr) 8px !important;
-  gap: 8px !important;
+  gap: 6px !important;
 }
-.object .pack-resin .v27-resin-id strong { font-size: 14px !important; line-height: 1.3; }
+.object .pack-resin .v27-resin-id span { white-space: normal !important; overflow-wrap: anywhere; }
+.object .pack-resin .v27-resin-id strong { font-size: 16px !important; line-height: 1.2; }
 
 /* Reverse labels remain readable instead of shrinking at iframe breakpoints. */
 .object .pack.pack-back:not(.pack-paper) .back-panel { top: 6%; bottom: 6%; padding-top: 10px; padding-bottom: 10px; }

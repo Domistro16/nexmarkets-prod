@@ -20,6 +20,17 @@ export function liveAuthority(html) {
   // The same fitted stylesheet reaches native previews, iframe previews and
   // exported objects, including labels hidden inside their shadow roots.
   replace('style.textContent=FIT_STYLE;', `style.textContent=FIT_STYLE+${JSON.stringify(packReadabilityStyle)};`);
+  replace('function legacyPassHTML(o={}){', `(()=>{const s=document.createElement('style');s.id='nm-pack-readability-global';s.textContent=${JSON.stringify(packReadabilityStyle)};(document.head||document.documentElement).append(s)})();function legacyPassHTML(o={}){`);
+  for (const [before, after] of [
+    ['desc:{sizes:[13.2,12.5,11.8],lines:2,lh:1.2}', 'desc:{sizes:[16,15,14],lines:3,lh:1.2}'],
+    ['desc:{sizes:[13.4,12.7,12],lines:3,lh:1.22}', 'desc:{sizes:[16,15,14],lines:3,lh:1.22}'],
+    ['desc:{sizes:[13.1,12.4,11.7],lines:3,lh:1.2}', 'desc:{sizes:[16,15,14],lines:3,lh:1.2}'],
+    ['desc:{sizes:[13.4,12.7,12],lines:3,lh:1.2}', 'desc:{sizes:[16,15,14],lines:3,lh:1.2}'],
+    ['desc:{sizes:[12.3,11.6,10.9],lines:2,lh:1.18}', 'desc:{sizes:[16,15,14],lines:3,lh:1.18}'],
+    ['desc:{sizes:[13,12.3,11.6],lines:3,lh:1.2}', 'desc:{sizes:[16,15,14],lines:3,lh:1.2}'],
+    ['desc:{sizes:[12,11.4,10.8],lines:3,lh:1.22}', 'desc:{sizes:[16,15,14],lines:3,lh:1.22}'],
+    ['desc:{sizes:[12.3,11.6,10.9],lines:3,lh:1.2}', 'desc:{sizes:[16,15,14],lines:3,lh:1.2}'],
+  ]) replace(before, after);
   replace('const clipped=results.filter(x=>!x.fit).length;', "root.querySelectorAll('.pack-back .back-benefit strong').forEach(el=>results.push(fitEl(el,{sizes:[26,24,22,20,18],lines:1,lh:1.05})));const clipped=results.filter(x=>!x.fit).length;");
   return html;
 }
