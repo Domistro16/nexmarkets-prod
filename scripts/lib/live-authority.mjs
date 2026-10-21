@@ -1,5 +1,9 @@
 // Adapt the archived presentation document to the live runtime without
 // changing the byte-exact design reference. Fail the build if a hook drifts.
+import { readFileSync } from 'node:fs';
+
+const packReadabilityStyle = readFileSync(new URL('../../apps/web/public/pack-readability.css', import.meta.url), 'utf8');
+
 export function liveAuthority(html) {
   const replace = (before, after) => {
     if (!html.includes(before) || html.indexOf(before) !== html.lastIndexOf(before)) throw new Error(`Live authority hook missing or ambiguous: ${before}`);
@@ -13,5 +17,9 @@ export function liveAuthority(html) {
   replace('<button class="btn primary" onclick="nmEliteSaveBuilderProfile(\'${E(key)}\')">Save public profile</button>', '<button class="btn primary" data-nm-builder-profile-save="${E(key)}" onclick="nmEliteSaveBuilderProfile(\'${E(key)}\')">Save public profile</button>');
   replace('totalRoyalty=Number(e.royaltyAvailable||0)+Number(e.royaltyLocked||0)', 'totalRoyalty=Number(e.royaltyEarned??(Number(e.royaltyAvailable||0)+Number(e.royaltyLocked||0)))');
   replace("${e.royaltyAvailable?'Available':'Withdrawn'}", "${e.royaltyAvailable?'Available':e.royaltyWithdrawn?'Withdrawn':'No balance'}");
+  // The same fitted stylesheet reaches native previews, iframe previews and
+  // exported objects, including labels hidden inside their shadow roots.
+  replace('style.textContent=FIT_STYLE;', `style.textContent=FIT_STYLE+${JSON.stringify(packReadabilityStyle)};`);
+  replace('const clipped=results.filter(x=>!x.fit).length;', "root.querySelectorAll('.pack-back .back-benefit strong').forEach(el=>results.push(fitEl(el,{sizes:[26,24,22,20,18],lines:1,lh:1.05})));const clipped=results.filter(x=>!x.fit).length;");
   return html;
 }

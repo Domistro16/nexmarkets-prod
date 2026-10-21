@@ -1,0 +1,148 @@
+/* Pack typography uses the shared 500px canvas, then scales with the object. */
+.object .pack-front .v13-code,
+.object .pack-front .v13-eyebrow,
+.object .pack-front .v13-brand > span,
+.object .pack-front .v13-tab,
+.object .pack-front .v13-curator-foot span,
+.object .pack-front .v13-kiln span,
+.object .pack-front .v27-head-brand,
+.object .pack-front .v27-head-sub,
+.object .pack-front .v27-foot-id span,
+.object .pack-front .v27-foot-id em,
+.object .pack-front .v27-deed-title > span,
+.object .pack-front .v27-deed-title small,
+.object .pack-front .v27-plate-caption,
+.object .pack-front .v27-deed-copy > b,
+.object .pack-front .v27-foot-reg span,
+.object .pack-front .v27-resin-inlay small,
+.object .pack-front .v27-resin-etch > span,
+.object .pack-front .v27-resin-id span {
+  font-size: 12.5px !important;
+  line-height: 1.3 !important;
+  letter-spacing: .035em !important;
+  font-weight: 600 !important;
+  opacity: 1;
+}
+.object .pack-front .v13-brandmark { min-width: 20px; min-height: 20px; }
+.object .pack-front .v13-eyebrow,
+.object .pack-front .v27-head-brand,
+.object .pack-front .v27-head-sub,
+.object .pack-front .v27-deed-title > span,
+.object .pack-front .v27-deed-title small,
+.object .pack-front .v27-resin-inlay small {
+  white-space: normal !important;
+  overflow-wrap: anywhere;
+}
+.object .pack-slab .v13-slab-label {
+  height: 21.5% !important;
+  grid-template-columns: minmax(0, 1fr) 96px !important;
+  gap: 8px !important;
+}
+.object .pack-slab .v13-slab-grade { gap: 3px; }
+.object .pack-slab .v13-title { letter-spacing: 0 !important; }
+.object .pack-slab .v13-slab-grade .v13-code { white-space: normal !important; overflow-wrap: anywhere; }
+.object .pack-slab .v13-slab-grade .v13-code,
+.object .pack-slab .v13-slab-footer .v13-code,
+.object .pack-slab .v13-slab-footer .badge { font-size: 12.5px !important; }
+.object .pack-glass .v13-accession { top: 8.5%; height: 6.2%; }
+.object .pack-glass .v13-accession .v13-tab { white-space: normal !important; }
+.object .pack-glass .v13-curator { height: 19.2%; }
+.object .pack-glass .v13-curator-main { height: calc(100% - 36px); }
+.object .pack-glass .v13-curator-foot { height: 36px; grid-template-columns: minmax(0, .7fr) minmax(0, 1.6fr) minmax(0, 1fr); }
+.object .pack-glass .v13-curator-foot span { white-space: normal !important; text-align: center; }
+.object .pack-metal .v13-metal-head { grid-template-columns: minmax(0, 1fr) 112px; }
+.object .pack-metal .v13-metal-foot { height: 19% !important; bottom: 6.5% !important; }
+.object .pack-metal .v13-metal-id { padding: 8px; gap: 2px; }
+.object .pack-metal .v13-metal-head .v13-code,
+.object .pack-metal .v13-metal-id .v13-code { font-size: 12.5px !important; }
+.object .pack-metal .v13-metal-id strong { font-size: 14px !important; line-height: 1.3; white-space: normal; overflow-wrap: anywhere; }
+.object .pack-carbon .v13-carbon-head .v13-code,
+.object .pack-carbon .v13-carbon-foot .v13-code { font-size: 12.5px !important; }
+.object .pack-carbon .v13-carbon-foot { right: 38% !important; height: 15.5% !important; }
+.object .pack-carbon .v15-carbon-chip { width: 26%; height: 15%; right: 9%; }
+.object .pack-carbon .v15-carbon-chip strong { font-size: 16px !important; line-height: 1.3; }
+.object .pack-carbon .v15-carbon-chip > div { width: 100%; min-width: 0; }
+.object .pack-carbon .v15-carbon-chip .v13-code { letter-spacing: 0 !important; white-space: normal !important; overflow-wrap: anywhere; }
+.object .pack-ceramic .v13-kiln,
+.object .pack-ceramic .v13-kiln span:nth-child(2) { font-size: 12.5px !important; }
+.object .pack-ceramic .v13-kiln { left: 13%; right: 13%; grid-template-columns: max-content max-content minmax(0, 1fr); gap: 8px; }
+.object .pack-blister .v27-blister-head { padding-right: 92px !important; }
+.object .pack-blister .v27-seal { width: 70px !important; height: 70px !important; }
+.object .pack-blister .v27-seal strong,
+.object .pack-blister .v27-seal span { font-size: 11px !important; line-height: 1.2; letter-spacing: .02em; }
+.object .pack-blister .v27-foot-kicker { font-size: 11.5px !important; line-height: 1.25; letter-spacing: .025em; }
+.object .pack-blister .v27-blister-foot { height: 14.5%; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); }
+.object .pack-blister .v27-foot-id strong { font-size: 14px !important; line-height: 1.3; }
+.object .pack-blister .v27-foot-id span { white-space: normal !important; overflow-wrap: anywhere; }
+.object .pack-paper .v27-deed-head { height: 18%; grid-template-columns: 36px minmax(0, 1fr) 74px !important; }
+.object .pack-paper .v27-reg-stamp { font-size: 10.5px !important; line-height: 1.3; letter-spacing: .02em; }
+.object .pack-resin .v27-resin-inlay {
+  left: 15.5%; right: 15.5%;
+  height: 13%;
+  grid-template-columns: 22px minmax(0, 1fr) 74px !important;
+  gap: 7px !important;
+}
+.object .pack-resin .v27-resin-inlay > strong {
+  writing-mode: horizontal-tb !important;
+  font-size: 12px !important;
+  line-height: 1.3;
+  letter-spacing: .035em;
+  white-space: normal !important;
+  text-align: right;
+}
+.object .pack-resin .v27-resin-etch { height: 11%; }
+.object .pack-resin .v27-resin-id {
+  left: 20% !important; right: 20% !important;
+  grid-template-columns: 8px minmax(44px, .65fr) minmax(0, 1.5fr) 8px !important;
+  gap: 8px !important;
+}
+.object .pack-resin .v27-resin-id strong { font-size: 14px !important; line-height: 1.3; }
+
+/* Reverse labels remain readable instead of shrinking at iframe breakpoints. */
+.object .pack.pack-back:not(.pack-paper) .back-panel { top: 6%; bottom: 6%; padding-top: 10px; padding-bottom: 10px; }
+.object .pack-back .back-panel > * { flex-shrink: 0; }
+.object .pack-back .back-topline { min-height: 38px; }
+.object .pack-back .back-brand-copy { min-width: 0; }
+.object .pack-back .back-brand-copy b { font-size: 14px; line-height: 1.25; letter-spacing: .06em; }
+.object .pack-back .back-brand-copy small { font-size: 11.5px; line-height: 1.3; letter-spacing: .025em; }
+.object .pack-back .back-serial { font-size: 14px; letter-spacing: .035em; }
+.object .pack-back .back-status { margin-top: 8px; padding: 8px; }
+.object .pack-back .back-status b { font-size: 13px; line-height: 1.25; letter-spacing: .035em; }
+.object .pack-back .back-status small { margin-top: 3px; font-size: 11.5px; line-height: 1.3; letter-spacing: .015em; opacity: .9; }
+.object .pack-back .back-name-row {
+  margin-top: 8px;
+  grid-template-columns: minmax(0, 1fr) minmax(90px, .58fr);
+  gap: 10px;
+}
+.object .pack-back .back-name-kicker,
+.object .pack-back .back-edition span,
+.object .pack-back .back-support span,
+.object .pack-back .back-registry span {
+  font-size: 11.5px;
+  line-height: 1.25;
+  letter-spacing: .035em;
+  opacity: .9;
+}
+.object .pack-back .back-edition strong {
+  max-width: none;
+  font-size: 12.5px !important;
+  line-height: 1.3;
+  white-space: normal !important;
+  overflow-wrap: anywhere;
+}
+.object .pack-back .back-benefits { margin-top: 10px; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.object .pack-back .back-benefit { min-width: 0; min-height: 94px; padding: 8px 6px; }
+.object .pack-back .back-benefit span { min-height: 30px; font-size: 12.5px; line-height: 1.2; letter-spacing: .025em; opacity: .95; }
+.object .pack-back .back-benefit strong { margin-top: 5px; font-size: 26px; line-height: 1; }
+.object .pack-back .back-benefit small { padding-top: 4px; font-size: 11.5px; line-height: 1.2; letter-spacing: .025em; opacity: .95; }
+.object .pack-back .back-support { margin-top: 8px; padding: 7px 0; }
+.object .pack-back .back-support span { margin-bottom: 3px; }
+.object .pack-back .back-support strong { font-size: 12.5px; line-height: 1.25; letter-spacing: .035em; }
+.object .pack-back .back-registry { margin-top: 10px; gap: 6px 7px; }
+.object .pack-back .back-registry strong {
+  font-size: 12.5px !important;
+  line-height: 1.25;
+  white-space: normal !important;
+  overflow-wrap: anywhere;
+}
+.object .pack-back .back-note { padding-top: 8px; font-size: 10.5px; line-height: 1.25; letter-spacing: .015em; opacity: .85; }
