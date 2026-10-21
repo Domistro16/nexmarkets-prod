@@ -204,3 +204,18 @@
   overflow-wrap: anywhere;
 }
 .object .pack-back .back-note { padding-top: 8px; font-size: 10.5px; line-height: 1.25; letter-spacing: .015em; opacity: .85; }
+
+/* Platform/template branding stays secondary to the project's own copy. */
+.object .pack-front .v13-brand > span:not(.v13-brandmark),
+.object .pack-front .v13-metal-head .v13-eyebrow,
+.object .pack-front .v13-ceramic-head .v13-eyebrow,
+.object .pack-front .v13-carbon-head .v13-eyebrow,
+.object .pack-front .v13-carbon-foot .v13-code > span:last-child,
+.object .pack-front .v27-head-brand,
+.object .pack-front .v27-deed-title > span,
+.object .pack-front .v27-resin-inlay small {
+  font-size: 12px !important;
+  line-height: 1.25 !important;
+  letter-spacing: .025em !important;
+}
+.object .pack-back .back-brand-copy b { font-size: 12px; }

@@ -3,6 +3,9 @@
 import { readFileSync } from 'node:fs';
 
 const packReadabilityStyle = readFileSync(new URL('../../apps/web/public/pack-readability.css', import.meta.url), 'utf8');
+const classicGlassReadabilityStyle = readFileSync(new URL('../../apps/web/public/classic-glass-readability.css', import.meta.url), 'utf8');
+const classicGlassLayout = readFileSync(new URL('../../apps/web/public/classic-glass-layout.js', import.meta.url), 'utf8');
+const classicGlassEmbed = JSON.stringify('<style id="nm-classic-glass-readability">' + classicGlassReadabilityStyle + '</style><script id="nm-classic-glass-layout">' + classicGlassLayout + '</script>').replace(/</g, '\\u003c');
 
 export function liveAuthority(html) {
   const replace = (before, after) => {
@@ -20,6 +23,7 @@ export function liveAuthority(html) {
   // The same fitted stylesheet reaches native previews, iframe previews and
   // exported objects, including labels hidden inside their shadow roots.
   replace('style.textContent=FIT_STYLE;', `style.textContent=FIT_STYLE+${JSON.stringify(packReadabilityStyle)};`);
+  replace("src=src.replace('</head>',EMBED_CSS+'</head>');", `src=src.replace('</head>',EMBED_CSS+${classicGlassEmbed}+'</head>');`);
   replace('function legacyPassHTML(o={}){', `(()=>{const s=document.createElement('style');s.id='nm-pack-readability-global';s.textContent=${JSON.stringify(packReadabilityStyle)};(document.head||document.documentElement).append(s)})();function legacyPassHTML(o={}){`);
   for (const [before, after] of [
     ['desc:{sizes:[13.2,12.5,11.8],lines:2,lh:1.2}', 'desc:{sizes:[16,15,14],lines:3,lh:1.2}'],

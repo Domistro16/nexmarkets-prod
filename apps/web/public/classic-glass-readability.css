@@ -1,0 +1,108 @@
+/* Classic and Glass use a 500px master which is often displayed at 250–300px. */
+#card-root[data-pass-design="classic"] .f-brand,
+#card-root[data-pass-design="glass"] .glass-brand-name { font-size: 17px; line-height: 1.2; }
+#card-root[data-pass-design="classic"] .header-left,
+#card-root[data-pass-design="classic"] .brand-stack,
+#card-root[data-pass-design="glass"] .glass-brand-row { min-width: 0; }
+#card-root[data-pass-design="classic"] .f-brand,
+#card-root[data-pass-design="glass"] .glass-brand-name,
+#card-root[data-pass-design="glass"] .glass-name { overflow-wrap: anywhere; }
+#card-root[data-pass-design="classic"] .f-subtype { font-size: 8px; }
+#card-root[data-pass-design="glass"] .glass-pass-id { font-size: 7.2px; }
+#card-root[data-pass-design="classic"] .f-category,
+#card-root[data-pass-design="glass"] .glass-category { font-size: 14px; letter-spacing: .08em; }
+#card-root[data-pass-design="classic"] .f-rarity,
+#card-root[data-pass-design="glass"] .glass-rarity { font-size: 12px; letter-spacing: .1em; }
+#card-root[data-pass-design="classic"] .f-name,
+#card-root[data-pass-design="glass"] .glass-name { font-size: 36px; line-height: 1.1; }
+#card-root[data-pass-design="classic"] .f-num { font-size: 20px; }
+#card-root[data-pass-design="glass"] .glass-serial-vertical { font-size: 14px; }
+
+/* Reserve space for the description instead of fitting it into microtype. */
+#card-root[data-pass-design="classic"] .image-zone {
+  margin: 0 auto !important;
+  width: min(calc(100% - 44px), var(--nm-card-art-size, 456px)) !important;
+}
+#card-root[data-pass-design="classic"] .f-desc,
+#card-root[data-pass-design="glass"] .glass-desc {
+  font-size: var(--nm-card-copy-size, 24px) !important;
+  line-height: 1.35 !important;
+  font-weight: 450;
+  letter-spacing: 0;
+  max-width: 100% !important;
+  overflow-wrap: anywhere;
+}
+#card-root[data-pass-design="classic"] .f-desc { color: var(--theme-primary) !important; opacity: .88; }
+#card-root[data-pass-design="glass"] .glass-desc { color: var(--glass-text-bright) !important; opacity: .9; }
+#card-root[data-pass-design="classic"] .collectible-meta { padding-top: 14px !important; }
+#card-root[data-pass-design="classic"] .edition-kicker,
+#card-root[data-pass-design="glass"] .glass-meta-kicker { font-size: 13px; letter-spacing: .08em; }
+#card-root[data-pass-design="classic"] .edition-value,
+#card-root[data-pass-design="glass"] .glass-meta-value { font-size: 17px; }
+#card-root[data-pass-design="classic"] .provenance-line { font-size: 11px; letter-spacing: .06em; }
+#card-root[data-pass-design="classic"] .provenance-mark,
+#card-root[data-pass-design="glass"] .glass-provenance { font-size: 6.75px; letter-spacing: .06em; }
+#card-root[data-pass-design="glass"] .glass-window { margin-inline: auto; width: min(calc(100% - 44px), var(--nm-card-art-size, 456px)); }
+#card-root[data-pass-design="glass"] .glass-info { min-height: 0; padding: 12px 54px 10px 22px; }
+#card-root[data-pass-design="glass"] .glass-register { flex: 0 0 auto; gap: 14px; padding: 10px 22px 16px; }
+
+/* The shared reverse belongs to the active Classic/Glass face only. */
+#card-root:is([data-pass-design="classic"], [data-pass-design="glass"]) .card-back {
+  padding: 28px 27px 25px;
+}
+#card-root:is([data-pass-design="classic"], [data-pass-design="glass"]) .card-back > * { flex-shrink: 0; }
+#card-root:is([data-pass-design="classic"], [data-pass-design="glass"]) .back-kicker { font-size: 8px; letter-spacing: .08em; }
+#card-root:is([data-pass-design="classic"], [data-pass-design="glass"]) .back-serial { font-size: 20px; }
+#card-root:is([data-pass-design="classic"], [data-pass-design="glass"]) .back-status-hero { margin-top: 18px; padding: 16px; }
+#card-root:is([data-pass-design="classic"], [data-pass-design="glass"]) .back-status { font-size: 22px; letter-spacing: .06em; }
+#card-root:is([data-pass-design="classic"], [data-pass-design="glass"]) .back-status-copy {
+  font-size: 20px;
+  line-height: 1.35;
+  font-weight: 450;
+  letter-spacing: 0;
+  color: var(--theme-primary) !important;
+  opacity: .86;
+}
+#card-root:is([data-pass-design="classic"], [data-pass-design="glass"]) .back-name { font-size: 40px; line-height: 1.15; overflow-wrap: anywhere; }
+#card-root:is([data-pass-design="classic"], [data-pass-design="glass"]) .back-covered { font-size: 17px; flex-wrap: wrap; }
+#card-root:is([data-pass-design="classic"], [data-pass-design="glass"]) .back-covered strong { font-size: 20px; }
+#card-root:is([data-pass-design="classic"], [data-pass-design="glass"]) .back-benefits {
+  margin-top: 18px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+#card-root:is([data-pass-design="classic"], [data-pass-design="glass"]) .back-benefit { min-width: 0; min-height: 112px; padding: 14px; }
+#card-root:is([data-pass-design="classic"], [data-pass-design="glass"]) .back-benefit:first-child {
+  grid-column: 1 / -1;
+  min-height: 90px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px 14px;
+}
+#card-root:is([data-pass-design="classic"], [data-pass-design="glass"]) .back-benefit:first-child .back-benefit-label { grid-column: 1; }
+#card-root:is([data-pass-design="classic"], [data-pass-design="glass"]) .back-benefit:first-child .back-benefit-value { grid-column: 1; margin-top: 0; }
+#card-root:is([data-pass-design="classic"], [data-pass-design="glass"]) .back-benefit:first-child .back-benefit-note { grid-column: 2; grid-row: 1 / 3; padding: 0; margin: 0; text-align: right; }
+#card-root:is([data-pass-design="classic"], [data-pass-design="glass"]) .back-benefit-label,
+#card-root:is([data-pass-design="classic"], [data-pass-design="glass"]) .back-benefit-note,
+#card-root:is([data-pass-design="classic"], [data-pass-design="glass"]) .back-support-label {
+  font-size: 17px;
+  font-weight: 550;
+  line-height: 1.3;
+  letter-spacing: .03em;
+  color: var(--theme-primary) !important;
+  opacity: .8;
+}
+#card-root:is([data-pass-design="classic"], [data-pass-design="glass"]) .back-benefit-value { font-size: 30px; line-height: 1.15; overflow-wrap: anywhere; }
+#card-root:is([data-pass-design="classic"], [data-pass-design="glass"]) .back-benefit:nth-child(2) .back-benefit-value { font: 650 23px/1.25 Inter, system-ui, sans-serif; }
+#card-root:is([data-pass-design="classic"], [data-pass-design="glass"]) .back-support { padding-inline: 0; gap: 20px; }
+#card-root:is([data-pass-design="classic"], [data-pass-design="glass"]) .back-support-value { font-size: 20px; line-height: 1.3; }
+#card-root:is([data-pass-design="classic"], [data-pass-design="glass"]) .back-note { padding-top: 12px; }
+#card-root:is([data-pass-design="classic"], [data-pass-design="glass"]) .back-note-copy {
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 1.35;
+  letter-spacing: .02em;
+  color: var(--theme-primary) !important;
+  opacity: .8;
+}
