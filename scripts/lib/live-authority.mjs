@@ -1,6 +1,7 @@
 // Adapt the archived presentation document to the live runtime without
 // changing the byte-exact design reference. Fail the build if a hook drifts.
 import { readFileSync } from 'node:fs';
+import { applyOuterfieldBranding } from './outerfield-branding.mjs';
 
 const packReadabilityStyle = readFileSync(new URL('../../apps/web/public/pack-readability.css', import.meta.url), 'utf8');
 const classicGlassReadabilityStyle = readFileSync(new URL('../../apps/web/public/classic-glass-readability.css', import.meta.url), 'utf8');
@@ -36,5 +37,5 @@ export function liveAuthority(html) {
     ['desc:{sizes:[12.3,11.6,10.9],lines:3,lh:1.2}', 'desc:{sizes:[16,15,14],lines:3,lh:1.2}'],
   ]) replace(before, after);
   replace('const clipped=results.filter(x=>!x.fit).length;', "root.querySelectorAll('.pack-back .back-benefit strong').forEach(el=>results.push(fitEl(el,{sizes:[26,24,22,20,18],lines:1,lh:1.05})));const clipped=results.filter(x=>!x.fit).length;");
-  return html;
+  return applyOuterfieldBranding(html);
 }

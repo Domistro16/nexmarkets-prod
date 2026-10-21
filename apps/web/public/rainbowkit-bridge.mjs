@@ -109,7 +109,7 @@ export async function mountRainbowKit({ root, initialChainId = baseSepolia.id, a
       injectedWallet,
       walletConnectWallet
     ] }],
-    { appName: 'NexMarkets', projectId: PROJECT_ID }
+    { appName: 'Outerfield', projectId: PROJECT_ID }
   );
   const wagmiConfig = createConfig({
     chains: selectableChains,

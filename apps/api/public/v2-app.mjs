@@ -2,7 +2,7 @@ import { NexWallet, editionCreatedFromReceipt } from './wallet.mjs';
 import { openConnectModal, openAccountModal, openChainModal, onAccountChange, onChainChange, waitForConnection, getWalletProvider, disconnectWallet, initModal } from './rainbow-wallet.mjs';
 
 /*
- * NexMarkets V2 is intentionally a data adapter around the supplied product
+ * Outerfield V2 is intentionally a data adapter around the supplied product
  * experience document.  The document owns the visual system and its existing
  * renderers; this module owns only runtime configuration, API reads, wallet
  * authentication and the translation from canonical API/Subgraph records to
@@ -218,7 +218,7 @@ function normalizeEdition(raw, summary = null) {
   const history = (terms.history.length ? terms.history : (termHash(current) ? [current] : [])).map((term) => normalizeTerms(term));
   const cap = number(raw?.absolute_supply_cap ?? raw?.absoluteSupplyCap ?? summary?.absolute_supply_cap ?? summary?.absoluteSupplyCap);
   const minted = number(raw?.totalMinted ?? raw?.total_minted ?? summary?.total_minted ?? summary?.totalMinted);
-  const name = raw?.name || summary?.name || (addr.toLowerCase() === (defaultCertificationEdition() || ZERO).toLowerCase() ? 'NexMarkets V1 Test Certification Edition' : `NexPass Edition ${short(addr)}`);
+  const name = raw?.name || summary?.name || (addr.toLowerCase() === (defaultCertificationEdition() || ZERO).toLowerCase() ? 'Outerfield V1 Test Certification Edition' : `Outerfield Edition ${short(addr)}`);
   return {
     // Preserve the published project payload when an on-chain edition row is
     // merged with its Discover summary. That payload contains the frozen
@@ -2794,7 +2794,7 @@ async function submitCreateDraft() {
     state.lastDraftId = project.content?.draftId || project.launchDraft?.draftId || draftId;
     state.lastSavedProject = project;
     if (mount) {
-      mount.innerHTML = `<div class="create-publish-success"><div class="create-publish-mark">✓</div><h3>Draft saved</h3><p><strong>${escapeHtml(name)}</strong> is saved to your NexMarkets workspace. On-chain Edition deployment is a separate next step.</p><div class="project-action-buttons" style="justify-content:center"><button class="btn primary" onclick="closeProjectAction();go('dashboard');setTimeout(()=>dashGo('launches'),30)">Dashboard</button></div></div>`;
+      mount.innerHTML = `<div class="create-publish-success"><div class="create-publish-mark">✓</div><h3>Draft saved</h3><p><strong>${escapeHtml(name)}</strong> is saved to your Outerfield workspace. On-chain Edition deployment is a separate next step.</p><div class="project-action-buttons" style="justify-content:center"><button class="btn primary" onclick="closeProjectAction();go('dashboard');setTimeout(()=>dashGo('launches'),30)">Dashboard</button></div></div>`;
     }
     showRuntimeBanner('Draft saved');
     return project;
@@ -2993,7 +2993,7 @@ window.nmDistributionAgent = {
 function actionSuccess(surface, label, result) {
   const txHash = result?.txHash || '';
   const link = explorerTransactionUrl(txHash);
-  actionModal(surface, `<div class="market-tx-state"><div class="market-tx-success">✓</div><h3>${escapeHtml(label)} submitted</h3><p>The wallet broadcast the transaction. NexMarkets will update the projection after confirmation.</p>${txHash ? `<p><code>${escapeHtml(txHash)}</code></p>${link ? `<p><a href="${escapeHtml(link)}" target="_blank" rel="noopener noreferrer">View on ${escapeHtml(activeNetworkName())} explorer ↗</a></p>` : ''}<div class="market-buy-actions" style="justify-content:center"><button class="btn" onclick="closeProjectAction();closeDashModal()">Close</button><button class="btn primary" onclick="window.nexmarketsV2.refresh()">Refresh data</button></div>` : ''}</div>`);
+  actionModal(surface, `<div class="market-tx-state"><div class="market-tx-success">✓</div><h3>${escapeHtml(label)} submitted</h3><p>The wallet broadcast the transaction. Outerfield will update the projection after confirmation.</p>${txHash ? `<p><code>${escapeHtml(txHash)}</code></p>${link ? `<p><a href="${escapeHtml(link)}" target="_blank" rel="noopener noreferrer">View on ${escapeHtml(activeNetworkName())} explorer ↗</a></p>` : ''}<div class="market-buy-actions" style="justify-content:center"><button class="btn" onclick="closeProjectAction();closeDashModal()">Close</button><button class="btn primary" onclick="window.nexmarketsV2.refresh()">Refresh data</button></div>` : ''}</div>`);
 }
 function actionError(surface, error) {
   const message = error?.message || String(error);

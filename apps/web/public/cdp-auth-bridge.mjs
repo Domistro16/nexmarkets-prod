@@ -138,7 +138,7 @@ export async function mountCdpAuth({ root, projectId, chainId = baseSepolia.id, 
   };
   const cdpConfig = {
     projectId: String(projectId).trim(),
-    appName: 'NexMarkets',
+    appName: 'Outerfield',
     showCoinbaseFooter: true,
     authMethods: CDP_AUTH_METHODS,
     ethereum: { createOnLogin: 'eoa' },

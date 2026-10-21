@@ -23,7 +23,7 @@
       if (Object.prototype.hasOwnProperty.call(data, 'listings')) replaceArray(listings, data.listings);
       if (Object.prototype.hasOwnProperty.call(data, 'ownedPasses')) replaceArray(ownedPasses, data.ownedPasses);
     } catch (error) {
-      console.error('NexMarkets V2 data bridge failed', error);
+      console.error('Outerfield V2 data bridge failed', error);
     }
     try {
       if (data.dashboardState && typeof data.dashboardState === 'object') {
@@ -57,7 +57,7 @@
       else if (current === 'listing' && typeof renderListingPage === 'function') renderListingPage();
       else if (typeof renderHomeSections === 'function') renderHomeSections();
     } catch (error) {
-      console.error('NexMarkets V2 render bridge failed', error);
+      console.error('Outerfield V2 render bridge failed', error);
     }
     return {
       projects: projects.length,
