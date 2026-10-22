@@ -1,4 +1,4 @@
-import { Contract, JsonRpcProvider, Wallet, formatEther, formatUnits, getAddress } from 'ethers';
+﻿import { Contract, JsonRpcProvider, Wallet, formatEther, formatUnits, getAddress } from 'ethers';
 import { readFile } from 'node:fs/promises';
 import pg from 'pg';
 
@@ -21,7 +21,7 @@ const edition = new Contract(oldEditionAddress, ['function ownerOf(uint256) view
 const listing = new Contract(listingAddress, ['function activeListingFor(address,uint256) view returns(bytes32)'], provider);
 const apiUrl = process.env.NEXMARKETS_API_URL?.trim() || 'http://127.0.0.1:4020';
 const subgraphUrl = process.env.NEXMARKETS_SUBGRAPH_URL?.trim()
-  || 'https://api.goldsky.com/api/public/project_cmt3es3z03t5101vr8ggx1j7e/subgraphs/nexmarkets-v1-robinhood-testnet/1.0.1/gn';
+  || 'https://api.goldsky.com/api/public/project_cmt3es3z03t5101vr8ggx1j7e/subgraphs/nexmarkets-v1-robinhood-testnet/1.0.3/gn';
 
 const [network, head, gasBalance, settlementBalance, owners, threshold, factoryCode, oldOwner, oldListing] = await Promise.all([
   provider.getNetwork(),

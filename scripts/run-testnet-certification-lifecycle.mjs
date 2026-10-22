@@ -1,4 +1,4 @@
-import { Interface, Contract, JsonRpcProvider, Wallet, ZeroAddress, ZeroHash, getAddress, keccak256, randomBytes, parseEther } from 'ethers';
+﻿import { Interface, Contract, JsonRpcProvider, Wallet, ZeroAddress, ZeroHash, getAddress, keccak256, randomBytes, parseEther } from 'ethers';
 import { buildNexMarketsOrder, seaportTypedData } from '../packages/domain/src/seaport-order.mjs';
 
 const CHAIN_ID = 46630n;
@@ -13,7 +13,7 @@ const ROYALTY_VAULT = '0x9d69ab1897afa9d6ffc97eea6a936233a999dfa1';
 const ZONE = '0xf21da23d8928b320124fbc17bd678c7c48c55af6';
 const SEAPORT = '0x0000000000000068f116a894984e2db1123eb395';
 const TBA_RESOLVER = '0x55b64d8c1f17ba08a39c939d3248e7a2731fa8b8';
-const SUBGRAPH = process.env.NEXMARKETS_SUBGRAPH_URL?.trim() || 'https://api.goldsky.com/api/public/project_cmt3es3z03t5101vr8ggx1j7e/subgraphs/nexmarkets-v1-robinhood-testnet/1.0.1/gn';
+const SUBGRAPH = process.env.NEXMARKETS_SUBGRAPH_URL?.trim() || 'https://api.goldsky.com/api/public/project_cmt3es3z03t5101vr8ggx1j7e/subgraphs/nexmarkets-v1-robinhood-testnet/1.0.3/gn';
 const API = process.env.NEXMARKETS_API_URL?.trim() || 'http://127.0.0.1:4014';
 
 const rpcUrl = process.env.RH_TESTNET_RPC_URL?.trim();

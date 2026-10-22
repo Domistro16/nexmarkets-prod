@@ -1,4 +1,4 @@
-import { access, copyFile, readFile, writeFile } from 'node:fs/promises';
+﻿import { access, copyFile, readFile, writeFile } from 'node:fs/promises';
 import { JsonRpcProvider, keccak256 } from 'ethers';
 
 const root = new URL('../', import.meta.url);
@@ -35,7 +35,7 @@ for (const [name, contract] of Object.entries(plan.contracts)) {
 
 const subgraph = {
   name: 'nexmarkets-v1-base-sepolia/1.0.1',
-  endpoint: 'https://api.goldsky.com/api/public/project_cmt3es3z03t5101vr8ggx1j7e/subgraphs/nexmarkets-v1-base-sepolia/1.0.1/gn',
+  endpoint: 'https://api.goldsky.com/api/public/project_cmt3es3z03t5101vr8ggx1j7e/subgraphs/nexmarkets-v1-base-sepolia/1.0.3/gn',
   startBlock: Math.min(...Object.values(contracts).map((contract) => contract.deploymentBlock)),
   provider: 'Goldsky'
 };

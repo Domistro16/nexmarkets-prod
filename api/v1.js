@@ -15345,11 +15345,18 @@ var init_postgres_store = __esm({
         );
         return rows;
       }
-      async createMilestone(builderAccountId, payload) {
-        const builder = await this._builderForIdentifier(builderAccountId);
+      async createMilestone(accountId, payload) {
+        const builder = await this._builderForAccount(accountId, payload.builderId ?? payload.builder_id ?? null, { create: true });
         if (!builder) throw Object.assign(new Error("BUILDER_NOT_FOUND"), { status: 404 });
         if (!payload.title?.trim()) throw Object.assign(new Error("MILESTONE_TITLE_REQUIRED"), { status: 400 });
         if (!payload.content?.trim()) throw Object.assign(new Error("MILESTONE_CONTENT_REQUIRED"), { status: 400 });
+        if (payload.projectId) {
+          const project = await (await this._getPool()).query(
+            `SELECT 1 FROM project WHERE id=$1 AND (builder_id=$2 OR (builder_id IS NULL AND builder_account_id=$3))`,
+            [payload.projectId, builder.id, builder.owner_account_id]
+          );
+          if (!project.rows[0]) throw Object.assign(new Error("PROJECT_NOT_FOUND"), { status: 404 });
+        }
         const cadence = await (await this._getPool()).query(
           `SELECT 1 FROM builder_milestone WHERE (builder_id=$1 OR (builder_id IS NULL AND builder_account_id=$2))
        AND (project_id=$3 OR ($3::text IS NULL AND project_id IS NULL))
@@ -16542,11 +16549,15 @@ var init_memory_store = __esm({
           return { ...w, slug: project?.slug, name: project?.name, summary: project?.summary, watcherCount };
         }));
       }
-      async createMilestone(builderAccountId, payload) {
-        const builder = this._ensureBuilder(builderAccountId);
+      async createMilestone(accountId, payload) {
+        const builder = this._ensureBuilder(accountId, payload.builderId ?? payload.builder_id ?? null);
         const canonicalBuilderId = builder.id;
         if (!payload.title?.trim()) throw Object.assign(new Error("MILESTONE_TITLE_REQUIRED"), { status: 400 });
         if (!payload.content?.trim()) throw Object.assign(new Error("MILESTONE_CONTENT_REQUIRED"), { status: 400 });
+        if (payload.projectId) {
+          const project = this.projects.find((item) => item.id === payload.projectId);
+          if (!project || (project.builder_id ?? project.builderId) !== canonicalBuilderId) throw Object.assign(new Error("PROJECT_NOT_FOUND"), { status: 404 });
+        }
         const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1e3;
         const recent = this.builderMilestones.find((m) => (m.builder_id ?? m.builder_account_id) === canonicalBuilderId && (m.project_id ?? null) === (payload.projectId ?? null) && new Date(m.created_at).getTime() > weekAgo);
         if (recent) throw Object.assign(new Error("MILESTONE_CADENCE_EXCEEDED"), { status: 429 });
@@ -18461,7 +18472,7 @@ function createApiServer({
       }
       if (req.method === "POST" && url.pathname === "/v1/builder/milestones") {
         const input = await readBody(req);
-        const milestone = await store.createMilestone(input.builderId ?? input.builder_id ?? session.accountId, input);
+        const milestone = await store.createMilestone(session.accountId, input);
         await store.recordAudit?.({ accountId: session.accountId, walletAddress: session.walletAddress, action: "BUILDER_MILESTONE_CREATED", objectType: "BUILDER_MILESTONE", objectId: milestone.id, requestId, correlationId });
         return json(res, 201, { data: milestone });
       }

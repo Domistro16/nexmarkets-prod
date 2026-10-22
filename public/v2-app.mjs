@@ -272,7 +272,7 @@ function normalizePass(raw, edition) {
     royaltyReceiver: rawRoyaltyReceiver,
     royalty_bps: rawRoyaltyBps,
     royaltyBps: rawRoyaltyBps,
-    name: raw.name || edition?.name || `NexPass ${short(addr)}`,
+    name: raw.name || edition?.name || `Outerfield Pass ${short(addr)}`,
     advantages,
     token_bound_account: raw.token_bound_account || raw.tba?.account || null,
     tba: raw.tba || null,
@@ -365,7 +365,7 @@ function projectModel(edition, summary, pass) {
   const launchProject = compiledLaunch?.project || {};
   const launchEdition = compiledLaunch?.edition || {};
   const launchDesign = compiledLaunch?.design || {};
-  const title = launchProject.name || edition?.name || summary?.name || `NexPass Edition ${short(edition?.address)}`;
+  const title = launchProject.name || edition?.name || summary?.name || `Outerfield Edition ${short(edition?.address)}`;
   const builderId = lower(edition?.publisher || summary?.publisher || edition?.builder_account_id || edition?.builderAccountId || summary?.builder_account_id || summary?.builderAccountId) || ZERO;
   const builderProfile = state.builderProfiles.get(builderId) || null;
   const profileLinks = builderProfile?.links && typeof builderProfile.links === 'object' ? builderProfile.links : {};
@@ -382,7 +382,7 @@ function projectModel(edition, summary, pass) {
     evidenceLabel: launchProject.evidence?.label || 'View onchain record',
     evidenceUrl: launchProject.evidence?.url || '',
     evidenceType: launchProject.evidence?.type || 'Onchain record',
-    about: launchProject.about || `A permanent NexPass Edition on ${activeNetworkName()}. Ownership, serials and versioned Terms are read from the certified deployment. Edition ${short(edition?.address)} is indexed by Goldsky.`,
+    about: launchProject.about || `A permanent Outerfield Edition on ${activeNetworkName()}. Ownership, serials and versioned Terms are read from the certified deployment. Edition ${short(edition?.address)} is indexed by Goldsky.`,
     edition: launchEdition.name || 'OUTERFIELD EDITION',
     royalty: launchEdition.royalty != null ? `${number(launchEdition.royalty)}%` : `${number(terms.royaltyBps ?? terms.royalty_bps) / 100}%`,
     termsVersion: compiledLaunch?.preview?.termsVersion || (terms.version == null ? 'Published Terms' : `v${terms.version}`),
@@ -713,7 +713,7 @@ function updateCreateData(patch, render = true) {
 async function uploadCreateAsset(file, type) {
   const previous = createDataValue();
   const previewUrl = URL.createObjectURL(file);
-  showRuntimeBanner(`Uploading ${file.name}â€¦`);
+  showRuntimeBanner(`Uploading ${file.name}…`);
   try {
     let logoPresentation = null;
     if (type === 'logo') {
@@ -834,7 +834,7 @@ async function retryArtworkUpload(index) {
   const failed = entries[index];
   const file = pendingArtworkFiles.get(failed?.uploadToken);
   if (!failed || !file) throw new Error('Select this file again to retry the upload');
-  showRuntimeBanner(`Retrying ${file.name}â€¦`);
+  showRuntimeBanner(`Retrying ${file.name}…`);
   try {
     const asset = await uploadMediaFile(file);
     if (failed.src?.startsWith('blob:')) URL.revokeObjectURL(failed.src);
@@ -1684,6 +1684,12 @@ function injectLiveDataStyle() {
 function renderDetailPanel(mode) {
   const mount = document.getElementById('projectPageMount');
   if (!mount) return;
+  if (!document.getElementById('nm-v2-data-panel-style')) {
+    const style = document.createElement('style');
+    style.id = 'nm-v2-data-panel-style';
+    style.textContent = `#nm-v2-data-panel{width:min(960px,calc(100% - 32px));margin:22px auto;padding:clamp(18px,3vw,30px);box-sizing:border-box;border:1px solid rgba(255,255,255,.12);border-radius:18px;background:rgba(18,23,20,.94);color:#edf0e9}#nm-v2-data-panel h2{margin:0 0 18px;font-size:clamp(21px,3vw,30px);line-height:1.15;letter-spacing:-.025em}#nm-v2-data-panel h3{font-size:17px;line-height:1.3;color:#e7ebe3}.nm-v2-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.nm-v2-cell{min-width:0;padding:14px 15px;border:1px solid rgba(255,255,255,.09);border-radius:12px;background:rgba(255,255,255,.035);display:grid;gap:7px}.nm-v2-cell>span{color:#aab2a7;font-size:11px;font-weight:650;letter-spacing:.045em;text-transform:uppercase}.nm-v2-cell>strong{color:#f4f5f1;font-size:14px;font-weight:550;line-height:1.5;overflow-wrap:anywhere;word-break:break-word}.nm-v2-adv{display:grid;gap:7px;padding:15px;border:1px solid rgba(255,255,255,.09);border-radius:12px;background:rgba(255,255,255,.035)}.nm-v2-adv small{color:#aab2a7;font-size:11px;text-transform:uppercase;letter-spacing:.04em}.nm-v2-adv b{font-size:14px;line-height:1.5}.nm-v2-adv span{font-size:13px;line-height:1.5;color:#b9c0b5}@media(max-width:600px){.nm-v2-grid{grid-template-columns:1fr}.nm-v2-cell{padding:13px}}`;
+    document.head.appendChild(style);
+  }
   document.getElementById('nm-v2-data-panel')?.remove();
   const edition = state.detailEdition || state.edition; const pass = state.detailPass || state.pass;
   if (!edition && !pass) return;
@@ -1775,7 +1781,10 @@ function goView(route) {
     }).catch(() => {});
     return;
   }
-  const project = state.projects?.find((item) => route.edition && lower(item.editionAddress) === lower(route.edition)) || state.projects?.find((item) => route.project && (item.name.toLowerCase() === String(route.project).toLowerCase() || lower(item.editionAddress) === lower(route.project))) || (detailRoute ? null : state.detailProject || state.projects?.[0]);
+  const routeProject = String(route.project || '').toLowerCase();
+  const detailProjectMatchesRoute = route.kind === 'project' && routeProject && [state.detailSummary?.slug, state.detailSummary?.name, state.detailEdition?.address]
+    .filter(Boolean).some((value) => String(value).toLowerCase() === routeProject);
+  const project = state.projects?.find((item) => route.edition && lower(item.editionAddress) === lower(route.edition)) || state.projects?.find((item) => routeProject && (item.name.toLowerCase() === routeProject || lower(item.editionAddress) === routeProject)) || (detailProjectMatchesRoute ? state.detailProject : null) || (detailRoute ? null : state.detailProject || state.projects?.[0]);
   if (project) {
     state.detailProject = project;
     window.__nmV2SetData?.({ selectedProject: project.name, projects: state.projects, projectExperience: state.projectExperience, ...(route.edition ? { selectedEdition: route.edition } : {}), ...(route.listing ? { selectedListing: route.listing } : {}) });

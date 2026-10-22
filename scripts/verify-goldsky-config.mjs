@@ -14,7 +14,7 @@ if (chains.networks['robinhood-mainnet'].chainId !== 4663 || chains.networks['ro
 if (chains.networks['robinhood-mainnet'].datasetPrefix !== 'robinhood_mainnet' || chains.networks['robinhood-testnet'].datasetPrefix !== 'robinhood_testnet') throw new Error('Goldsky dataset prefix configuration invalid');
 if (chains.networks['robinhood-mainnet'].rawLogsVersion !== '1.1.0' || chains.networks['robinhood-mainnet'].rawBlocksVersion !== '1.1.0') throw new Error('Goldsky mainnet dataset versions invalid');
 if (chains.networks['robinhood-testnet'].rawLogsVersion !== '1.1.0' || chains.networks['robinhood-testnet'].rawBlocksVersion !== '1.0.0') throw new Error('Goldsky testnet dataset versions invalid');
-if (chains.networks['robinhood-testnet'].nexmarketsStartBlock !== 104607055) throw new Error('Goldsky testnet NexMarkets start block invalid');
+if (chains.networks['robinhood-testnet'].nexmarketsStartBlock !== 120137047) throw new Error('Goldsky testnet NexMarkets start block invalid');
 if (chains.networks['robinhood-mainnet'].nexmarketsStartBlock !== null) throw new Error('Goldsky mainnet start block must remain independently configurable');
 if (chains.networks['robinhood-mainnet'].status !== 'SUPPORTED' || chains.networks['robinhood-testnet'].status !== 'SUPPORTED') throw new Error('Goldsky Robinhood support status invalid');
 if (!pipeline.includes('__ROBINHOOD_DATASET_PREFIX__.raw_logs') || !pipeline.includes('type: postgres')) throw new Error('Turbo pipeline source/sink incomplete');
@@ -32,7 +32,8 @@ if (new Set(topics.map((event) => event.topic0)).size !== topics.length) throw n
 const referral = catalog.events.find((event) => event.signature.startsWith('ReferralHintSubmitted'));
 if (referral?.canonical !== false) throw new Error('Referral hint must remain noncanonical');
 const subgraph = await readFile(new URL('../subgraph/subgraph.yaml', import.meta.url), 'utf8');
-if (!subgraph.includes('network: robinhood-testnet') || !subgraph.includes('startBlock: 104607055')) throw new Error('Goldsky Subgraph testnet start block/network invalid');
+const subgraphConfig = parseDocument(subgraph).toJS();
+if (!subgraphConfig.dataSources?.some((source) => source.network === 'robinhood-testnet' && source.source.startBlock === 120137047)) throw new Error('Goldsky Subgraph corrected testnet start block/network invalid');
 if (subgraph.includes('startBlock: 0')) throw new Error('Goldsky Subgraph must not start at genesis');
 if (!subgraph.includes('name: NexPassEdition') || !subgraph.includes('EditionCreated')) throw new Error('Goldsky Subgraph dynamic Edition template missing');
 console.log(JSON.stringify({ status: 'PASS', provider: chains.provider, subgraph: 'GOLDSKY_SUBGRAPH_PRIMARY', events: topics.length, networks: ['robinhood-mainnet', 'robinhood-testnet'] }));

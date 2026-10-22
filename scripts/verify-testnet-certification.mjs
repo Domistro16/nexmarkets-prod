@@ -1,4 +1,4 @@
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+﻿import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { Contract, Interface, JsonRpcProvider, ZeroHash, getAddress } from 'ethers';
 
 const root = new URL('../', import.meta.url);
@@ -14,7 +14,7 @@ const addresses = {
   vault: '0x9d69ab1897afa9d6ffc97eea6a936233a999dfa1',
   settlement: '0x6a4f8832c23c51ba626eba9d50c8f862647c1679'
 };
-const defaultSubgraph = 'https://api.goldsky.com/api/public/project_cmt3es3z03t5101vr8ggx1j7e/subgraphs/nexmarkets-v1-robinhood-testnet/1.0.1/gn';
+const defaultSubgraph = 'https://api.goldsky.com/api/public/project_cmt3es3z03t5101vr8ggx1j7e/subgraphs/nexmarkets-v1-robinhood-testnet/1.0.3/gn';
 
 function lower(value) { return String(value ?? '').toLowerCase(); }
 function asText(value) { return typeof value === 'bigint' ? value.toString() : String(value); }

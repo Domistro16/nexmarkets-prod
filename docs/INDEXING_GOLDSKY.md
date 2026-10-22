@@ -1,9 +1,9 @@
-# Goldsky indexing
+﻿# Goldsky indexing
 
 Goldsky Subgraph is the primary NexMarkets V1 blockchain read model. The
 architecture is:
 
-`Robinhood Chain → Goldsky Subgraph → NexMarkets API → UI`
+`Robinhood Chain â†’ Goldsky Subgraph â†’ NexMarkets API â†’ UI`
 
 Robinhood Chain and the deployed contracts remain canonical. The Subgraph is
 an indexed read model only; the API uses Robinhood RPC for owner, Terms,
@@ -17,16 +17,17 @@ Goldsky's authenticated CLI project is the active account project selected for
 this testnet deployment (`Default Project`; its public project ID is recorded
 in `deployments/robinhood-testnet.goldsky-subgraph.json`). The local package is
 `subgraph/` and uses the supported Robinhood testnet network identifier
-`robinhood-testnet`, chain ID `46630`, and start block `104607055` (the first
-recorded NexMarkets deployment block). Deploy only through Goldsky:
+`robinhood-testnet`, chain ID `46630`, and the corrected V1 suite start block
+`120137047`. Each static contract source starts at its own recorded deployment
+block. Deploy only through Goldsky:
 
 ```text
 cd subgraph
 npm run codegen
 npm run build
-goldsky subgraph deploy nexmarkets-v1-robinhood-testnet/1.0.1 --path .
-goldsky subgraph list nexmarkets-v1-robinhood-testnet/1.0.1
-goldsky subgraph log nexmarkets-v1-robinhood-testnet/1.0.1
+goldsky subgraph deploy nexmarkets-v1-robinhood-testnet/1.0.3 --path .
+goldsky subgraph list nexmarkets-v1-robinhood-testnet/1.0.3
+goldsky subgraph log nexmarkets-v1-robinhood-testnet/1.0.3
 ```
 
 `graph codegen` and `graph build` are local validation tools only. Do not use
@@ -41,7 +42,7 @@ than hardcoded as the production indexing mechanism.
 
 ## Turbo transition
 
-The former Goldsky Turbo → raw PostgreSQL pipeline is retained as rollback and
+The former Goldsky Turbo â†’ raw PostgreSQL pipeline is retained as rollback and
 archive infrastructure but is deprecated for the NexMarkets V1 primary read
 model. Do not add product dependencies on `goldsky_raw_log` or
 `goldsky_chain_watermark`. Turbo may later serve analytics, exports or raw

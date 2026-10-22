@@ -329,6 +329,18 @@ test('Builder milestones, weekly cadence limit, and social feed', async (t) => {
   const followerWallet = Wallet.createRandom();
   const followerAuth = await authenticate(base, followerWallet);
 
+  const forgedMilestone = await fetch(`${base}/v1/builder/milestones`, {
+    method: 'POST',
+    headers: {
+      cookie: followerAuth.cookie,
+      'x-csrf-token': followerAuth.verified.csrfToken,
+      'content-type': 'application/json',
+      origin: 'https://nexmarkets.fun'
+    },
+    body: JSON.stringify({ builderId: builderAuth.verified.accountId, title: 'Forged update', content: 'Must not publish under another builder.' })
+  });
+  assert.equal(forgedMilestone.status, 403);
+
   // Follow the builder
   await fetch(`${base}/v1/builders/${builderAuth.verified.accountId}/follow`, {
     method: 'POST',

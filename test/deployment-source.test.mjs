@@ -22,15 +22,17 @@ test('permissionless contracts require a fresh deployment and cannot reuse froze
 });
 
 test('a deployable Solidity source change fails with DEPLOYMENT_SOURCE_MISMATCH', () => {
-  const path = 'packages/contracts/src/NexLaunchRegistry.sol';
+  const sourceCommit = currentGitCommit(root);
+  const path = 'packages/contracts/src/OFLDLaunchRegistry.sol';
   const current = readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
-  const comparison = compareDeploymentSource(FROZEN_V1_DEPLOYMENT_SOURCE, {
+  assertDeploymentSourceMatches(sourceCommit, { repoRoot: root });
+  const comparison = compareDeploymentSource(sourceCommit, {
     repoRoot: root,
     currentOverrides: { [path]: `${current}\n// simulated deployable change\n` }
   });
   assert.ok(comparison.differences.some((difference) => difference.path === path));
   assert.throws(
-    () => assertDeploymentSourceMatches(FROZEN_V1_DEPLOYMENT_SOURCE, {
+    () => assertDeploymentSourceMatches(sourceCommit, {
       repoRoot: root,
       currentOverrides: { [path]: `${current}\n// simulated deployable change\n` }
     }),

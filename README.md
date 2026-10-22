@@ -27,7 +27,7 @@ gas only. The certified product authority is
 - No Robinhood or Base mainnet deployment has been performed.
 - Robinhood testnet V1 is deployed, wired and verified; its complete live certification record is `artifacts/testnet-certification/secondary-lifecycle.json`.
 - Base Sepolia V1 is deployed, wired and verified; its public record is `deployments/base-sepolia.v1-deployment.json`. Base mainnet is prepared but not broadcast; see `docs/BASE_ROLLOUT.md`.
-- Goldsky hosts the testnet Subgraph `nexmarkets-v1-robinhood-testnet/1.0.1`; the public endpoint, deployment hash and indexed-head evidence are recorded in `deployments/robinhood-testnet.goldsky-subgraph.json`. Turbo is no longer present in the active Goldsky project and its legacy Supabase data was removed only after Subgraph certification and zero-discrepancy reconciliation.
+- Goldsky's testnet Subgraph deployment and endpoint are recorded in `deployments/robinhood-testnet.goldsky-subgraph.json` (currently recorded as `nexmarkets-v1-robinhood-testnet/1.0.3`). Static contract sources start at their own corrected deployment blocks, with dynamic Edition indexing from the Factory. Turbo is no longer the active read model; its retained files serve rollback/archive validation only.
 - Canonical ERC-6551 Registry and the testnet NexPassAccount/NexTBAResolver runtime are verified; the mainnet custom runtime remains undeployed.
 - PostgreSQL retains application/business state and transaction lifecycle data. The five legacy raw-chain/projector tables retain their schema for rollback/tests but contain zero rows.
 - The referral tier percentages are fixed at 5/10/15/20; the sales-count thresholds remain an explicit business-policy input rather than invented economics.

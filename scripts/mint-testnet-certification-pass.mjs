@@ -1,4 +1,4 @@
-import { readFile } from 'node:fs/promises';
+﻿import { readFile } from 'node:fs/promises';
 import {
   Contract,
   Interface,
@@ -17,7 +17,7 @@ const REGISTRY = '0xee3c8f330c0b2738201fdb2f1720d06c0d27620d';
 const CONTROLLER = '0x0ea6f883808447f115c7b6c037902361c365555a';
 const ADVANTAGE_REGISTRY = '0x1e265fee39d75b5211895820926b4ff77b4f1cdd';
 const MOCK_USDG = '0x6a4f8832c23c51ba626eba9d50c8f862647c1679';
-const DEFAULT_SUBGRAPH = 'https://api.goldsky.com/api/public/project_cmt3es3z03t5101vr8ggx1j7e/subgraphs/nexmarkets-v1-robinhood-testnet/1.0.1/gn';
+const DEFAULT_SUBGRAPH = 'https://api.goldsky.com/api/public/project_cmt3es3z03t5101vr8ggx1j7e/subgraphs/nexmarkets-v1-robinhood-testnet/1.0.3/gn';
 const CONFIRM = 'I_UNDERSTAND_THIS_SUBMITS_ONE_CERTIFICATION_MINT';
 
 function fail(message) {

@@ -91,11 +91,9 @@ remain process-environment/secret-manager inputs and were never committed.
    real 24-hour Preview; `mintStartsAt` is `2026-08-21T21:42:30Z`. No production
    Genesis/Crier Edition was created.
 10. The configured PostgreSQL application schema remains separate from chain
-    indexing. Goldsky Subgraph
-    `nexmarkets-v1-robinhood-testnet/1.0.1` is deployed in the active Goldsky
-    project, healthy, and synced to the live Robinhood testnet head. Its public
-    GraphQL endpoint reconstructs the certification Edition and exact Terms
-    hash; the machine-readable evidence is
+    indexing. The latest recorded Goldsky Subgraph deployment is
+    `nexmarkets-v1-robinhood-testnet/1.0.3`; its deployment record and public
+    GraphQL endpoint are in
     `deployments/robinhood-testnet.goldsky-subgraph.json`. The old Turbo raw
     pipeline is no longer active in the Goldsky project; its raw Supabase tables
     were cleared only after Subgraph/RPC reconciliation, while application data

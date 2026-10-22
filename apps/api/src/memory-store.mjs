@@ -369,11 +369,15 @@ export class MemoryStore {
     }));
   }
 
-  async createMilestone(builderAccountId, payload) {
-    const builder = this._ensureBuilder(builderAccountId);
+  async createMilestone(accountId, payload) {
+    const builder = this._ensureBuilder(accountId, payload.builderId ?? payload.builder_id ?? null);
     const canonicalBuilderId = builder.id;
     if (!payload.title?.trim()) throw Object.assign(new Error('MILESTONE_TITLE_REQUIRED'), { status: 400 });
     if (!payload.content?.trim()) throw Object.assign(new Error('MILESTONE_CONTENT_REQUIRED'), { status: 400 });
+    if (payload.projectId) {
+      const project = this.projects.find((item) => item.id === payload.projectId);
+      if (!project || (project.builder_id ?? project.builderId) !== canonicalBuilderId) throw Object.assign(new Error('PROJECT_NOT_FOUND'), { status: 404 });
+    }
     const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
     const recent = this.builderMilestones.find((m) => (m.builder_id ?? m.builder_account_id) === canonicalBuilderId && (m.project_id ?? null) === (payload.projectId ?? null) && new Date(m.created_at).getTime() > weekAgo);
     if (recent) throw Object.assign(new Error('MILESTONE_CADENCE_EXCEEDED'), { status: 429 });

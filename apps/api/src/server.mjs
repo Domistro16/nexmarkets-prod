@@ -1091,7 +1091,7 @@ export function createApiServer({
       }
       if (req.method === 'POST' && url.pathname === '/v1/builder/milestones') {
         const input = await readBody(req);
-        const milestone = await store.createMilestone(input.builderId ?? input.builder_id ?? session.accountId, input);
+        const milestone = await store.createMilestone(session.accountId, input);
         await store.recordAudit?.({ accountId: session.accountId, walletAddress: session.walletAddress, action: 'BUILDER_MILESTONE_CREATED', objectType: 'BUILDER_MILESTONE', objectId: milestone.id, requestId, correlationId });
         return json(res, 201, { data: milestone });
       }

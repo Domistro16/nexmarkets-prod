@@ -5,9 +5,10 @@ import { readFile } from 'node:fs/promises';
 const manifest = await readFile(new URL('../subgraph.yaml', import.meta.url), 'utf8');
 const schema = await readFile(new URL('../schema.graphql', import.meta.url), 'utf8');
 
-test('Goldsky testnet manifest is frozen at the NexMarkets deployment block', () => {
+test('Goldsky testnet manifest starts each contract at its corrected deployment block', () => {
   assert.match(manifest, /network: robinhood-testnet/);
-  assert.match(manifest, /startBlock: 104607055/);
+  assert.match(manifest, /startBlock: 120137047/);
+  assert.match(manifest, /startBlock: 120137101/);
   assert.match(manifest, /name: NexPassFactory/);
   assert.match(manifest, /name: NexPassEdition/);
   assert.match(manifest, /handler: handleEditionCreated/);

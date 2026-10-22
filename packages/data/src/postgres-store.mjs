@@ -831,11 +831,18 @@ export class PostgresStore {
     return rows;
   }
 
-  async createMilestone(builderAccountId, payload) {
-    const builder = await this._builderForIdentifier(builderAccountId);
+  async createMilestone(accountId, payload) {
+    const builder = await this._builderForAccount(accountId, payload.builderId ?? payload.builder_id ?? null, { create: true });
     if (!builder) throw Object.assign(new Error('BUILDER_NOT_FOUND'), { status: 404 });
     if (!payload.title?.trim()) throw Object.assign(new Error('MILESTONE_TITLE_REQUIRED'), { status: 400 });
     if (!payload.content?.trim()) throw Object.assign(new Error('MILESTONE_CONTENT_REQUIRED'), { status: 400 });
+    if (payload.projectId) {
+      const project = await (await this._getPool()).query(
+        `SELECT 1 FROM project WHERE id=$1 AND (builder_id=$2 OR (builder_id IS NULL AND builder_account_id=$3))`,
+        [payload.projectId, builder.id, builder.owner_account_id]
+      );
+      if (!project.rows[0]) throw Object.assign(new Error('PROJECT_NOT_FOUND'), { status: 404 });
+    }
     const cadence = await (await this._getPool()).query(
       `SELECT 1 FROM builder_milestone WHERE (builder_id=$1 OR (builder_id IS NULL AND builder_account_id=$2))
        AND (project_id=$3 OR ($3::text IS NULL AND project_id IS NULL))
