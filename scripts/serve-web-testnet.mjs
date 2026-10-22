@@ -11,9 +11,9 @@ const apiPort = Number(process.env.NEXMARKETS_API_PORT ?? 4020);
 const webPort = Number(process.env.NEXMARKETS_WEB_PORT ?? 4173);
 await access(resolve(webRoot, 'index.html'));
 
-const requestedNetwork = process.env.NEXMARKETS_DEFAULT_NETWORK || 'robinhood-testnet';
-const selectedNetwork = requestedNetwork.startsWith('base-') ? 'robinhood-testnet' : requestedNetwork;
-if (selectedNetwork !== 'robinhood-testnet') throw new Error('ROBINHOOD_TESTNET_REQUIRED');
+const selectedNetwork = 'robinhood-testnet';
+const webConfig = JSON.parse(await readFile(resolve(webRoot, 'config.json'), 'utf8'));
+if (webConfig.network !== selectedNetwork) throw new Error('Build the testnet frontend with NEXMARKETS_WEB_NETWORK=robinhood-testnet before serving it.');
 const deployment = JSON.parse(await readFile(resolve(root, `deployments/${selectedNetwork}.v1-deployment.json`), 'utf8'));
 const subgraphEndpoint = process.env.ROBINHOOD_TESTNET_SUBGRAPH_URL || process.env.NEXMARKETS_SUBGRAPH_URL || deployment.subgraph?.endpoint;
 if (!subgraphEndpoint) throw new Error('TESTNET_SUBGRAPH_ENDPOINT_REQUIRED');

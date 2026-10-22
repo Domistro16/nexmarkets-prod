@@ -1,8 +1,9 @@
 # NexMarkets V1 production implementation
 
 Outerfield is an exact-serial Pass market for Robinhood Chain. The active app
-uses Robinhood testnet (chain `46630`) with isolated MockUSDG; the intended
-mainnet settlement asset is USDG. ETH is gas only. Base rollout records are
+targets Robinhood mainnet (chain `4663`) with USDG settlement. Mainnet contracts
+and its Goldsky index are not deployed; onchain actions remain closed until release.
+Use `npm run web:config:testnet` explicitly for MockUSDG development. ETH is gas only. Base rollout records are
 retained as historical implementation evidence. The certified product authority is
 `NEXMARKETS_HOMEPAGE_DISCOVER_MARKET_COLLECTIBLE_ROTATION_PASS_TEXT_FIT_UX_FIXED.html` with SHA-256
 `637b7c606ef710f9966373f36238b779cd746303638d4fd46a7e01c92acd34b7`.

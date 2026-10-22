@@ -78,12 +78,47 @@ const auth = {
   cdp: { enabled: false, projectId: null }
 };
 
-const config = {
+const testnetConfig = {
   defaultNetwork: 'robinhood-testnet',
   availableNetworks: ['robinhood-testnet'],
   auth,
   ...rhTestnet,
   networks: { 'robinhood-testnet': rhTestnet }
 };
+const mainnet = {
+  protocolVersion: 2,
+  network: 'robinhood-mainnet',
+  displayName: 'Robinhood',
+  family: 'robinhood',
+  name: 'Robinhood Chain',
+  chainId: 4663,
+  rpcUrl: 'https://rpc.mainnet.chain.robinhood.com',
+  explorer: 'https://robinhoodchain.blockscout.com',
+  nativeGasToken: 'ETH',
+  testnetOnly: false,
+  runtimeReady: false,
+  deploymentStatus: 'NOT_DEPLOYED',
+  productionReady: false,
+  productionReadiness,
+  wethSettlementAllowed: false,
+  baseAllowed: false,
+  settlementToken: '0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168',
+  settlementSymbol: 'USDG',
+  settlementDecimals: 6,
+  settlement: { address: '0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168', symbol: 'USDG', decimals: 6, mock: false, testnetOnly: false },
+  contracts: Object.fromEntries(Object.keys(rhTestnet.contracts).map((role) => [role, null])),
+  protocolAdminSafe: null,
+  seaport16: '0x0000000000000068F116a894984e2DB1123eB395',
+  subgraph: null,
+  certificationEdition: null
+};
+// Production remains closed until a verified mainnet release is wired in.
+const config = process.env.NEXMARKETS_WEB_NETWORK === 'robinhood-testnet' ? testnetConfig : {
+  defaultNetwork: 'robinhood-mainnet',
+  availableNetworks: ['robinhood-mainnet'],
+  auth,
+  ...mainnet,
+  networks: { 'robinhood-mainnet': mainnet }
+};
 await writeFile(outputPath, `${JSON.stringify(config, null, 2)}\n`);
-console.log(JSON.stringify({ status: 'PASS', output: 'apps/web/public/config.json', networks: config.availableNetworks, runtimeReady: rhTestnet.runtimeReady }));
+console.log(JSON.stringify({ status: 'PASS', output: 'apps/web/public/config.json', networks: config.availableNetworks, runtimeReady: config.runtimeReady }));

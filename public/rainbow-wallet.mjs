@@ -53,7 +53,7 @@ function ensureBridgeRoot() {
   return root;
 }
 
-async function initModal({ initialChainId = 46630, chainIds = [46630] } = {}) {
+async function initModal({ initialChainId = 4663, chainIds = [4663] } = {}) {
   if (modalInstance) return modalInstance;
   if (shouldUseInjectedFallback()) return null;
   if (initPromise) return initPromise;
@@ -96,7 +96,7 @@ async function connectInjected() {
   return { address, chainId };
 }
 
-export async function openConnectModal({ chainId = 46630, chainIds = [46630], force = false } = {}) {
+export async function openConnectModal({ chainId = 4663, chainIds = [4663], force = false } = {}) {
   const modal = await initModal({ initialChainId: chainId, chainIds });
   if (force && currentAddress) {
     await disconnectWallet();

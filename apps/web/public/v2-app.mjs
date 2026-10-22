@@ -10,8 +10,8 @@ import { openConnectModal, openAccountModal, openChainModal, onAccountChange, on
  */
 const CERTIFICATION_EDITION = '0x4171D62F43B4168b07a01C04594455DBc3298437';
 const CERTIFICATION_TOKEN = '1';
-const CHAIN_ID = 46630;
-const DEFAULT_NETWORK_KEY = 'robinhood-testnet';
+const CHAIN_ID = 4663;
+const DEFAULT_NETWORK_KEY = 'robinhood-mainnet';
 const CDP_CHAIN_ID = 84532;
 const ZERO = '0x0000000000000000000000000000000000000000';
 
@@ -2869,6 +2869,7 @@ async function requireSession() {
 }
 async function requireConnectedWallet() {
   if (!state.config) await loadConfig();
+  if (state.config?.runtimeReady === false) throw new Error('Mainnet minting opens once the launch contracts are ready.');
   const requiredChain = Number(state.config?.chainId);
   if (!state.wallet || Number(wallet.chainId) !== requiredChain) {
     const provider = await getWalletProvider();

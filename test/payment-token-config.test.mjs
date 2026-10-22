@@ -14,8 +14,8 @@ test('payment token is chain-scoped and MockUSDG is explicitly testnet-only', as
   assert.equal(mainnet.symbol, 'USDG');
   assert.notEqual(mainnet.mock, true);
   const config = JSON.parse(await readFile(new URL('../apps/web/public/config.json', import.meta.url), 'utf8'));
-  assert.equal(config.networks['robinhood-testnet'].settlementSymbol, 'MockUSDG');
-  assert.equal(config.networks['robinhood-testnet'].settlement.mock, true);
+  assert.equal(config.networks['robinhood-mainnet'].settlementSymbol, 'USDG');
+  assert.equal(config.networks['robinhood-mainnet'].settlement.mock, false);
 });
 
 test('API network policies use the configured settlement address for each chain', () => {

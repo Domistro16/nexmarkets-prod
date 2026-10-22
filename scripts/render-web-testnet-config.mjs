@@ -1,2 +1,3 @@
-// Keep the testnet command on the same Robinhood policy as production builds.
-import './render-web-config.mjs';
+// Explicit development-only override; normal builds target mainnet.
+process.env.NEXMARKETS_WEB_NETWORK = 'robinhood-testnet';
+await import('./render-web-config.mjs');

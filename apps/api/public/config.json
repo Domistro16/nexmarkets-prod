@@ -1,7 +1,7 @@
 {
-  "defaultNetwork": "robinhood-testnet",
+  "defaultNetwork": "robinhood-mainnet",
   "availableNetworks": [
-    "robinhood-testnet"
+    "robinhood-mainnet"
   ],
   "auth": {
     "cdp": {
@@ -10,18 +10,18 @@
     }
   },
   "protocolVersion": 2,
-  "network": "robinhood-testnet",
+  "network": "robinhood-mainnet",
   "displayName": "Robinhood",
   "family": "robinhood",
-  "name": "Robinhood Chain Testnet",
-  "chainId": 46630,
-  "rpcUrl": "https://rpc.testnet.chain.robinhood.com",
-  "explorer": "https://explorer.testnet.chain.robinhood.com",
+  "name": "Robinhood Chain",
+  "chainId": 4663,
+  "rpcUrl": "https://rpc.mainnet.chain.robinhood.com",
+  "explorer": "https://robinhoodchain.blockscout.com",
   "nativeGasToken": "ETH",
-  "testnetOnly": true,
-  "runtimeReady": true,
-  "wethSettlementAllowed": false,
-  "baseAllowed": false,
+  "testnetOnly": false,
+  "runtimeReady": false,
+  "deploymentStatus": "NOT_DEPLOYED",
+  "productionReady": false,
   "productionReadiness": {
     "gates": {
       "databaseMigrationVerified": false,
@@ -41,54 +41,50 @@
     ],
     "productionReady": false
   },
-  "productionReady": false,
-  "contracts": {
-    "launchRegistry": "0x7Fd09c85175D67574f5DD6ECA79B8E89Ad95da6a",
-    "mintController": "0xd5867FaB655aBb43233ba82B87d3782c2a475FAC",
-    "passFactory": "0x2750473e8D9973f089701C27e2Ad50dfAe05ee71",
-    "advantageRegistry": "0xC36eDf0e7B7EE5277f4181eFcd77651FB363991f",
-    "advantageInitializer": "0x62826fa2e6aBe9f7eF462aDB5Bc34A87FbF4D9E8",
-    "royaltyVault": "0xe7D6F7BfA25A1DBea274b05F91ff56C9485B960D",
-    "listingRegistry": "0x509320d4A405f8BB12Ee3C206a41d7FA7679d2bf",
-    "zone": "0x2A5E54b67536164722aEaF529556f798B1cfdD8C",
-    "passAccount": "0x2AE30314Fb3015EFe0C8179e7C3C22411A072e38",
-    "tbaResolver": "0xDd132c282a1b506D33A64f94546F4526F3070B0D",
-    "rewardDistributor": "0xbCA7C4867B88c3c8D48A7419310bb1AeD98Ca373"
-  },
-  "settlementToken": "0x6A4F8832c23C51ba626Eba9d50c8F862647C1679",
-  "settlementSymbol": "MockUSDG",
+  "wethSettlementAllowed": false,
+  "baseAllowed": false,
+  "settlementToken": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+  "settlementSymbol": "USDG",
   "settlementDecimals": 6,
   "settlement": {
-    "address": "0x6A4F8832c23C51ba626Eba9d50c8F862647C1679",
-    "symbol": "MockUSDG",
+    "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+    "symbol": "USDG",
     "decimals": 6,
-    "mock": true,
-    "testnetOnly": true
+    "mock": false,
+    "testnetOnly": false
   },
-  "protocolAdminSafe": "0xCE54c8453fF48670781a6b908c1A3e9209FC95A0",
+  "contracts": {
+    "launchRegistry": null,
+    "mintController": null,
+    "passFactory": null,
+    "advantageRegistry": null,
+    "advantageInitializer": null,
+    "royaltyVault": null,
+    "listingRegistry": null,
+    "zone": null,
+    "passAccount": null,
+    "tbaResolver": null,
+    "rewardDistributor": null
+  },
+  "protocolAdminSafe": null,
   "seaport16": "0x0000000000000068F116a894984e2DB1123eB395",
-  "subgraph": {
-    "name": "nexmarkets-v1-robinhood-testnet/1.0.3",
-    "endpoint": "https://api.goldsky.com/api/public/project_cmt3es3z03t5101vr8ggx1j7e/subgraphs/nexmarkets-v1-robinhood-testnet/1.0.3/gn",
-    "startBlock": 120137047,
-    "provider": "Goldsky"
-  },
+  "subgraph": null,
   "certificationEdition": null,
   "networks": {
-    "robinhood-testnet": {
+    "robinhood-mainnet": {
       "protocolVersion": 2,
-      "network": "robinhood-testnet",
+      "network": "robinhood-mainnet",
       "displayName": "Robinhood",
       "family": "robinhood",
-      "name": "Robinhood Chain Testnet",
-      "chainId": 46630,
-      "rpcUrl": "https://rpc.testnet.chain.robinhood.com",
-      "explorer": "https://explorer.testnet.chain.robinhood.com",
+      "name": "Robinhood Chain",
+      "chainId": 4663,
+      "rpcUrl": "https://rpc.mainnet.chain.robinhood.com",
+      "explorer": "https://robinhoodchain.blockscout.com",
       "nativeGasToken": "ETH",
-      "testnetOnly": true,
-      "runtimeReady": true,
-      "wethSettlementAllowed": false,
-      "baseAllowed": false,
+      "testnetOnly": false,
+      "runtimeReady": false,
+      "deploymentStatus": "NOT_DEPLOYED",
+      "productionReady": false,
       "productionReadiness": {
         "gates": {
           "databaseMigrationVerified": false,
@@ -108,38 +104,34 @@
         ],
         "productionReady": false
       },
-      "productionReady": false,
-      "contracts": {
-        "launchRegistry": "0x7Fd09c85175D67574f5DD6ECA79B8E89Ad95da6a",
-        "mintController": "0xd5867FaB655aBb43233ba82B87d3782c2a475FAC",
-        "passFactory": "0x2750473e8D9973f089701C27e2Ad50dfAe05ee71",
-        "advantageRegistry": "0xC36eDf0e7B7EE5277f4181eFcd77651FB363991f",
-        "advantageInitializer": "0x62826fa2e6aBe9f7eF462aDB5Bc34A87FbF4D9E8",
-        "royaltyVault": "0xe7D6F7BfA25A1DBea274b05F91ff56C9485B960D",
-        "listingRegistry": "0x509320d4A405f8BB12Ee3C206a41d7FA7679d2bf",
-        "zone": "0x2A5E54b67536164722aEaF529556f798B1cfdD8C",
-        "passAccount": "0x2AE30314Fb3015EFe0C8179e7C3C22411A072e38",
-        "tbaResolver": "0xDd132c282a1b506D33A64f94546F4526F3070B0D",
-        "rewardDistributor": "0xbCA7C4867B88c3c8D48A7419310bb1AeD98Ca373"
-      },
-      "settlementToken": "0x6A4F8832c23C51ba626Eba9d50c8F862647C1679",
-      "settlementSymbol": "MockUSDG",
+      "wethSettlementAllowed": false,
+      "baseAllowed": false,
+      "settlementToken": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+      "settlementSymbol": "USDG",
       "settlementDecimals": 6,
       "settlement": {
-        "address": "0x6A4F8832c23C51ba626Eba9d50c8F862647C1679",
-        "symbol": "MockUSDG",
+        "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+        "symbol": "USDG",
         "decimals": 6,
-        "mock": true,
-        "testnetOnly": true
+        "mock": false,
+        "testnetOnly": false
       },
-      "protocolAdminSafe": "0xCE54c8453fF48670781a6b908c1A3e9209FC95A0",
+      "contracts": {
+        "launchRegistry": null,
+        "mintController": null,
+        "passFactory": null,
+        "advantageRegistry": null,
+        "advantageInitializer": null,
+        "royaltyVault": null,
+        "listingRegistry": null,
+        "zone": null,
+        "passAccount": null,
+        "tbaResolver": null,
+        "rewardDistributor": null
+      },
+      "protocolAdminSafe": null,
       "seaport16": "0x0000000000000068F116a894984e2DB1123eB395",
-      "subgraph": {
-        "name": "nexmarkets-v1-robinhood-testnet/1.0.3",
-        "endpoint": "https://api.goldsky.com/api/public/project_cmt3es3z03t5101vr8ggx1j7e/subgraphs/nexmarkets-v1-robinhood-testnet/1.0.3/gn",
-        "startBlock": 120137047,
-        "provider": "Goldsky"
-      },
+      "subgraph": null,
       "certificationEdition": null
     }
   }

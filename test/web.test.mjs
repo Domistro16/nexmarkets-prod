@@ -126,7 +126,7 @@ test('V2 runtime exposes live agent launch and trading mutations', async () => {
 
 test('Base-only CDP social sign-in stays disabled on the Robinhood app', async () => {
   const config = JSON.parse(await readFile(new URL('../apps/web/public/config.json', import.meta.url), 'utf8'));
-  assert.equal(config.network, 'robinhood-testnet');
+  assert.equal(config.network, 'robinhood-mainnet');
   assert.deepEqual(config.auth?.cdp, { enabled: false, projectId: null });
   const bridge = await readFile(new URL('../apps/web/public/cdp-auth-bridge.mjs', import.meta.url), 'utf8');
   assert.match(bridge, /CDPReactProvider/);

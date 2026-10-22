@@ -96,7 +96,7 @@ async function installFixtureApi(page, { delayDiscover = 0, failDiscover = false
         authenticated: true,
         accountId: 'acc_browser_01',
         wallet: lastChallengeAddress || OWNER,
-        chainId: 46630,
+        chainId: 4663,
         csrfToken: 'browser-csrf'
       };
       return route.fulfill({ json: { csrfToken: 'browser-csrf' } });
@@ -148,7 +148,7 @@ async function installBuilderDashboardApi(page) {
     sessionStorage.setItem('nex_csrf', 'browser-csrf');
     window.ethereum = { request: async ({ method }) => {
       if (method === 'eth_requestAccounts' || method === 'eth_accounts') return [owner];
-      if (method === 'eth_chainId') return '0xb626';
+      if (method === 'eth_chainId') return '0x1237';
       if (method === 'personal_sign') return '0x1234';
       return null;
     } };
@@ -159,7 +159,7 @@ async function installBuilderDashboardApi(page) {
   }));
   const saved = [];
   const control = { failDashboard: false, builders, saved };
-  await page.route('**/v1/me/session', (route) => route.fulfill({ json: { authenticated: true, accountId: 'acc_browser_01', wallet: OWNER, chainId: 46630, csrfToken: 'browser-csrf' } }));
+  await page.route('**/v1/me/session', (route) => route.fulfill({ json: { authenticated: true, accountId: 'acc_browser_01', wallet: OWNER, chainId: 4663, csrfToken: 'browser-csrf' } }));
   await page.route('**/v1/me/builders', (route) => route.fulfill({ json: { data: builders } }));
   await page.route('**/v1/builder/dashboard*', (route) => {
     if (control.failDashboard) return route.fulfill({ status: 503, json: { error: 'DATABASE_UNAVAILABLE' } });
@@ -240,7 +240,7 @@ test('V2 template renders certified API/Subgraph data across public routes witho
   await goto(page, '/discover');
   const networkSelector = page.locator('.nm-network-switcher-button:visible').first();
   await expect(networkSelector).toHaveAttribute('data-rainbowkit-chain-selector', 'true');
-  await expect(networkSelector).toHaveAttribute('data-network', 'robinhood-testnet');
+  await expect(networkSelector).toHaveAttribute('data-network', 'robinhood-mainnet');
   await expect(networkSelector).toContainText('Robinhood');
   await expect(page.locator('.nm-network-switcher select')).toHaveCount(0);
   await expect(page.getByRole('heading', { name: 'Find what is worth being early to.' })).toBeVisible();
@@ -250,7 +250,7 @@ test('V2 template renders certified API/Subgraph data across public routes witho
   await navigate(page, `/editions/${EDITION}`);
   await expect.poll(() => page.evaluate(() => location.pathname)).toBe(`/editions/${EDITION}`);
   await expect(page.locator('#nm-v2-data-panel')).toContainText(TERMS);
-  await expect(page.locator('#nm-v2-data-panel')).toContainText('1.000000 MockUSDG');
+  await expect(page.locator('#nm-v2-data-panel')).toContainText('1.000000 USDG');
   await navigate(page, `/projects/${EDITION}`);
   await expect.poll(() => page.evaluate(() => location.pathname)).toBe(`/projects/${EDITION}`);
   await expect(page.locator('#project')).toContainText('NexMarkets V1 Test Certification Edition');
@@ -298,7 +298,7 @@ test('wallet disconnected and wrong-network states are explicit', async ({ page 
   }, { owner: OWNER });
   await goto(page, '/dashboard/holder');
   await page.getByRole('button', { name: 'Connect wallet' }).first().click();
-  await expect(page.locator('#nm-v2-runtime-banner')).toContainText('SWITCH_TO_ROBINHOOD_46630');
+  await expect(page.locator('#nm-v2-runtime-banner')).toContainText('SWITCH_TO_ROBINHOOD_4663');
 });
 
 test('disconnected connect opens RainbowKit instead of requiring an injected wallet', async ({ page }) => {
@@ -322,7 +322,7 @@ test('wallet challenge/session works without submitting a chain transaction', as
     window.ethereum = { request: async ({ method, params }) => {
       window.__nexmarketsProviderMethods.push(method);
       if (method === 'eth_requestAccounts') return [address];
-      if (method === 'eth_chainId') return '0xb626';
+      if (method === 'eth_chainId') return '0x1237';
       if (method === 'personal_sign') return window.__nexmarketsSignPersonalMessage(params[0]);
       return '0x0';
     } };
@@ -390,7 +390,7 @@ test('Create wizard submits full draft to API with CSRF, retains DRAFT status, a
     window.ethereum = { request: async ({ method, params }) => {
       window.__nexmarketsProviderMethods.push(method);
       if (method === 'eth_requestAccounts') return [address];
-      if (method === 'eth_chainId') return '0xb626';
+      if (method === 'eth_chainId') return '0x1237';
       if (method === 'personal_sign') return window.__nexmarketsSignPersonalMessage(params[0]);
       return '0x0';
     } };
@@ -515,7 +515,7 @@ test('browser media upload prepares, uploads, verifies, and binds a stable artwo
     window.ethereum = { request: async ({ method, params }) => {
       window.__nexmarketsProviderMethods.push(method);
       if (method === 'eth_requestAccounts') return [address];
-      if (method === 'eth_chainId') return '0xb626';
+      if (method === 'eth_chainId') return '0x1237';
       if (method === 'personal_sign') return window.__nexmarketsSignPersonalMessage(params[0]);
       return '0x0';
     } };
@@ -561,7 +561,7 @@ test('Owned Pass download produces a 2048 by 2048 PNG from the rendered Pass', a
   await page.addInitScript(({ address }) => {
     window.ethereum = { request: async ({ method, params }) => {
       if (method === 'eth_requestAccounts') return [address];
-      if (method === 'eth_chainId') return '0xb626';
+      if (method === 'eth_chainId') return '0x1237';
       if (method === 'personal_sign') return window.__nexmarketsSignPersonalMessage(params[0]);
       return '0x0';
     } };
@@ -616,7 +616,7 @@ test('live mint flow sends committed Terms and broadcasts the prepared transacti
     window.ethereum = { request: async ({ method, params }) => {
       window.__nexmarketsProviderMethods.push(method);
       if (method === 'eth_requestAccounts') return [address];
-      if (method === 'eth_chainId') return '0xb626';
+      if (method === 'eth_chainId') return '0x1237';
       if (method === 'personal_sign') return window.__nexmarketsSignPersonalMessage(params[0]);
       if (method === 'eth_call') return `0x${'f'.repeat(64)}`;
       if (method === 'eth_sendTransaction') {
@@ -674,7 +674,7 @@ test('live listing flow reads the exact owned Pass, signs Seaport data, and regi
       transaction: { id: 'tx_browser_listing', state: 'PREPARED' },
       prepared: {
         orderHash, order,
-        typedData: { domain: { name: 'Seaport', version: '1.6', chainId: 46630, verifyingContract: data.edition.address }, types: { OrderComponents: [] }, value: order },
+        typedData: { domain: { name: 'Seaport', version: '1.6', chainId: 4663, verifyingContract: data.edition.address }, types: { OrderComponents: [] }, value: order },
         registryTransaction: { to: listingRegistry, data: '0x87654321', value: '0x0' }
       },
       walletMustSign: true, serverCustodiesKey: false
@@ -691,7 +691,7 @@ test('live listing flow reads the exact owned Pass, signs Seaport data, and regi
     window.ethereum = { request: async ({ method, params }) => {
       window.__nexmarketsProviderMethods.push(method);
       if (method === 'eth_requestAccounts') return [address];
-      if (method === 'eth_chainId') return '0xb626';
+      if (method === 'eth_chainId') return '0x1237';
       if (method === 'personal_sign') return window.__nexmarketsSignPersonalMessage(params[0]);
       if (method === 'eth_call') return `0x${'f'.repeat(64)}`;
       if (method === 'eth_signTypedData_v4') return `0x${'a'.repeat(130)}`;
@@ -762,7 +762,7 @@ test('live buy flow requires the signed listing and broadcasts Seaport fulfillme
     window.ethereum = { request: async ({ method, params }) => {
       window.__nexmarketsProviderMethods.push(method);
       if (method === 'eth_requestAccounts') return [address];
-      if (method === 'eth_chainId') return '0xb626';
+      if (method === 'eth_chainId') return '0x1237';
       if (method === 'personal_sign') return `0x${'c'.repeat(130)}`;
       if (method === 'eth_call') return `0x${'f'.repeat(64)}`;
       if (method === 'eth_sendTransaction') {
@@ -820,7 +820,7 @@ test('session survives page reload without re-signing and restores authenticated
   await page.addInitScript(({ address }) => {
     window.ethereum = { request: async ({ method, params }) => {
       if (method === 'eth_requestAccounts') return [address];
-      if (method === 'eth_chainId') return '0xb626';
+      if (method === 'eth_chainId') return '0x1237';
       if (method === 'personal_sign') return window.__nexmarketsSignPersonalMessage(params[0]);
       return '0x0';
     } };
@@ -850,7 +850,7 @@ test('switching wallet cleanly disconnects and opens wallet modal', async ({ pag
   await page.addInitScript(({ address }) => {
     window.ethereum = { request: async ({ method, params }) => {
       if (method === 'eth_requestAccounts') return [address];
-      if (method === 'eth_chainId') return '0xb626';
+      if (method === 'eth_chainId') return '0x1237';
       if (method === 'personal_sign') return window.__nexmarketsSignPersonalMessage(params[0]);
       return '0x0';
     } };
@@ -874,7 +874,7 @@ test('dashboard displays connected wallet address and account data instead of du
   await page.addInitScript(({ address }) => {
     window.ethereum = { request: async ({ method, params }) => {
       if (method === 'eth_requestAccounts') return [address];
-      if (method === 'eth_chainId') return '0xb626';
+      if (method === 'eth_chainId') return '0x1237';
       if (method === 'personal_sign') return window.__nexmarketsSignPersonalMessage(params[0]);
       return '0x0';
     } };
@@ -929,7 +929,7 @@ test('login and signing flows show loading animation and progress message while 
   await page.addInitScript(({ address }) => {
     window.ethereum = { request: async ({ method, params }) => {
       if (method === 'eth_requestAccounts') return [address];
-      if (method === 'eth_chainId') return '0xb626';
+      if (method === 'eth_chainId') return '0x1237';
       if (method === 'personal_sign') return window.__nexmarketsSignPersonalMessage(params[0]);
       return '0x0';
     } };
@@ -966,15 +966,15 @@ test('Robinhood is the only active network and stale Base preferences cannot sel
   await page.addInitScript(() => localStorage.setItem('nexmarkets_network', 'base-sepolia'));
   await goto(page, '/discover?network=base-sepolia');
   const networkSelector = page.locator('.nm-network-switcher-button:visible').first();
-  await expect(networkSelector).toHaveAttribute('data-network', 'robinhood-testnet');
+  await expect(networkSelector).toHaveAttribute('data-network', 'robinhood-mainnet');
   await expect(networkSelector).toContainText('Robinhood');
   await networkSelector.click();
   const networkModal = page.locator('#nmNetworkModal');
   await expect(networkModal).toBeVisible();
   await expect(networkModal.locator('button.nm-network-option-item')).toHaveCount(1);
-  await expect(networkModal.locator('[data-network="robinhood-testnet"]')).toBeVisible();
+  await expect(networkModal.locator('[data-network="robinhood-mainnet"]')).toBeVisible();
   await expect(networkModal.locator('[data-network="base-sepolia"], [data-network="base-mainnet"]')).toHaveCount(0);
   await page.evaluate(() => window.__nmSelectNetwork('base-sepolia'));
-  expect(await page.evaluate(() => window.nexmarketsV2.state.networkKey)).toBe('robinhood-testnet');
+  expect(await page.evaluate(() => window.nexmarketsV2.state.networkKey)).toBe('robinhood-mainnet');
   expect(await page.evaluate(() => window.nexmarketsV2.state.wallet)).toBe(null);
 });

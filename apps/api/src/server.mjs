@@ -315,7 +315,7 @@ function networkPolicyEnv(env, prefix, settlementAddress, seaportAddress, fallba
       ?? (prefix === 'ROBINHOOD_TESTNET' ? env[suffix] : undefined)
       ?? fallback[suffix];
   }
-  policyEnv.USDG_ADDRESS = env[`${prefix}_USDC_ADDRESS`]
+  policyEnv.USDG_ADDRESS = env[`${prefix}_USDG_ADDRESS`] ?? env[`${prefix}_USDC_ADDRESS`]
     ?? (prefix === 'ROBINHOOD_TESTNET' ? env.USDG_ADDRESS : undefined)
     ?? settlementAddress;
   policyEnv.SEAPORT_16_ADDRESS = env[`${prefix}_SEAPORT_16_ADDRESS`] ?? seaportAddress;
@@ -382,7 +382,7 @@ export function createNetworkConfigs(env = process.env) {
     readModelDisabled
   });
   return {
-    'robinhood-mainnet': config('robinhood-mainnet', 4663, 'RH_MAINNET_RPC_URL', 'https://rpc.mainnet.chain.robinhood.com', rhMainnetSubgraph, env, !rhMainnetSubgraph.enabled),
+    'robinhood-mainnet': { ...config('robinhood-mainnet', 4663, 'RH_MAINNET_RPC_URL', 'https://rpc.mainnet.chain.robinhood.com', rhMainnetSubgraph, networkPolicyEnv(env, 'ROBINHOOD_MAINNET', networkByKey('robinhood-mainnet').settlement.address, '0x0000000000000068F116a894984e2DB1123eB395'), !rhMainnetSubgraph.enabled), runtimeReady: false },
     'robinhood-testnet': config('robinhood-testnet', 46630, 'RH_TESTNET_RPC_URL', 'https://rpc.testnet.chain.robinhood.com', rhTestnetSubgraph, rhTestnetPolicy),
     'base-mainnet': config('base-mainnet', 8453, 'BASE_MAINNET_RPC_URL', 'https://mainnet.base.org', baseMainnetSubgraph, networkPolicyEnv(env, 'BASE_MAINNET', baseMainnetUsdc, '0x0000000000000068F116a894984e2DB1123eB395'), !baseMainnetSubgraph.enabled),
     'base-sepolia': config('base-sepolia', 84532, 'BASE_SEPOLIA_RPC_URL', 'https://sepolia.base.org', baseSepoliaSubgraph, baseSepoliaPolicy, !baseSepoliaSubgraph.enabled)
@@ -394,8 +394,8 @@ export function createNetworkConfigs(env = process.env) {
 export function createRuntimeNetworkContext(env = process.env) {
   const all = createNetworkConfigs(env);
   const networkConfigs = Object.fromEntries(Object.entries(all).filter(([key]) => key.startsWith('robinhood-')));
-  const requested = env.NEXMARKETS_DEFAULT_NETWORK || 'robinhood-testnet';
-  const defaultKey = requested.startsWith('base-') ? 'robinhood-testnet' : requested;
+  const requested = env.NEXMARKETS_DEFAULT_NETWORK || 'robinhood-mainnet';
+  const defaultKey = requested.startsWith('base-') ? 'robinhood-mainnet' : requested;
   const configured = networkConfigs[defaultKey];
   if (!configured) throw new Error('ROBINHOOD_NETWORK_REQUIRED');
   return { networkConfigs, configured };
@@ -604,6 +604,12 @@ export function createApiServer({
       const activeProtocolVersion = Number(selectedNetwork?.protocolVersion ?? protocolVersion);
       const readiness = selectedNetwork?.productionReadiness ?? productionReadiness;
       const readModelDisabled = Boolean(selectedNetwork?.readModelDisabled && !subgraph?.enabled);
+      if (selectedNetwork?.runtimeReady === false && req.method === 'POST' && (INTENT_TYPE[url.pathname] || [
+        '/v1/listings/signed-order', '/v1/listings/buy', '/v1/vault/claims/prepare',
+        '/v1/builder/editions/link', '/v1/distribution-agents/provision'
+      ].includes(url.pathname))) {
+        return json(res, 503, { error: { code: 'MAINNET_DEPLOYMENT_PENDING', message: 'Mainnet minting and trading open once the launch contracts are ready.' } });
+      }
       const origin = headers.origin;
       if (origin && new URL(origin).origin !== new URL(allowedOrigin).origin) {
         const reqHost = headers['x-forwarded-host'] || headers.host;

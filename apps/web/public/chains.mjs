@@ -23,7 +23,7 @@ export const robinhoodMainnet = Object.freeze({
     public: { http: ['https://rpc.mainnet.chain.robinhood.com'] }
   },
   blockExplorers: {
-    default: { name: 'Robinhood Explorer', url: 'https://explorer.mainnet.chain.robinhood.com' }
+    default: { name: 'Robinhood Explorer', url: 'https://robinhoodchain.blockscout.com' }
   },
   testnet: false
 });

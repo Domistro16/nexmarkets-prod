@@ -131,5 +131,5 @@ const routes = ['/discover','/projects/','/editions/','/market','/create','/dash
 for (const route of routes) if (!app.includes(route)) throw new Error(`Missing certified route: ${route}`);
 for (const forbidden of ['mockProducts','guaranteed appreciation','APY','passive yield','revenue share']) if (app.toLowerCase().includes(forbidden.toLowerCase())) throw new Error(`Forbidden production copy: ${forbidden}`);
 if (!template.includes('nm-v2-data-bridge') || !template.includes('/v2-app.mjs')) throw new Error('Missing V2 template data bridge');
-if (!v2App.includes("/v1/discover") || !v2App.includes('46630') || !v2App.includes('CERTIFICATION_EDITION')) throw new Error('V2 runtime is not testnet data-backed');
+if (!v2App.includes("/v1/discover") || !v2App.includes("DEFAULT_NETWORK_KEY = 'robinhood-mainnet'") || !v2App.includes('CERTIFICATION_EDITION')) throw new Error('V2 runtime is missing Robinhood mainnet data integration');
 console.log(JSON.stringify({ status: 'PASS', app: '@nexmarkets/web', routes: routes.length, output: 'public', bundledApi: true }));
