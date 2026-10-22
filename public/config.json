@@ -1,65 +1,27 @@
 {
-  "defaultNetwork": "base-sepolia",
+  "defaultNetwork": "robinhood-testnet",
   "availableNetworks": [
-    "base-sepolia",
     "robinhood-testnet"
   ],
   "auth": {
     "cdp": {
-      "projectId": null,
-      "authMethods": [
-        "oauth:google",
-        "oauth:apple",
-        "oauth:x"
-      ],
-      "network": "base-sepolia",
-      "ethereum": {
-        "createOnLogin": "eoa"
-      }
+      "enabled": false,
+      "projectId": null
     }
   },
   "protocolVersion": 2,
-  "network": "base-sepolia",
-  "displayName": "Base Sepolia",
-  "family": "base",
-  "name": "Base Sepolia",
-  "chainId": 84532,
-  "rpcUrl": "https://sepolia.base.org",
-  "explorer": "https://sepolia.basescan.org",
-  "settlementToken": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
-  "settlementSymbol": "USDC",
-  "settlementDecimals": 6,
-  "settlement": {
-    "address": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
-    "symbol": "USDC",
-    "decimals": 6,
-    "mock": false,
-    "testnetOnly": true
-  },
-  "seaport16": "0x0000000000000068F116a894984e2DB1123eB395",
-  "protocolAdminSafe": "0xE6D0846e6C0b51C61FdDb593A1914b85181E5783",
-  "contracts": {
-    "launchRegistry": "0x83125b7a5e8d4e79134D74f8E8b5052a58E054B5",
-    "mintController": "0x8de2eD8bCB4216aF0b1a07D65A6dF229677BD758",
-    "passFactory": "0xcF0802892749fAD109c3B841b2a0D922D4DBD6ED",
-    "advantageRegistry": "0x6D4Db1939D322411EdE8970eCB14b729788f75Aa",
-    "advantageInitializer": "0x9b2f41F9602E3C1AA41a079893386E65AB130c1C",
-    "royaltyVault": "0xCbf82F765c80446baa753a56C563ED0291374614",
-    "listingRegistry": "0x21C397F20Db8da540d22F798d7EC7f7c16CE9241",
-    "zone": "0x490d55643F2CAf4D5A178FC84cA01792952C8458",
-    "passAccount": "0x8F48738e4BB35F5F6Dc0E40cf939040364AD3682",
-    "tbaResolver": "0x6B53e133DA10d456296930c041d17606d9283DaF",
-    "rewardDistributor": "0x2453c5FCef787D076ff21614E54C50344FD1EB91"
-  },
-  "subgraph": {
-    "name": "nexmarkets-v1-base-sepolia/1.0.3",
-    "endpoint": "https://api.goldsky.com/api/public/project_cmt3es3z03t5101vr8ggx1j7e/subgraphs/nexmarkets-v1-base-sepolia/1.0.3/gn",
-    "startBlock": 46827960,
-    "provider": "Goldsky"
-  },
-  "certificationEdition": null,
+  "network": "robinhood-testnet",
+  "displayName": "Robinhood",
+  "family": "robinhood",
+  "name": "Robinhood Chain Testnet",
+  "chainId": 46630,
+  "rpcUrl": "https://rpc.testnet.chain.robinhood.com",
+  "explorer": "https://explorer.testnet.chain.robinhood.com",
+  "nativeGasToken": "ETH",
   "testnetOnly": true,
   "runtimeReady": true,
+  "wethSettlementAllowed": false,
+  "baseAllowed": false,
   "productionReadiness": {
     "gates": {
       "databaseMigrationVerified": false,
@@ -80,6 +42,38 @@
     "productionReady": false
   },
   "productionReady": false,
+  "contracts": {
+    "launchRegistry": "0x7Fd09c85175D67574f5DD6ECA79B8E89Ad95da6a",
+    "mintController": "0xd5867FaB655aBb43233ba82B87d3782c2a475FAC",
+    "passFactory": "0x2750473e8D9973f089701C27e2Ad50dfAe05ee71",
+    "advantageRegistry": "0xC36eDf0e7B7EE5277f4181eFcd77651FB363991f",
+    "advantageInitializer": "0x62826fa2e6aBe9f7eF462aDB5Bc34A87FbF4D9E8",
+    "royaltyVault": "0xe7D6F7BfA25A1DBea274b05F91ff56C9485B960D",
+    "listingRegistry": "0x509320d4A405f8BB12Ee3C206a41d7FA7679d2bf",
+    "zone": "0x2A5E54b67536164722aEaF529556f798B1cfdD8C",
+    "passAccount": "0x2AE30314Fb3015EFe0C8179e7C3C22411A072e38",
+    "tbaResolver": "0xDd132c282a1b506D33A64f94546F4526F3070B0D",
+    "rewardDistributor": "0xbCA7C4867B88c3c8D48A7419310bb1AeD98Ca373"
+  },
+  "settlementToken": "0x6A4F8832c23C51ba626Eba9d50c8F862647C1679",
+  "settlementSymbol": "MockUSDG",
+  "settlementDecimals": 6,
+  "settlement": {
+    "address": "0x6A4F8832c23C51ba626Eba9d50c8F862647C1679",
+    "symbol": "MockUSDG",
+    "decimals": 6,
+    "mock": true,
+    "testnetOnly": true
+  },
+  "protocolAdminSafe": "0xCE54c8453fF48670781a6b908c1A3e9209FC95A0",
+  "seaport16": "0x0000000000000068F116a894984e2DB1123eB395",
+  "subgraph": {
+    "name": "nexmarkets-v1-robinhood-testnet/1.0.3",
+    "endpoint": "https://api.goldsky.com/api/public/project_cmt3es3z03t5101vr8ggx1j7e/subgraphs/nexmarkets-v1-robinhood-testnet/1.0.3/gn",
+    "startBlock": 120137047,
+    "provider": "Goldsky"
+  },
+  "certificationEdition": null,
   "networks": {
     "robinhood-testnet": {
       "protocolVersion": 2,
@@ -92,6 +86,7 @@
       "explorer": "https://explorer.testnet.chain.robinhood.com",
       "nativeGasToken": "ETH",
       "testnetOnly": true,
+      "runtimeReady": true,
       "wethSettlementAllowed": false,
       "baseAllowed": false,
       "productionReadiness": {
@@ -146,70 +141,6 @@
         "provider": "Goldsky"
       },
       "certificationEdition": null
-    },
-    "base-sepolia": {
-      "protocolVersion": 2,
-      "network": "base-sepolia",
-      "displayName": "Base Sepolia",
-      "family": "base",
-      "name": "Base Sepolia",
-      "chainId": 84532,
-      "rpcUrl": "https://sepolia.base.org",
-      "explorer": "https://sepolia.basescan.org",
-      "settlementToken": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
-      "settlementSymbol": "USDC",
-      "settlementDecimals": 6,
-      "settlement": {
-        "address": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
-        "symbol": "USDC",
-        "decimals": 6,
-        "mock": false,
-        "testnetOnly": true
-      },
-      "seaport16": "0x0000000000000068F116a894984e2DB1123eB395",
-      "protocolAdminSafe": "0xE6D0846e6C0b51C61FdDb593A1914b85181E5783",
-      "contracts": {
-        "launchRegistry": "0x83125b7a5e8d4e79134D74f8E8b5052a58E054B5",
-        "mintController": "0x8de2eD8bCB4216aF0b1a07D65A6dF229677BD758",
-        "passFactory": "0xcF0802892749fAD109c3B841b2a0D922D4DBD6ED",
-        "advantageRegistry": "0x6D4Db1939D322411EdE8970eCB14b729788f75Aa",
-        "advantageInitializer": "0x9b2f41F9602E3C1AA41a079893386E65AB130c1C",
-        "royaltyVault": "0xCbf82F765c80446baa753a56C563ED0291374614",
-        "listingRegistry": "0x21C397F20Db8da540d22F798d7EC7f7c16CE9241",
-        "zone": "0x490d55643F2CAf4D5A178FC84cA01792952C8458",
-        "passAccount": "0x8F48738e4BB35F5F6Dc0E40cf939040364AD3682",
-        "tbaResolver": "0x6B53e133DA10d456296930c041d17606d9283DaF",
-        "rewardDistributor": "0x2453c5FCef787D076ff21614E54C50344FD1EB91"
-      },
-      "subgraph": {
-        "name": "nexmarkets-v1-base-sepolia/1.0.3",
-        "endpoint": "https://api.goldsky.com/api/public/project_cmt3es3z03t5101vr8ggx1j7e/subgraphs/nexmarkets-v1-base-sepolia/1.0.3/gn",
-        "startBlock": 46827960,
-        "provider": "Goldsky"
-      },
-      "certificationEdition": null,
-      "testnetOnly": true,
-      "runtimeReady": true,
-      "productionReadiness": {
-        "gates": {
-          "databaseMigrationVerified": false,
-          "contractConfigVerified": false,
-          "paymentTokenVerified": false,
-          "testnetE2EPassed": false,
-          "securityGatePassed": false,
-          "criticalTestsPassed": false
-        },
-        "blockers": [
-          "databaseMigrationVerified",
-          "contractConfigVerified",
-          "paymentTokenVerified",
-          "testnetE2EPassed",
-          "securityGatePassed",
-          "criticalTestsPassed"
-        ],
-        "productionReady": false
-      },
-      "productionReady": false
     }
   }
 }

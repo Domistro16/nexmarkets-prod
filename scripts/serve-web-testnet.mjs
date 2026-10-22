@@ -11,12 +11,11 @@ const apiPort = Number(process.env.NEXMARKETS_API_PORT ?? 4020);
 const webPort = Number(process.env.NEXMARKETS_WEB_PORT ?? 4173);
 await access(resolve(webRoot, 'index.html'));
 
-const selectedNetwork = process.env.NEXMARKETS_DEFAULT_NETWORK || 'base-sepolia';
-if (!['base-sepolia', 'robinhood-testnet'].includes(selectedNetwork)) throw new Error('TESTNET_NETWORK_REQUIRED');
+const requestedNetwork = process.env.NEXMARKETS_DEFAULT_NETWORK || 'robinhood-testnet';
+const selectedNetwork = requestedNetwork.startsWith('base-') ? 'robinhood-testnet' : requestedNetwork;
+if (selectedNetwork !== 'robinhood-testnet') throw new Error('ROBINHOOD_TESTNET_REQUIRED');
 const deployment = JSON.parse(await readFile(resolve(root, `deployments/${selectedNetwork}.v1-deployment.json`), 'utf8'));
-const release = JSON.parse(await readFile(resolve(root, 'deployments/MAINNET_RELEASE_CANDIDATE.json'), 'utf8'));
-const isBase = selectedNetwork === 'base-sepolia';
-const subgraphEndpoint = process.env.BASE_SEPOLIA_NEXMARKETS_SUBGRAPH_URL || process.env.BASE_SEPOLIA_SUBGRAPH_URL || process.env.NEXMARKETS_SUBGRAPH_URL || deployment.subgraph?.endpoint || (isBase ? 'https://api.goldsky.com/api/public/project_cmt3es3z03t5101vr8ggx1j7e/subgraphs/nexmarkets-v1-base-sepolia/1.0.3/gn' : release.goldsky?.testnetSubgraph?.graphqlEndpoint);
+const subgraphEndpoint = process.env.ROBINHOOD_TESTNET_SUBGRAPH_URL || process.env.NEXMARKETS_SUBGRAPH_URL || deployment.subgraph?.endpoint;
 if (!subgraphEndpoint) throw new Error('TESTNET_SUBGRAPH_ENDPOINT_REQUIRED');
 const contracts = deployment.contracts;
 const enableRealStorage = process.env.NEXMARKETS_ENABLE_REAL_STORAGE === 'true';
@@ -30,7 +29,9 @@ const env = {
   APP_ORIGIN: `http://localhost:${webPort}`,
   PORT: String(apiPort),
   NEXMARKETS_DEFAULT_NETWORK: selectedNetwork,
-  ...(isBase ? { BASE_SEPOLIA_SUBGRAPH_URL: subgraphEndpoint, BASE_SEPOLIA_USDC_ADDRESS: deployment.usdc.address } : { ROBINHOOD_CHAIN_ID: '46630', NEXMARKETS_SUBGRAPH_URL: subgraphEndpoint }),
+  ROBINHOOD_CHAIN_ID: '46630',
+  ROBINHOOD_TESTNET_SUBGRAPH_URL: subgraphEndpoint,
+  NEXMARKETS_SUBGRAPH_URL: subgraphEndpoint,
   REQUIRE_INDEXED_READINESS: 'true',
   // Local browser harness: keep production's 120-block default untouched,
   // while allowing the live testnet Subgraph's observed head drift to be
@@ -39,7 +40,7 @@ const env = {
   INDEXER_MAX_FINALITY_LAG_BLOCKS: process.env.NEXMARKETS_INDEXER_MAX_FINALITY_LAG_BLOCKS ?? '1000',
   SECURE_COOKIES: 'false',
   LOG_API_ERRORS: 'true',
-  ...(isBase ? { USDG_ADDRESS: deployment.usdc.address } : { USDG_ADDRESS: deployment.mockUsdg.address }),
+  USDG_ADDRESS: deployment.mockUsdg.address,
   PROTOCOL_ADMIN_SAFE_ADDRESS: deployment.protocolAdminSafe.address,
   PRIMARY_FEE_RECIPIENT: deployment.protocolAdminSafe.address,
   SECONDARY_FEE_RECIPIENT: deployment.protocolAdminSafe.address,
@@ -93,7 +94,7 @@ const server = http.createServer((req, res) => {
   return serveStatic(req, res).catch(() => res.writeHead(500).end());
 });
 server.listen(webPort, '127.0.0.1', () => {
-  console.log(JSON.stringify({ event: 'web_started', url: `http://localhost:${webPort}`, apiPort, network: selectedNetwork, chainId: isBase ? 84532 : 46630, subgraph: deployment.subgraph?.name || (isBase ? 'nexmarkets-v1-base-sepolia/1.0.3' : release.goldsky.testnetSubgraph.name) }));
+  console.log(JSON.stringify({ event: 'web_started', url: `http://localhost:${webPort}`, apiPort, network: selectedNetwork, chainId: 46630, subgraph: deployment.subgraph.name }));
 });
 
 let shuttingDown = false;

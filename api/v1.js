@@ -17780,6 +17780,15 @@ function createNetworkConfigs(env = process.env) {
     "base-sepolia": config("base-sepolia", 84532, "BASE_SEPOLIA_RPC_URL", "https://sepolia.base.org", baseSepoliaSubgraph, baseSepoliaPolicy, !baseSepoliaSubgraph.enabled)
   };
 }
+function createRuntimeNetworkContext(env = process.env) {
+  const all = createNetworkConfigs(env);
+  const networkConfigs = Object.fromEntries(Object.entries(all).filter(([key]) => key.startsWith("robinhood-")));
+  const requested = env.NEXMARKETS_DEFAULT_NETWORK || "robinhood-testnet";
+  const defaultKey = requested.startsWith("base-") ? "robinhood-testnet" : requested;
+  const configured = networkConfigs[defaultKey];
+  if (!configured) throw new Error("ROBINHOOD_NETWORK_REQUIRED");
+  return { networkConfigs, configured };
+}
 function json(res, status, payload, headers = {}) {
   res.writeHead(status, { ...JSON_HEADERS, ...headers });
   res.end(JSON.stringify(payload, (_, value) => typeof value === "bigint" ? value.toString() : value));
@@ -18867,9 +18876,7 @@ function createApiServer({
 if (!process.env.VERCEL && !process.env.AWS_LAMBDA_FUNCTION_NAME && import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
   const store = new PostgresStore();
   const port = Number(process.env.PORT || 4010);
-  const networkConfigs = createNetworkConfigs(process.env);
-  const defaultKey = process.env.NEXMARKETS_DEFAULT_NETWORK ?? (process.env.ROBINHOOD_CHAIN_ID ? networkKeyForChainId(Number(process.env.ROBINHOOD_CHAIN_ID)) : "base-sepolia");
-  const configured = networkConfigs[defaultKey ?? "base-sepolia"];
+  const { networkConfigs, configured } = createRuntimeNetworkContext(process.env);
   const chainId = configured.chainId;
   const rpc = configured.chain;
   const subgraph = configured.subgraph;
@@ -18894,10 +18901,7 @@ init_memory_store();
 var requestListener = null;
 async function getApiListener() {
   if (requestListener) return requestListener;
-  const networkConfigs = createNetworkConfigs(process.env);
-  const defaultKey = process.env.NEXMARKETS_DEFAULT_NETWORK || "base-sepolia";
-  const defaultNetwork = networkConfigs[defaultKey] || networkConfigs.baseSepolia || networkConfigs["base-sepolia"];
-  const chainId = Number(defaultNetwork.chainId);
+  const { networkConfigs, configured: defaultNetwork } = createRuntimeNetworkContext(process.env);
   let store = null;
   if (process.env.DATABASE_URL) {
     try {

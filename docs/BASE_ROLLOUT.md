@@ -1,10 +1,15 @@
 # Base rollout
 
+> Historical rollout reference, superseded by the Robinhood-only product
+> decision on 2026-10-22. The active web/API runtime uses Robinhood testnet
+> and Goldsky. Base is not offered by the app; the instructions below document
+> the previous rollout and should not be used to select the active network.
+
 NexMarkets supports Robinhood and Base as separate network contexts. The web
 navbar selector changes the active network, persists it locally, switches an
 injected wallet when possible, and sends `x-nex-network` on API requests. The
 API keeps chain-specific sessions, settlement assets, contracts and read
-models isolated. Base Sepolia is the default current testnet and its Goldsky
+models isolated. Base Sepolia was the default testnet and its Goldsky
 read model is configured and health-checked.
 
 ## Networks
@@ -20,9 +25,8 @@ Base testnet and mainnet use Circle's canonical USDC addresses recorded in
 the corresponding deployment manifests. Testnet USDC is not a production
 settlement asset.
 
-The current browser default is **Base Sepolia + USDC**. Robinhood testnet is
-an explicitly selected historical/testnet context and retains its isolated
-MockUSDG settlement token.
+The current browser default is **Robinhood testnet + MockUSDG**. The former
+Base Sepolia rollout and USDC configuration are retained for reference.
 
 Market **Change price** is a complete Seaport replacement flow: NexMarkets
 invalidates the old signed order, asks the seller to sign a replacement order,
@@ -49,10 +53,8 @@ records:
 cmd /c npm run web:config:testnet
 ```
 
-The generated configuration exposes Base Sepolia first (the default) and
-Robinhood testnet as an explicitly selectable historical/testnet context. It
-does not expose Base mainnet as an active browser network until the mainnet
-release gate is approved.
+The generated configuration exposes only Robinhood testnet. Base deployment
+records remain separate from the active browser configuration.
 
 ## Base deployment commands
 

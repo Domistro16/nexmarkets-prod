@@ -19,6 +19,7 @@ export function liveAuthority(html) {
   replace('function p10Creator(){return dashboardState.launches.length>0}', 'function p10Creator(){return (window.__nmManagedBuilderKeys||[]).length>0||dashboardState.launches.length>0}');
   replace('function dashKey(){const keys=managedKeys();', 'function dashKey(){const keys=managedKeys();const selected=window.nexmarketsV2?.state?.selectedBuilderId;if(keys.includes(selected))window.nmEliteDashboardBuilderKey=selected;');
   replace('Get there early.<br><em>Own your place.</em>', 'Find what’s next.<br><em>Get in early.</em>');
+  replace('Tokenized stock rewards require the Edition to use Base.', 'Tokenized stock rewards are not available on Robinhood yet.');
   replace('Find promising products early. Get a limited Pass with a clear Advantage and your own serial. Use what it gives you, keep it, or sell it later when the Market opens.', 'Meet promising projects before the crowd. Pick up a numbered Pass, see exactly what comes with it, then keep it or trade it when its Market opens.');
   replace('<button class="btn primary" onclick="nmEliteSaveBuilderProfile(\'${E(key)}\')">Save public profile</button>', '<button class="btn primary" data-nm-builder-profile-save="${E(key)}" onclick="nmEliteSaveBuilderProfile(\'${E(key)}\')">Save public profile</button>');
   replace('totalRoyalty=Number(e.royaltyAvailable||0)+Number(e.royaltyLocked||0)', 'totalRoyalty=Number(e.royaltyEarned??(Number(e.royaltyAvailable||0)+Number(e.royaltyLocked||0)))');

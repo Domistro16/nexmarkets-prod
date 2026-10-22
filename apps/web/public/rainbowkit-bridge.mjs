@@ -14,7 +14,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createConfig, WagmiProvider, useAccount, useDisconnect, useWalletClient } from 'wagmi';
 import { http } from 'viem';
 import { mainnet as viemMainnet } from 'viem/chains';
-import { baseSepolia, baseMainnet, chainsForIds } from './chains.mjs';
+import { robinhoodTestnet, baseSepolia, baseMainnet, chainsForIds } from './chains.mjs';
 import { disconnectAllConnectors } from './wallet-disconnect.mjs';
 import '@rainbow-me/rainbowkit/styles.css';
 
@@ -99,9 +99,9 @@ function RainbowBridge({ controls, onAccount, onChain, onProvider }) {
   );
 }
 
-export async function mountRainbowKit({ root, initialChainId = baseSepolia.id, allowedChainIds = [], onAccount, onChain, onProvider }) {
+export async function mountRainbowKit({ root, initialChainId = robinhoodTestnet.id, allowedChainIds = [robinhoodTestnet.id], onAccount, onChain, onProvider }) {
   const selectableChains = chainsForIds(allowedChainIds);
-  const initialChain = selectableChains.find((chain) => chain.id === Number(initialChainId)) || selectableChains[0] || baseSepolia;
+  const initialChain = selectableChains.find((chain) => chain.id === Number(initialChainId)) || selectableChains[0] || robinhoodTestnet;
   const isBaseNetwork = initialChain.id === baseSepolia.id || initialChain.id === baseMainnet.id;
   const connectors = connectorsForWallets(
     [{ groupName: 'Recommended', wallets: [

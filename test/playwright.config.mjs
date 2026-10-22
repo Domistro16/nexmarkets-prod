@@ -31,10 +31,10 @@ export default defineConfig({
     screenshot: 'only-on-failure',
     video: 'off'
   },
-  webServer: {
+  webServer: process.env.NEXMARKETS_TEST_EXTERNAL_SERVER === 'true' ? undefined : {
     command: 'node --env-file=.env scripts/serve-web-testnet.mjs',
     cwd: repoRoot,
-    url: 'http://localhost:4173/healthz',
+    url: `${process.env.NEXMARKETS_WEB_URL ?? 'http://localhost:4173'}/healthz`,
     reuseExistingServer: true,
     timeout: 30_000
   },

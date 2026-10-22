@@ -10,9 +10,9 @@ import { openConnectModal, openAccountModal, openChainModal, onAccountChange, on
  */
 const CERTIFICATION_EDITION = '0x4171D62F43B4168b07a01C04594455DBc3298437';
 const CERTIFICATION_TOKEN = '1';
-const CHAIN_ID = 84532;
-const DEFAULT_NETWORK_KEY = 'base-sepolia';
-const LEGACY_ROBINHOOD_CHAIN_ID = 46630;
+const CHAIN_ID = 46630;
+const DEFAULT_NETWORK_KEY = 'robinhood-testnet';
+const CDP_CHAIN_ID = 84532;
 const ZERO = '0x0000000000000000000000000000000000000000';
 
 const state = {
@@ -1334,10 +1334,10 @@ function cdpSettings() {
 }
 function cdpLoginAvailable() {
   const settings = cdpSettings();
-  return Boolean(String(settings?.projectId || '').trim())
+  return settings?.enabled !== false && Boolean(String(settings?.projectId || '').trim())
     && activeNetworkFamily() === 'base'
-    && Number(state.config?.chainId || CHAIN_ID) === CHAIN_ID
-    && (!settings.network || settings.network === DEFAULT_NETWORK_KEY);
+    && Number(state.config?.chainId) === CDP_CHAIN_ID
+    && (!settings.network || settings.network === 'base-sepolia');
 }
 function ensureCdpRoot() {
   if (typeof document === 'undefined') return null;
@@ -1360,7 +1360,7 @@ function handleCdpState(next) {
   }
   const connected = Boolean(next?.isSignedIn && address(next.address) && next.provider?.request);
   if (connected) {
-    cdpSession = { address: address(next.address), chainId: CHAIN_ID, provider: next.provider };
+    cdpSession = { address: address(next.address), chainId: CDP_CHAIN_ID, provider: next.provider };
     settleCdpWaiters('resolve', cdpSession);
     return;
   }
@@ -1508,7 +1508,7 @@ function openNetworkSelector() {
 }
 function ensureNetworkSelectors() {
   const options = networkOptions();
-  if (options.length < 2) return;
+  if (!options.length) return;
   document.querySelectorAll('.site-header, .mobile-header').forEach((header) => {
     const account = header.querySelector('.account-chip, .nm-account-chip');
     const host = account?.parentElement || header;
@@ -1528,8 +1528,9 @@ function ensureNetworkSelectors() {
     button.dataset.network = state.networkKey;
     button.dataset.family = current?.family || (/^base-/i.test(state.networkKey) ? 'base' : 'robinhood');
     button.dataset.connected = state.wallet ? 'true' : 'false';
-    button.setAttribute('aria-label', `Switch network, current network ${label}`);
-    button.title = `Switch network (current: ${label})`;
+    button.setAttribute('aria-label', options.length > 1 ? `Switch network, current network ${label}` : `Network details, current network ${label}`);
+    button.title = options.length > 1 ? `Switch network (current: ${label})` : label;
+    button.querySelector('svg').style.display = options.length > 1 ? '' : 'none';
   });
 }
 async function checkSessionOnServer(networkKey = state.networkKey) {
@@ -3930,10 +3931,18 @@ function installHistoryRouting() {
     const selected = selections().edition;
     const edition = project?.editionAddress || (/^0x[0-9a-f]{40}$/i.test(selected || '') ? selected : '');
     if (!/^0x[0-9a-f]{40}$/i.test(edition)) return;
+    const currentRoute = routeInfo();
+    const isPassRoute = currentRoute.kind === 'pass' && lower(currentRoute.edition) === lower(edition);
+    // presentRoute already fetched this serial. A second Edition-only refresh
+    // would clear detailPass and replace the owner/serial panel with a summary.
+    if (isPassRoute && lower(state.detailPass?.edition_address) === lower(edition)
+      && String(state.detailPass?.token_id) === String(currentRoute.token)) return;
+    const detailRoute = isPassRoute ? currentRoute : { kind: 'edition', edition };
     try {
-      await loadRequestedRouteData({ kind: 'edition', edition });
-      const model = applyRequestedDetailModel('edition');
+      await loadRequestedRouteData(detailRoute);
+      const model = applyRequestedDetailModel(detailRoute.kind);
       if (model?.project) window.__nmV2SetData?.({ selectedProject: model.project.name, projects: state.projects, projectExperience: state.projectExperience });
+      renderDetailPanel(isPassRoute ? 'pass' : 'edition');
     } catch { /* the template keeps the summary model */ }
   };
 

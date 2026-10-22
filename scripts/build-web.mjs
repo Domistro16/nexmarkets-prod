@@ -6,6 +6,7 @@ import { liveAuthority } from './lib/live-authority.mjs';
 
 const root = new URL('../', import.meta.url);
 const rootPath = fileURLToPath(root);
+await import('./render-web-config.mjs');
 const source = new URL('./apps/web/public/', root);
 const outputs = [
   new URL('./apps/web/dist/', root),
@@ -22,10 +23,7 @@ const authorityWithMode = liveAuthority(authorityHtmlSource).replace(
   /(<body\b[^>]*>)/i,
   `$1<script id="nm-fixture-mode">globalThis.__NEXMARKETS_FIXTURE_MODE__=${fixtureMode ? 'true' : 'false'};</script>`
 );
-const authorityWithVerification = authorityWithMode.replace(
-  /(<head\b[^>]*>)/i,
-  `$1\n<meta name="base:app_id" content="6aa1dbf93ee3d6b47f7f0528" />`
-);
+const authorityWithVerification = authorityWithMode;
 const authorityCloseIndex = authorityWithVerification.lastIndexOf(authorityBodyClose);
 if (authorityCloseIndex < 0) throw new Error('Approved V2 authority is missing a closing body tag');
 const authorityHtml = `${authorityWithVerification.slice(0, authorityCloseIndex)}\n<link rel="stylesheet" href="/rainbowkit-bridge.css">\n<link rel="stylesheet" href="/cdp-auth-bridge.css">\n<style id="nm-v2-hydration-style">html.nm-v2-loading body{visibility:hidden}html.nm-v2-ready body{visibility:visible}</style>\n<script>document.documentElement.classList.add('nm-v2-loading');</script>\n<script id="nm-v2-data-bridge" src="/nm-v2-data-bridge.js"></script>\n<script type="module" src="/v2-app.mjs"></script>\n${authorityWithVerification.slice(authorityCloseIndex)}`;
@@ -41,27 +39,6 @@ for (const output of outputs) {
     await mkdir(output, { recursive: true });
     await cp(source, output, { recursive: true });
     await writeFile(new URL('index.html', output), authorityHtml, 'utf8');
-  } catch {}
-}
-
-// CDP's project identifier is public client configuration, but it must come
-// from the deployment environment rather than being invented or copied from
-// a secret. A missing value deliberately leaves social auth disabled while
-// preserving the external-wallet flow.
-const cdpProjectId = String(process.env.CDP_PROJECT_ID || '').trim();
-const cdpAuthConfig = {
-  projectId: cdpProjectId || null,
-  authMethods: ['oauth:google', 'oauth:apple', 'oauth:x'],
-  network: 'base-sepolia',
-  ethereum: { createOnLogin: 'eoa' }
-};
-for (const output of outputs) {
-  const configPath = join(fileURLToPath(output), 'config.json');
-  try {
-    const config = JSON.parse(await readFile(configPath, 'utf8'));
-    const existing = config.auth?.cdp || {};
-    config.auth = { ...(config.auth || {}), cdp: { ...existing, ...cdpAuthConfig, projectId: cdpProjectId || existing.projectId || null } };
-    await writeFile(configPath, `${JSON.stringify(config, null, 2)}\n`, 'utf8');
   } catch {}
 }
 

@@ -389,6 +389,18 @@ export function createNetworkConfigs(env = process.env) {
   };
 }
 
+// Base deployments remain available to archival tooling, but the active app
+// serves only Robinhood. Ignore a retired Base default in hosted environments.
+export function createRuntimeNetworkContext(env = process.env) {
+  const all = createNetworkConfigs(env);
+  const networkConfigs = Object.fromEntries(Object.entries(all).filter(([key]) => key.startsWith('robinhood-')));
+  const requested = env.NEXMARKETS_DEFAULT_NETWORK || 'robinhood-testnet';
+  const defaultKey = requested.startsWith('base-') ? 'robinhood-testnet' : requested;
+  const configured = networkConfigs[defaultKey];
+  if (!configured) throw new Error('ROBINHOOD_NETWORK_REQUIRED');
+  return { networkConfigs, configured };
+}
+
 function json(res, status, payload, headers = {}) {
   res.writeHead(status, { ...JSON_HEADERS, ...headers });
   res.end(JSON.stringify(payload, (_, value) => typeof value === 'bigint' ? value.toString() : value));
@@ -1481,7 +1493,7 @@ export function createApiServer({
 }
 
 if (!process.env.VERCEL && !process.env.AWS_LAMBDA_FUNCTION_NAME && import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
-  const store = new PostgresStore(); const port = Number(process.env.PORT || 4010); const networkConfigs = createNetworkConfigs(process.env); const defaultKey = process.env.NEXMARKETS_DEFAULT_NETWORK ?? (process.env.ROBINHOOD_CHAIN_ID ? networkKeyForChainId(Number(process.env.ROBINHOOD_CHAIN_ID)) : 'base-sepolia'); const configured = networkConfigs[defaultKey ?? 'base-sepolia']; const chainId = configured.chainId; const rpc = configured.chain; const subgraph = configured.subgraph;
+  const store = new PostgresStore(); const port = Number(process.env.PORT || 4010); const { networkConfigs, configured } = createRuntimeNetworkContext(process.env); const chainId = configured.chainId; const rpc = configured.chain; const subgraph = configured.subgraph;
   const secureCookies = process.env.SECURE_COOKIES === 'true' ? true : process.env.SECURE_COOKIES === 'false' ? false : process.env.NODE_ENV !== 'test';
   const requireIndexedReadiness = process.env.REQUIRE_INDEXED_READINESS !== 'false';
   const logger = process.env.LOG_API_ERRORS === 'true' ? console : { info() {}, error() {} };
@@ -1496,9 +1508,7 @@ let defaultServerlessListener = null;
 
 export default async function handler(req, res) {
   if (!defaultServerlessListener) {
-    const networkConfigs = createNetworkConfigs(process.env);
-    const requestedChainId = process.env.ROBINHOOD_CHAIN_ID ? Number(process.env.ROBINHOOD_CHAIN_ID) : null;
-    const configured = networkConfigs[process.env.NEXMARKETS_DEFAULT_NETWORK ?? (requestedChainId ? networkKeyForChainId(requestedChainId) : 'base-sepolia') ?? 'base-sepolia'];
+    const { networkConfigs, configured } = createRuntimeNetworkContext(process.env);
     const chainId = configured.chainId;
     const rpc = configured.chain;
     const subgraph = configured.subgraph;

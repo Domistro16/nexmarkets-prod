@@ -1,7 +1,6 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta name="base:app_id" content="6aa1dbf93ee3d6b47f7f0528" />
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
 <title>Outerfield</title>
@@ -6995,7 +6994,7 @@ function validateCreateStage(i){
       if(t.redemption.expiryMode==='fixed'&&!String(t.redemption.expiryValue||'').trim())errors.push('Add the redemption expiry period.');
     }
     if(r.stocks.on){
-      if(String(createData.network||'').toLowerCase()!=='base')errors.push('Tokenized stock rewards require the Edition to use Base.');
+      if(String(createData.network||'').toLowerCase()!=='base')errors.push('Tokenized stock rewards are not available on Robinhood yet.');
       if(r.stocks.source!=='manual'&&(!Number.isFinite(Number(r.stocks.share))||Number(r.stocks.share)<1||Number(r.stocks.share)>100))errors.push('Set the stock reward allocation between 1% and 100%.');
       if(r.stocks.durationMode==='fixed'&&!String(r.stocks.durationValue||'').trim())errors.push('Add the tokenized-stock reward duration.');
       if(r.stocks.selectionMode==='fixed'&&!r.stocks.assets.length)errors.push('Choose at least one stock for the fixed stock list.');

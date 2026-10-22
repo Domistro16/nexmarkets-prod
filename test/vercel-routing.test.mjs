@@ -30,11 +30,18 @@ test('concrete Vercel function reaches the wallet challenge endpoint', async (t)
   const { port } = server.address();
   const response = await fetch(`http://127.0.0.1:${port}/api/v1?path=auth%2Fchallenge`, {
     method: 'POST',
-    headers: { 'content-type': 'application/json', 'x-nex-network': 'base-sepolia' },
+    headers: { 'content-type': 'application/json', 'x-nex-network': 'robinhood-testnet' },
     body: JSON.stringify({ address: '0x1111111111111111111111111111111111111111' })
   });
   const payload = await response.json();
   assert.equal(response.status, 201);
-  assert.equal(payload.chainId, 84532);
+  assert.equal(payload.chainId, 46630);
   assert.match(payload.message, /Sign in to (Outerfield|NexMarkets)/);
+  const retiredNetwork = await fetch(`http://127.0.0.1:${port}/api/v1?path=auth%2Fchallenge`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'x-nex-network': 'base-sepolia' },
+    body: JSON.stringify({ address: '0x1111111111111111111111111111111111111111' })
+  });
+  assert.equal(retiredNetwork.status, 400);
+  assert.equal((await retiredNetwork.json()).error.code, 'NETWORK_UNSUPPORTED');
 });

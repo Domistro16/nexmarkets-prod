@@ -124,12 +124,10 @@ test('V2 runtime exposes live agent launch and trading mutations', async () => {
   assert.match(app, /waitForReceipt/);
 });
 
-test('CDP AuthKit is configured for Base Sepolia social sign-in without hardcoded credentials', async () => {
+test('Base-only CDP social sign-in stays disabled on the Robinhood app', async () => {
   const config = JSON.parse(await readFile(new URL('../apps/web/public/config.json', import.meta.url), 'utf8'));
-  assert.deepEqual(config.auth?.cdp?.authMethods, ['oauth:google', 'oauth:apple', 'oauth:x']);
-  assert.equal(config.auth?.cdp?.network, 'base-sepolia');
-  assert.deepEqual(config.auth?.cdp?.ethereum, { createOnLogin: 'eoa' });
-  assert.ok(config.auth?.cdp?.projectId == null || typeof config.auth.cdp.projectId === 'string');
+  assert.equal(config.network, 'robinhood-testnet');
+  assert.deepEqual(config.auth?.cdp, { enabled: false, projectId: null });
   const bridge = await readFile(new URL('../apps/web/public/cdp-auth-bridge.mjs', import.meta.url), 'utf8');
   assert.match(bridge, /CDPReactProvider/);
   assert.match(bridge, /createCDPEmbeddedWallet/);

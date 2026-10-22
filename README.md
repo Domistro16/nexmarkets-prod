@@ -1,9 +1,9 @@
 # NexMarkets V1 production implementation
 
-NexMarkets V1 is an exact-serial Pass market for Robinhood Chain and Base.
-Base Sepolia (chain `84532`) is the default current testnet and uses canonical
-USDC; Robinhood testnet remains selectable and uses isolated MockUSDG. ETH is
-gas only. The certified product authority is
+Outerfield is an exact-serial Pass market for Robinhood Chain. The active app
+uses Robinhood testnet (chain `46630`) with isolated MockUSDG; the intended
+mainnet settlement asset is USDG. ETH is gas only. Base rollout records are
+retained as historical implementation evidence. The certified product authority is
 `NEXMARKETS_HOMEPAGE_DISCOVER_MARKET_COLLECTIBLE_ROTATION_PASS_TEXT_FIT_UX_FIXED.html` with SHA-256
 `637b7c606ef710f9966373f36238b779cd746303638d4fd46a7e01c92acd34b7`.
 
@@ -24,6 +24,7 @@ gas only. The certified product authority is
 
 ## Current release gates and evidence
 
+- The active web and API default to Robinhood testnet; Base is not an available app network. Goldsky remains the indexing provider. External-wallet sign-in is enabled; the retained Base-only CDP social adapter and stock reward flow are not enabled for Robinhood.
 - No Robinhood or Base mainnet deployment has been performed.
 - Robinhood testnet V1 is deployed, wired and verified; its complete live certification record is `artifacts/testnet-certification/secondary-lifecycle.json`.
 - Base Sepolia V1 is deployed, wired and verified; its public record is `deployments/base-sepolia.v1-deployment.json`. Base mainnet is prepared but not broadcast; see `docs/BASE_ROLLOUT.md`.

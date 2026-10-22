@@ -1,4 +1,4 @@
-import { createApiServer, createNetworkConfigs, networkKeyForChainId, RateLimiter } from '@nexmarkets/api';
+import { createApiServer, createRuntimeNetworkContext, RateLimiter } from '@nexmarkets/api';
 import { MemoryStore } from '@nexmarkets/api/memory-store';
 
 let requestListener = null;
@@ -6,10 +6,7 @@ let requestListener = null;
 export async function getApiListener() {
   if (requestListener) return requestListener;
 
-  const networkConfigs = createNetworkConfigs(process.env);
-  const defaultKey = process.env.NEXMARKETS_DEFAULT_NETWORK || 'base-sepolia';
-  const defaultNetwork = networkConfigs[defaultKey] || networkConfigs.baseSepolia || networkConfigs['base-sepolia'];
-  const chainId = Number(defaultNetwork.chainId);
+  const { networkConfigs, configured: defaultNetwork } = createRuntimeNetworkContext(process.env);
 
   let store = null;
   if (process.env.DATABASE_URL) {
